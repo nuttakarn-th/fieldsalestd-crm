@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 export type Source = "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
@@ -368,6 +369,8 @@ interface CRMState {
   addChatMessage: (msg: Omit<ChatMessage, "id" | "created_at">) => void;
   markNotificationsRead: () => void;
   setCurrentRep: (r: SalesRep | "All") => void;
+  loadCustomersFromSupabase: () => Promise<void>;
+  loadAllFromSupabase: () => Promise<void>;
   addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by"> & { created_by?: SalesRep }) => string;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
@@ -409,10 +412,23 @@ export const useCRM = create<CRMState>((set, get) => ({
     const doc_no = q.doc_no ?? `${prefix}-${new Date().getFullYear()}${String(list.length + 1).padStart(4, "0")}`;
     const doc: QuotationDoc = { ...q, id, doc_no, subtotal, vat_amount, total, created_at: new Date().toISOString() };
     set({ quotations: [doc, ...get().quotations] });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("quotations").insert(doc).then(({ error }) => {
+        if (error) console.error("[supabase] เพิ่ม quotation ล้มเหลว:", error);
+      });
+    }
     return id;
   },
-  deleteQuotation: (id) => set({ quotations: get().quotations.filter((q) => q.id !== id) }),
+  deleteQuotation: (id) => {
+    set({ quotations: get().quotations.filter((q) => q.id !== id) });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("quotations").delete().eq("id", id).then(({ error }) => {
+        if (error) console.error("[supabase] delete quotation ล้มเหลว:", error);
+      });
+    }
+  },
   updateQuotation: (id, patch) => {
+    let updatedDoc: QuotationDoc | undefined;
     set({
       quotations: get().quotations.map((q) => {
         if (q.id !== id) return q;
@@ -421,7 +437,8 @@ export const useCRM = create<CRMState>((set, get) => ({
         const afterDiscount = Math.max(0, subtotal - (merged.discount || 0));
         const vat_amount = +(afterDiscount * (merged.vat_percent / 100)).toFixed(2);
         const total = +(afterDiscount + vat_amount).toFixed(2);
-        return { ...merged, subtotal, vat_amount, total, updated_at: new Date().toISOString() };
+        updatedDoc = { ...merged, subtotal, vat_amount, total, updated_at: new Date().toISOString() };
+        return updatedDoc;
       }),
       teamNotifications: [{
         id: `n${Date.now()}`,
@@ -433,6 +450,11 @@ export const useCRM = create<CRMState>((set, get) => ({
         action_url: "/app/quotation",
       }, ...get().teamNotifications],
     });
+    if (SUPABASE_ENABLED && supabase && updatedDoc) {
+      supabase.from("quotations").update(updatedDoc).eq("id", id).then(({ error }) => {
+        if (error) console.error("[supabase] update quotation ล้มเหลว:", error);
+      });
+    }
   },
   addChatMessage: (msg) => {
     const id = `m${Date.now()}`;
@@ -440,6 +462,77 @@ export const useCRM = create<CRMState>((set, get) => ({
   },
   markNotificationsRead: () => set({ teamNotifications: get().teamNotifications.map((n) => ({ ...n, read: true })) }),
   setCurrentRep: (r) => set({ currentRep: r }),
+
+  loadCustomersFromSupabase: async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[supabase] โหลดลูกค้า ${data.length} ราย จาก Supabase`);
+        set({ customers: data as Customer[] });
+      } else {
+        // eslint-disable-next-line no-console
+        console.info("[supabase] ยังไม่มีลูกค้าใน DB — ใช้ข้อมูล mock seed ต่อไป");
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[supabase] โหลด customers ล้มเหลว:", e);
+    }
+  },
+
+  loadAllFromSupabase: async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    try {
+      const [customers, leads, targets, quotations, routes] = await Promise.all([
+        supabase.from("customers").select("*").order("created_at", { ascending: false }),
+        supabase.from("leads").select("*"),
+        supabase.from("monthly_targets").select("*"),
+        supabase.from("quotations").select("*").order("created_at", { ascending: false }),
+        supabase.from("route_plans").select("*, route_stops (*)").order("date", { ascending: false }),
+      ]);
+      const updates: Partial<CRMState> = {};
+      const loadedSummary: string[] = [];
+      if (customers.data && customers.data.length > 0) {
+        updates.customers = customers.data as Customer[];
+        loadedSummary.push(`customers ${customers.data.length}`);
+      }
+      if (leads.data && leads.data.length > 0) {
+        updates.leads = leads.data as Lead[];
+        loadedSummary.push(`leads ${leads.data.length}`);
+      }
+      if (targets.data && targets.data.length > 0) {
+        updates.targets = targets.data as MonthlyTarget[];
+        loadedSummary.push(`targets ${targets.data.length}`);
+      }
+      if (quotations.data && quotations.data.length > 0) {
+        updates.quotations = quotations.data as QuotationDoc[];
+        loadedSummary.push(`quotations ${quotations.data.length}`);
+      }
+      if (routes.data && routes.data.length > 0) {
+        updates.routes = routes.data.map((r: any) => ({
+          ...r,
+          stops: (r.route_stops || []).sort((a: RouteStop, b: RouteStop) => a.seq - b.seq),
+        })) as RoutePlan[];
+        loadedSummary.push(`routes ${routes.data.length}`);
+      }
+      if (Object.keys(updates).length > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[supabase] โหลดจาก DB: ${loadedSummary.join(", ")}`);
+        set(updates);
+      } else {
+        // eslint-disable-next-line no-console
+        console.info("[supabase] DB ว่าง — ใช้ mock seed ต่อไป (data ใหม่จะ persist)");
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[supabase] loadAll ล้มเหลว:", e);
+    }
+  },
 
   addCustomer: (c) => {
     const id = `C${String(get().customers.length + 1).padStart(3, "0")}`;
@@ -467,25 +560,46 @@ export const useCRM = create<CRMState>((set, get) => ({
         action_url: "/app/customers",
       }, ...get().teamNotifications],
     });
+    // Fire-and-forget persist to Supabase (ไม่ block UI)
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("customers").insert(newC).then(({ error }) => {
+        if (error) console.error("[supabase] เพิ่มลูกค้าล้มเหลว:", error);
+      });
+    }
     return id;
   },
 
-  updateCustomer: (id, patch) =>
-    set({ customers: get().customers.map((c) => (c.customer_id === id ? { ...c, ...patch } : c)) }),
+  updateCustomer: (id, patch) => {
+    set({ customers: get().customers.map((c) => (c.customer_id === id ? { ...c, ...patch } : c)) });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("customers").update(patch).eq("customer_id", id).then(({ error }) => {
+        if (error) console.error("[supabase] update customer ล้มเหลว:", error);
+      });
+    }
+  },
 
   transferCustomer: (id, toRep) => {
     const cust = get().customers.find((c) => c.customer_id === id);
     if (!cust) return;
     const fromRep = cust.created_by;
     if (fromRep === toRep) return;
+    const transferPatch = {
+      created_by: toRep,
+      transferred_to: toRep,
+      transferred_from: fromRep,
+      transferred_at: new Date().toISOString(),
+    };
     set({
       customers: get().customers.map((c) =>
-        c.customer_id === id
-          ? { ...c, created_by: toRep, transferred_to: toRep, transferred_from: fromRep, transferred_at: new Date().toISOString() }
-          : c,
+        c.customer_id === id ? { ...c, ...transferPatch } : c,
       ),
       leads: get().leads.map((l) => (l.customer_id === id ? { ...l, assigned_to: toRep } : l)),
     });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("customers").update(transferPatch).eq("customer_id", id).then(({ error }) => {
+        if (error) console.error("[supabase] transfer customer ล้มเหลว:", error);
+      });
+    }
   },
 
   addLead: (l) => {
@@ -500,50 +614,65 @@ export const useCRM = create<CRMState>((set, get) => ({
       lost_reason: null,
     };
     set({ leads: [newL, ...get().leads] });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("leads").insert(newL).then(({ error }) => {
+        if (error) console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);
+      });
+    }
   },
 
   setTarget: (month, rep, patch) => {
     const list = get().targets;
     const idx = list.findIndex((t) => t.month === month && t.rep === rep);
+    let upserted: MonthlyTarget;
     if (idx >= 0) {
       const next = [...list];
       next[idx] = { ...next[idx], ...patch };
+      upserted = next[idx];
       set({ targets: next });
     } else {
-      set({
-        targets: [
-          ...list,
-          {
-            month, rep,
-            domestic_sales: 0, domestic_pax: 0,
-            international_sales: 0, international_pax: 0,
-            ...patch,
-          },
-        ],
+      upserted = {
+        month, rep,
+        domestic_sales: 0, domestic_pax: 0,
+        international_sales: 0, international_pax: 0,
+        ...patch,
+      };
+      set({ targets: [...list, upserted] });
+    }
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("monthly_targets").upsert(upserted, { onConflict: "month,rep" }).then(({ error }) => {
+        if (error) console.error("[supabase] upsert target ล้มเหลว:", error);
       });
     }
   },
 
-  updateLead: (leadId, patch) =>
-    set({ leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...patch } : l)) }),
+  updateLead: (leadId, patch) => {
+    set({ leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...patch } : l)) });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("leads").update(patch).eq("lead_id", leadId).then(({ error }) => {
+        if (error) console.error("[supabase] update lead ล้มเหลว:", error);
+      });
+    }
+  },
 
   updateLeadStatus: (leadId, status, lostReason) => {
     const lead = get().leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
     const today = new Date().toISOString().split("T")[0];
+    const leadPatch: Partial<Lead> = {
+      status,
+      lost_reason: status === "Closed Lost" ? lostReason ?? null : null,
+      closed_date: status === "Closed Won" ? today : status === "Closed Lost" ? today : lead.closed_date,
+      next_followup_date: ["Closed Won", "Closed Lost"].includes(status) ? null : lead.next_followup_date,
+    };
     set({
-      leads: get().leads.map((l) =>
-        l.lead_id === leadId
-          ? {
-              ...l,
-              status,
-              lost_reason: status === "Closed Lost" ? lostReason ?? null : null,
-              closed_date: status === "Closed Won" ? today : status === "Closed Lost" ? today : l.closed_date,
-              next_followup_date: ["Closed Won", "Closed Lost"].includes(status) ? null : l.next_followup_date,
-            }
-          : l,
-      ),
+      leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...leadPatch } : l)),
     });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("leads").update(leadPatch).eq("lead_id", leadId).then(({ error }) => {
+        if (error) console.error("[supabase] update lead status ล้มเหลว:", error);
+      });
+    }
     if (status === "Closed Won") {
       const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
       if (cust) {
@@ -562,21 +691,50 @@ export const useCRM = create<CRMState>((set, get) => ({
     const id = `R${String(get().routes.length + 1000).padStart(4, "0")}`;
     const r: RoutePlan = { route_id: id, rep, date, title, stops: [], created_at: new Date().toISOString() };
     set({ routes: [r, ...get().routes] });
+    if (SUPABASE_ENABLED && supabase) {
+      // Insert route_plan only — stops จะ insert ตอน addStop
+      const { stops, ...routeOnly } = r;
+      supabase.from("route_plans").insert(routeOnly).then(({ error }) => {
+        if (error) console.error("[supabase] เพิ่ม route ล้มเหลว:", error);
+      });
+    }
     return id;
   },
-  updateRoute: (id, patch) =>
-    set({ routes: get().routes.map((r) => (r.route_id === id ? { ...r, ...patch } : r)) }),
-  deleteRoute: (id) =>
-    set({ routes: get().routes.filter((r) => r.route_id !== id) }),
+  updateRoute: (id, patch) => {
+    set({ routes: get().routes.map((r) => (r.route_id === id ? { ...r, ...patch } : r)) });
+    if (SUPABASE_ENABLED && supabase) {
+      // Don't include stops in update
+      const { stops, ...patchOnly } = patch as Partial<RoutePlan>;
+      supabase.from("route_plans").update(patchOnly).eq("route_id", id).then(({ error }) => {
+        if (error) console.error("[supabase] update route ล้มเหลว:", error);
+      });
+    }
+  },
+  deleteRoute: (id) => {
+    set({ routes: get().routes.filter((r) => r.route_id !== id) });
+    if (SUPABASE_ENABLED && supabase) {
+      // CASCADE delete จะลบ stops อัตโนมัติ
+      supabase.from("route_plans").delete().eq("route_id", id).then(({ error }) => {
+        if (error) console.error("[supabase] delete route ล้มเหลว:", error);
+      });
+    }
+  },
   addStop: (routeId, stop) => {
+    let newStop: RouteStop | undefined;
     set({
       routes: get().routes.map((r) => {
         if (r.route_id !== routeId) return r;
         const seq = r.stops.length + 1;
         const stop_id = `S${Date.now()}${seq}`;
-        return { ...r, stops: [...r.stops, { ...stop, stop_id, route_id: routeId, seq, status: "planned" }] };
+        newStop = { ...stop, stop_id, route_id: routeId, seq, status: "planned" };
+        return { ...r, stops: [...r.stops, newStop] };
       }),
     });
+    if (SUPABASE_ENABLED && supabase && newStop) {
+      supabase.from("route_stops").insert(newStop).then(({ error }) => {
+        if (error) console.error("[supabase] เพิ่ม stop ล้มเหลว:", error);
+      });
+    }
   },
   updateStop: (routeId, stopId, patch) => {
     set({
@@ -584,6 +742,11 @@ export const useCRM = create<CRMState>((set, get) => ({
         r.route_id !== routeId ? r : { ...r, stops: r.stops.map((s) => (s.stop_id === stopId ? { ...s, ...patch } : s)) },
       ),
     });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("route_stops").update(patch).eq("stop_id", stopId).then(({ error }) => {
+        if (error) console.error("[supabase] update stop ล้มเหลว:", error);
+      });
+    }
   },
   deleteStop: (routeId, stopId) => {
     set({
@@ -591,6 +754,11 @@ export const useCRM = create<CRMState>((set, get) => ({
         r.route_id !== routeId ? r : { ...r, stops: r.stops.filter((s) => s.stop_id !== stopId).map((s, i) => ({ ...s, seq: i + 1 })) },
       ),
     });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("route_stops").delete().eq("stop_id", stopId).then(({ error }) => {
+        if (error) console.error("[supabase] delete stop ล้มเหลว:", error);
+      });
+    }
   },
   startStop: (routeId, stopId) => {
     const now = new Date().toISOString();
