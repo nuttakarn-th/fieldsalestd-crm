@@ -23,11 +23,13 @@ export interface AppUser {
   user_id: string; // std-001
   full_name: string;
   username: string;
-  password: string; // demo only — plaintext for prototype, replace with hash when wiring Supabase
+  password: string; // hashed (PBKDF2)
   role: AppRole;
   email?: string;
   tel?: string;
   avatar_url?: string;
+  line_qr_url?: string;
+  department?: string;
   created_at: string;
 }
 

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 export interface SocialLink { name: string; url: string; tone: string }
 export interface PhoneEntry { label: string; num: string }
@@ -24,6 +25,9 @@ interface State {
   setSocial: (l: SocialLink[]) => void;
   setPdf: (url?: string, name?: string) => void;
   setContact: (patch: Partial<Pick<State, "lineId" | "lineUrl" | "workingHours" | "phones" | "hqAddress" | "bkkAddress" | "taxId" | "license">>) => void;
+
+  loadFromSupabase: () => Promise<void>;
+  saveToSupabase: () => Promise<void>;
 }
 
 const DEFAULT_SOCIAL: SocialLink[] = [
@@ -43,7 +47,7 @@ const DEFAULT_PHONES: PhoneEntry[] = [
   { label: "สาขากรุงเทพฯ", num: "092-197-2185" },
 ];
 
-export const useSiteSettings = create<State>()(persist((set) => ({
+const DEFAULTS = {
   companyProfile: "บริษัท สแตนดาร์ดทัวร์ จำกัด ผู้นำด้านบริการท่องเที่ยวคุณภาพ ทั้งทัวร์ในประเทศและต่างประเทศ จองตั๋วเครื่องบิน และเช่ารถเดินทาง ดำเนินงานด้วยทีมมืออาชีพ พร้อมบริการลูกค้าระดับพรีเมียม",
   socialLinks: DEFAULT_SOCIAL,
   presentationPdfUrl: undefined,
@@ -56,8 +60,65 @@ export const useSiteSettings = create<State>()(persist((set) => ({
   bkkAddress: "ที่ 00003 อาคารฟอรั่ม ทาวเวอร์ ห้อง C4-C5 ชั้น 32 เลขที่ 184/222 ถนนรัชดาภิเษก แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพ 10310",
   taxId: "0505533000491",
   license: "21/00296",
-  setProfile: (v) => set({ companyProfile: v }),
-  setSocial: (l) => set({ socialLinks: l }),
-  setPdf: (url, name) => set({ presentationPdfUrl: url, presentationPdfName: name }),
-  setContact: (patch) => set(patch as never),
+};
+
+// Pick only the data fields (no actions) for serialization
+function snapshot(s: State) {
+  return {
+    companyProfile: s.companyProfile,
+    socialLinks: s.socialLinks,
+    presentationPdfUrl: s.presentationPdfUrl,
+    presentationPdfName: s.presentationPdfName,
+    lineId: s.lineId,
+    lineUrl: s.lineUrl,
+    workingHours: s.workingHours,
+    phones: s.phones,
+    hqAddress: s.hqAddress,
+    bkkAddress: s.bkkAddress,
+    taxId: s.taxId,
+    license: s.license,
+  };
+}
+
+export const useSiteSettings = create<State>()(persist((set, get) => ({
+  ...DEFAULTS,
+
+  setProfile: (v) => { set({ companyProfile: v }); get().saveToSupabase(); },
+  setSocial: (l) => { set({ socialLinks: l }); get().saveToSupabase(); },
+  setPdf: (url, name) => { set({ presentationPdfUrl: url, presentationPdfName: name }); get().saveToSupabase(); },
+  setContact: (patch) => { set(patch as never); get().saveToSupabase(); },
+
+  loadFromSupabase: async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("payload")
+        .eq("id", "default")
+        .maybeSingle();
+      if (error) throw error;
+      if (data?.payload && Object.keys(data.payload).length > 0) {
+        // eslint-disable-next-line no-console
+        console.info("[supabase] โหลด site settings จาก DB");
+        set(data.payload as Partial<State>);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[supabase] load site settings ล้มเหลว:", e);
+    }
+  },
+
+  saveToSupabase: async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    try {
+      const payload = snapshot(get());
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ id: "default", payload }, { onConflict: "id" });
+      if (error) console.error("[supabase] save site settings ล้มเหลว:", error);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[supabase] save site settings ล้มเหลว:", e);
+    }
+  },
 }), { name: "stdtour-site-v1" }));

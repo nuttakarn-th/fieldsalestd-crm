@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCRM } from "@/store/crmStore";
 import { useAuth } from "@/store/authStore";
+import { useSiteSettings } from "@/store/siteSettingsStore";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Hub from "./pages/Hub.tsx";
@@ -42,10 +43,12 @@ const queryClient = new QueryClient();
 function SupabaseSync() {
   const loadAll = useCRM((s) => s.loadAllFromSupabase);
   const loadUsers = useAuth((s) => s.loadUsersFromSupabase);
+  const loadSettings = useSiteSettings((s) => s.loadFromSupabase);
   useEffect(() => {
     loadAll();
     loadUsers();
-  }, [loadAll, loadUsers]);
+    loadSettings();
+  }, [loadAll, loadUsers, loadSettings]);
   return null;
 }
 

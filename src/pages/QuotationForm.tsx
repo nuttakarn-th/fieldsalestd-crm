@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,16 @@ import { toast } from "sonner";
 
 export default function QuotationForm() {
   const { type } = useParams<{ type: DocumentType }>();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit"); // ?edit=<id> → edit mode
   const navigate = useNavigate();
   const docType: DocumentType = type === "receipt" ? "receipt" : "quotation";
   const currentRep = useCRM((s) => s.currentRep);
   const addQuotation = useCRM((s) => s.addQuotation);
+  const updateQuotation = useCRM((s) => s.updateQuotation);
   const quotations = useCRM((s) => s.quotations);
+
+  const editingDoc = useMemo(() => (editId ? quotations.find((q) => q.id === editId) : null), [editId, quotations]);
 
   const [customerName, setCustomerName] = useState("");
   const [customerCompany, setCustomerCompany] = useState("");
@@ -28,6 +33,22 @@ export default function QuotationForm() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<QuotationItem[]>([{ description: "", qty: 1, unit_price: 0 }]);
   const [sourceQT, setSourceQT] = useState<string>("none");
+
+  // Load existing doc when editing
+  useEffect(() => {
+    if (editingDoc) {
+      setCustomerName(editingDoc.customer_name);
+      setCustomerCompany(editingDoc.customer_company ?? "");
+      setCustomerAddress(editingDoc.customer_address ?? "");
+      setCustomerTaxId(editingDoc.customer_taxid ?? "");
+      setIssueDate(editingDoc.issue_date);
+      setValidUntil(editingDoc.valid_until ?? "");
+      setVat(editingDoc.vat_percent);
+      setDiscount(editingDoc.discount);
+      setNotes(editingDoc.notes ?? "");
+      setItems(editingDoc.items.length ? editingDoc.items.map((it) => ({ ...it })) : [{ description: "", qty: 1, unit_price: 0 }]);
+    }
+  }, [editingDoc]);
 
   const subtotal = useMemo(() => items.reduce((s, it) => s + it.qty * it.unit_price, 0), [items]);
   const afterDiscount = Math.max(0, subtotal - (discount || 0));
@@ -61,26 +82,46 @@ export default function QuotationForm() {
   const handleSave = () => {
     if (!customerName.trim()) return toast.error("กรุณาระบุชื่อลูกค้า");
     if (items.length === 0 || items.every((it) => !it.description.trim())) return toast.error("กรุณาเพิ่มรายการอย่างน้อย 1 รายการ");
-    const issuer: SalesRep = (currentRep === "All" ? "เฟิร์ส" : currentRep) as SalesRep;
-    addQuotation({
-      doc_type: docType,
-      rep: issuer,
-      customer_name: customerName,
-      customer_company: customerCompany,
-      customer_address: customerAddress,
-      customer_taxid: customerTaxId,
-      issue_date: issueDate,
-      valid_until: validUntil || undefined,
-      items: items.filter((it) => it.description.trim()),
-      vat_percent: vat,
-      discount,
-      notes,
-    });
-    toast.success("บันทึกเอกสารแล้ว");
+    if (editingDoc) {
+      updateQuotation(editingDoc.id, {
+        doc_type: editingDoc.doc_type,
+        customer_name: customerName,
+        customer_company: customerCompany,
+        customer_address: customerAddress,
+        customer_taxid: customerTaxId,
+        issue_date: issueDate,
+        valid_until: validUntil || undefined,
+        items: items.filter((it) => it.description.trim()),
+        vat_percent: vat,
+        discount,
+        notes,
+      });
+      toast.success(`อัปเดต ${editingDoc.doc_no} แล้ว — ทีม Sales/Manager จะเห็นแจ้งเตือน`);
+    } else {
+      const issuer: SalesRep = (currentRep === "All" ? "เฟิร์ส" : currentRep) as SalesRep;
+      addQuotation({
+        doc_type: docType,
+        rep: issuer,
+        customer_name: customerName,
+        customer_company: customerCompany,
+        customer_address: customerAddress,
+        customer_taxid: customerTaxId,
+        issue_date: issueDate,
+        valid_until: validUntil || undefined,
+        items: items.filter((it) => it.description.trim()),
+        vat_percent: vat,
+        discount,
+        notes,
+      });
+      toast.success("บันทึกเอกสารแล้ว");
+    }
     navigate("/app/quotation");
   };
 
-  const title = docType === "quotation" ? "ออกใบเสนอราคา" : "ออกใบเสร็จ / ใบกำกับภาษี";
+  const realDocType = editingDoc?.doc_type ?? docType;
+  const title = editingDoc
+    ? `แก้ไข ${editingDoc.doc_no}`
+    : (realDocType === "quotation" ? "ออกใบเสนอราคา" : "ออกใบเสร็จ / ใบกำกับภาษี");
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-4xl mx-auto">
@@ -92,7 +133,7 @@ export default function QuotationForm() {
         </div>
       </div>
 
-      {docType === "receipt" && availableQuotations.length > 0 && (
+      {!editingDoc && docType === "receipt" && availableQuotations.length > 0 && (
         <section className="rounded-2xl bg-card border shadow-soft p-5 space-y-2">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
