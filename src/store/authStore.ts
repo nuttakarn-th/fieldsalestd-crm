@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { hashPassword, verifyPassword, isHashed } from "@/lib/passwordHash";
 
 export type AppRole =
   | "Admin"
@@ -36,15 +38,16 @@ interface AuthState {
   currentUserId: string | null;
   theme: ThemeMode;
   viewAsRole: AppRole | null; // Admin can preview other roles
-  login: (username: string, password: string) => { ok: boolean; error?: string };
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
-  addUser: (u: Omit<AppUser, "user_id" | "created_at">) => { ok: boolean; error?: string; user_id?: string };
+  addUser: (u: Omit<AppUser, "user_id" | "created_at">) => Promise<{ ok: boolean; error?: string; user_id?: string }>;
   updateUser: (id: string, patch: Partial<Omit<AppUser, "user_id" | "created_at">>) => void;
   deleteUser: (id: string) => void;
-  resetPassword: (id: string, newPwd: string) => void;
+  resetPassword: (id: string, newPwd: string) => Promise<void>;
   setTheme: (t: ThemeMode) => void;
   toggleTheme: () => void;
   setViewAsRole: (r: AppRole | null) => void;
+  loadUsersFromSupabase: () => Promise<void>;
 }
 
 const ADMIN_USER: AppUser = {
@@ -86,18 +89,32 @@ export const useAuth = create<AuthState>()(
       theme: "day",
       viewAsRole: null,
 
-      login: (username, password) => {
+      login: async (username, password) => {
         const u = get().users.find(
-          (x) => x.username.toLowerCase() === username.trim().toLowerCase() && x.password === password,
+          (x) => x.username.toLowerCase() === username.trim().toLowerCase(),
         );
         if (!u) return { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" };
+        const ok = await verifyPassword(password, u.password);
+        if (!ok) return { ok: false, error: "Username หรือ Password ไม่ถูกต้อง" };
+        // Auto-upgrade legacy plaintext to hash on successful login
+        if (!isHashed(u.password)) {
+          const newHash = await hashPassword(password);
+          set({
+            users: get().users.map((x) => (x.user_id === u.user_id ? { ...x, password: newHash } : x)),
+          });
+          if (SUPABASE_ENABLED && supabase) {
+            supabase.from("app_users").update({ password_hash: newHash }).eq("user_id", u.user_id).then(({ error }) => {
+              if (error) console.error("[supabase] upgrade pwd hash ล้มเหลว:", error);
+            });
+          }
+        }
         set({ currentUserId: u.user_id, viewAsRole: null });
         return { ok: true };
       },
 
       logout: () => set({ currentUserId: null, viewAsRole: null }),
 
-      addUser: (u) => {
+      addUser: async (u) => {
         const users = get().users;
         if (!u.full_name?.trim()) return { ok: false, error: "กรุณากรอกชื่อ-นามสกุล" };
         if (!u.username?.trim()) return { ok: false, error: "กรุณากรอก Username" };
@@ -108,17 +125,24 @@ export const useAuth = create<AuthState>()(
           return { ok: false, error: "Username นี้ถูกใช้แล้ว" };
         }
         const user_id = nextUserId(users);
+        const passwordHash = await hashPassword(u.password);
         const newUser: AppUser = {
           user_id,
           full_name: u.full_name.trim(),
           username: u.username.trim(),
-          password: u.password,
+          password: passwordHash,
           role: u.role,
           email: u.email?.trim() || "",
           tel: u.tel?.trim() || "",
           created_at: new Date().toISOString(),
         };
         set({ users: [...users, newUser] });
+        if (SUPABASE_ENABLED && supabase) {
+          const { password, ...rest } = newUser;
+          supabase.from("app_users").insert({ ...rest, password_hash: passwordHash }).then(({ error }) => {
+            if (error) console.error("[supabase] เพิ่ม user ล้มเหลว:", error);
+          });
+        }
         return { ok: true, user_id };
       },
 
@@ -135,18 +159,75 @@ export const useAuth = create<AuthState>()(
               : u,
           ),
         });
+        if (SUPABASE_ENABLED && supabase) {
+          // Don't include `password` field in patch — use resetPassword for that
+          const { password, ...safePatch } = patch as any;
+          supabase.from("app_users").update(safePatch).eq("user_id", id).then(({ error }) => {
+            if (error) console.error("[supabase] update user ล้มเหลว:", error);
+          });
+        }
       },
 
       deleteUser: (id) => {
         const u = get().users.find((x) => x.user_id === id);
         if (!u || u.role === "Admin") return;
         set({ users: get().users.filter((x) => x.user_id !== id) });
+        if (SUPABASE_ENABLED && supabase) {
+          supabase.from("app_users").delete().eq("user_id", id).then(({ error }) => {
+            if (error) console.error("[supabase] delete user ล้มเหลว:", error);
+          });
+        }
       },
 
-      resetPassword: (id, newPwd) => {
+      resetPassword: async (id, newPwd) => {
+        const newHash = await hashPassword(newPwd);
         set({
-          users: get().users.map((u) => (u.user_id === id ? { ...u, password: newPwd } : u)),
+          users: get().users.map((u) => (u.user_id === id ? { ...u, password: newHash } : u)),
         });
+        if (SUPABASE_ENABLED && supabase) {
+          supabase.from("app_users").update({ password_hash: newHash }).eq("user_id", id).then(({ error }) => {
+            if (error) console.error("[supabase] reset password ล้มเหลว:", error);
+          });
+        }
+      },
+
+      loadUsersFromSupabase: async () => {
+        if (!SUPABASE_ENABLED || !supabase) return;
+        try {
+          const { data, error } = await supabase.from("app_users").select("*").order("created_at", { ascending: true });
+          if (error) throw error;
+          if (data && data.length > 0) {
+            const users = data.map((r: any) => {
+              const { password_hash, ...rest } = r;
+              return { ...rest, password: password_hash } as AppUser;
+            });
+            // eslint-disable-next-line no-console
+            console.info(`[supabase] โหลด users ${users.length} ราย จาก DB`);
+            set({ users });
+          } else {
+            // DB ว่าง → migrate localStorage seed users → DB
+            // eslint-disable-next-line no-console
+            console.info("[supabase] DB ว่าง — migrate users จาก localStorage → DB (hash passwords)");
+            const localUsers = get().users;
+            const migrated: AppUser[] = [];
+            for (const u of localUsers) {
+              const hash = isHashed(u.password) ? u.password : await hashPassword(u.password);
+              migrated.push({ ...u, password: hash });
+            }
+            set({ users: migrated });
+            // Bulk insert
+            const rows = migrated.map((u) => {
+              const { password, ...rest } = u;
+              return { ...rest, password_hash: password };
+            });
+            const { error: insErr } = await supabase.from("app_users").insert(rows);
+            if (insErr) console.error("[supabase] migrate users ล้มเหลว:", insErr);
+            else console.info("[supabase] migrate สำเร็จ — passwords ถูก hash แล้ว");
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error("[supabase] loadUsers ล้มเหลว:", e);
+        }
       },
 
       setTheme: (t) => {

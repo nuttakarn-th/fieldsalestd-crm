@@ -24,15 +24,22 @@ export default function Login() {
     if (currentUserId) navigate(from, { replace: true });
   }, [currentUserId, navigate, from]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = login(username, password);
-    if (!r.ok) {
-      toast.error(r.error || "เข้าสู่ระบบไม่สำเร็จ");
-      return;
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const r = await login(username, password);
+      if (!r.ok) {
+        toast.error(r.error || "เข้าสู่ระบบไม่สำเร็จ");
+        return;
+      }
+      toast.success("เข้าสู่ระบบสำเร็จ");
+      navigate(from, { replace: true });
+    } finally {
+      setSubmitting(false);
     }
-    toast.success("เข้าสู่ระบบสำเร็จ");
-    navigate(from, { replace: true });
   };
 
   return (
@@ -84,8 +91,8 @@ export default function Login() {
               </button>
             </div>
           </div>
-          <Button type="submit" className="w-full bg-gradient-primary text-primary-foreground">
-            <LogIn className="w-4 h-4 mr-2" /> เข้าสู่ระบบ
+          <Button type="submit" disabled={submitting} className="w-full bg-gradient-primary text-primary-foreground">
+            <LogIn className="w-4 h-4 mr-2" /> {submitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </Button>
 
           <div className="text-[11px] text-muted-foreground bg-muted/40 rounded-lg p-3 space-y-1">

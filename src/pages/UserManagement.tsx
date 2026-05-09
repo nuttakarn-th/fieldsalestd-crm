@@ -52,7 +52,7 @@ export default function UserManagement() {
     setOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (editing) {
       if (!form.full_name.trim() || !form.username.trim() || !form.password.trim()) {
         toast.error("กรุณากรอกข้อมูลที่บังคับ");
@@ -76,7 +76,7 @@ export default function UserManagement() {
       return;
     }
     if (!form.role) { toast.error("กรุณาเลือก Role"); return; }
-    const r = addUser({
+    const r = await addUser({
       full_name: form.full_name,
       username: form.username,
       password: form.password,
@@ -96,9 +96,9 @@ export default function UserManagement() {
     toast.success("ลบ User แล้ว");
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!resetTarget || !newPwd.trim()) { toast.error("กรุณาใส่ Password ใหม่"); return; }
-    resetPassword(resetTarget.user_id, newPwd);
+    await resetPassword(resetTarget.user_id, newPwd);
     toast.success(`Reset Password ของ ${resetTarget.username} แล้ว`);
     setResetTarget(null);
     setNewPwd("");

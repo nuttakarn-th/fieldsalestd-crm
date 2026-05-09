@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCRM } from "@/store/crmStore";
+import { useAuth } from "@/store/authStore";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Hub from "./pages/Hub.tsx";
@@ -40,9 +41,11 @@ const queryClient = new QueryClient();
 // Sync customers from Supabase on app mount (no-op if Supabase disabled)
 function SupabaseSync() {
   const loadAll = useCRM((s) => s.loadAllFromSupabase);
+  const loadUsers = useAuth((s) => s.loadUsersFromSupabase);
   useEffect(() => {
     loadAll();
-  }, [loadAll]);
+    loadUsers();
+  }, [loadAll, loadUsers]);
   return null;
 }
 
