@@ -160,6 +160,9 @@ export default function Mission() {
                     <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address}</span>
                     {customer && <span>· ลูกค้า: <b>{customer.full_name}</b></span>}
                   </div>
+                  {s.note && (
+                    <p className="text-xs text-muted-foreground mt-1.5 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">📝 {s.note}</p>
+                  )}
                   {isActive && (
                     <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
                       <Timer className="w-5 h-5 text-primary" />

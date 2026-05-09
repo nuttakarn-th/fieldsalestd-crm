@@ -204,6 +204,9 @@ export default function RouteCalendar() {
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.planned_time}</span>
                       <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address}</span>
                     </div>
+                    {s.note && (
+                      <p className="text-xs text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">📝 {s.note}</p>
+                    )}
                   </div>
                 </div>
               ))}

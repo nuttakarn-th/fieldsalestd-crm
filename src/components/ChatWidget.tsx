@@ -4,6 +4,7 @@ import { MessageSquare, X, Send, Reply, AtSign, CornerDownRight, ImagePlus, Came
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useCRM, SALES_REPS, type ChatAuthor, type ChatMessage } from "@/store/crmStore";
+import { useAuth, useCurrentUser } from "@/store/authStore";
 import { useChatRead } from "@/store/chatReadStore";
 import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
@@ -28,11 +29,25 @@ export const useChatUI = create<ChatUI>((set) => ({
 const ALL_AUTHORS: ChatAuthor[] = ["Manager", ...SALES_REPS];
 const EMOJIS = ["👍","❤️","😂","🎉","🙏","🔥","✅","💯","😊","😢","😮","👏","🚀","💪","🙌","🤝","☕","🌟"];
 
-function authorColor(a: ChatAuthor) {
-  if (a === "Manager") return "bg-gold/20 text-gold-foreground border-gold/40";
-  if (a === "เฟิร์ส") return "bg-pink-500/15 text-pink-600 border-pink-300";
-  if (a === "โดนัท") return "bg-amber-500/15 text-amber-700 border-amber-300";
-  return "bg-purple-500/15 text-purple-600 border-purple-300";
+const COLOR_PALETTE = [
+  "bg-pink-500/15 text-pink-600 border-pink-300",
+  "bg-amber-500/15 text-amber-700 border-amber-300",
+  "bg-purple-500/15 text-purple-600 border-purple-300",
+  "bg-sky-500/15 text-sky-600 border-sky-300",
+  "bg-emerald-500/15 text-emerald-600 border-emerald-300",
+  "bg-rose-500/15 text-rose-600 border-rose-300",
+  "bg-indigo-500/15 text-indigo-600 border-indigo-300",
+];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function authorColor(a: string) {
+  if (a === "Manager" || a === "Admin") return "bg-gold/20 text-gold-foreground border-gold/40";
+  return COLOR_PALETTE[hashStr(a) % COLOR_PALETTE.length];
 }
 
 function timeAgo(iso: string) {
@@ -59,7 +74,13 @@ export function ChatWidget() {
   const messages = useCRM((s) => s.chatMessages);
   const addMsg = useCRM((s) => s.addChatMessage);
   const currentRep = useCRM((s) => s.currentRep);
-  const me: ChatAuthor = currentRep === "All" ? "Manager" : currentRep;
+  const currentUser = useCurrentUser();
+  const allUsers = useAuth((s) => s.users);
+  // Use real user's full_name if logged in, fallback to currentRep enum for compat
+  const me: string = currentUser?.full_name || (currentRep === "All" ? "Manager" : currentRep);
+  const mentionList: string[] = allUsers.length > 0
+    ? allUsers.map((u) => u.full_name).filter((n) => n !== me)
+    : ALL_AUTHORS.filter((a) => a !== me);
   const lastReadAt = useChatRead((s) => s.lastReadAt);
   const markRead = useChatRead((s) => s.markRead);
 
@@ -96,12 +117,12 @@ export function ChatWidget() {
   const send = () => {
     const trimmed = text.trim();
     if (!trimmed && !pendingImage) return;
-    const mentions = ALL_AUTHORS.filter((a) => trimmed.includes(`@${a}`));
-    addMsg({ author: me, text: trimmed, reply_to: replyTo?.id ?? null, mentions, image_url: pendingImage ?? undefined });
+    const mentions = mentionList.filter((a) => trimmed.includes(`@${a}`)) as ChatAuthor[];
+    addMsg({ author: me as ChatAuthor, text: trimmed, reply_to: replyTo?.id ?? null, mentions, image_url: pendingImage ?? undefined });
     setText(""); setReplyTo(null); setPendingImage(null);
   };
 
-  const insertMention = (a: ChatAuthor) => {
+  const insertMention = (a: string) => {
     setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}@${a} `);
     setShowMention(false);
     taRef.current?.focus();
@@ -202,7 +223,7 @@ export function ChatWidget() {
           <div className="border-t p-2 bg-card relative">
             {showMention && (
               <div className="absolute bottom-full left-2 right-2 mb-1 bg-card border rounded-lg shadow-elegant overflow-hidden">
-                {ALL_AUTHORS.filter((a) => a !== me).map((a) => (
+                {mentionList.map((a) => (
                   <button key={a} onClick={() => insertMention(a)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2">
                     <AtSign className="w-3 h-3 text-primary" /> {a}
                   </button>

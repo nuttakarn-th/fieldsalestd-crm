@@ -43,6 +43,8 @@ export default function Planning() {
   const [stopForm, setStopForm] = useState({
     place_name: "", address: "", purpose: PURPOSES[0], planned_time: "09:00", customer_id: "none", note: "",
   });
+  const [openNewRoute, setOpenNewRoute] = useState(false);
+  const [newRouteTitle, setNewRouteTitle] = useState("");
 
   const dateKey = ymd(date);
   const todayRoutes = useMemo(
@@ -64,9 +66,17 @@ export default function Planning() {
     );
   }
 
+  const openCreateRoute = () => {
+    setNewRouteTitle(`แผนเยี่ยมลูกค้า ${dateKey}`);
+    setOpenNewRoute(true);
+  };
+
   const createRoute = () => {
-    addRoute(currentRep as never, dateKey, `แผนเยี่ยมลูกค้า ${dateKey}`);
-    toast.success("สร้าง Route ใหม่แล้ว");
+    const title = newRouteTitle.trim() || `แผนเยี่ยมลูกค้า ${dateKey}`;
+    addRoute(currentRep as never, dateKey, title);
+    setOpenNewRoute(false);
+    setNewRouteTitle("");
+    toast.success(`สร้าง Route "${title}" แล้ว`);
   };
 
   const submitStop = () => {
@@ -110,7 +120,7 @@ export default function Planning() {
               <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className={cn("p-3 pointer-events-auto")} />
             </PopoverContent>
           </Popover>
-          <Button onClick={createRoute} className="bg-gradient-pink text-accent-foreground hover:opacity-90">
+          <Button onClick={openCreateRoute} className="bg-gradient-pink text-accent-foreground hover:opacity-90">
             <Plus className="w-4 h-4 mr-2" /> สร้าง Route
           </Button>
         </div>
@@ -178,6 +188,11 @@ export default function Planning() {
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.planned_time ?? "-"}</span>
                           <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address || "-"}</span>
                         </div>
+                        {s.note && (
+                          <p className="text-xs text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">
+                            📝 {s.note}
+                          </p>
+                        )}
                       </div>
                       <Button size="icon" variant="ghost" onClick={() => deleteStop(r.route_id, s.stop_id)}>
                         <Trash2 className="w-4 h-4 text-muted-foreground" />
@@ -247,6 +262,31 @@ export default function Planning() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenStop(null)}>ยกเลิก</Button>
             <Button onClick={submitStop} className="bg-gradient-pink text-accent-foreground">เพิ่มจุด</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openNewRoute} onOpenChange={setOpenNewRoute}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>สร้าง Route ใหม่ — {dateKey}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold">ชื่อ Route *</label>
+              <Input
+                value={newRouteTitle}
+                onChange={(e) => setNewRouteTitle(e.target.value)}
+                placeholder="เช่น เยี่ยมลูกค้าเชียงใหม่ หรือ Field Sale วันจันทร์"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") createRoute(); }}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">ชื่อนี้จะแสดงบน Route ID เพื่อหาง่าย</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenNewRoute(false)}>ยกเลิก</Button>
+            <Button onClick={createRoute} className="bg-gradient-pink text-accent-foreground">
+              <Plus className="w-4 h-4 mr-2" /> สร้าง
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

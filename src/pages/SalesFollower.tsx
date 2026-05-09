@@ -209,7 +209,7 @@ export default function SalesFollower() {
                           {(s.place_name || "-").slice(0, 12)}
                         </text>
                         <text x={x} y={102} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={9}>
-                          {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : ""}
+                          {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}
                         </text>
                       </g>
                     );
@@ -228,7 +228,7 @@ export default function SalesFollower() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{s.place_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {s.routeDate} · {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "-"} · {s.duration_min ?? 0} นาที
+                      {s.routeDate} · {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-"} · {s.duration_min ?? 0} นาที
                     </p>
                     {s.note && <p className="text-xs italic text-muted-foreground mt-0.5">"{s.note}"</p>}
                   </div>
@@ -263,7 +263,7 @@ export default function SalesFollower() {
                   <Badge variant="outline">{s.purpose}</Badge>
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.completed_at ? new Date(s.completed_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-"}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.completed_at ? new Date(s.completed_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", hour12: false }) : "-"}</span>
                   <span>· {s.duration_min ?? 0} นาที</span>
                 </div>
                 {s.note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">"{s.note}"</p>}

@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useCRM } from "@/store/crmStore";
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+  return new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false });
 }
 
 export function TeamNotifications() {

@@ -12,6 +12,7 @@ export default function MyProfile() {
   const user = useCurrentUser();
   const updateUser = useAuth((s) => s.updateUser);
 
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [tel, setTel] = useState("");
   const [pwd, setPwd] = useState("");
@@ -21,6 +22,7 @@ export default function MyProfile() {
 
   useEffect(() => {
     if (user) {
+      setFullName(user.full_name);
       setEmail(user.email ?? "");
       setTel(user.tel ?? "");
       setPwd(user.password);
@@ -31,7 +33,11 @@ export default function MyProfile() {
   if (!user) return null;
 
   const save = () => {
-    updateUser(user.user_id, { email, tel, password: pwd, avatar_url: avatar });
+    if (!fullName.trim()) {
+      toast.error("กรุณากรอกชื่อ-นามสกุล");
+      return;
+    }
+    updateUser(user.user_id, { full_name: fullName.trim(), email, tel, password: pwd, avatar_url: avatar });
     toast.success("บันทึกข้อมูลเรียบร้อย");
   };
 
@@ -103,7 +109,7 @@ export default function MyProfile() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-semibold">ชื่อ-นามสกุล</label>
-            <Input value={user.full_name} disabled />
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="ชื่อ นามสกุล" />
           </div>
           <div>
             <label className="text-xs font-semibold">Username</label>

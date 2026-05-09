@@ -117,7 +117,7 @@ export default function Customers() {
                       </div>
                     )}
                     {c.created_at && (
-                      <div className="mt-1 text-[10px] text-muted-foreground">เพิ่มเมื่อ {new Date(c.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</div>
+                      <div className="mt-1 text-[10px] text-muted-foreground">เพิ่มเมื่อ {new Date(c.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false })}</div>
                     )}
                   </td>
                   <td className="p-3">

@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 function fmtTime(iso?: string) {
   if (!iso) return "-";
-  return new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", hour12: false });
 }
 
 interface CompletedItem extends RouteStop {
@@ -215,12 +215,13 @@ export default function CompletedRoute() {
                   <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{s.place_name}</p>
-                    <p className="text-xs text-muted-foreground">{s.address || "-"} · {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }) : "-"}</p>
+                    <p className="text-xs text-muted-foreground">{s.address || "-"} · {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-"}</p>
                     {typeof s.lat === "number" && typeof s.lng === "number" ? (
                       <p className="text-[11px] text-success mt-0.5">📍 {s.lat.toFixed(5)}, {s.lng.toFixed(5)}</p>
                     ) : (
                       <p className="text-[11px] text-muted-foreground mt-0.5">ไม่มีพิกัด GPS</p>
                     )}
+                    {s.note && <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-wrap">📝 {s.note}</p>}
                   </div>
                 </li>
               ))}

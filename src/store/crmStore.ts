@@ -1,14 +1,14 @@
 import { create } from "zustand";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
-export type Source = "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
+export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
 export type Segment = "B2C Individual" | "B2C Group" | "B2B Agent" | "Corporate";
 export type LeadStatus = "New" | "Contacted" | "Quotation Sent" | "Negotiating" | "Closed Won" | "Closed Lost";
 export type Urgency = "Hot" | "Warm" | "Cold";
 export type BUType = "ทัวร์ต่างประเทศ" | "ทัวร์ภายในประเทศ" | "เช่ารถ ท่องเที่ยว" | "จองตั๋วเครื่องบิน";
 export type SalesRep = "เฟิร์ส" | "โดนัท" | "ปาม";
-export type LeadCategory = "บริษัทเอกชน" | "หน่วยงานราชการ" | "มหาวิทยาลัยเอกชน" | "มหาวิทยาลัยรัฐบาล";
+export type LeadCategory = "ลูกค้าทั่วไป" | "บริษัทเอกชน" | "หน่วยงานราชการ" | "มหาวิทยาลัยเอกชน" | "มหาวิทยาลัยรัฐบาล";
 export type TripScope = "Domestic" | "International";
 
 export interface Customer {
@@ -151,8 +151,8 @@ export interface QuotationDoc {
   created_at: string;
   updated_at?: string;
 }
-export const LEAD_CATEGORIES: LeadCategory[] = ["บริษัทเอกชน", "หน่วยงานราชการ", "มหาวิทยาลัยเอกชน", "มหาวิทยาลัยรัฐบาล"];
-export const SOURCES: Source[] = ["FB", "Line OA", "Website", "TikTok", "Google", "Walk-in", "Referral", "Agent"];
+export const LEAD_CATEGORIES: LeadCategory[] = ["ลูกค้าทั่วไป", "บริษัทเอกชน", "หน่วยงานราชการ", "มหาวิทยาลัยเอกชน", "มหาวิทยาลัยรัฐบาล"];
+export const SOURCES: Source[] = ["Field Sale", "FB", "Line OA", "Website", "TikTok", "Google", "Walk-in", "Referral", "Agent"];
 export const BU_TYPES: BUType[] = ["ทัวร์ต่างประเทศ", "ทัวร์ภายในประเทศ", "เช่ารถ ท่องเที่ยว", "จองตั๋วเครื่องบิน"];
 export const INT_PROGRAMS = [
   "HQO-KMG04-DR - คุนหมิง โหลวผิง ซากุระ 4 วัน 3 คืน (DR)",
