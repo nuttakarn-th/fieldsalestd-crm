@@ -101,6 +101,8 @@
     --border: 220 8% 22%;
     --input: 220 8% 22%;
     --ring: 300 75% 65%;
+    /* Override gradients for dark mode — was white-only */
+    --gradient-card: linear-gradient(180deg, hsl(220 10% 13%), hsl(220 10% 11%));
     /* Sidebar — slightly different shade so it stands out */
     --sidebar-background: 220 12% 7%;
     --sidebar-foreground: 0 0% 92%;
