@@ -3,7 +3,8 @@ import { Search, Plus, Download, Pencil, Phone, MessageCircle, ArrowRightLeft, L
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCRM, formatTHB, tierBadge, SALES_REPS, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -36,6 +37,7 @@ export default function Customers() {
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
+  const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);

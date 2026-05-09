@@ -5,7 +5,8 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
   LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
-import { useCRM, formatTHB, SALES_REPS, LEAD_CATEGORIES, type LeadCategory, type SalesRep } from "@/store/crmStore";
+import { useCRM, formatTHB, LEAD_CATEGORIES, type LeadCategory, type SalesRep } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -31,6 +32,7 @@ export default function ExecutiveDashboard() {
   const leads = useCRM((s) => s.leads);
   const targets = useCRM((s) => s.targets);
   const currentRep = useCRM((s) => s.currentRep);
+  const SALES_REPS = useActiveSalesNames() as SalesRep[];
 
   // Per-section date range filters
   const [overviewPreset, setOverviewPreset] = useState<RangePreset>("year");

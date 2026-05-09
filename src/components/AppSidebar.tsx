@@ -1,7 +1,7 @@
 import { Compass, ArrowLeft, User as UserIcon, Eye } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, useCurrentUser, ALL_ROLES, type AppRole } from "@/store/authStore";
-import { useCRM, SALES_REPS } from "@/store/crmStore";
+import { useCRM } from "@/store/crmStore";
 import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/config/roleMenus";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -40,9 +40,8 @@ export function AppSidebar() {
   const menu = getMenuForRole(effectiveRole);
   const showRepSelector = effectiveRole === "Sales Manager" || effectiveRole === "Admin";
 
-  // Sales reps that exist in registered users (by full_name)
-  const registeredSalesNames = allUsers.filter((u) => u.role === "Sales").map((u) => u.full_name);
-  const repOptions = SALES_REPS.filter((r) => registeredSalesNames.includes(r));
+  // Sales reps that exist in registered users (by full_name) — show only active Sales
+  const repOptions = allUsers.filter((u) => u.role === "Sales").map((u) => u.full_name);
 
   const renderItem = (item: MenuItem) => {
     const t = toneClasses(item.tone);

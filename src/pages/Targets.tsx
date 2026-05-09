@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Target, Save, ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCRM, SALES_REPS, formatTHB, type SalesRep } from "@/store/crmStore";
+import { useCRM, formatTHB, type SalesRep } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 import { toast } from "sonner";
 
 function monthKey(d: Date) {
@@ -18,6 +19,7 @@ export default function Targets() {
   const setTarget = useCRM((s) => s.setTarget);
   const currentRep = useCRM((s) => s.currentRep);
   const isManager = currentRep === "All";
+  const SALES_REPS = useActiveSalesNames() as SalesRep[];
 
   const [cursor, setCursor] = useState(() => monthKey(new Date()));
   const shift = (n: number) => {

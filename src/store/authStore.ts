@@ -275,3 +275,17 @@ export function useCurrentUser(): AppUser | null {
   const users = useAuth((s) => s.users);
   return id ? users.find((u) => u.user_id === id) ?? null : null;
 }
+
+/** Returns full_names of all active users with role 'Sales' or 'Sales Manager' */
+export function useActiveSalesNames(): string[] {
+  const users = useAuth((s) => s.users);
+  return users
+    .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+    .map((u) => u.full_name);
+}
+
+/** Returns active Sales (excluding Manager) — for assignment dropdowns */
+export function useActiveSalesOnly(): string[] {
+  const users = useAuth((s) => s.users);
+  return users.filter((u) => u.role === "Sales").map((u) => u.full_name);
+}

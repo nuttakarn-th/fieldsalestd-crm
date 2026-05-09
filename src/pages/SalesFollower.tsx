@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
-import { useCRM, SALES_REPS } from "@/store/crmStore";
+import { useCRM } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -14,6 +15,7 @@ import type { DateRange } from "react-day-picker";
 export default function SalesFollower() {
   const currentRep = useCRM((s) => s.currentRep);
   const routes = useCRM((s) => s.routes);
+  const SALES_REPS = useActiveSalesNames();
 
   const [preset, setPreset] = useState<RangePreset>("month");
   const [custom, setCustom] = useState<DateRange | undefined>();

@@ -9,7 +9,7 @@ import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { useCurrentUser, useAuth } from "@/store/authStore";
-import { useCRM, SALES_REPS, type SalesRep } from "@/store/crmStore";
+import { useCRM, type SalesRep } from "@/store/crmStore";
 
 export default function AppLayout() {
   const user = useCurrentUser();
@@ -20,8 +20,8 @@ export default function AppLayout() {
     if (!user) return;
     const effectiveRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
     if (effectiveRole === "Sales") {
-      const matched = SALES_REPS.find((r) => r === (user.full_name as SalesRep));
-      setCurrentRep(matched ?? SALES_REPS[0]);
+      // Use this user's own name as currentRep (always exact match)
+      setCurrentRep(user.full_name as SalesRep);
     } else if (user.role === "Admin" && !viewAsRole) {
       setCurrentRep("All");
     }

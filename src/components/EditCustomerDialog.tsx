@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useCRM, SOURCES, SALES_REPS, type Customer, type Source, type Tier, type SalesRep } from "@/store/crmStore";
+import { useCRM, SOURCES, type Customer, type Source, type Tier, type SalesRep } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 
 export function EditCustomerDialog({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const updateCustomer = useCRM((s) => s.updateCustomer);
+  const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const [data, setData] = useState<Customer | null>(customer);
 
   useEffect(() => setData(customer), [customer]);

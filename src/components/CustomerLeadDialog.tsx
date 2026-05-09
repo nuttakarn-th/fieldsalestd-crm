@@ -8,9 +8,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  useCRM, SALES_REPS, SOURCES, BU_TYPES, INT_PROGRAMS, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
+  useCRM, SOURCES, BU_TYPES, INT_PROGRAMS, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
   type Source, type SalesRep, type BUType, type Urgency, type LeadCategory,
 } from "@/store/crmStore";
+import { useActiveSalesNames } from "@/store/authStore";
 
 export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const customers = useCRM((s) => s.customers);
@@ -28,7 +29,12 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
   const [lineId, setLineId] = useState("");
   const [source, setSource] = useState<Source>("Line OA");
 
-  const [owner, setOwner] = useState<SalesRep>(SALES_REPS[0]);
+  const SALES_REPS = useActiveSalesNames() as SalesRep[];
+  const [owner, setOwner] = useState<SalesRep>((SALES_REPS[0] ?? "") as SalesRep);
+  // Update owner default when active sales list loads after mount
+  useEffect(() => {
+    if (!owner && SALES_REPS[0]) setOwner(SALES_REPS[0]);
+  }, [owner, SALES_REPS]);
   const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
   const [intProgram, setIntProgram] = useState(INT_PROGRAMS[0]);
   const [intNote, setIntNote] = useState("");
