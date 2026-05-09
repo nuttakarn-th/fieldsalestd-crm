@@ -74,27 +74,42 @@
   }
 
   .dark {
-    --background: 285 50% 8%;
-    --foreground: 320 30% 96%;
-    --card: 285 45% 12%;
-    --card-foreground: 320 30% 96%;
-    --popover: 285 45% 12%;
-    --popover-foreground: 320 30% 96%;
+    /* Neutral black/grey background — no purple tint */
+    --background: 220 10% 9%;
+    --foreground: 0 0% 96%;
+    --card: 220 10% 13%;
+    --card-foreground: 0 0% 96%;
+    --popover: 220 10% 13%;
+    --popover-foreground: 0 0% 96%;
+    /* Keep brand accents (purple/pink) for buttons/highlights */
     --primary: 300 75% 65%;
-    --primary-foreground: 285 50% 10%;
-    --secondary: 285 35% 18%;
-    --secondary-foreground: 320 30% 96%;
-    --muted: 285 30% 16%;
-    --muted-foreground: 310 15% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 8% 18%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 220 8% 16%;
+    --muted-foreground: 220 8% 65%;
     --accent: 330 85% 65%;
     --accent-foreground: 0 0% 100%;
     --gold: 42 92% 60%;
     --gold-foreground: 30 60% 14%;
+    --success: 158 65% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 42 92% 60%;
+    --warning-foreground: 30 60% 14%;
     --destructive: 350 80% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 285 35% 22%;
-    --input: 285 35% 22%;
+    --border: 220 8% 22%;
+    --input: 220 8% 22%;
     --ring: 300 75% 65%;
+    /* Sidebar — slightly different shade so it stands out */
+    --sidebar-background: 220 12% 7%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 330 85% 65%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 8% 16%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 220 8% 20%;
+    --sidebar-ring: 330 85% 65%;
   }
 }
 

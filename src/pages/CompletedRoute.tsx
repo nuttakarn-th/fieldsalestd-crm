@@ -4,7 +4,7 @@ import { ArrowLeft, Camera, CheckCircle2, Clock, Edit3, ImageIcon, MapPin, Route
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -171,7 +171,7 @@ export default function CompletedRoute() {
           <DialogHeader><DialogTitle>แก้ไขข้อมูล Route</DialogTitle></DialogHeader>
           <div className="space-y-2">
             <p className="text-sm font-semibold">{editing?.place_name}</p>
-            <Textarea rows={5} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="รายละเอียดที่ต้องการบันทึก..." />
+            <VoiceTextarea rows={5} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="รายละเอียดที่ต้องการบันทึก..." />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}><X className="w-4 h-4 mr-2" />ยกเลิก</Button>

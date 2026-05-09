@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, Play, CheckCircle2, Clock, Timer, UserPlus, Flag, ChevronRight, Camera, X, Loader2, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -217,7 +217,7 @@ export default function Mission() {
           <DialogHeader><DialogTitle>Complete: {completeOpen?.place_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">บันทึกผลการเยี่ยมก่อนปิดงานนี้</p>
-            <Textarea rows={4} placeholder="สรุปการพูดคุย / ความสนใจของลูกค้า / Next step..."
+            <VoiceTextarea rows={4} placeholder="สรุปการพูดคุย / ความสนใจของลูกค้า / Next step..."
               value={completeNote} onChange={(e) => setCompleteNote(e.target.value)} />
             <div className="space-y-2">
               <Label className="text-sm font-semibold">ภาพถ่ายหน้างาน (จะถูกบีบอัด ≤500KB / กว้างสุด 1500px)</Label>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Label } from "@/components/ui/label";
 import { useCRM, type RoutePlan } from "@/store/crmStore";
 import { StopDialog } from "@/components/StopDialog";
@@ -283,7 +283,7 @@ export default function RouteCalendar() {
               <div><Label>เวลานัด</Label><Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} /></div>
               <div><Label>วัตถุประสงค์</Label><Input value={newPurpose} onChange={(e) => setNewPurpose(e.target.value)} /></div>
             </div>
-            <div><Label>โน๊ต</Label><Textarea rows={2} value={newNote} onChange={(e) => setNewNote(e.target.value)} /></div>
+            <div><Label>โน๊ต</Label><VoiceTextarea rows={3} value={newNote} onChange={(e) => setNewNote(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewRouteOpen(null)}>ยกเลิก</Button>

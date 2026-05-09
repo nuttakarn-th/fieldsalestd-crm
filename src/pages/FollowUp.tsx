@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -160,7 +160,7 @@ export default function FollowUp() {
               )}
               <div>
                 <Label>บันทึกรายละเอียด</Label>
-                <Textarea rows={3} value={stNote} onChange={(e) => setStNote(e.target.value)} placeholder="สรุปการคุย, ข้อตกลง, สิ่งที่ลูกค้าต้องการ..." />
+                <VoiceTextarea rows={3} value={stNote} onChange={(e) => setStNote(e.target.value)} placeholder="สรุปการคุย, ข้อตกลง, สิ่งที่ลูกค้าต้องการ..." />
               </div>
               {!["Closed Won", "Closed Lost"].includes(stStatus) && (
                 <div>

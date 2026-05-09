@@ -4,7 +4,7 @@ import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Cl
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -256,7 +256,7 @@ export default function Planning() {
             )}
             <div>
               <label className="text-xs font-semibold">โน๊ต</label>
-              <Textarea rows={2} value={stopForm.note} onChange={(e) => setStopForm({ ...stopForm, note: e.target.value })} />
+              <VoiceTextarea rows={3} value={stopForm.note} onChange={(e) => setStopForm({ ...stopForm, note: e.target.value })} />
             </div>
           </div>
           <DialogFooter>

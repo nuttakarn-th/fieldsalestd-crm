@@ -3,7 +3,7 @@ import { Search, Plus, Download, Pencil, Phone, MessageCircle, ArrowRightLeft, L
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCRM, formatTHB, tierBadge, SALES_REPS, type Customer, type SalesRep } from "@/store/crmStore";
+import { useCRM, formatTHB, tierBadge, SALES_REPS, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -42,6 +42,12 @@ export default function Customers() {
   const [transferOf, setTransferOf] = useState<Customer | null>(null);
   const [transferTo, setTransferTo] = useState<SalesRep | "">("");
 
+  // Filters
+  const [filterTier, setFilterTier] = useState<Tier | "all">("all");
+  const [filterSource, setFilterSource] = useState<Source | "all">("all");
+  const [filterDateRange, setFilterDateRange] = useState<"all" | "7d" | "30d" | "90d" | "365d">("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "spend_desc" | "spend_asc" | "name">("newest");
+
   const scoped = useMemo(
     () => (currentRep === "All"
       ? customers
@@ -51,16 +57,60 @@ export default function Customers() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return scoped;
-    return scoped.filter((c) =>
-      c.full_name.toLowerCase().includes(s) ||
-      c.phone.includes(s) ||
-      c.company.toLowerCase().includes(s) ||
-      c.line_id.toLowerCase().includes(s) ||
-      c.created_by.toLowerCase().includes(s) ||
-      (c.email ?? "").toLowerCase().includes(s),
-    );
-  }, [scoped, q]);
+    let list = scoped;
+
+    // Search
+    if (s) {
+      list = list.filter((c) =>
+        c.full_name.toLowerCase().includes(s) ||
+        c.phone.includes(s) ||
+        c.company.toLowerCase().includes(s) ||
+        c.line_id.toLowerCase().includes(s) ||
+        c.created_by.toLowerCase().includes(s) ||
+        (c.email ?? "").toLowerCase().includes(s),
+      );
+    }
+
+    // Tier filter
+    if (filterTier !== "all") list = list.filter((c) => c.customer_tier === filterTier);
+
+    // Source filter
+    if (filterSource !== "all") list = list.filter((c) => c.source === filterSource);
+
+    // Date range filter (created_at)
+    if (filterDateRange !== "all") {
+      const days = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 }[filterDateRange];
+      const threshold = Date.now() - days * 24 * 60 * 60 * 1000;
+      list = list.filter((c) => c.created_at && new Date(c.created_at).getTime() >= threshold);
+    }
+
+    // Sort
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case "newest":
+          return (new Date(b.created_at ?? 0).getTime()) - (new Date(a.created_at ?? 0).getTime());
+        case "oldest":
+          return (new Date(a.created_at ?? 0).getTime()) - (new Date(b.created_at ?? 0).getTime());
+        case "spend_desc":
+          return b.total_spend - a.total_spend;
+        case "spend_asc":
+          return a.total_spend - b.total_spend;
+        case "name":
+          return a.full_name.localeCompare(b.full_name, "th");
+      }
+    });
+    return sorted;
+  }, [scoped, q, filterTier, filterSource, filterDateRange, sortBy]);
+
+  const resetFilters = () => {
+    setFilterTier("all");
+    setFilterSource("all");
+    setFilterDateRange("all");
+    setSortBy("newest");
+    setQ("");
+  };
+  const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterDateRange !== "all" || q !== "";
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
@@ -77,10 +127,54 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border shadow-soft p-4">
+      <div className="bg-card rounded-xl border shadow-soft p-4 space-y-3">
         <div className="relative max-w-xl">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ, เบอร์โทร, องค์กร, Line ID, อีเมล, ชื่อ Sales..." className="pl-9" />
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <Select value={filterDateRange} onValueChange={(v) => setFilterDateRange(v as any)}>
+            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ช่วงวันที่เพิ่ม" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกช่วงเวลา</SelectItem>
+              <SelectItem value="7d">7 วันล่าสุด</SelectItem>
+              <SelectItem value="30d">30 วันล่าสุด</SelectItem>
+              <SelectItem value="90d">90 วันล่าสุด</SelectItem>
+              <SelectItem value="365d">1 ปีล่าสุด</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterTier} onValueChange={(v) => setFilterTier(v as any)}>
+            <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Tier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุก Tier</SelectItem>
+              <SelectItem value="VIP">VIP</SelectItem>
+              <SelectItem value="Regular">Regular</SelectItem>
+              <SelectItem value="New">New</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterSource} onValueChange={(v) => setFilterSource(v as any)}>
+            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ช่องทาง" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทุกช่องทาง</SelectItem>
+              {SOURCES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="เรียงตาม" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">ใหม่ → เก่า</SelectItem>
+              <SelectItem value="oldest">เก่า → ใหม่</SelectItem>
+              <SelectItem value="spend_desc">ยอดซื้อมาก → น้อย</SelectItem>
+              <SelectItem value="spend_asc">ยอดซื้อน้อย → มาก</SelectItem>
+              <SelectItem value="name">ชื่อ ก-ฮ</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasActiveFilter && (
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-9 text-muted-foreground">
+              ล้างตัวกรอง
+            </Button>
+          )}
+          <span className="ml-auto text-xs text-muted-foreground">{filtered.length} รายการ</span>
         </div>
       </div>
 

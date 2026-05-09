@@ -49,6 +49,7 @@ export interface Lead {
   quoted_price: number;
   closed_date: string | null;
   lost_reason: string | null;
+  status_note?: string | null;
 }
 
 export interface MonthlyTarget {

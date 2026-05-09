@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, Save, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCRM, formatTHB, type DocumentType, type QuotationItem, type SalesRep } from "@/store/crmStore";
 import { toast } from "sonner";
@@ -156,7 +156,7 @@ export default function QuotationForm() {
               <div><Label>VAT (%)</Label><Input type="number" value={vat} onChange={(e) => setVat(Number(e.target.value))} /></div>
               <div><Label>ส่วนลด (บาท)</Label><Input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} /></div>
             </div>
-            <div><Label>หมายเหตุ</Label><Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+            <div><Label>หมายเหตุ</Label><VoiceTextarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           </div>
           <div className="rounded-xl bg-muted/30 p-4 space-y-2 text-sm">
             <Row label="ยอดรวม" value={formatTHB(subtotal)} />
