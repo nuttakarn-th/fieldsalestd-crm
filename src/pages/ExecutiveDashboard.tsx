@@ -11,7 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
 
-const PALETTE = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--gold))", "hsl(var(--primary-glow))"];
+const PALETTE = [
+  "hsl(210 90% 55%)",          // ลูกค้าทั่วไป — blue
+  "hsl(var(--accent))",         // บริษัทเอกชน — pink
+  "hsl(var(--gold))",           // หน่วยงานราชการ — gold
+  "hsl(var(--primary-glow))",   // มหาวิทยาลัยเอกชน — pink-glow
+  "hsl(var(--primary))",        // มหาวิทยาลัยรัฐบาล — purple
+];
 
 function lastNMonths(n: number) {
   const out: { key: string; label: string; year: number; month: number }[] = [];
@@ -310,19 +316,18 @@ export default function ExecutiveDashboard() {
           </div>
         </header>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
           {categoryStats.map((s, i) => {
             const Icon = catIcon(s.category);
             return (
-              <div key={s.category} className="rounded-xl border p-4 bg-gradient-card">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: PALETTE[i] + "26", color: PALETTE[i] }}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <p className="text-xs font-semibold">{s.category}</p>
+              <div key={s.category} className="rounded-xl border p-4 bg-gradient-card flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-2" style={{ background: PALETTE[i] + "26", color: PALETTE[i] }}>
+                  <Icon className="w-6 h-6" />
                 </div>
-                <p className="text-2xl font-bold">{s.leads}</p>
-                <p className="text-[11px] text-muted-foreground">Lead • ปิดได้ {s.won} • {formatTHB(s.revenue)}</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">{s.category}</p>
+                <p className="text-5xl font-extrabold leading-none my-1" style={{ color: PALETTE[i] }}>{s.leads}</p>
+                <p className="text-[11px] text-muted-foreground mt-2">Lead • ปิดได้ {s.won}</p>
+                <p className="text-[11px] font-semibold text-foreground/80">{formatTHB(s.revenue)}</p>
               </div>
             );
           })}
