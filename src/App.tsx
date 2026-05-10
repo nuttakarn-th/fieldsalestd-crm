@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCRM } from "@/store/crmStore";
 import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
+import { ChatRealtimeSync } from "@/components/ChatRealtimeSync";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Hub from "./pages/Hub.tsx";
@@ -56,6 +57,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <SupabaseSync />
+      <ChatRealtimeSync />
       <Toaster />
       <Sonner />
       <BrowserRouter>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
-import { MessageSquare, X, Send, Reply, AtSign, CornerDownRight, ImagePlus, Camera, Plus, Smile, Mic, MicOff } from "lucide-react";
+import { MessageSquare, X, Send, Reply, AtSign, CornerDownRight, ImagePlus, Camera, Plus, Smile, Mic, MicOff, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useCRM, SALES_REPS, type ChatAuthor, type ChatMessage } from "@/store/crmStore";
@@ -66,6 +66,31 @@ function renderText(text: string) {
     p.startsWith("@") ? (
       <span key={i} className="font-semibold text-primary bg-primary/10 px-1 rounded">{p}</span>
     ) : (<span key={i}>{p}</span>),
+  );
+}
+
+function NotifPermBtn() {
+  const [perm, setPerm] = useState<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied",
+  );
+  if (typeof window === "undefined" || !("Notification" in window)) return null;
+  if (perm === "granted") {
+    return <span title="เปิดแจ้งเตือนแล้ว" className="p-1"><Bell className="w-4 h-4" /></span>;
+  }
+  return (
+    <button
+      onClick={async () => {
+        const r = await Notification.requestPermission();
+        setPerm(r);
+        if (r === "granted") {
+          new Notification("Field Sale CRM", { body: "เปิดแจ้งเตือนสำเร็จ! คุณจะได้รับ pop-up เมื่อมีข้อความใหม่" });
+        }
+      }}
+      title="เปิดแจ้งเตือนข้อความ"
+      className="p-1 hover:bg-white/10 rounded"
+    >
+      <BellOff className="w-4 h-4" />
+    </button>
   );
 }
 
@@ -171,7 +196,10 @@ export function ChatWidget() {
               <p className="font-bold text-sm">ทีมแชท Field sale</p>
               <p className="text-[11px] opacity-80">คุณคือ {me} • Mention ด้วย @ชื่อ</p>
             </div>
-            <button onClick={close} className="p-1 hover:bg-white/10 rounded"><X className="w-4 h-4" /></button>
+            <div className="flex items-center gap-1">
+              <NotifPermBtn />
+              <button onClick={close} className="p-1 hover:bg-white/10 rounded"><X className="w-4 h-4" /></button>
+            </div>
           </div>
 
           <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-background/50">
