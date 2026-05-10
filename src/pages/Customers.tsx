@@ -180,7 +180,55 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+      {/* Mobile: Card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
+        {filtered.length === 0 && (
+          <div className="col-span-full p-8 text-center text-muted-foreground bg-card border rounded-xl">ไม่พบข้อมูลลูกค้า</div>
+        )}
+        {filtered.map((c) => (
+          <div key={c.customer_id} className="bg-card border rounded-xl p-4 shadow-soft space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{c.full_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}</p>
+              </div>
+              <Badge variant="outline" className={`${tierBadge(c.customer_tier)} shrink-0`}>{c.customer_tier}</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-primary hover:underline"><Phone className="w-3 h-3" /> {c.phone}</a>
+              <span className="flex items-center gap-1.5 text-success truncate"><MessageCircle className="w-3 h-3 shrink-0" /> {c.line_id}</span>
+              <span className="text-muted-foreground"><b className="text-foreground">{c.source}</b> · {c.segment}</span>
+              <span className="text-right font-bold text-primary">{formatTHB(c.total_spend)}</span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/30">
+                <span className="w-4 h-4 rounded-full bg-gradient-pink text-white flex items-center justify-center text-[9px] font-bold">{c.created_by[0]}</span>
+                {c.created_by}
+              </span>
+              <div className="flex gap-1">
+                {c.transferred_from === currentRep && c.transferred_to ? (
+                  <span title="โอนแล้ว" className="text-muted-foreground p-2"><Lock className="w-4 h-4" /></span>
+                ) : (
+                  <>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(c)}><Pencil className="w-4 h-4 text-primary" /></Button>
+                    {currentRep !== "All" && c.created_by === currentRep && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setTransferOf(c); setTransferTo(""); }}>
+                        <ArrowRightLeft className="w-4 h-4 text-amber-600" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            {c.created_at && (
+              <p className="text-[10px] text-muted-foreground">เพิ่มเมื่อ {new Date(c.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false })}</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: Table */}
+      <div className="hidden md:block bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">

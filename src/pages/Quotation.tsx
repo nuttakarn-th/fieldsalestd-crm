@@ -114,7 +114,7 @@ export default function Quotation() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="ค้นหา เลขที่, ชื่อลูกค้า, บริษัท, ที่อยู่, เลขผู้เสียภาษี, มูลค่า, หมายเหตุ..."
+                placeholder="ค้นหา เลขที่, ชื่อ, มูลค่า..."
                 className="pl-9"
               />
             </div>
@@ -128,7 +128,37 @@ export default function Quotation() {
             </Select>
           </div>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Mobile: Card grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 md:hidden">
+          {myDocs.length === 0 && <p className="col-span-full p-6 text-center text-muted-foreground">ไม่พบเอกสาร</p>}
+          {myDocs.map((q) => (
+            <button key={q.id} onClick={() => setViewing(q)} className="text-left bg-background border rounded-xl p-3 hover:bg-muted/30 transition space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="outline">{q.doc_type === "quotation" ? "QT" : "RC"}</Badge>
+                <span className="font-mono text-xs text-muted-foreground">{q.doc_no}</span>
+              </div>
+              <p className="font-semibold truncate">{q.customer_name}</p>
+              {q.customer_company && <p className="text-xs text-muted-foreground truncate">{q.customer_company}</p>}
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-muted-foreground">{q.issue_date}</span>
+                <span className="font-bold text-primary">{formatTHB(q.total)}</span>
+              </div>
+              <div className="flex gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                <Button size="sm" variant="outline" className="flex-1 h-8" onClick={() => setViewing(q)}><Eye className="w-3 h-3 mr-1" /> ดู</Button>
+                <Link to={editPath(q)} className="flex-1">
+                  <Button size="sm" variant="outline" className="w-full h-8"><Edit3 className="w-3 h-3 mr-1" /> แก้</Button>
+                </Link>
+                <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setConfirmDelete(q)}>
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                </Button>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Desktop: Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
