@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
 } from "@/store/serviceStore";
 import { toast } from "sonner";
 
-const TOUR_CATS: TourCategory[] = ["Outbound", "Domestic", "Incentive"];
+const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["หนัง", "ผ้า", "กำมะหยี่"];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
@@ -72,8 +72,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({
-    category: "Outbound" as TourCategory,
-    code: "", city: "", country: "", period: "",
+    category: "International Tour" as TourCategory,
+    code: "", city: "", country: "",
+    startDate: "" as string, returnDate: "" as string,
     days: "" as string, nights: "" as string,
     price_per_seat: "" as string,
     note: "",
@@ -81,8 +82,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   });
 
   const blankForm = () => ({
-    category: "Outbound" as TourCategory,
-    code: "", city: "", country: "", period: "",
+    category: "International Tour" as TourCategory,
+    code: "", city: "", country: "",
+    startDate: "", returnDate: "",
     days: "", nights: "",
     price_per_seat: "",
     note: "",
@@ -96,13 +98,43 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
   };
 
+  // Parse "YYYY-MM-DD ถึง YYYY-MM-DD" → start + return
+  const parsePeriod = (p: string): { startDate: string; returnDate: string } => {
+    const m = p.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
+    return { startDate: m?.[1] ?? "", returnDate: m?.[2] ?? "" };
+  };
+
+  // Format YYYY-MM-DD to Thai short e.g. "15 มี.ค. 2026"
+  const fmtThai = (iso: string): string => {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+    } catch { return iso; }
+  };
+
+  // Auto-calculate days/nights when both dates set (only if user hasn't manually changed)
+  React.useEffect(() => {
+    if (form.startDate && form.returnDate) {
+      const s = new Date(form.startDate);
+      const r = new Date(form.returnDate);
+      if (!isNaN(s.getTime()) && !isNaN(r.getTime()) && r >= s) {
+        const nights = Math.round((r.getTime() - s.getTime()) / 86400000);
+        const days = nights + 1;
+        setForm((f) => ({ ...f, days: String(days), nights: String(nights) }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.startDate, form.returnDate]);
+
   const openAdd = () => { setEditId(null); setForm(blankForm()); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
     const dur = parseDuration(t.duration);
+    const per = parsePeriod(t.period);
     setForm({
-      category: t.category, code: t.code, city: t.city, country: t.country, period: t.period,
+      category: t.category, code: t.code, city: t.city, country: t.country,
+      startDate: per.startDate, returnDate: per.returnDate,
       days: dur.days, nights: dur.nights,
       price_per_seat: String(t.price_per_seat),
       note: t.note ?? "",
@@ -115,12 +147,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const days = Number(form.days || 0);
     const nights = Number(form.nights || 0);
     const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
+    // Build period text — keep original format for backward compat: "DD-DD เดือน ปี" or "YYYY-MM-DD ถึง YYYY-MM-DD"
+    const period = form.startDate && form.returnDate
+      ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}`
+      : "";
     const payload = {
       category: form.category,
       code: form.code,
       city: form.city,
       country: form.country,
-      period: form.period,
+      period,
       duration,
       price_per_seat: Number(form.price_per_seat || 0),
       note: form.note,
@@ -134,7 +170,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · Outbound / Domestic / Incentive</p>
+        <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
         {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
       </div>
       {TOUR_CATS.map((cat) => {
@@ -201,9 +237,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} placeholder="เช่น 24" /></div>
               <div><label className="text-xs font-semibold">ชื่อเมือง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="คุนหมิง โหลวผิง" /></div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="จีน" /></div>
-              <div><label className="text-xs font-semibold">ช่วงเวลา</label><Input value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })} placeholder="15-18 มี.ค. 2026" /></div>
-              <div>
-                <label className="text-xs font-semibold">ระยะเวลา</label>
+              <div className="col-span-2 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold">วันที่เดินทาง</label>
+                  <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold">วันที่กลับ</label>
+                  <Input type="date" value={form.returnDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} />
+                </div>
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-semibold">ระยะเวลา <span className="text-[10px] text-muted-foreground">(คำนวณอัตโนมัติจากวันที่ — แก้ตัวเลขเองได้)</span></label>
                 <div className="flex items-center gap-1.5">
                   <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="4" className="w-full" />
                   <span className="text-xs text-muted-foreground shrink-0">วัน</span>

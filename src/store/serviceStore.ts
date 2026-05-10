@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 // ===== Tour =====
-export type TourCategory = "Outbound" | "Domestic" | "Incentive";
+export type TourCategory = "International Tour" | "Domestic" | "Incentive";
 export interface TourItem {
   id: string;
   category: TourCategory;

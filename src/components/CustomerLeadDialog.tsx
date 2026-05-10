@@ -193,7 +193,7 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
               <Select value={intProgram} onValueChange={setIntProgram}>
                 <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {(["Outbound", "Incentive"] as const).map((cat) => {
+                  {(["International Tour", "Incentive"] as const).map((cat) => {
                     const items = tours.filter((t) => t.category === cat);
                     if (items.length === 0) return null;
                     return (
