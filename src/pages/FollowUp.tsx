@@ -124,6 +124,26 @@ export default function FollowUp() {
         <h1 className="text-2xl font-bold">ตาราง Follow Up</h1>
         <p className="text-sm text-muted-foreground">นัดหมายติดตามลูกค้า {currentRep !== "All" && `— ${currentRep}`}</p>
       </div>
+
+      {/* KPI summary */}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
+          <div className="p-2.5 rounded-lg bg-destructive/15 text-destructive"><AlertCircle className="w-5 h-5" /></div>
+          <p className="text-xs text-muted-foreground font-medium">เลยกำหนด</p>
+          <p className="text-3xl md:text-4xl font-extrabold leading-none text-destructive">{overdue.length}</p>
+        </div>
+        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
+          <div className="p-2.5 rounded-lg bg-warning/20 text-warning-foreground"><Clock className="w-5 h-5" /></div>
+          <p className="text-xs text-muted-foreground font-medium">วันนี้</p>
+          <p className="text-3xl md:text-4xl font-extrabold leading-none text-warning-foreground">{todays.length}</p>
+        </div>
+        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
+          <div className="p-2.5 rounded-lg bg-primary/10 text-primary"><CalendarIcon className="w-5 h-5" /></div>
+          <p className="text-xs text-muted-foreground font-medium">นัดหมายล่วงหน้า</p>
+          <p className="text-3xl md:text-4xl font-extrabold leading-none text-primary">{upcoming.length}</p>
+        </div>
+      </div>
+
       <Section title="เลยกำหนด (Overdue)" items={overdue} icon={AlertCircle} colorClass="text-destructive" />
       <Section title="วันนี้ (Today)" items={todays} icon={Clock} colorClass="text-warning-foreground" />
       <Section title="นัดหมายล่วงหน้า (Upcoming)" items={upcoming} icon={CalendarIcon} colorClass="text-primary" />

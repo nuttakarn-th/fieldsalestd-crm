@@ -30,9 +30,15 @@ export default function FinancialReport() {
         <Card label="กำไรสุทธิ" value={formatTHB(stats.profit)} icon={TrendingUp} tone="primary" />
         <Card label="ดีลที่ปิดได้" value={`${stats.count}`} icon={BarChart3} tone="accent" />
       </div>
-      <div className="bg-card rounded-xl border shadow-soft p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div><p className="text-xs text-muted-foreground">สัดส่วน Domestic</p><p className="text-2xl font-bold">{formatTHB(stats.dom)}</p></div>
-        <div><p className="text-xs text-muted-foreground">สัดส่วน International</p><p className="text-2xl font-bold">{formatTHB(stats.intl)}</p></div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-card rounded-xl border shadow-soft p-5 flex flex-col items-center justify-center text-center min-h-[140px] gap-1">
+          <p className="text-xs text-muted-foreground font-medium">สัดส่วน Domestic</p>
+          <p className="text-3xl md:text-4xl font-extrabold leading-none break-all text-primary">{formatTHB(stats.dom)}</p>
+        </div>
+        <div className="bg-card rounded-xl border shadow-soft p-5 flex flex-col items-center justify-center text-center min-h-[140px] gap-1">
+          <p className="text-xs text-muted-foreground font-medium">สัดส่วน International</p>
+          <p className="text-3xl md:text-4xl font-extrabold leading-none break-all text-accent">{formatTHB(stats.intl)}</p>
+        </div>
       </div>
     </div>
   );
@@ -40,9 +46,10 @@ export default function FinancialReport() {
 function Card({ label, value, icon: Icon, tone }: { label: string; value: string; icon: typeof BarChart3; tone: string }) {
   const cls = tone === "success" ? "bg-success/15 text-success" : tone === "warning" ? "bg-warning/20 text-warning-foreground" : tone === "accent" ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary";
   return (
-    <div className="bg-card rounded-xl border p-5 shadow-soft flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${cls}`}><Icon className="w-6 h-6" /></div>
-      <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-xl font-bold truncate">{value}</p></div>
+    <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[150px] gap-2">
+      <div className={`p-2.5 rounded-lg ${cls}`}><Icon className="w-5 h-5" /></div>
+      <p className="text-xs text-muted-foreground font-medium">{label}</p>
+      <p className="text-3xl md:text-4xl font-extrabold leading-none break-all">{value}</p>
     </div>
   );
 }
