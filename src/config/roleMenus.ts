@@ -29,106 +29,198 @@ export interface MenuItem {
   tone?: MenuTone;
 }
 
+export interface MenuSection {
+  category: string;
+  items: MenuItem[];
+}
+
 export interface RoleMenu {
-  main: MenuItem[];
-  footer: MenuItem[];
+  /** Grouped sections (rendered in order) */
+  sections: MenuSection[];
+  /** Account section (My Profile etc.) — at the bottom of the scrollable list */
+  account: MenuItem[];
 }
 
 const adminMenu: RoleMenu = {
-  main: [
-    { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3, tone: "gold" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users, tone: "blue" },
-    { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-    { title: "Target Pipeline", url: "/app/targets", icon: Target },
-    { title: "Sales Mission", url: "/app/sales-mission", icon: Users2 },
-    { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-    { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
-    { title: "All Service", url: "/app/all-service", icon: PackageSearch },
-    { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
-    { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [
+        { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true },
+        { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3 },
+      ],
+    },
+    {
+      category: "CUSTOMER",
+      items: [
+        { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
+      ],
+    },
+    {
+      category: "SALES MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Target Pipeline", url: "/app/targets", icon: Target },
+        { title: "Sales Mission", url: "/app/sales-mission", icon: Users2 },
+        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
+        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "FINANCE",
+      items: [
+        { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
+        { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
+      ],
+    },
+    {
+      category: "REPORT & DATA",
+      items: [
+        { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
+      ],
+    },
   ],
-  footer: [
-    { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
+  account: [
     { title: "My Profile", url: "/app/profile", icon: UserIcon },
   ],
 };
 
 const salesManagerMenu: RoleMenu = {
-  main: [
-    { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3, tone: "gold" },
-    { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "Sales Mission", url: "/app/sales-mission", icon: Users2, tone: "blue" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
-    { title: "Target Pipeline", url: "/app/targets", icon: Target },
-    { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-    { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-    { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [
+        { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3 },
+        { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true },
+      ],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "SALES MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Target Pipeline", url: "/app/targets", icon: Target },
+        { title: "Sales Mission", url: "/app/sales-mission", icon: Users2 },
+        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
+        { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "REPORT & DATA",
+      items: [
+        { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
+      ],
+    },
   ],
-  footer: [
-    { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
 };
 
 const salesMenu: RoleMenu = {
-  main: [
-    { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users, tone: "blue" },
-    { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-    { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
-    { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
-    { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-    { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
-    { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [{ title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true }],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "SALES MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
+        { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
+        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
+        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "REPORT & DATA",
+      items: [{ title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact }],
+    },
   ],
-  footer: [
-    { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
 };
 
 const marketingMenu: RoleMenu = {
-  main: [
-    { title: "Dashboard (Marketing)", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "Campaign Management", url: "/app/campaigns", icon: Megaphone, tone: "blue" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
-    { title: "All Service", url: "/app/all-service", icon: PackageSearch },
-    { title: "Marketing Report", url: "/app/marketing-report", icon: BarChart3 },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [{ title: "Dashboard (Marketing)", url: "/app", icon: LayoutDashboard, end: true }],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "MARKETING",
+      items: [
+        { title: "Campaign Management", url: "/app/campaigns", icon: Megaphone },
+        { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "REPORT & DATA",
+      items: [{ title: "Marketing Report", url: "/app/marketing-report", icon: BarChart3 }],
+    },
   ],
-  footer: [
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
 };
 
 const coordinatorMenu: RoleMenu = {
-  main: [
-    { title: "Dashboard (Booking)", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "Booking Overview", url: "/app/booking-overview", icon: PackageSearch, tone: "blue" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
-    { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-    { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
-    { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
-    { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-    { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
-    { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [
+        { title: "Dashboard (Booking)", url: "/app", icon: LayoutDashboard, end: true },
+        { title: "Booking Overview", url: "/app/booking-overview", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "SALES MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
+        { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
+        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
+        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "All Service", url: "/app/all-service", icon: PackageSearch },
+      ],
+    },
   ],
-  footer: [
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
 };
 
 const accountingMenu: RoleMenu = {
-  main: [
-    { title: "Dashboard (Financial)", url: "/app", icon: LayoutDashboard, end: true, tone: "pink" },
-    { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
-    { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
-    { title: "Payment / Invoice", url: "/app/payment", icon: Receipt, tone: "blue" },
-    { title: "Financial Report", url: "/app/financial-report", icon: BarChart3, tone: "gold" },
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [{ title: "Dashboard (Financial)", url: "/app", icon: LayoutDashboard, end: true }],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "FINANCE",
+      items: [
+        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "Payment / Invoice", url: "/app/payment", icon: Receipt },
+        { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
+      ],
+    },
   ],
-  footer: [
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
 };
 
 export function getMenuForRole(role: AppRole): RoleMenu {
@@ -142,7 +234,6 @@ export function getMenuForRole(role: AppRole): RoleMenu {
   }
 }
 
-// Permission helpers
 export function canEditServices(role: AppRole): boolean {
   return role === "Admin" || role === "Sales Manager" || role === "Co-Ordinator" || role === "Marketing";
 }

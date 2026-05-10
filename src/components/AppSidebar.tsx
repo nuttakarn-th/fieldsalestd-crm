@@ -18,11 +18,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-function toneClasses(tone: MenuTone) {
-  if (tone === "gold") return { base: "border border-gold/40 bg-gold text-white font-semibold", active: "bg-gold text-white ring-2 ring-gold/50" };
-  if (tone === "pink") return { base: "border border-accent/40 bg-accent text-white font-semibold", active: "bg-accent text-white ring-2 ring-accent/50" };
-  if (tone === "blue") return { base: "border border-sky-500/60 bg-sky-600 text-white font-semibold", active: "bg-sky-600 text-white ring-2 ring-sky-400/60" };
-  return { base: "hover:bg-sidebar-accent/60 text-sidebar-foreground/80", active: "bg-sidebar-accent text-sidebar-primary font-semibold" };
+function toneClasses(_tone: MenuTone) {
+  // Unified design — selected item = indigo pill on light bg, all items use sidebar palette
+  return {
+    base: "rounded-lg text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
+    active: "bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-sm",
+  };
 }
 
 export function AppSidebar() {
@@ -74,25 +75,37 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="flex flex-col">
+        {menu.sections.map((section) => (
+          <SidebarGroup key={section.category}>
+            <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+              {section.category}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{section.items.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
         <SidebarGroup>
-          <SidebarGroupLabel>
-            Workspace · {effectiveRole}
-            {user.role === "Admin" && viewAsRole && <span className="ml-1 text-[10px] opacity-70">(preview)</span>}
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+            ACCOUNT
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{menu.main.map(renderItem)}</SidebarMenu>
+            <SidebarMenu>{menu.account.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <div className="mt-auto" />
 
         <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+            SYSTEM
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menu.footer.map(renderItem)}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="กลับหน้าหลัก">
-                  <NavLink to="/" className="text-sidebar-foreground/60 hover:bg-sidebar-accent/40">
+                  <NavLink to="/" className="rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                     {!collapsed && <span>กลับหน้าหลัก</span>}
                   </NavLink>
@@ -108,9 +121,10 @@ export function AppSidebar() {
           <>
             {user.role === "Admin" && (
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> ดูในมุมมอง Role
+                <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80 flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> ROLE & TEAM
                 </p>
+                <p className="text-[10px] text-sidebar-foreground/60">ในมุมมอง ROLE</p>
                 <Select
                   value={viewAsRole ?? "Admin"}
                   onValueChange={(v) => setViewAsRole(v === "Admin" ? null : (v as AppRole))}
@@ -130,7 +144,8 @@ export function AppSidebar() {
 
             {showRepSelector && (
               <div className="space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50">มุมมองข้อมูล Sales</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">TEAM VIEW</p>
+                <p className="text-[10px] text-sidebar-foreground/60">มุมมองข้อมูล SALES</p>
                 <Select value={currentRep} onValueChange={(v) => setCurrentRep(v as never)}>
                   <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-9">
                     <SelectValue />
