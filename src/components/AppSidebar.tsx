@@ -48,7 +48,7 @@ export function AppSidebar() {
     const t = toneClasses(item.tone);
     return (
       <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild tooltip={item.title}>
+        <SidebarMenuButton asChild tooltip={item.title} className="h-8 px-2 text-sm">
           <NavLink to={item.url} end={item.end} className={t.base} activeClassName={t.active}>
             <item.icon className="w-4 h-4" />
             {!collapsed && <span>{item.title}</span>}
@@ -60,51 +60,49 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
-      <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white shadow-glow shrink-0 flex items-center justify-center overflow-hidden p-1">
+      <SidebarHeader className="border-b border-sidebar-border p-3">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-lg bg-white shadow-glow shrink-0 flex items-center justify-center overflow-hidden p-0.5">
             <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="font-bold text-sidebar-foreground text-base leading-tight">Standard Tour CRM</p>
-              <p className="text-[11px] text-sidebar-foreground/60 leading-tight">Travel Sales Suite</p>
+              <p className="font-bold text-sidebar-foreground text-sm leading-tight">Standard Tour CRM</p>
+              <p className="text-[10px] text-sidebar-foreground/60 leading-tight">Travel Sales Suite</p>
             </div>
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col">
+      <SidebarContent className="flex flex-col gap-0">
         {menu.sections.map((section) => (
-          <SidebarGroup key={section.category}>
-            <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+          <SidebarGroup key={section.category} className="py-1.5">
+            <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
               {section.category}
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>{section.items.map(renderItem)}</SidebarMenu>
+              <SidebarMenu className="gap-0.5">{section.items.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+        <SidebarGroup className="py-1.5">
+          <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
             ACCOUNT
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>{menu.account.map(renderItem)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">{menu.account.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="mt-auto" />
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">
+        <SidebarGroup className="py-1.5">
+          <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
             SYSTEM
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="กลับหน้าหลัก">
+                <SidebarMenuButton asChild tooltip="กลับหน้าหลัก" className="h-8 px-2 text-sm">
                   <NavLink to="/" className="rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors">
                     <ArrowLeft className="w-4 h-4" />
                     {!collapsed && <span>กลับหน้าหลัก</span>}
@@ -116,7 +114,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3 space-y-3">
+      <SidebarFooter className="border-t border-sidebar-border p-2 space-y-2">
         {!collapsed && (
           <>
             {user.role === "Admin" && (
@@ -129,7 +127,7 @@ export function AppSidebar() {
                   value={viewAsRole ?? "Admin"}
                   onValueChange={(v) => setViewAsRole(v === "Admin" ? null : (v as AppRole))}
                 >
-                  <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-9">
+                  <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -147,7 +145,7 @@ export function AppSidebar() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">TEAM VIEW</p>
                 <p className="text-[10px] text-sidebar-foreground/60">มุมมองข้อมูล SALES</p>
                 <Select value={currentRep} onValueChange={(v) => setCurrentRep(v as never)}>
-                  <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-9">
+                  <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
