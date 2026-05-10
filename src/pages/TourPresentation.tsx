@@ -1,14 +1,15 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X } from "lucide-react";
+import { ArrowLeft, Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useSiteSettings, type SocialLink } from "@/store/siteSettingsStore";
+import { useSiteSettings, type SocialLink, type PresentationItem } from "@/store/siteSettingsStore";
 import { useCurrentUser } from "@/store/authStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
 
 const ICON_MAP: Record<string, any> = {
@@ -23,8 +24,17 @@ export default function TourPresentation() {
   const [editOpen, setEditOpen] = useState(false);
   const [profile, setProfile] = useState(settings.companyProfile);
   const [links, setLinks] = useState<SocialLink[]>(settings.socialLinks);
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [previewItem, setPreviewItem] = useState<PresentationItem | null>(null);
+  const [editingItem, setEditingItem] = useState<PresentationItem | null>(null);
+
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState<string | null>(null); // id of item being processed
+
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const coverRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const presentations = settings.presentations ?? [];
 
   const openEdit = () => {
     setProfile(settings.companyProfile);
@@ -45,42 +55,79 @@ export default function TourPresentation() {
   const addLink = () => setLinks([...links, { name: "Custom", url: "https://", tone: "bg-slate-600" }]);
   const removeLink = (i: number) => setLinks(links.filter((_, idx) => idx !== i));
 
+  const uploadFileToSupabase = async (file: File, prefix: string): Promise<string> => {
+    if (!SUPABASE_ENABLED || !supabase) throw new Error("Supabase not enabled");
+    const safeName = file.name.replace(/[^\w.\-]/g, "_");
+    const path = `${prefix}/${Date.now()}-${safeName}`;
+    const { data, error } = await supabase.storage
+      .from("presentations")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from("presentations").getPublicUrl(data.path);
+    return urlData.publicUrl;
+  };
+
   const handlePdfUpload = async (file: File | null) => {
     if (!file) return;
     if (file.type !== "application/pdf") {
       toast.error("กรุณาเลือกไฟล์ PDF เท่านั้น");
       return;
     }
-    if (!SUPABASE_ENABLED || !supabase) {
-      toast.error("Supabase ยังไม่ได้เปิดใช้");
-      return;
-    }
-    setUploading(true);
+    setUploadingPdf(true);
     try {
-      const fileName = `presentation-${Date.now()}.pdf`;
-      const { data, error } = await supabase.storage
-        .from("presentations")
-        .upload(fileName, file, { contentType: "application/pdf", upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from("presentations").getPublicUrl(data.path);
-      settings.setPdf(urlData.publicUrl, file.name);
-      toast.success("อัปโหลด PDF สำเร็จ — Sales เห็นทุกคน");
+      const pdfUrl = await uploadFileToSupabase(file, "pdf");
+      const id = `p-${Date.now()}`;
+      const newItem: PresentationItem = {
+        id,
+        title: file.name.replace(/\.pdf$/i, ""),
+        pdfUrl,
+        pdfName: file.name,
+        uploadedAt: new Date().toISOString(),
+      };
+      settings.addPresentation(newItem);
+      toast.success(`อัปโหลด ${file.name} สำเร็จ — กดอัปโหลดภาพปกถัดไป`);
     } catch (e: any) {
       console.error(e);
       toast.error(`อัปโหลด PDF ไม่สำเร็จ: ${e?.message || ""}`);
     } finally {
-      setUploading(false);
+      setUploadingPdf(false);
+      if (pdfRef.current) pdfRef.current.value = "";
     }
   };
 
-  const removePdf = () => {
-    settings.setPdf(undefined, undefined);
-    toast.success("ลบ PDF แล้ว");
+  const handleCoverUpload = async (id: string, file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("กรุณาเลือกไฟล์รูปภาพ");
+      return;
+    }
+    setUploadingCover(id);
+    try {
+      // Compress before upload
+      const compressed = await compressImage(file, { maxWidth: 1200, maxSizeKB: 400 });
+      const blob = await fetch(compressed.dataUrl).then((r) => r.blob());
+      const coverFile = new File([blob], `cover-${id}.jpg`, { type: blob.type || "image/jpeg" });
+      const coverUrl = await uploadFileToSupabase(coverFile, "covers");
+      settings.updatePresentation(id, { coverUrl });
+      toast.success("อัปโหลดภาพปกสำเร็จ");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`อัปโหลดภาพปกไม่สำเร็จ: ${e?.message || ""}`);
+    } finally {
+      setUploadingCover(null);
+      if (coverRefs.current[id]) coverRefs.current[id]!.value = "";
+    }
+  };
+
+  const removeItem = (item: PresentationItem) => {
+    if (!confirm(`ลบ "${item.title}" ?`)) return;
+    settings.removePresentation(item.id);
+    toast.success("ลบเอกสารแล้ว");
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
-      <header className="px-6 py-6 max-w-5xl mx-auto flex items-center gap-3">
+      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Standard Tour Presentation</h1>
@@ -88,12 +135,12 @@ export default function TourPresentation() {
         </div>
         {isAdmin && (
           <Button variant="outline" onClick={openEdit}>
-            <Edit3 className="w-4 h-4 mr-2" /> แก้ไข (Admin)
+            <Edit3 className="w-4 h-4 mr-2" /> แก้ไขข้อมูลทั่วไป
           </Button>
         )}
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 pb-16 space-y-6">
+      <main className="max-w-6xl mx-auto px-6 pb-16 space-y-6">
         <section className="rounded-3xl bg-card border shadow-soft p-6">
           <h2 className="text-xl font-bold mb-2">Company Profile</h2>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
@@ -107,51 +154,96 @@ export default function TourPresentation() {
           </div>
         </section>
 
-        {/* PDF Section */}
+        {/* Presentations Section */}
         <section className="rounded-3xl bg-card border shadow-soft p-6">
-          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" /> เอกสารนำเสนอ (PDF)
+              <FileText className="w-5 h-5 text-primary" /> เอกสารนำเสนอ ({presentations.length})
             </h2>
             {isAdmin && (
-              <div className="flex gap-2">
-                <input ref={fileRef} type="file" accept="application/pdf" hidden onChange={(e) => handlePdfUpload(e.target.files?.[0] ?? null)} />
-                <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                  <Upload className="w-4 h-4 mr-1" /> {uploading ? "กำลังอัปโหลด..." : settings.presentationPdfUrl ? "เปลี่ยน PDF" : "อัปโหลด PDF"}
+              <>
+                <input ref={pdfRef} type="file" accept="application/pdf" hidden onChange={(e) => handlePdfUpload(e.target.files?.[0] ?? null)} />
+                <Button onClick={() => pdfRef.current?.click()} disabled={uploadingPdf} className="bg-gradient-primary text-primary-foreground">
+                  <Upload className="w-4 h-4 mr-2" /> {uploadingPdf ? "กำลังอัปโหลด..." : "+ เพิ่ม PDF"}
                 </Button>
-                {settings.presentationPdfUrl && (
-                  <Button size="sm" variant="ghost" onClick={removePdf}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                )}
-              </div>
+              </>
             )}
           </div>
 
-          {settings.presentationPdfUrl ? (
-            <div className="space-y-3">
-              <div className="rounded-xl border overflow-hidden bg-muted/30 aspect-[4/3]">
-                <iframe src={settings.presentationPdfUrl} className="w-full h-full" title="Tour Presentation" />
-              </div>
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2 text-sm">
-                  <FileText className="w-4 h-4 text-primary" />
-                  <span className="font-medium">{settings.presentationPdfName ?? "Tour Presentation.pdf"}</span>
-                </div>
-                <a href={settings.presentationPdfUrl} download target="_blank" rel="noreferrer">
-                  <Button size="sm" className="bg-gradient-primary text-primary-foreground">
-                    <Download className="w-4 h-4 mr-2" /> ดาวน์โหลด PDF
-                  </Button>
-                </a>
-              </div>
-            </div>
-          ) : (
+          {presentations.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed p-10 text-center bg-muted/20">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-              <p className="font-medium">ยังไม่มีเอกสารนำเสนอ</p>
+              <p className="font-medium">ยังไม่มีเอกสาร</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {isAdmin ? "กดปุ่ม 'อัปโหลด PDF' ด้านบน" : "Admin จะอัปโหลดเอกสารให้ Sales เห็นที่นี่"}
+                {isAdmin ? "กดปุ่ม '+ เพิ่ม PDF' เพื่อเริ่มอัปโหลด" : "Admin จะอัปโหลดเอกสารให้เห็นที่นี่"}
               </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {presentations.map((item) => (
+                <article key={item.id} className="rounded-2xl border overflow-hidden bg-background flex flex-col group">
+                  {/* Cover */}
+                  <div className="relative aspect-[4/3] bg-muted/40 overflow-hidden">
+                    {item.coverUrl ? (
+                      <img src={item.coverUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-gradient-to-br from-muted to-muted/40">
+                        <FileText className="w-12 h-12 mb-1" />
+                        <span className="text-xs">ยังไม่มีภาพปก</span>
+                      </div>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <input
+                          ref={(el) => { coverRefs.current[item.id] = el; }}
+                          type="file" accept="image/*" hidden
+                          onChange={(e) => handleCoverUpload(item.id, e.target.files?.[0] ?? null)}
+                        />
+                        <button
+                          onClick={() => coverRefs.current[item.id]?.click()}
+                          disabled={uploadingCover === item.id}
+                          title="เปลี่ยนภาพปก"
+                          className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:scale-105 transition opacity-0 group-hover:opacity-100"
+                        >
+                          {uploadingCover === item.id ? <span className="text-[10px]">...</span> : <ImageIcon className="w-4 h-4" />}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-semibold line-clamp-2 mb-1">{item.title}</h3>
+                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                      <FileText className="w-3 h-3" /> {item.pdfName}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {new Date(item.uploadedAt).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" })}
+                    </p>
+
+                    <div className="mt-auto pt-3 flex gap-2">
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => setPreviewItem(item)}>
+                        <Eye className="w-4 h-4 mr-1" /> ดู
+                      </Button>
+                      <a href={item.pdfUrl} download={item.pdfName} target="_blank" rel="noreferrer" className="flex-1">
+                        <Button size="sm" className="w-full bg-gradient-primary text-primary-foreground">
+                          <Download className="w-4 h-4 mr-1" /> ดาวน์โหลด
+                        </Button>
+                      </a>
+                      {isAdmin && (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => setEditingItem(item)} title="แก้ไขชื่อ">
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => removeItem(item)} title="ลบ">
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
@@ -173,11 +265,66 @@ export default function TourPresentation() {
         </section>
       </main>
 
-      {/* Admin Edit Dialog */}
+      {/* Preview PDF Dialog */}
+      <Dialog open={!!previewItem} onOpenChange={(o) => !o && setPreviewItem(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> {previewItem?.title}</DialogTitle>
+          </DialogHeader>
+          {previewItem && (
+            <div className="flex-1 overflow-hidden rounded-lg border min-h-[60vh]">
+              <iframe src={previewItem.pdfUrl} className="w-full h-full" title={previewItem.title} />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewItem(null)}>ปิด</Button>
+            {previewItem && (
+              <a href={previewItem.pdfUrl} download={previewItem.pdfName} target="_blank" rel="noreferrer">
+                <Button className="bg-gradient-primary text-primary-foreground">
+                  <Download className="w-4 h-4 mr-2" /> ดาวน์โหลด
+                </Button>
+              </a>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Item Title Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={(o) => !o && setEditingItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>แก้ไขชื่อเอกสาร</DialogTitle></DialogHeader>
+          {editingItem && (
+            <div className="space-y-3">
+              <Label>ชื่อเอกสาร</Label>
+              <Input
+                value={editingItem.title}
+                onChange={(e) => setEditingItem({ ...editingItem, title: e.target.value })}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingItem(null)}>ยกเลิก</Button>
+            <Button
+              className="bg-gradient-primary text-primary-foreground"
+              onClick={() => {
+                if (editingItem) {
+                  settings.updatePresentation(editingItem.id, { title: editingItem.title.trim() || "(ไม่มีชื่อ)" });
+                  toast.success("บันทึกแล้ว");
+                  setEditingItem(null);
+                }
+              }}
+            >
+              <Save className="w-4 h-4 mr-1" /> บันทึก
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Edit Dialog (general info) */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle>แก้ไขข้อมูล Tour Presentation (Admin)</DialogTitle>
+            <DialogTitle>แก้ไขข้อมูลทั่วไป (Admin)</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>

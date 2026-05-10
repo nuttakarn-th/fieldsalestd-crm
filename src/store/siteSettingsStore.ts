@@ -4,11 +4,21 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 export interface SocialLink { name: string; url: string; tone: string }
 export interface PhoneEntry { label: string; num: string }
+export interface PresentationItem {
+  id: string;
+  title: string;
+  pdfUrl: string;
+  pdfName: string;
+  coverUrl?: string;
+  uploadedAt: string;
+}
 
 interface State {
   // Tour Presentation
   companyProfile: string;
   socialLinks: SocialLink[];
+  presentations: PresentationItem[];
+  // Legacy single-file fields kept for backward compat
   presentationPdfUrl?: string;
   presentationPdfName?: string;
   // Contact Info
@@ -24,6 +34,10 @@ interface State {
   setProfile: (v: string) => void;
   setSocial: (l: SocialLink[]) => void;
   setPdf: (url?: string, name?: string) => void;
+  setPresentations: (list: PresentationItem[]) => void;
+  addPresentation: (p: PresentationItem) => void;
+  updatePresentation: (id: string, patch: Partial<PresentationItem>) => void;
+  removePresentation: (id: string) => void;
   setContact: (patch: Partial<Pick<State, "lineId" | "lineUrl" | "workingHours" | "phones" | "hqAddress" | "bkkAddress" | "taxId" | "license">>) => void;
 
   loadFromSupabase: () => Promise<void>;
@@ -50,6 +64,7 @@ const DEFAULT_PHONES: PhoneEntry[] = [
 const DEFAULTS = {
   companyProfile: "บริษัท สแตนดาร์ดทัวร์ จำกัด ผู้นำด้านบริการท่องเที่ยวคุณภาพ ทั้งทัวร์ในประเทศและต่างประเทศ จองตั๋วเครื่องบิน และเช่ารถเดินทาง ดำเนินงานด้วยทีมมืออาชีพ พร้อมบริการลูกค้าระดับพรีเมียม",
   socialLinks: DEFAULT_SOCIAL,
+  presentations: [] as PresentationItem[],
   presentationPdfUrl: undefined,
   presentationPdfName: undefined,
   lineId: "@standardtour",
@@ -67,6 +82,7 @@ function snapshot(s: State) {
   return {
     companyProfile: s.companyProfile,
     socialLinks: s.socialLinks,
+    presentations: s.presentations,
     presentationPdfUrl: s.presentationPdfUrl,
     presentationPdfName: s.presentationPdfName,
     lineId: s.lineId,
@@ -86,6 +102,13 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
   setProfile: (v) => { set({ companyProfile: v }); get().saveToSupabase(); },
   setSocial: (l) => { set({ socialLinks: l }); get().saveToSupabase(); },
   setPdf: (url, name) => { set({ presentationPdfUrl: url, presentationPdfName: name }); get().saveToSupabase(); },
+  setPresentations: (list) => { set({ presentations: list }); get().saveToSupabase(); },
+  addPresentation: (p) => { set({ presentations: [...get().presentations, p] }); get().saveToSupabase(); },
+  updatePresentation: (id, patch) => {
+    set({ presentations: get().presentations.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+    get().saveToSupabase();
+  },
+  removePresentation: (id) => { set({ presentations: get().presentations.filter((x) => x.id !== id) }); get().saveToSupabase(); },
   setContact: (patch) => { set(patch as never); get().saveToSupabase(); },
 
   loadFromSupabase: async () => {
@@ -100,7 +123,18 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
       if (data?.payload && Object.keys(data.payload).length > 0) {
         // eslint-disable-next-line no-console
         console.info("[supabase] โหลด site settings จาก DB");
-        set(data.payload as Partial<State>);
+        const payload = data.payload as Partial<State>;
+        // Migrate legacy single-file pdf to multi-file presentations array
+        if ((!payload.presentations || payload.presentations.length === 0) && payload.presentationPdfUrl) {
+          payload.presentations = [{
+            id: `legacy-${Date.now()}`,
+            title: payload.presentationPdfName ?? "Tour Presentation",
+            pdfUrl: payload.presentationPdfUrl,
+            pdfName: payload.presentationPdfName ?? "presentation.pdf",
+            uploadedAt: new Date().toISOString(),
+          }];
+        }
+        set(payload);
       }
     } catch (e) {
       // eslint-disable-next-line no-console
