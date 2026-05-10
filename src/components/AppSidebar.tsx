@@ -86,14 +86,16 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
 
-        <SidebarGroup className="py-1.5">
-          <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
-            ACCOUNT
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">{menu.account.map(renderItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {menu.account.length > 0 && (
+          <SidebarGroup className="py-1.5">
+            <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
+              ACCOUNT
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-0.5">{menu.account.map(renderItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         <SidebarGroup className="py-1.5">
           <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">

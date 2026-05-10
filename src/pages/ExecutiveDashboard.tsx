@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { BarChart3, TrendingUp, Building2, Landmark, GraduationCap, School, Filter, Trophy } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
-  LineChart, Line, PieChart, Pie, Cell,
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ComposedChart,
 } from "recharts";
 import { useCRM, formatTHB, LEAD_CATEGORIES, type LeadCategory, type SalesRep } from "@/store/crmStore";
 import { useActiveSalesNames } from "@/store/authStore";
@@ -234,29 +234,53 @@ export default function ExecutiveDashboard() {
             <p className="text-xs font-semibold text-muted-foreground mb-1">ยอดขาย (THB)</p>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={overview}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => formatTHB(v)} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <defs>
+                  <linearGradient id="barDom" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.45} />
+                  </linearGradient>
+                  <linearGradient id="barIntl" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={1} />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.45} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: number) => formatTHB(v)} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Domestic" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="International" stackId="a" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Domestic" stackId="a" fill="url(#barDom)" radius={[0, 0, 8, 8]} />
+                <Bar dataKey="International" stackId="a" fill="url(#barIntl)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
           <div className="h-72">
             <p className="text-xs font-semibold text-muted-foreground mb-1">จำนวน Pax (ท่าน)</p>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={overview}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+              <AreaChart data={overview} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="paxTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="paxDom" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="paxIntl" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="Pax_รวม" stroke="hsl(var(--gold))" strokeWidth={3} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Pax_Dom" stroke="hsl(var(--primary))" strokeWidth={2} />
-                <Line type="monotone" dataKey="Pax_Intl" stroke="hsl(var(--accent))" strokeWidth={2} />
-              </LineChart>
+                <Area type="monotone" dataKey="Pax_รวม" stroke="hsl(var(--primary))" strokeWidth={3} fill="url(#paxTotal)" dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                <Area type="monotone" dataKey="Pax_Dom" stroke="hsl(var(--accent))" strokeWidth={2} fill="url(#paxDom)" />
+                <Area type="monotone" dataKey="Pax_Intl" stroke="hsl(var(--gold))" strokeWidth={2} fill="url(#paxIntl)" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -273,19 +297,27 @@ export default function ExecutiveDashboard() {
         </header>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={perRep}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => formatTHB(v)} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+            <ComposedChart data={perRep}>
+              <defs>
+                {SALES_REPS.map((rep, i) => (
+                  <linearGradient key={`g-${rep}`} id={`rep-${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={PALETTE[i]} stopOpacity={0.9} />
+                    <stop offset="100%" stopColor={PALETTE[i]} stopOpacity={0.3} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: number) => formatTHB(v)} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {SALES_REPS.map((rep, i) => (
-                <Bar key={rep} dataKey={rep} fill={PALETTE[i]} radius={[4, 4, 0, 0]} />
+                <Bar key={rep} dataKey={rep} fill={`url(#rep-${i})`} radius={[8, 8, 0, 0]} />
               ))}
               {SALES_REPS.map((rep, i) => (
                 <Line key={`t-${rep}`} type="monotone" dataKey={`เป้า ${rep}`} stroke={PALETTE[i]} strokeDasharray="5 5" strokeWidth={2} dot={false} />
               ))}
-            </BarChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </section>

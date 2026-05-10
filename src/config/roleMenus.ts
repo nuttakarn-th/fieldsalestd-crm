@@ -81,9 +81,7 @@ const adminMenu: RoleMenu = {
       ],
     },
   ],
-  account: [
-    { title: "My Profile", url: "/app/profile", icon: UserIcon },
-  ],
+  account: [],
 };
 
 const salesManagerMenu: RoleMenu = {
@@ -116,7 +114,7 @@ const salesManagerMenu: RoleMenu = {
       ],
     },
   ],
-  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
+  account: [],
 };
 
 const salesMenu: RoleMenu = {
@@ -145,7 +143,7 @@ const salesMenu: RoleMenu = {
       items: [{ title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact }],
     },
   ],
-  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
+  account: [],
 };
 
 const marketingMenu: RoleMenu = {
@@ -170,7 +168,7 @@ const marketingMenu: RoleMenu = {
       items: [{ title: "Marketing Report", url: "/app/marketing-report", icon: BarChart3 }],
     },
   ],
-  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
+  account: [],
 };
 
 const coordinatorMenu: RoleMenu = {
@@ -198,7 +196,7 @@ const coordinatorMenu: RoleMenu = {
       ],
     },
   ],
-  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
+  account: [],
 };
 
 const accountingMenu: RoleMenu = {
@@ -220,7 +218,7 @@ const accountingMenu: RoleMenu = {
       ],
     },
   ],
-  account: [{ title: "My Profile", url: "/app/profile", icon: UserIcon }],
+  account: [],
 };
 
 export function getMenuForRole(role: AppRole): RoleMenu {
