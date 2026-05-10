@@ -4,6 +4,7 @@
 
 /* Field sale CRM — purple/pink/gold palette, Kanit font */
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
@@ -131,6 +132,7 @@
 }
 
 @layer utilities {
+  .font-inter { font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.03em; }
   .bg-gradient-primary { background: var(--gradient-primary); }
   .bg-gradient-hero { background: var(--gradient-hero); }
   .bg-gradient-coral { background: var(--gradient-coral); }
