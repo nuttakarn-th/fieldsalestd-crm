@@ -458,8 +458,28 @@ export const useCRM = create<CRMState>((set, get) => ({
     }
   },
   addChatMessage: (msg) => {
-    const id = `m${Date.now()}`;
-    set({ chatMessages: [...get().chatMessages, { ...msg, id, created_at: new Date().toISOString() }] });
+    // Use crypto.randomUUID() so we have a real uuid that matches Supabase schema
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const created_at = new Date().toISOString();
+    const newMsg: ChatMessage = { ...msg, id, created_at };
+    set({ chatMessages: [...get().chatMessages, newMsg] });
+    if (SUPABASE_ENABLED && supabase) {
+      // image_url can be very large (data URL) — keep it for MVP
+      const row = {
+        id,
+        author: newMsg.author,
+        text: newMsg.text,
+        reply_to: newMsg.reply_to ?? null,
+        mentions: newMsg.mentions ?? null,
+        image_url: newMsg.image_url ?? null,
+        created_at,
+      };
+      supabase.from("chat_messages").insert(row).then(({ error }) => {
+        if (error) console.error("[supabase] insert chat ล้มเหลว:", error);
+      });
+    }
   },
   markNotificationsRead: () => set({ teamNotifications: get().teamNotifications.map((n) => ({ ...n, read: true })) }),
   setCurrentRep: (r) => set({ currentRep: r }),
@@ -489,12 +509,13 @@ export const useCRM = create<CRMState>((set, get) => ({
   loadAllFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
-      const [customers, leads, targets, quotations, routes] = await Promise.all([
+      const [customers, leads, targets, quotations, routes, chats] = await Promise.all([
         supabase.from("customers").select("*").order("created_at", { ascending: false }),
         supabase.from("leads").select("*"),
         supabase.from("monthly_targets").select("*"),
         supabase.from("quotations").select("*").order("created_at", { ascending: false }),
         supabase.from("route_plans").select("*, route_stops (*)").order("date", { ascending: false }),
+        supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
       ]);
       const updates: Partial<CRMState> = {};
       const loadedSummary: string[] = [];
@@ -520,6 +541,10 @@ export const useCRM = create<CRMState>((set, get) => ({
           stops: (r.route_stops || []).sort((a: RouteStop, b: RouteStop) => a.seq - b.seq),
         })) as RoutePlan[];
         loadedSummary.push(`routes ${routes.data.length}`);
+      }
+      if (chats.data && chats.data.length > 0) {
+        updates.chatMessages = chats.data as ChatMessage[];
+        loadedSummary.push(`chats ${chats.data.length}`);
       }
       if (Object.keys(updates).length > 0) {
         // eslint-disable-next-line no-console

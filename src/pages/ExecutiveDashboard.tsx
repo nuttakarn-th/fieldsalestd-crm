@@ -432,10 +432,10 @@ function KPI({ label, value, tone, highlight }: { label: string; value: string; 
     : tone === "gold" ? "bg-gold/15 text-gold-foreground"
     : "bg-muted text-foreground";
   return (
-    <div className={`rounded-xl border p-4 shadow-soft ${highlight ? "bg-gradient-gold text-gold-foreground border-gold/40" : "bg-card"}`}>
+    <div className={`rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] ${highlight ? "bg-gradient-gold text-gold-foreground border-gold/40" : "bg-card"}`}>
       <p className={`text-xs font-medium ${highlight ? "text-gold-foreground/80" : "text-muted-foreground"}`}>{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {!highlight && <span className={`inline-block mt-2 px-2 py-0.5 rounded-md text-[10px] ${toneClass}`}>{tone === "gold" ? "Highlight" : "Live"}</span>}
+      <p className="text-3xl md:text-4xl font-extrabold mt-2 leading-none">{value}</p>
+      {!highlight && <span className={`inline-block mt-3 px-2 py-0.5 rounded-md text-[10px] ${toneClass}`}>{tone === "gold" ? "Highlight" : "Live"}</span>}
     </div>
   );
 }
