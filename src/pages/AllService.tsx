@@ -73,19 +73,60 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({
     category: "Outbound" as TourCategory,
-    code: "", city: "", country: "", period: "", duration: "", price_per_seat: 0, note: "", quota: 0,
+    code: "", city: "", country: "", period: "",
+    days: "" as string, nights: "" as string,
+    price_per_seat: "" as string,
+    note: "",
+    quota: "" as string,
   });
 
-  const openAdd = () => { setEditId(null); setForm({ category: "Outbound", code: "", city: "", country: "", period: "", duration: "", price_per_seat: 0, note: "", quota: 0 }); setOpen(true); };
+  const blankForm = () => ({
+    category: "Outbound" as TourCategory,
+    code: "", city: "", country: "", period: "",
+    days: "", nights: "",
+    price_per_seat: "",
+    note: "",
+    quota: "",
+  });
+
+  // Parse "4 วัน 3 คืน" → { days: "4", nights: "3" }
+  const parseDuration = (s: string): { days: string; nights: string } => {
+    const dMatch = s.match(/(\d+)\s*วัน/);
+    const nMatch = s.match(/(\d+)\s*คืน/);
+    return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
+  };
+
+  const openAdd = () => { setEditId(null); setForm(blankForm()); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
-    setForm({ category: t.category, code: t.code, city: t.city, country: t.country, period: t.period, duration: t.duration, price_per_seat: t.price_per_seat, note: t.note ?? "", quota: t.quota });
+    const dur = parseDuration(t.duration);
+    setForm({
+      category: t.category, code: t.code, city: t.city, country: t.country, period: t.period,
+      days: dur.days, nights: dur.nights,
+      price_per_seat: String(t.price_per_seat),
+      note: t.note ?? "",
+      quota: String(t.quota),
+    });
     setOpen(true);
   };
   const submit = () => {
     if (!form.code || !form.city) { toast.error("กรุณากรอกรหัสและชื่อเมือง"); return; }
-    if (editId) updateTour(editId, form); else addTour(form);
+    const days = Number(form.days || 0);
+    const nights = Number(form.nights || 0);
+    const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
+    const payload = {
+      category: form.category,
+      code: form.code,
+      city: form.city,
+      country: form.country,
+      period: form.period,
+      duration,
+      price_per_seat: Number(form.price_per_seat || 0),
+      note: form.note,
+      quota: Number(form.quota || 0),
+    };
+    if (editId) updateTour(editId, payload); else addTour(payload);
     toast.success(editId ? "อัปเดตทัวร์แล้ว" : "เพิ่มทัวร์ใหม่แล้ว");
     setOpen(false);
   };
@@ -156,14 +197,22 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={form.quota} onChange={(e) => setForm({ ...form, quota: Number(e.target.value) })} /></div>
-              <div><label className="text-xs font-semibold">ชื่อเมือง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+              <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="HQO-KMG04-DR" /></div>
+              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} placeholder="เช่น 24" /></div>
+              <div><label className="text-xs font-semibold">ชื่อเมือง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="คุนหมิง โหลวผิง" /></div>
+              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="จีน" /></div>
               <div><label className="text-xs font-semibold">ช่วงเวลา</label><Input value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })} placeholder="15-18 มี.ค. 2026" /></div>
-              <div><label className="text-xs font-semibold">ระยะเวลา</label><Input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="4 วัน 3 คืน" /></div>
-              <div><label className="text-xs font-semibold">ราคา/ที่นั่ง</label><Input type="number" value={form.price_per_seat} onChange={(e) => setForm({ ...form, price_per_seat: Number(e.target.value) })} /></div>
-              <div><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
+              <div>
+                <label className="text-xs font-semibold">ระยะเวลา</label>
+                <div className="flex items-center gap-1.5">
+                  <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="4" className="w-full" />
+                  <span className="text-xs text-muted-foreground shrink-0">วัน</span>
+                  <Input type="number" min={0} value={form.nights} onChange={(e) => setForm({ ...form, nights: e.target.value })} placeholder="3" className="w-full" />
+                  <span className="text-xs text-muted-foreground shrink-0">คืน</span>
+                </div>
+              </div>
+              <div><label className="text-xs font-semibold">ราคา/ที่นั่ง</label><Input type="number" min={0} value={form.price_per_seat} onChange={(e) => setForm({ ...form, price_per_seat: e.target.value })} placeholder="25900" /></div>
+              <div><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ซากุระบาน" /></div>
             </div>
           </div>
           <DialogFooter>
@@ -185,18 +234,19 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "", total_seats: 4, rate_per_day: 0, seat_material: "ผ้า" as SeatMaterial, note: "", quota: 0 });
+  const [form, setForm] = useState({ name: "", type: "", total_seats: "" as string, rate_per_day: "" as string, seat_material: "ผ้า" as SeatMaterial, note: "", quota: "" as string });
 
-  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: 4, rate_per_day: 0, seat_material: "ผ้า", note: "", quota: 0 }); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า", note: "", quota: "" }); setOpen(true); };
   const openEdit = (id: string) => {
     const c = cars.find((x) => x.id === id); if (!c) return;
     setEditId(id);
-    setForm({ name: c.name, type: c.type, total_seats: c.total_seats, rate_per_day: c.rate_per_day, seat_material: c.seat_material, note: c.note ?? "", quota: c.quota });
+    setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), rate_per_day: String(c.rate_per_day), seat_material: c.seat_material, note: c.note ?? "", quota: String(c.quota) });
     setOpen(true);
   };
   const submit = () => {
     if (!form.name) { toast.error("กรุณากรอกชื่อรถ"); return; }
-    if (editId) updateCar(editId, form); else addCar(form);
+    const payload = { name: form.name, type: form.type, total_seats: Number(form.total_seats || 0), rate_per_day: Number(form.rate_per_day || 0), seat_material: form.seat_material, note: form.note, quota: Number(form.quota || 0) };
+    if (editId) updateCar(editId, payload); else addCar(payload);
     toast.success(editId ? "อัปเดตแล้ว" : "เพิ่มรถใหม่แล้ว"); setOpen(false);
   };
 
@@ -248,10 +298,10 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editId ? "แก้ไขรถ" : "เพิ่มรถใหม่"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="text-xs font-semibold">ชื่อรถ</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div><label className="text-xs font-semibold">ชื่อรถ</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Toyota Commuter" /></div>
             <div><label className="text-xs font-semibold">ประเภท</label><Input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="SUV / Van / Sedan" /></div>
-            <div><label className="text-xs font-semibold">ที่นั่ง</label><Input type="number" value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: Number(e.target.value) })} /></div>
-            <div><label className="text-xs font-semibold">ราคา/วัน</label><Input type="number" value={form.rate_per_day} onChange={(e) => setForm({ ...form, rate_per_day: Number(e.target.value) })} /></div>
+            <div><label className="text-xs font-semibold">ที่นั่ง</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="12" /></div>
+            <div><label className="text-xs font-semibold">ราคา/วัน</label><Input type="number" min={0} value={form.rate_per_day} onChange={(e) => setForm({ ...form, rate_per_day: e.target.value })} placeholder="2500" /></div>
             <div>
               <label className="text-xs font-semibold">ประเภทเบาะ</label>
               <Select value={form.seat_material} onValueChange={(v) => setForm({ ...form, seat_material: v as SeatMaterial })}>
@@ -259,7 +309,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                 <SelectContent>{SEAT_MATS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={form.quota} onChange={(e) => setForm({ ...form, quota: Number(e.target.value) })} /></div>
+            <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} placeholder="5" /></div>
             <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
           </div>
           <DialogFooter>
@@ -297,10 +347,10 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteFlight);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ airline: "", route: "", note: "", quota: 0 });
-  const openAdd = () => { setEditId(null); setF({ airline: "", route: "", note: "", quota: 0 }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ airline: x.airline, route: x.route, note: x.note ?? "", quota: x.quota }); setOpen(true); };
-  const submit = () => { if (!f.airline) { toast.error("ใส่ชื่อสายการบิน"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ airline: "", route: "", note: "", quota: "" as string });
+  const openAdd = () => { setEditId(null); setF({ airline: "", route: "", note: "", quota: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ airline: x.airline, route: x.route, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
+  const submit = () => { if (!f.airline) { toast.error("ใส่ชื่อสายการบิน"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
   return (
     <SimpleTable
       title="ตั๋วเครื่องบิน"
@@ -314,7 +364,7 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><label className="text-xs font-semibold">สายการบิน</label><Input value={f.airline} onChange={(e) => setF({ ...f, airline: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">เส้นทาง</label><Input value={f.route} onChange={(e) => setF({ ...f, route: e.target.value })} placeholder="BKK-HND" /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={f.quota} onChange={(e) => setF({ ...f, quota: Number(e.target.value) })} /></div>
+              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="50" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
@@ -332,10 +382,10 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteHotel);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ name: "", city: "", country: "", note: "", quota: 0 });
-  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "", quota: 0 }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "", quota: x.quota }); setOpen(true); };
-  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ name: "", city: "", country: "", note: "", quota: "" as string });
+  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "", quota: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
+  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
   return (
     <SimpleTable
       title="โรงแรม"
@@ -350,7 +400,7 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
               <div className="col-span-2"><label className="text-xs font-semibold">ชื่อโรงแรม</label><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">เมือง</label><Input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={f.quota} onChange={(e) => setF({ ...f, quota: Number(e.target.value) })} /></div>
+              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="30" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
@@ -368,10 +418,10 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteVisa);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "", quota: 0 });
-  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "", quota: 0 }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "", quota: x.quota }); setOpen(true); };
-  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "", quota: "" as string });
+  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "", quota: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
+  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
   const VISA_DESC: Record<VisaType, string> = {
     "TR": "วีซ่าท่องเที่ยว",
     "TS": "วีซ่าผ่านทาง",
@@ -400,7 +450,7 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
                 </Select>
               </div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={f.quota} onChange={(e) => setF({ ...f, quota: Number(e.target.value) })} /></div>
+              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="100" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
@@ -418,10 +468,10 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteInsurance);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ plan_name: "", coverage: "", price: 0, note: "", quota: 0 });
-  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: 0, note: "", quota: 0 }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: x.price, note: x.note ?? "", quota: x.quota }); setOpen(true); };
-  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ plan_name: "", coverage: "", price: "" as string, note: "", quota: "" as string });
+  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "", quota: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
+  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0), quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
   return (
     <SimpleTable
       title="ประกันการเดินทาง"
@@ -434,9 +484,9 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
             <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}ประกัน</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2"><label className="text-xs font-semibold">ชื่อแผน</label><Input value={f.plan_name} onChange={(e) => setF({ ...f, plan_name: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">วงเงิน</label><Input value={f.coverage} onChange={(e) => setF({ ...f, coverage: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">ราคา</label><Input type="number" value={f.price} onChange={(e) => setF({ ...f, price: Number(e.target.value) })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" value={f.quota} onChange={(e) => setF({ ...f, quota: Number(e.target.value) })} /></div>
+              <div><label className="text-xs font-semibold">วงเงิน</label><Input value={f.coverage} onChange={(e) => setF({ ...f, coverage: e.target.value })} placeholder="1,000,000 THB" /></div>
+              <div><label className="text-xs font-semibold">ราคา</label><Input type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="350" /></div>
+              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="200" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
