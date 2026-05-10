@@ -74,35 +74,13 @@ interface ServiceState {
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-const seedTours: TourItem[] = [
-  { id: uid(), category: "Outbound", code: "HQO-KMG04-DR", city: "คุนหมิง โหลวผิง", country: "จีน", period: "15-18 มี.ค. 2026", duration: "4 วัน 3 คืน", price_per_seat: 25900, note: "ซากุระบาน", quota: 24 },
-  { id: uid(), category: "Outbound", code: "HQO-CKG01-PN", city: "ฉงชิ่ง ต้าจู๋", country: "จีน", period: "10-13 เม.ย. 2026", duration: "4 วัน 3 คืน", price_per_seat: 27900, quota: 20 },
-  { id: uid(), category: "Domestic", code: "DOM-CNX01", city: "เชียงใหม่ ปาย", country: "ไทย", period: "ทุกสัปดาห์", duration: "3 วัน 2 คืน", price_per_seat: 6900, quota: 30 },
-  { id: uid(), category: "Incentive", code: "INC-PUKET01", city: "ภูเก็ต", country: "ไทย", period: "พ.ค. 2026", duration: "4 วัน 3 คืน", price_per_seat: 18500, note: "Incentive องค์กร 50+ ท่าน", quota: 80 },
-];
-
-const seedCars: CarItem[] = [
-  { id: uid(), name: "Toyota Commuter", type: "Van", total_seats: 12, rate_per_day: 2500, seat_material: "หนัง", quota: 5 },
-  { id: uid(), name: "Toyota Camry", type: "Sedan", total_seats: 4, rate_per_day: 2200, seat_material: "หนัง", quota: 3 },
-  { id: uid(), name: "Honda CR-V", type: "SUV", total_seats: 5, rate_per_day: 2400, seat_material: "ผ้า", quota: 4 },
-];
-
-const seedFlights: FlightItem[] = [
-  { id: uid(), airline: "Thai Airways", route: "BKK-HND", quota: 50 },
-  { id: uid(), airline: "Bangkok Airways", route: "BKK-CNX", quota: 80 },
-];
-const seedHotels: HotelItem[] = [
-  { id: uid(), name: "Centara Grand", city: "Bangkok", country: "Thailand", quota: 30 },
-  { id: uid(), name: "Shangri-La", city: "Chiang Mai", country: "Thailand", quota: 20 },
-];
-const seedVisas: VisaItem[] = [
-  { id: uid(), visa_type: "TR", country: "Japan", quota: 100 },
-  { id: uid(), visa_type: "Non-Immigrant", country: "China", quota: 40 },
-];
-const seedInsurances: InsuranceItem[] = [
-  { id: uid(), plan_name: "Silver Travel", coverage: "1,000,000 THB", price: 350, quota: 200 },
-  { id: uid(), plan_name: "Gold Travel", coverage: "3,000,000 THB", price: 850, quota: 200 },
-];
+// Mockup seed cleared — Admin เพิ่มข้อมูลจริงผ่านหน้า All Service
+const seedTours: TourItem[] = [];
+const seedCars: CarItem[] = [];
+const seedFlights: FlightItem[] = [];
+const seedHotels: HotelItem[] = [];
+const seedVisas: VisaItem[] = [];
+const seedInsurances: InsuranceItem[] = [];
 
 export const useServices = create<ServiceState>()(
   persist(
@@ -151,6 +129,6 @@ export const useServices = create<ServiceState>()(
         }
       },
     }),
-    { name: "stdtour-services-v1" },
+    { name: "stdtour-services-v2" },
   ),
 );

@@ -8,10 +8,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  useCRM, SOURCES, BU_TYPES, INT_PROGRAMS, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
+  useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
   type Source, type SalesRep, type BUType, type Urgency, type LeadCategory,
 } from "@/store/crmStore";
 import { useActiveSalesNames } from "@/store/authStore";
+import { useServices } from "@/store/serviceStore";
 
 export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const customers = useCRM((s) => s.customers);
@@ -19,6 +20,10 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
   const addCustomer = useCRM((s) => s.addCustomer);
   const updateCustomer = useCRM((s) => s.updateCustomer);
   const addLead = useCRM((s) => s.addLead);
+
+  const tours = useServices((s) => s.tours);
+  const cars = useServices((s) => s.cars);
+  const flights = useServices((s) => s.flights);
 
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [existingId, setExistingId] = useState("");
@@ -31,12 +36,13 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
 
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const [owner, setOwner] = useState<SalesRep>((SALES_REPS[0] ?? "") as SalesRep);
-  // Update owner default when active sales list loads after mount
   useEffect(() => {
     if (!owner && SALES_REPS[0]) setOwner(SALES_REPS[0]);
   }, [owner, SALES_REPS]);
   const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
-  const [intProgram, setIntProgram] = useState(INT_PROGRAMS[0]);
+  const [intProgram, setIntProgram] = useState("__custom__");
+  const [carServiceId, setCarServiceId] = useState("__custom__");
+  const [flightServiceId, setFlightServiceId] = useState("__custom__");
   const [intNote, setIntNote] = useState("");
   const [domProvince, setDomProvince] = useState("");
   const [carDetail, setCarDetail] = useState("");
@@ -69,7 +75,8 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
 
   const reset = () => {
     setMode("new"); setExistingId(""); setFullName(""); setCompany(""); setPhone(""); setLineId("");
-    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram(INT_PROGRAMS[0]); setIntNote("");
+    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setIntNote("");
+    setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setDomProvince(""); setCarDetail(""); setFlightDetail(""); setPax("2"); setQuotedPrice("");
     setUrgency("Warm"); setNextFollowUp(new Date().toISOString().split("T")[0]);
     setLeadCategory("บริษัทเอกชน");
@@ -182,24 +189,100 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
 
           {buType === "ทัวร์ต่างประเทศ" && (
             <>
-              <Label>โปรแกรมทัวร์</Label>
+              <Label>โปรแกรมทัวร์ <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span></Label>
               <Select value={intProgram} onValueChange={setIntProgram}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{INT_PROGRAMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {(["Outbound", "Incentive"] as const).map((cat) => {
+                    const items = tours.filter((t) => t.category === cat);
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat}>
+                        <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{cat}</div>
+                        {items.map((t) => (
+                          <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
+                            {t.code} · {t.city} ({t.duration})
+                          </SelectItem>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">อื่นๆ</div>
+                  <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
+                </SelectContent>
               </Select>
-              {intProgram === "อื่นๆ (โปรดระบุ)" && (
-                <Textarea placeholder="ระบุโปรแกรม..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
+              {intProgram === "__custom__" && (
+                <Textarea placeholder="ระบุโปรแกรมที่ต้องการ..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
+              )}
+              {tours.filter((t) => t.category === "Outbound" || t.category === "Incentive").length === 0 && (
+                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
+                  ⚠️ ยังไม่มีโปรแกรมทัวร์ต่างประเทศใน All Service — Admin เพิ่มได้ที่หน้า "All Service"
+                </p>
               )}
             </>
           )}
           {buType === "ทัวร์ภายในประเทศ" && (
-            <div><Label>จังหวัด</Label><Input value={domProvince} onChange={(e) => setDomProvince(e.target.value)} placeholder="เช่น เชียงใหม่" /></div>
+            <>
+              <Label>โปรแกรมทัวร์ในประเทศ</Label>
+              <Select value={intProgram} onValueChange={setIntProgram}>
+                <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {tours.filter((t) => t.category === "Domestic").map((t) => (
+                    <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
+                      {t.code} · {t.city} ({t.duration})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">📝 ระบุจังหวัด/รายละเอียดเอง...</SelectItem>
+                </SelectContent>
+              </Select>
+              {intProgram === "__custom__" && (
+                <Input value={domProvince} onChange={(e) => setDomProvince(e.target.value)} placeholder="เช่น เชียงใหม่ 3 วัน 2 คืน" />
+              )}
+            </>
           )}
           {buType === "เช่ารถ ท่องเที่ยว" && (
-            <div><Label>รายละเอียด</Label><Textarea value={carDetail} onChange={(e) => setCarDetail(e.target.value)} /></div>
+            <>
+              <Label>รถเช่า</Label>
+              <Select value={carServiceId} onValueChange={setCarServiceId}>
+                <SelectTrigger><SelectValue placeholder="เลือกรถ..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {cars.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name} · {c.type} · {c.total_seats} ที่นั่ง · {c.rate_per_day.toLocaleString()}฿/วัน</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
+                </SelectContent>
+              </Select>
+              {carServiceId === "__custom__" && (
+                <Textarea placeholder="รายละเอียดรถเช่า..." value={carDetail} onChange={(e) => setCarDetail(e.target.value)} />
+              )}
+              {cars.length === 0 && (
+                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
+                  ⚠️ ยังไม่มีรถเช่าใน All Service
+                </p>
+              )}
+            </>
           )}
           {buType === "จองตั๋วเครื่องบิน" && (
-            <div><Label>รายละเอียด</Label><Textarea value={flightDetail} onChange={(e) => setFlightDetail(e.target.value)} /></div>
+            <>
+              <Label>เที่ยวบิน</Label>
+              <Select value={flightServiceId} onValueChange={setFlightServiceId}>
+                <SelectTrigger><SelectValue placeholder="เลือกเที่ยวบิน..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {flights.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.airline} · {f.route}</SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
+                </SelectContent>
+              </Select>
+              {flightServiceId === "__custom__" && (
+                <Textarea placeholder="รายละเอียดเที่ยวบิน..." value={flightDetail} onChange={(e) => setFlightDetail(e.target.value)} />
+              )}
+              {flights.length === 0 && (
+                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
+                  ⚠️ ยังไม่มีเที่ยวบินใน All Service
+                </p>
+              )}
+            </>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
