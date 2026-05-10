@@ -1,4 +1,4 @@
-import { Compass, ArrowLeft, User as UserIcon, Eye } from "lucide-react";
+import { ArrowLeft, User as UserIcon, Eye } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth, useCurrentUser, ALL_ROLES, type AppRole } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -61,8 +61,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow shrink-0">
-            <Compass className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
+          <div className="w-10 h-10 rounded-xl bg-white shadow-glow shrink-0 flex items-center justify-center overflow-hidden p-1">
+            <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">

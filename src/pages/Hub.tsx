@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, Compass, ArrowRight, UserCog, User as UserIcon } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -58,8 +58,8 @@ export default function Hub() {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/40 to-background">
       <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-glow group-hover:scale-105 transition">
-            <Compass className="w-6 h-6 text-primary-foreground" strokeWidth={2.5} />
+          <div className="w-12 h-12 rounded-2xl bg-white shadow-glow group-hover:scale-105 transition flex items-center justify-center overflow-hidden p-1.5">
+            <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Standard Tour Hub</h1>

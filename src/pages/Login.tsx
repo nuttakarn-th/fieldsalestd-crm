@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Compass, Eye, EyeOff, LogIn, Sun, Moon } from "lucide-react";
+import { Eye, EyeOff, LogIn, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/store/authStore";
@@ -53,8 +53,8 @@ export default function Login() {
 
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-primary items-center justify-center shadow-glow mb-3">
-            <Compass className="w-7 h-7 text-primary-foreground" strokeWidth={2.5} />
+          <div className="inline-flex w-16 h-16 rounded-2xl bg-white items-center justify-center shadow-glow mb-3 overflow-hidden p-2">
+            <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold">Standard Tour CRM</h1>
           <p className="text-sm text-muted-foreground">เข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
