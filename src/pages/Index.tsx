@@ -95,14 +95,12 @@ export default function Index() {
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {cards.map((c) => (
-          <div key={c.label} className="bg-card rounded-xl border p-5 shadow-soft flex items-center gap-4">
-            <div className={`p-3 rounded-lg ${c.color}`}><c.icon className="w-6 h-6" /></div>
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
-              <p className="text-xl font-bold truncate">{c.value}</p>
-            </div>
+          <div key={c.label} className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[150px] gap-2">
+            <div className={`p-2.5 rounded-lg ${c.color}`}><c.icon className="w-5 h-5" /></div>
+            <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
+            <p className="text-3xl md:text-4xl font-extrabold leading-none break-all">{c.value}</p>
           </div>
         ))}
       </div>
