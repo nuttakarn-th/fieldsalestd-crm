@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye } from "lucide-react";
+import { ArrowLeft, Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,14 @@ export default function TourPresentation() {
 
   const pdfRef = useRef<HTMLInputElement>(null);
   const coverRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const previewFrameRef = useRef<HTMLIFrameElement>(null);
+
+  const goFullscreen = () => {
+    const el = previewFrameRef.current as any;
+    if (!el) return;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) req.call(el).catch(() => toast.error("เบราว์เซอร์ไม่รองรับ full screen"));
+  };
 
   const presentations = settings.presentations ?? [];
 
@@ -267,25 +275,39 @@ export default function TourPresentation() {
 
       {/* Preview PDF Dialog */}
       <Dialog open={!!previewItem} onOpenChange={(o) => !o && setPreviewItem(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> {previewItem?.title}</DialogTitle>
-          </DialogHeader>
-          {previewItem && (
-            <div className="flex-1 overflow-hidden rounded-lg border min-h-[60vh]">
-              <iframe src={previewItem.pdfUrl} className="w-full h-full" title={previewItem.title} />
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewItem(null)}>ปิด</Button>
+        <DialogContent className="!max-w-[96vw] w-[96vw] h-[95vh] !p-0 overflow-hidden flex flex-col gap-0 sm:rounded-2xl">
+          <DialogHeader className="px-5 py-3 border-b flex flex-row items-center gap-2 space-y-0 shrink-0">
+            <FileText className="w-5 h-5 text-primary shrink-0" />
+            <DialogTitle className="flex-1 text-base truncate">{previewItem?.title}</DialogTitle>
+            <Button size="sm" variant="outline" onClick={goFullscreen} title="เต็มจอ — สำหรับนำเสนอ">
+              <Maximize2 className="w-4 h-4 mr-1" /> เต็มจอ
+            </Button>
             {previewItem && (
-              <a href={previewItem.pdfUrl} download={previewItem.pdfName} target="_blank" rel="noreferrer">
-                <Button className="bg-gradient-primary text-primary-foreground">
-                  <Download className="w-4 h-4 mr-2" /> ดาวน์โหลด
+              <a href={previewItem.pdfUrl} target="_blank" rel="noreferrer">
+                <Button size="sm" variant="outline" title="เปิดในแท็บใหม่">
+                  <ExternalLink className="w-4 h-4 mr-1" /> แท็บใหม่
                 </Button>
               </a>
             )}
-          </DialogFooter>
+            {previewItem && (
+              <a href={previewItem.pdfUrl} download={previewItem.pdfName} target="_blank" rel="noreferrer">
+                <Button size="sm" className="bg-gradient-primary text-primary-foreground">
+                  <Download className="w-4 h-4 mr-1" /> ดาวน์โหลด
+                </Button>
+              </a>
+            )}
+          </DialogHeader>
+          {previewItem && (
+            <div className="flex-1 bg-black/80 min-h-0">
+              <iframe
+                ref={previewFrameRef}
+                src={`${previewItem.pdfUrl}#toolbar=1&view=FitH`}
+                className="w-full h-full block bg-white"
+                title={previewItem.title}
+                allowFullScreen
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
