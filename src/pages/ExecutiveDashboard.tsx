@@ -370,12 +370,20 @@ export default function ExecutiveDashboard() {
             <p className="text-xs font-semibold text-muted-foreground mb-1">จำนวน Lead ตามหมวดหมู่</p>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categoryStats} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                <YAxis dataKey="category" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} width={130} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="leads" radius={[0, 6, 6, 0]}>
-                  {categoryStats.map((_, i) => <Cell key={i} fill={PALETTE[i]} />)}
+                <defs>
+                  {PALETTE.map((color, i) => (
+                    <linearGradient key={`cat-${i}`} id={`cat-${i}`} x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+                      <stop offset="100%" stopColor={color} stopOpacity={1} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis dataKey="category" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} width={130} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
+                <Bar dataKey="leads" radius={[0, 8, 8, 0]}>
+                  {categoryStats.map((_, i) => <Cell key={i} fill={`url(#cat-${i})`} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

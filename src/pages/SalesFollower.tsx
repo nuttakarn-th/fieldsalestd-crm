@@ -108,14 +108,28 @@ export default function SalesFollower() {
         </div>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={stats}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="rep" stroke="hsl(var(--muted-foreground))" />
-            <YAxis stroke="hsl(var(--muted-foreground))" />
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+            <defs>
+              <linearGradient id="sfPlanned" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1} />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+              </linearGradient>
+              <linearGradient id="sfCompleted" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={1} />
+                <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.35} />
+              </linearGradient>
+              <linearGradient id="sfSkipped" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={1} />
+                <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.35} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="rep" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+            <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
             <Legend />
-            <Bar dataKey="planned" name="วางแผน" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="completed" name="Complete" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="skipped" name="Skipped" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="planned" name="วางแผน" fill="url(#sfPlanned)" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="completed" name="Complete" fill="url(#sfCompleted)" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="skipped" name="Skipped" fill="url(#sfSkipped)" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -124,11 +138,17 @@ export default function SalesFollower() {
         <h2 className="font-bold mb-3">เวลาเฉลี่ยต่อจุด (นาที)</h2>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={stats}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="rep" stroke="hsl(var(--muted-foreground))" />
-            <YAxis stroke="hsl(var(--muted-foreground))" />
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-            <Bar dataKey="avgMin" name="นาที/จุด" fill="hsl(var(--gold))" radius={[6, 6, 0, 0]} />
+            <defs>
+              <linearGradient id="sfAvgMin" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--gold))" stopOpacity={1} />
+                <stop offset="100%" stopColor="hsl(var(--gold))" stopOpacity={0.35} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="rep" stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+            <YAxis stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
+            <Bar dataKey="avgMin" name="นาที/จุด" fill="url(#sfAvgMin)" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
