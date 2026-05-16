@@ -16,6 +16,18 @@ const ICON_MAP: Record<string, any> = {
   Facebook, Instagram, TikTok: Music2, YouTube: Youtube, Website: Globe,
 };
 
+// Gradient per platform name — fallback uses tone class
+const GRADIENT_MAP: Record<string, string> = {
+  Facebook:  "from-blue-500 to-blue-700",
+  Instagram: "from-yellow-400 via-pink-500 to-purple-600",
+  TikTok:    "from-gray-900 via-neutral-800 to-gray-900",
+  YouTube:   "from-red-500 to-rose-700",
+  Website:   "from-emerald-400 to-teal-600",
+  Line:      "from-green-400 to-green-600",
+  Twitter:   "from-sky-400 to-sky-600",
+  LinkedIn:  "from-blue-600 to-blue-800",
+};
+
 export default function TourPresentation() {
   const user = useCurrentUser();
   const isAdmin = user?.role === "Admin";
@@ -258,14 +270,29 @@ export default function TourPresentation() {
 
         <section className="rounded-3xl bg-card border shadow-soft p-6">
           <h2 className="text-xl font-bold mb-4">ช่องทางสื่อโซเชียล</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {settings.socialLinks.map((c) => {
               const Icon = ICON_MAP[c.name] ?? ExternalLink;
+              const gradient = GRADIENT_MAP[c.name];
               return (
-                <a key={c.name} href={c.url} target="_blank" rel="noreferrer"
-                  className={`rounded-2xl ${c.tone} text-white p-4 flex items-center justify-between hover:opacity-90 transition shadow-soft`}>
-                  <span className="flex items-center gap-3 font-semibold"><Icon className="w-5 h-5" /> {c.name}</span>
-                  <ExternalLink className="w-4 h-4 opacity-80" />
+                <a
+                  key={c.name}
+                  href={c.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`group relative aspect-square rounded-2xl text-white flex flex-col items-center justify-center gap-2 shadow-soft transition-all hover:scale-105 hover:shadow-lg overflow-hidden
+                    ${gradient ? `bg-gradient-to-br ${gradient}` : c.tone}`}
+                >
+                  {/* Subtle inner glow */}
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
+                  {/* Icon */}
+                  <Icon className="relative w-8 h-8 sm:w-9 sm:h-9 drop-shadow" strokeWidth={1.6} />
+                  {/* Name */}
+                  <span className="relative text-[11px] sm:text-xs font-semibold tracking-wide text-white/90 leading-none">
+                    {c.name}
+                  </span>
+                  {/* External link badge */}
+                  <ExternalLink className="relative w-3 h-3 absolute top-2 right-2 opacity-50 group-hover:opacity-90 transition-opacity" />
                 </a>
               );
             })}
