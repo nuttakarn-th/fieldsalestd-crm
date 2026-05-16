@@ -17,12 +17,7 @@ if "%msg%"=="" set msg=Update CRM features
 
 git add .
 git commit -m "%msg%"
-if errorlevel 1 (
-  echo.
-  echo Nothing to commit, or commit failed.
-  pause
-  exit /b 1
-)
+rem (ถ้าไม่มีอะไร commit ก็ไม่เป็นไร — push ต่อได้เลย)
 
 git push
 if errorlevel 1 (

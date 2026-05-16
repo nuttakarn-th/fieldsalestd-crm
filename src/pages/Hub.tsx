@@ -70,27 +70,28 @@ export default function Hub() {
         <UserMenu />
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 pb-16 pt-6">
-        <div className="text-center mb-10">
-          <h2 className="font-inter font-extrabold text-5xl md:text-7xl lg:text-8xl tracking-tighter leading-none">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 pt-4 sm:pt-6">
+        <div className="text-center mb-8 sm:mb-10">
+          <h2 className="font-inter font-extrabold text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tighter leading-none">
             Standard Tour Hub.
           </h2>
-          <p className="text-muted-foreground mt-3 text-base">ระบบติดตามการขาย และจัดการลูกค้า Standard Tour</p>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">ระบบติดตามการขาย และจัดการลูกค้า Standard Tour</p>
         </div>
-        <div
-          className="grid gap-4 sm:gap-5"
-          style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}
-        >
+
+        {/* Mobile: 2 คอลัมน์ 1:1 | Tablet: 3 คอลัมน์ | Desktop: 4-5 คอลัมน์ 3:4 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {tiles.map((t) => (
             <Link key={t.title} to={t.to} className="group">
-              <article className={`relative overflow-hidden rounded-3xl p-6 flex flex-col items-center justify-center text-center text-white shadow-elegant transition-transform group-hover:-translate-y-1 bg-gradient-to-br ${t.gradient}`} style={{ aspectRatio: "3 / 4" }}>
-                <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-white/10 blur-2xl" />
-                <t.icon className="relative w-16 h-16 lg:w-20 lg:h-20 mb-4" strokeWidth={1.75} />
-                <div className="relative space-y-2 max-w-xs">
-                  <h2 className="text-xl lg:text-2xl font-bold">{t.title}</h2>
-                  <p className="text-xs lg:text-sm text-white/85 line-clamp-3">{t.description}</p>
-                  <span className="inline-flex items-center justify-center gap-1 text-xs lg:text-sm font-semibold pt-2">
-                    เข้าใช้งาน <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              <article
+                className={`relative overflow-hidden rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col items-center justify-center text-center text-white shadow-elegant transition-transform group-hover:-translate-y-1 bg-gradient-to-br ${t.gradient} aspect-square sm:aspect-[3/4]`}
+              >
+                <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
+                <t.icon className="relative w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 mb-2 sm:mb-3" strokeWidth={1.75} />
+                <div className="relative space-y-1 sm:space-y-2">
+                  <h2 className="text-sm sm:text-base lg:text-lg font-bold leading-tight">{t.title}</h2>
+                  <p className="hidden sm:block text-xs text-white/85 line-clamp-3">{t.description}</p>
+                  <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold pt-1 sm:pt-2">
+                    เข้าใช้งาน <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </div>
               </article>
