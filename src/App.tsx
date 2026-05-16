@@ -37,6 +37,7 @@ import MarketingReport from "./pages/MarketingReport.tsx";
 import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
+import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
             <Route path="quotation" element={<Quotation />} />
             <Route path="quotation/new/:type" element={<QuotationForm />} />
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />
+            <Route path="login-banner" element={<RouteGuard allowedRoles={["Admin"]}><LoginBannerManagement /></RouteGuard>} />
             <Route path="profile" element={<MyProfile />} />
             <Route path="all-service" element={<AllService />} />
             <Route path="campaigns" element={<CampaignManagement />} />

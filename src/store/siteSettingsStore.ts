@@ -12,6 +12,12 @@ export interface PresentationItem {
   coverUrl?: string;
   uploadedAt: string;
 }
+export interface BannerSlide {
+  id: string;
+  imageUrl: string;
+  title: string;
+  subtitle?: string;
+}
 
 interface State {
   // Tour Presentation
@@ -30,6 +36,8 @@ interface State {
   bkkAddress: string;
   taxId: string;
   license: string;
+  // Login Banner Slides
+  bannerSlides: BannerSlide[];
 
   setProfile: (v: string) => void;
   setSocial: (l: SocialLink[]) => void;
@@ -39,6 +47,10 @@ interface State {
   updatePresentation: (id: string, patch: Partial<PresentationItem>) => void;
   removePresentation: (id: string) => void;
   setContact: (patch: Partial<Pick<State, "lineId" | "lineUrl" | "workingHours" | "phones" | "hqAddress" | "bkkAddress" | "taxId" | "license">>) => void;
+  setBannerSlides: (slides: BannerSlide[]) => void;
+  addBannerSlide: (slide: BannerSlide) => void;
+  updateBannerSlide: (id: string, patch: Partial<BannerSlide>) => void;
+  removeBannerSlide: (id: string) => void;
 
   loadFromSupabase: () => Promise<void>;
   saveToSupabase: () => Promise<void>;
@@ -61,6 +73,12 @@ const DEFAULT_PHONES: PhoneEntry[] = [
   { label: "สาขากรุงเทพฯ", num: "092-197-2185" },
 ];
 
+const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
+  { id: "bs-1", imageUrl: "", title: "ยินดีต้อนรับสู่ Standard Tour", subtitle: "ผู้นำด้านบริการท่องเที่ยวคุณภาพ" },
+  { id: "bs-2", imageUrl: "", title: "ทัวร์ในประเทศและต่างประเทศ", subtitle: "เส้นทางท่องเที่ยวหลากหลาย ราคาพิเศษ" },
+  { id: "bs-3", imageUrl: "", title: "บริการลูกค้าระดับพรีเมียม", subtitle: "ทีมงานมืออาชีพพร้อมให้บริการตลอด 24 ชั่วโมง" },
+];
+
 const DEFAULTS = {
   companyProfile: "บริษัท สแตนดาร์ดทัวร์ จำกัด ผู้นำด้านบริการท่องเที่ยวคุณภาพ ทั้งทัวร์ในประเทศและต่างประเทศ จองตั๋วเครื่องบิน และเช่ารถเดินทาง ดำเนินงานด้วยทีมมืออาชีพ พร้อมบริการลูกค้าระดับพรีเมียม",
   socialLinks: DEFAULT_SOCIAL,
@@ -75,6 +93,7 @@ const DEFAULTS = {
   bkkAddress: "ที่ 00003 อาคารฟอรั่ม ทาวเวอร์ ห้อง C4-C5 ชั้น 32 เลขที่ 184/222 ถนนรัชดาภิเษก แขวงห้วยขวาง เขตห้วยขวาง กรุงเทพ 10310",
   taxId: "0505533000491",
   license: "21/00296",
+  bannerSlides: DEFAULT_BANNER_SLIDES,
 };
 
 // Pick only the data fields (no actions) for serialization
@@ -93,6 +112,7 @@ function snapshot(s: State) {
     bkkAddress: s.bkkAddress,
     taxId: s.taxId,
     license: s.license,
+    bannerSlides: s.bannerSlides,
   };
 }
 
@@ -110,6 +130,13 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
   },
   removePresentation: (id) => { set({ presentations: get().presentations.filter((x) => x.id !== id) }); get().saveToSupabase(); },
   setContact: (patch) => { set(patch as never); get().saveToSupabase(); },
+  setBannerSlides: (slides) => { set({ bannerSlides: slides }); get().saveToSupabase(); },
+  addBannerSlide: (slide) => { set({ bannerSlides: [...get().bannerSlides, slide] }); get().saveToSupabase(); },
+  updateBannerSlide: (id, patch) => {
+    set({ bannerSlides: get().bannerSlides.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    get().saveToSupabase();
+  },
+  removeBannerSlide: (id) => { set({ bannerSlides: get().bannerSlides.filter((s) => s.id !== id) }); get().saveToSupabase(); },
 
   loadFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
@@ -133,6 +160,10 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
             pdfName: payload.presentationPdfName ?? "presentation.pdf",
             uploadedAt: new Date().toISOString(),
           }];
+        }
+        // Ensure bannerSlides defaults if missing in old payload
+        if (!payload.bannerSlides || payload.bannerSlides.length === 0) {
+          payload.bannerSlides = DEFAULT_BANNER_SLIDES;
         }
         set(payload);
       }

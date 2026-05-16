@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -45,12 +45,20 @@ const adminUserTile = {
   gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
 
+const loginBannerTile = {
+  title: "Login Banner",
+  description: "จัดการ Slide ภาพและข้อความที่แสดงบนหน้าเข้าสู่ระบบ",
+  icon: Image,
+  to: "/app/login-banner",
+  gradient: "from-violet-500 via-purple-600 to-indigo-700",
+};
+
 export default function Hub() {
   const user = useCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
   const tiles = [
     ...baseTiles,
-    ...(user.role === "Admin" ? [adminUserTile] : []),
+    ...(user.role === "Admin" ? [adminUserTile, loginBannerTile] : []),
     profileTile,
   ];
   const isSales = user.role === "Sales";

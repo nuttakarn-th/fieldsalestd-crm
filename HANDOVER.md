@@ -214,7 +214,29 @@ vercel.json                      ← SPA rewrites
 
 ---
 
-## 🔧 แก้ไขล่าสุด (17 พ.ค. 2026)
+## 🔧 แก้ไขล่าสุด (17 พ.ค. 2026 — รอบ 2)
+
+**Feature: Login Page Redesign + Banner Slide Management**
+1. `src/pages/Login.tsx` — ออกแบบใหม่ทั้งหมด:
+   - Split layout: ซ้าย = Banner Slideshow, ขวา = Dark navy/purple login panel
+   - Auto-advance banner ทุก 5 วิ + dot navigation
+   - ปุ่ม "Log in" สีชมพู gradient
+   - ลบส่วน "บัญชี Admin เริ่มต้น" ออก
+   - Responsive: mobile stacked (banner บน, form ล่าง)
+2. `src/store/siteSettingsStore.ts` — เพิ่ม `BannerSlide` interface + `bannerSlides` state:
+   - Default 3 slides (ใช้ gradient สีถ้าไม่มีรูป)
+   - Actions: `setBannerSlides`, `addBannerSlide`, `updateBannerSlide`, `removeBannerSlide`
+   - บันทึกลง Supabase `site_settings` ร่วมกับ settings อื่น
+3. `src/pages/LoginBannerManagement.tsx` — Admin page ใหม่:
+   - เพิ่ม/แก้ไข/ลบ/เรียงลำดับ Slides
+   - Support URL paste + อัปโหลดรูปภาพ (Supabase Storage `presentations/banners/`)
+   - Live preview card ของแต่ละ Slide
+4. `src/pages/Hub.tsx` — เพิ่ม Admin tile "Login Banner" (gradient violet→indigo)
+5. `src/App.tsx` — เพิ่ม route `/app/login-banner` (Admin only via RouteGuard)
+
+---
+
+## 🔧 แก้ไขก่อนหน้า (17 พ.ค. 2026 — รอบ 1)
 
 **Fix: Supabase Data Persistence ทุกตาราง**
 1. `crmStore.ts` — เมื่อ `SUPABASE_ENABLED=true` เริ่มด้วย empty arrays (ไม่ใช้ mock data)
