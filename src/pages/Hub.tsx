@@ -86,12 +86,12 @@ export default function Hub() {
                 className={`relative overflow-hidden rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col items-center justify-center text-center text-white shadow-elegant transition-transform group-hover:-translate-y-1 bg-gradient-to-br ${t.gradient} aspect-square sm:aspect-[3/4]`}
               >
                 <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
-                <t.icon className="relative w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 mb-2 sm:mb-3" strokeWidth={1.75} />
-                <div className="relative space-y-1 sm:space-y-2">
-                  <h2 className="text-sm sm:text-base lg:text-lg font-bold leading-tight">{t.title}</h2>
+                <t.icon className="relative w-14 h-14 sm:w-14 sm:h-14 lg:w-16 lg:h-16 mb-3 sm:mb-3" strokeWidth={1.5} />
+                <div className="relative space-y-1.5 sm:space-y-2">
+                  <h2 className="text-base sm:text-lg lg:text-xl font-bold leading-tight">{t.title}</h2>
                   <p className="hidden sm:block text-xs text-white/85 line-clamp-3">{t.description}</p>
                   <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold pt-1 sm:pt-2">
-                    เข้าใช้งาน <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
+                    เข้าใช้งาน <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </div>
               </article>
