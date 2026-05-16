@@ -390,12 +390,14 @@ interface CRMState {
 }
 
 export const useCRM = create<CRMState>((set, get) => ({
-  customers: seeded.customers,
-  leads: seeded.leads,
-  targets: defaultTargets(),
-  routes: seededRoutes,
+  // ถ้า Supabase เปิด → เริ่มด้วย array ว่าง แล้วให้ loadAllFromSupabase ดึงข้อมูลจริง
+  // ถ้า Supabase ปิด → ใช้ mock seed data เพื่อ dev/demo
+  customers: SUPABASE_ENABLED ? [] : seeded.customers,
+  leads: SUPABASE_ENABLED ? [] : seeded.leads,
+  targets: SUPABASE_ENABLED ? [] : defaultTargets(),
+  routes: SUPABASE_ENABLED ? [] : seededRoutes,
   currentRep: "All",
-  chatMessages: [
+  chatMessages: SUPABASE_ENABLED ? [] : [
     { id: "m1", author: "Manager", text: "สวัสดีทีมงาน อย่าลืมส่งรายงานวันศุกร์นะคะ", created_at: new Date(Date.now() - 86400000).toISOString() },
     { id: "m2", author: "เฟิร์ส", text: "รับทราบครับ @Manager", created_at: new Date(Date.now() - 3600000).toISOString(), mentions: ["Manager"] },
     { id: "m3", author: "โดนัท", text: "เรียบร้อยค่ะ", created_at: new Date(Date.now() - 1800000).toISOString(), reply_to: "m1" },
@@ -407,10 +409,13 @@ export const useCRM = create<CRMState>((set, get) => ({
     const afterDiscount = Math.max(0, subtotal - (q.discount || 0));
     const vat_amount = +(afterDiscount * (q.vat_percent / 100)).toFixed(2);
     const total = +(afterDiscount + vat_amount).toFixed(2);
-    const id = `Q${Date.now()}`;
+    // quotations.id เป็น uuid ใน Supabase — ต้องใช้ UUID จริง
+    const id = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const prefix = q.doc_type === "receipt" ? "RC" : "QT";
-    const list = get().quotations.filter((x) => x.doc_type === q.doc_type);
-    const doc_no = q.doc_no ?? `${prefix}-${new Date().getFullYear()}${String(list.length + 1).padStart(4, "0")}`;
+    // ใช้ timestamp ใน doc_no เพื่อไม่ให้ซ้ำข้ามเซสชัน
+    const doc_no = q.doc_no ?? `${prefix}-${new Date().getFullYear()}${String(Date.now()).slice(-5)}`;
     const doc: QuotationDoc = { ...q, id, doc_no, subtotal, vat_amount, total, created_at: new Date().toISOString() };
     set({ quotations: [doc, ...get().quotations] });
     if (SUPABASE_ENABLED && supabase) {
@@ -517,43 +522,38 @@ export const useCRM = create<CRMState>((set, get) => ({
         supabase.from("route_plans").select("*, route_stops (*)").order("date", { ascending: false }),
         supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
       ]);
-      const updates: Partial<CRMState> = {};
       const loadedSummary: string[] = [];
-      if (customers.data && customers.data.length > 0) {
-        updates.customers = customers.data as Customer[];
-        loadedSummary.push(`customers ${customers.data.length}`);
-      }
-      if (leads.data && leads.data.length > 0) {
-        updates.leads = leads.data as Lead[];
-        loadedSummary.push(`leads ${leads.data.length}`);
-      }
-      if (targets.data && targets.data.length > 0) {
-        updates.targets = targets.data as MonthlyTarget[];
-        loadedSummary.push(`targets ${targets.data.length}`);
-      }
-      if (quotations.data && quotations.data.length > 0) {
-        updates.quotations = quotations.data as QuotationDoc[];
-        loadedSummary.push(`quotations ${quotations.data.length}`);
-      }
-      if (routes.data && routes.data.length > 0) {
-        updates.routes = routes.data.map((r: any) => ({
+      // เช็ค error แต่ละตาราง
+      if (customers.error) console.error("[supabase] load customers error:", customers.error);
+      if (leads.error) console.error("[supabase] load leads error:", leads.error);
+      if (targets.error) console.error("[supabase] load targets error:", targets.error);
+      if (quotations.error) console.error("[supabase] load quotations error:", quotations.error);
+      if (routes.error) console.error("[supabase] load routes error:", routes.error);
+      if (chats.error) console.error("[supabase] load chats error:", chats.error);
+
+      // อัพเดต state ทุกตาราง — แม้ว่าจะว่าง ก็ต้อง replace (ไม่ใช้ mock)
+      const updates: Partial<CRMState> = {
+        customers: (customers.data ?? []) as Customer[],
+        leads: (leads.data ?? []) as Lead[],
+        targets: (targets.data ?? []) as MonthlyTarget[],
+        quotations: (quotations.data ?? []) as QuotationDoc[],
+        routes: (routes.data ?? []).map((r: any) => ({
           ...r,
           stops: (r.route_stops || []).sort((a: RouteStop, b: RouteStop) => a.seq - b.seq),
-        })) as RoutePlan[];
-        loadedSummary.push(`routes ${routes.data.length}`);
-      }
-      if (chats.data && chats.data.length > 0) {
-        updates.chatMessages = chats.data as ChatMessage[];
-        loadedSummary.push(`chats ${chats.data.length}`);
-      }
-      if (Object.keys(updates).length > 0) {
-        // eslint-disable-next-line no-console
-        console.info(`[supabase] โหลดจาก DB: ${loadedSummary.join(", ")}`);
-        set(updates);
-      } else {
-        // eslint-disable-next-line no-console
-        console.info("[supabase] DB ว่าง — ใช้ mock seed ต่อไป (data ใหม่จะ persist)");
-      }
+        })) as RoutePlan[],
+        chatMessages: (chats.data ?? []) as ChatMessage[],
+      };
+      if (customers.data?.length) loadedSummary.push(`customers ${customers.data.length}`);
+      if (leads.data?.length) loadedSummary.push(`leads ${leads.data.length}`);
+      if (targets.data?.length) loadedSummary.push(`targets ${targets.data.length}`);
+      if (quotations.data?.length) loadedSummary.push(`quotations ${quotations.data.length}`);
+      if (routes.data?.length) loadedSummary.push(`routes ${routes.data.length}`);
+      if (chats.data?.length) loadedSummary.push(`chats ${chats.data.length}`);
+      set(updates);
+      // eslint-disable-next-line no-console
+      console.info(loadedSummary.length > 0
+        ? `[supabase] โหลดจาก DB: ${loadedSummary.join(", ")}`
+        : "[supabase] DB ว่าง — พร้อมรับข้อมูลใหม่");
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("[supabase] loadAll ล้มเหลว:", e);
@@ -561,7 +561,7 @@ export const useCRM = create<CRMState>((set, get) => ({
   },
 
   addCustomer: (c) => {
-    const id = `C${String(get().customers.length + 1).padStart(3, "0")}`;
+    const id = `C${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
     const creator = c.created_by ?? (get().currentRep === "All" ? SALES_REPS[0] : (get().currentRep as SalesRep));
     const newC: Customer = {
       ...c,
@@ -629,7 +629,7 @@ export const useCRM = create<CRMState>((set, get) => ({
   },
 
   addLead: (l) => {
-    const id = `L${String(get().leads.length + 1).padStart(3, "0")}`;
+    const id = `L${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
     const newL: Lead = {
       ...l,
       lead_category: l.lead_category ?? "บริษัทเอกชน",
@@ -714,7 +714,7 @@ export const useCRM = create<CRMState>((set, get) => ({
   },
 
   addRoute: (rep, date, title) => {
-    const id = `R${String(get().routes.length + 1000).padStart(4, "0")}`;
+    const id = `R${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
     const r: RoutePlan = { route_id: id, rep, date, title, stops: [], created_at: new Date().toISOString() };
     set({ routes: [r, ...get().routes] });
     if (SUPABASE_ENABLED && supabase) {

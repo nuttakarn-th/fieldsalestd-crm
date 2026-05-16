@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCRM } from "@/store/crmStore";
 import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
+import { useServices } from "@/store/serviceStore";
 import { ChatRealtimeSync } from "@/components/ChatRealtimeSync";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
@@ -45,11 +46,13 @@ function SupabaseSync() {
   const loadAll = useCRM((s) => s.loadAllFromSupabase);
   const loadUsers = useAuth((s) => s.loadUsersFromSupabase);
   const loadSettings = useSiteSettings((s) => s.loadFromSupabase);
+  const loadServices = useServices((s) => s.loadFromSupabase);
   useEffect(() => {
     loadAll();
     loadUsers();
     loadSettings();
-  }, [loadAll, loadUsers, loadSettings]);
+    loadServices();
+  }, [loadAll, loadUsers, loadSettings, loadServices]);
   return null;
 }
 
