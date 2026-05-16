@@ -38,6 +38,8 @@ import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
 import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
+import Gallery from "./pages/Gallery.tsx";
+import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -70,6 +72,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/tour-presentation" element={<TourPresentation />} />
           <Route path="/contact-info" element={<ContactInfo />} />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />

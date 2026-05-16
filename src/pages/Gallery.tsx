@@ -1,0 +1,178 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, Plus, Images, Trash2, X, Check, Camera } from "lucide-react";
+import { useGallery } from "@/store/galleryStore";
+import { useCurrentUser } from "@/store/authStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+
+const ALBUM_GRADIENTS = [
+  "from-pink-500 via-rose-500 to-orange-400",
+  "from-violet-500 via-purple-600 to-indigo-500",
+  "from-cyan-500 via-sky-500 to-blue-600",
+  "from-emerald-400 via-teal-500 to-cyan-500",
+  "from-amber-400 via-orange-500 to-rose-500",
+  "from-fuchsia-500 via-pink-500 to-rose-400",
+  "from-blue-500 via-indigo-500 to-violet-500",
+];
+
+export default function Gallery() {
+  const user = useCurrentUser();
+  const navigate = useNavigate();
+  const { albums, loadAlbums, createAlbum, deleteAlbum } = useGallery();
+
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) { navigate("/login"); return; }
+    loadAlbums();
+  }, [user, navigate, loadAlbums]);
+
+  if (!user) return null;
+
+  const handleCreate = async () => {
+    if (!newName.trim()) { toast.error("กรอกชื่ออัลบั้มก่อน"); return; }
+    setSaving(true);
+    const album = await createAlbum(newName.trim(), newDesc.trim(), user.user_id, user.full_name);
+    setSaving(false);
+    if (album) {
+      toast.success("สร้างอัลบั้มแล้ว");
+      setCreating(false);
+      setNewName(""); setNewDesc("");
+      navigate(`/gallery/${album.id}`);
+    } else {
+      toast.error("สร้างไม่สำเร็จ — ลอง push SQL migration ก่อน");
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string, createdBy: string) => {
+    e.preventDefault(); e.stopPropagation();
+    if (user.role !== "Admin" && createdBy !== user.user_id) {
+      toast.error("ลบได้เฉพาะอัลบั้มของตัวเอง (Admin ลบทุกอัลบั้มได้)");
+      return;
+    }
+    if (!confirm("ลบอัลบั้มนี้? ภาพทั้งหมดในอัลบั้มจะหายด้วย")) return;
+    await deleteAlbum(id);
+    toast.success("ลบอัลบั้มแล้ว");
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
+      {/* Header */}
+      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3 flex-wrap">
+        <Link to="/"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Camera className="w-6 h-6 text-primary" /> Gallery
+          </h1>
+          <p className="text-sm text-muted-foreground">อัลบั้มภาพสถานที่ท่องเที่ยว รีวิว และกิจกรรม</p>
+        </div>
+        <Button
+          onClick={() => { setCreating(true); }}
+          disabled={creating}
+          className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg"
+        >
+          <Plus className="w-4 h-4 mr-1.5" /> สร้าง Album
+        </Button>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 pb-16 space-y-6">
+        {/* Create Album form */}
+        {creating && (
+          <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-3">
+            <p className="font-semibold text-sm">สร้างอัลบั้มใหม่</p>
+            <Input
+              placeholder="ชื่ออัลบั้ม *"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            />
+            <Input
+              placeholder="คำอธิบาย (ไม่บังคับ) เช่น ทัวร์จีน เมษายน 2569"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleCreate} disabled={saving} size="sm" className="gap-1.5">
+                <Check className="w-3.5 h-3.5" /> {saving ? "กำลังสร้าง..." : "สร้าง"}
+              </Button>
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => { setCreating(false); setNewName(""); setNewDesc(""); }}
+                className="gap-1.5"
+              >
+                <X className="w-3.5 h-3.5" /> ยกเลิก
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Albums grid */}
+        {albums.length === 0 ? (
+          <div className="text-center py-28 text-muted-foreground">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-400 flex items-center justify-center mx-auto mb-5 opacity-30">
+              <Images className="w-12 h-12 text-white" />
+            </div>
+            <p className="font-semibold text-lg">ยังไม่มีอัลบั้ม</p>
+            <p className="text-sm mt-1">กด "สร้าง Album" เพื่อเริ่มเพิ่มรูปภาพ</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {albums.map((album, i) => (
+              <Link key={album.id} to={`/gallery/${album.id}`} className="group block">
+                <article className="rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant transition-all duration-200 hover:-translate-y-1 bg-card border">
+                  {/* Cover image area */}
+                  <div className={`relative aspect-square bg-gradient-to-br ${ALBUM_GRADIENTS[i % ALBUM_GRADIENTS.length]} overflow-hidden`}>
+                    {album.cover_url ? (
+                      <img
+                        src={album.cover_url}
+                        alt={album.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Images className="w-10 h-10 text-white/40" />
+                      </div>
+                    )}
+
+                    {/* Photo count badge */}
+                    <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                      {album.photo_count ?? 0} รูป
+                    </div>
+
+                    {/* Delete button — visible on hover */}
+                    {(user.role === "Admin" || album.created_by === user.user_id) && (
+                      <button
+                        onClick={(e) => handleDelete(e, album.id, album.created_by)}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600/90 transition-all shadow-lg"
+                        title="ลบอัลบั้ม"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="px-3 py-2.5">
+                    <h3 className="font-semibold text-sm leading-tight line-clamp-1">{album.name}</h3>
+                    {album.description && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{album.description}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mt-1 opacity-70">
+                      โดย {album.created_by_name}
+                    </p>
+                  </div>
+                </article>
+              </Link>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
