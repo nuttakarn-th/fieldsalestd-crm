@@ -276,7 +276,7 @@ export default function TourPresentation() {
       {/* Preview PDF Dialog */}
       <Dialog open={!!previewItem} onOpenChange={(o) => !o && setPreviewItem(null)}>
         <DialogContent className="!max-w-[96vw] w-[96vw] h-[95vh] !p-0 overflow-hidden flex flex-col gap-0 sm:rounded-2xl">
-          <DialogHeader className="px-5 py-3 border-b flex flex-row items-center gap-2 space-y-0 shrink-0">
+          <DialogHeader className="pl-5 pr-14 py-3 border-b flex flex-row items-center gap-2 space-y-0 shrink-0">
             <FileText className="w-5 h-5 text-primary shrink-0" />
             <DialogTitle className="flex-1 text-base truncate">{previewItem?.title}</DialogTitle>
             <Button size="sm" variant="outline" onClick={goFullscreen} title="เต็มจอ — สำหรับนำเสนอ">
