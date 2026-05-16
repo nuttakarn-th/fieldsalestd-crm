@@ -286,13 +286,11 @@ export default function TourPresentation() {
                   {/* Subtle inner glow */}
                   <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
                   {/* Icon */}
-                  <Icon className="relative w-8 h-8 sm:w-9 sm:h-9 drop-shadow" strokeWidth={1.6} />
+                  <Icon className="relative w-12 h-12 sm:w-14 sm:h-14 drop-shadow" strokeWidth={1.4} />
                   {/* Name */}
                   <span className="relative text-[11px] sm:text-xs font-semibold tracking-wide text-white/90 leading-none">
                     {c.name}
                   </span>
-                  {/* External link badge */}
-                  <ExternalLink className="relative w-3 h-3 absolute top-2 right-2 opacity-50 group-hover:opacity-90 transition-opacity" />
                 </a>
               );
             })}
