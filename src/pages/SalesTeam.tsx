@@ -16,15 +16,6 @@ const ROLE_ORDER: AppRole[] = [
   "Accounting",
 ];
 
-const ROLE_LABEL: Record<string, string> = {
-  "Admin": "Admin",
-  "Sales Manager": "Sales Manager",
-  "Sales": "Sales",
-  "Marketing": "Marketing",
-  "Co-Ordinator": "Co-Ordinator",
-  "Accounting": "Accounting",
-};
-
 /* ── Line SVG icon ── */
 function LineIcon({ className }: { className?: string }) {
   return (
@@ -135,22 +126,13 @@ export default function SalesTeam() {
   const openChat = useChatUI((s) => s.open);
   const users = useAuth((s) => s.users);
 
-  /* Group all users by role in defined order */
-  const grouped = useMemo(() => {
-    const map: Record<string, typeof users> = {};
-    users.forEach((u) => {
-      if (!map[u.role]) map[u.role] = [];
-      map[u.role].push(u);
+  /* Flatten all users sorted by role order, then name */
+  const sortedMembers = useMemo(() => {
+    return [...users].sort((a, b) => {
+      const ri = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
+      if (ri !== 0) return ri;
+      return a.full_name.localeCompare(b.full_name, "th");
     });
-    return ROLE_ORDER
-      .filter((r) => (map[r]?.length ?? 0) > 0)
-      .map((r) => ({
-        role: r,
-        label: ROLE_LABEL[r] ?? r,
-        members: (map[r] ?? []).sort((a, b) =>
-          a.full_name.localeCompare(b.full_name, "th")
-        ),
-      }));
   }, [users]);
 
   const totalMembers = users.length;
@@ -196,38 +178,21 @@ export default function SalesTeam() {
         </p>
       </div>
 
-      {/* ── Role Sections ── */}
-      {grouped.length === 0 ? (
+      {/* ── Single Grid ── */}
+      {sortedMembers.length === 0 ? (
         <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground">
           ยังไม่มีพนักงานในระบบ — Admin เพิ่มได้ที่หน้า User Management
         </div>
       ) : (
-        grouped.map(({ role, label, members }) => (
-          <section key={role} className="space-y-4">
-            {/* Section label */}
-            <div className="flex items-center gap-3">
-              <span
-                className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
-                style={{ fontFamily: "'Inter', sans-serif" }}
-              >
-                {label}
-              </span>
-              <div className="flex-1 border-t border-border/50" />
-              <span className="text-[10px] text-muted-foreground/50">{members.length} คน</span>
-            </div>
-
-            {/* Cards grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-              {members.map((u) => (
-                <MemberCard
-                  key={u.user_id}
-                  u={u}
-                  onChat={openChat as (name: string) => void}
-                />
-              ))}
-            </div>
-          </section>
-        ))
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          {sortedMembers.map((u) => (
+            <MemberCard
+              key={u.user_id}
+              u={u}
+              onChat={openChat as (name: string) => void}
+            />
+          ))}
+        </div>
       )}
     </div>
     </div>
