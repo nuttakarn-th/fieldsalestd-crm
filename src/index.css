@@ -132,7 +132,7 @@
 }
 
 @layer utilities {
-  .font-inter { font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.03em; }
+  .font-inter { font-family: 'Inter', 'Kanit', system-ui, sans-serif; letter-spacing: -0.03em; }
   .bg-gradient-primary { background: var(--gradient-primary); }
   .bg-gradient-hero { background: var(--gradient-hero); }
   .bg-gradient-coral { background: var(--gradient-coral); }

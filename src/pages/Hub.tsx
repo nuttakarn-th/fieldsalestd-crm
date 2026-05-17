@@ -50,7 +50,7 @@ const profileTile = {
   title: "My Profile",
   description: "ข้อมูลส่วนตัว นามบัตรดิจิทัล พร้อมดาวน์โหลดเป็นภาพได้",
   icon: UserIcon,
-  to: "/app/profile",
+  to: "/profile",
   gradient: "from-emerald-500 via-teal-500 to-cyan-600",
 };
 
@@ -135,7 +135,7 @@ export default function Hub() {
         <div className="text-center mb-6 sm:mb-8">
           <h2
             className="font-extrabold tracking-tighter leading-none text-white"
-            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(3rem, 12vw, 7rem)" }}
+            style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontSize: "clamp(3rem, 12vw, 7rem)" }}
           >
             Standard Tour Hub.
           </h2>

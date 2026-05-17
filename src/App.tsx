@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -76,6 +76,7 @@ const App = () => (
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />
           <Route path="/teams" element={<SalesTeam />} />
+          <Route path="/profile" element={<MyProfile />} />
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
@@ -95,7 +96,7 @@ const App = () => (
             <Route path="quotation/new/:type" element={<QuotationForm />} />
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />
             <Route path="login-banner" element={<RouteGuard allowedRoles={["Admin"]}><LoginBannerManagement /></RouteGuard>} />
-            <Route path="profile" element={<MyProfile />} />
+            <Route path="profile" element={<Navigate to="/profile" replace />} />
             <Route path="all-service" element={<AllService />} />
             <Route path="campaigns" element={<CampaignManagement />} />
             <Route path="marketing-report" element={<MarketingReport />} />

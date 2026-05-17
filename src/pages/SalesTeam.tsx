@@ -113,7 +113,7 @@ function NamecardModal({ u, onClose }: NamecardModalProps) {
             </div>
 
             {/* Name + Position */}
-            <h2 className="text-xl font-bold leading-tight text-center" style={{ fontFamily: "'Inter', sans-serif" }}>
+            <h2 className="text-xl font-bold leading-tight text-center" style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}>
               {u.full_name}
             </h2>
             <p className="text-xs text-gray-500 tracking-widest uppercase mt-0.5 text-center">
@@ -234,7 +234,7 @@ function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
       <div className="p-3 flex flex-col gap-2 flex-1">
         {/* Name + Role */}
         <div className="text-center">
-          <h3 className="font-bold text-sm leading-tight truncate" style={{ fontFamily: "'Inter', sans-serif" }}>
+          <h3 className="font-bold text-sm leading-tight truncate" style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}>
             {u.full_name}
           </h3>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
@@ -335,7 +335,7 @@ export default function SalesTeam() {
         <div className="text-center space-y-2 pb-4">
           <h1
             className="text-4xl sm:text-5xl tracking-tight"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
+            style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900 }}
           >
             Standard{" "}
             <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">

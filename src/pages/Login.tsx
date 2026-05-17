@@ -59,7 +59,7 @@ export default function Login() {
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", fontFamily: "'Inter', sans-serif" }}
+      style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", fontFamily: "'Inter', 'Kanit', sans-serif" }}
     >
       {/* ── Top-left logo (white version) ── */}
       <div className="absolute top-5 left-6 z-10 flex items-center gap-2">
@@ -102,7 +102,7 @@ export default function Login() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
                   <div className="absolute bottom-5 left-5 right-5 text-white text-center">
                     {slide.title && (
-                      <p className="font-extrabold text-base leading-snug drop-shadow" style={{ fontFamily: "'Inter', sans-serif" }}>
+                      <p className="font-extrabold text-base leading-snug drop-shadow" style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}>
                         {slide.title}
                       </p>
                     )}
@@ -137,7 +137,7 @@ export default function Login() {
             {/* Heading — hidden on mobile, visible on md+ */}
             <h1
               className="hidden md:block text-white mb-2"
-              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(1.8rem, 2.8vw, 2.4rem)", letterSpacing: "-0.02em", lineHeight: 1.05 }}
+              style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900, fontSize: "clamp(1.8rem, 2.8vw, 2.4rem)", letterSpacing: "-0.02em", lineHeight: 1.05 }}
             >
               Customer<br />Relationship<br />Management
             </h1>
@@ -153,7 +153,7 @@ export default function Login() {
 
               <h2
                 className="text-white mb-4"
-                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.01em" }}
+                style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.01em" }}
               >
                 Get Started Now.
               </h2>
@@ -163,7 +163,7 @@ export default function Login() {
                 <div>
                   <label
                     className="block mb-1.5 text-white/70"
-                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
+                    style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
                   >
                     Username
                   </label>
@@ -173,7 +173,7 @@ export default function Login() {
                     placeholder="Enter Your Username"
                     autoComplete="username"
                     autoFocus
-                    style={{ fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,0.08)" }}
+                    style={{ fontFamily: "'Inter', 'Kanit', sans-serif", background: "rgba(255,255,255,0.08)" }}
                     className="w-full rounded-xl border border-white/20 text-white placeholder:text-white/30 px-4 py-2.5 text-sm outline-none focus:border-pink-400 transition-all"
                   />
                 </div>
@@ -182,7 +182,7 @@ export default function Login() {
                 <div>
                   <label
                     className="block mb-1.5 text-white/70"
-                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
+                    style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
                   >
                     Password
                   </label>
@@ -193,7 +193,7 @@ export default function Login() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter Your Password"
                       autoComplete="current-password"
-                      style={{ fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,0.08)" }}
+                      style={{ fontFamily: "'Inter', 'Kanit', sans-serif", background: "rgba(255,255,255,0.08)" }}
                       className="w-full rounded-xl border border-white/20 text-white placeholder:text-white/30 px-4 py-2.5 pr-11 text-sm outline-none focus:border-pink-400 transition-all"
                     />
                     <button
@@ -212,7 +212,7 @@ export default function Login() {
                   disabled={submitting}
                   className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all disabled:opacity-60 mt-1 active:scale-[0.98]"
                   style={{
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Inter', 'Kanit', sans-serif",
                     fontWeight: 700,
                     background: "linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)",
                   }}
@@ -222,7 +222,7 @@ export default function Login() {
               </form>
             </div>
 
-            <p className="mt-4 text-white/20 text-xs" style={{ fontFamily: "'Inter', sans-serif" }}>
+            <p className="mt-4 text-white/20 text-xs" style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}>
               Standard Tour Sales CRM : Version 1.1 (11.5.26)
             </p>
           </div>
