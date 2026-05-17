@@ -76,9 +76,11 @@ export default function AppLayout() {
               <span className="hidden md:inline font-bold text-sm">Standard Tour CRM</span>
             </Link>
             <GlobalSearch />
-            <ChatHeaderButton />
-            <TeamNotifications />
-            <UserMenu />
+            <div className="ml-auto flex items-center gap-1 shrink-0">
+              <ChatHeaderButton />
+              <TeamNotifications />
+              <UserMenu />
+            </div>
           </header>
           <main className="flex-1 overflow-auto">
             <Outlet />
