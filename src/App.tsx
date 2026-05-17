@@ -75,6 +75,7 @@ const App = () => (
           <Route path="/contact-info" element={<ContactInfo />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />
+          <Route path="/teams" element={<SalesTeam />} />
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
@@ -89,7 +90,7 @@ const App = () => (
             <Route path="route-completed" element={<CompletedRoute />} />
             <Route path="route-completed/:routeId" element={<CompletedRoute />} />
             <Route path="sales-mission" element={<SalesFollower />} />
-            <Route path="sales-team" element={<SalesTeam />} />
+
             <Route path="quotation" element={<Quotation />} />
             <Route path="quotation/new/:type" element={<QuotationForm />} />
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />

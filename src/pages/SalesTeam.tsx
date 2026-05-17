@@ -1,5 +1,7 @@
 import { useMemo } from "react";
-import { Phone, Mail, MessageCircle, TrendingUp } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Phone, Mail, MessageCircle, TrendingUp, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useCRM, formatTHB } from "@/store/crmStore";
 import { useAuth, type AppRole } from "@/store/authStore";
 import { useChatUI } from "@/components/ChatWidget";
@@ -176,7 +178,26 @@ export default function SalesTeam() {
   const totalMembers = users.length;
 
   return (
-    <div className="px-4 sm:px-8 py-8 space-y-10 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
+      {/* Standalone header — same pattern as TourPresentation / ContactInfo */}
+      <header className="px-5 sm:px-8 py-5 max-w-7xl mx-auto flex items-center gap-3">
+        <Link to="/">
+          <Button variant="outline" size="icon" className="shrink-0">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Link>
+        <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0">
+          <img
+            src="/logo-icon.png"
+            alt="Standard Tour"
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+          />
+        </div>
+        <span className="font-bold text-sm text-muted-foreground">Standard Tour</span>
+      </header>
+
+    <div className="px-4 sm:px-8 py-4 space-y-10 max-w-7xl mx-auto">
 
       {/* ── Page Header ── */}
       <div className="text-center space-y-2 pb-4">
@@ -231,6 +252,7 @@ export default function SalesTeam() {
           </section>
         ))
       )}
+    </div>
     </div>
   );
 }

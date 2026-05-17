@@ -38,7 +38,7 @@ const baseTiles = [
     title: "ข้อมูลทีมงาน",
     description: "รายชื่อและข้อมูลทีมงานทุกตำแหน่ง พร้อมช่องทางติดต่อ",
     icon: Users2,
-    to: "/app/sales-team",
+    to: "/teams",
     gradient: "from-violet-500 via-purple-600 to-fuchsia-600",
   },
 ];
