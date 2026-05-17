@@ -176,12 +176,13 @@ export function ChatWidget() {
 
   return (
     <>
+      {/* Floating toggle — shown only on mobile (header button handles desktop) */}
       <button
         onClick={toggle}
-        className="fixed bottom-3 right-4 sm:bottom-6 sm:right-6 z-50 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gradient-coral shadow-glow flex items-center justify-center text-white hover:scale-110 transition-transform"
+        className="sm:hidden fixed bottom-3 right-4 z-50 w-9 h-9 rounded-full bg-gradient-coral shadow-glow flex items-center justify-center text-white hover:scale-110 transition-transform"
         aria-label="เปิดแชท"
       >
-        {isOpen ? <X className="w-4 h-4" /> : <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />}
+        {isOpen ? <X className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
         {!isOpen && unread > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-[10px] font-bold flex items-center justify-center text-white border-2 border-background">
             {unread > 9 ? "9+" : unread}
@@ -193,7 +194,7 @@ export function ChatWidget() {
         <div className="fixed bottom-16 sm:bottom-24 right-3 sm:right-6 z-50 w-[calc(100vw-1.5rem)] sm:w-96 h-[32rem] bg-card border rounded-2xl shadow-elegant flex flex-col overflow-hidden">
           <div className="px-4 py-3 bg-gradient-primary text-primary-foreground flex items-center justify-between">
             <div>
-              <p className="font-bold text-sm">ทีมแชท Field sale</p>
+              <p className="font-bold text-sm">Standard Tour Messenger</p>
               <p className="text-[11px] opacity-80">คุณคือ {me} • Mention ด้วย @ชื่อ</p>
             </div>
             <div className="flex items-center gap-1">
