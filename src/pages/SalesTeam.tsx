@@ -72,13 +72,13 @@ function NamecardModal({ u, onClose }: NamecardModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative w-full max-w-xs sm:max-w-sm my-4 flex flex-col gap-3">
-        {/* Close button */}
+      <div className="relative w-full max-w-[240px] my-4 flex flex-col gap-3">
+        {/* Close button — inside viewport always */}
         <button
           onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 hover:scale-110 transition-all"
+          className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-gray-600 hover:text-gray-900 hover:scale-110 transition-all"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5" />
         </button>
 
         {/* Shared namecard */}

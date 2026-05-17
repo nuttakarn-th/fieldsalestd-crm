@@ -112,7 +112,7 @@ export default function Hub() {
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
           <div className="w-11 h-11 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
             <img
-              src="/logo-icon.png"
+              src="/logo-color-white.png"
               alt="Standard Tour"
               className="w-full h-full object-cover"
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
