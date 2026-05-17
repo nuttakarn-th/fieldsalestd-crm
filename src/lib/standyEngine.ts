@@ -340,7 +340,7 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return {
         text:
           "⚠️ ข้อมูลนี้ประกอบด้วยชื่อและเบอร์โทรของลูกค้า\n\n" +
-          "ยืนยันว่าต้องการแสดงข้อมูล sensitive หรือไม่?\n*(พิมพ์ "ใช่" เพื่อแสดง)*",
+          "ยืนยันว่าต้องการแสดงข้อมูล sensitive หรือไม่?\n*(พิมพ์ 'ใช่' เพื่อแสดง)*",
         requiresSensitiveApproval: true,
         pendingData: ctx.customers,
       };
