@@ -135,7 +135,7 @@ export default function Hub() {
         <div className="text-center mb-6 sm:mb-8">
           <h2
             className="font-extrabold tracking-tighter leading-none text-white"
-            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(3rem, 8vw, 6rem)" }}
+            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(3rem, 12vw, 7rem)" }}
           >
             Standard Tour Hub.
           </h2>
@@ -146,28 +146,28 @@ export default function Hub() {
             Mobile  → 1 column (horizontal card — ครบทุกเมนูใน 1 หน้า)
             Tablet  → 3 column vertical card
             Desktop → 4–5 column compact vertical card              */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
           {tiles.map((t) => (
             <Link key={t.title} to={t.to} className="group">
               <article
-                className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${t.gradient} text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl
+                className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${t.gradient} text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl
                   flex flex-row items-center gap-3 px-4 py-3.5
-                  sm:flex-col sm:items-center sm:justify-center sm:text-center sm:px-3 sm:py-4 sm:aspect-[4/5]`}
+                  sm:flex-col sm:items-center sm:justify-center sm:text-center sm:px-2 sm:py-3 sm:aspect-[3/4]`}
               >
-                <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
                 {/* Icon */}
                 <t.icon
-                  className="relative shrink-0 w-8 h-8 sm:w-10 sm:h-10 sm:mb-2"
+                  className="relative shrink-0 w-8 h-8 sm:w-8 sm:h-8 sm:mb-1.5"
                   strokeWidth={1.5}
                 />
 
                 {/* Text */}
                 <div className="relative flex-1 sm:flex-none text-left sm:text-center">
-                  <h2 className="text-sm sm:text-sm font-bold leading-tight">{t.title}</h2>
-                  <p className="hidden sm:block text-[11px] text-white/80 mt-1 line-clamp-2 leading-snug">{t.description}</p>
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold mt-1.5 opacity-90">
-                    เข้าใช้งาน <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                  <h2 className="text-sm sm:text-[11px] sm:font-bold leading-tight">{t.title}</h2>
+                  <p className="hidden sm:block text-[10px] text-white/80 mt-0.5 line-clamp-2 leading-snug">{t.description}</p>
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1 opacity-90">
+                    เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </div>
 
