@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Download, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,33 +10,24 @@ import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { ImportExportMenu } from "@/components/ImportExportMenu";
+import type { ExcelField } from "@/lib/excelUtils";
 
-function exportCSV(rows: Customer[]) {
-  const headers = ["customer_id","full_name","company","phone","line_id","email","source","segment","total_trips","total_spend","customer_tier","first_contact_date","created_by"];
-  const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = [headers.join(",")];
-  rows.forEach((r) => {
-    lines.push([
-      r.customer_id, r.full_name, r.company,
-      `="${r.phone}"`, // protect leading zero
-      r.line_id, r.email ?? "", r.source, r.segment,
-      r.total_trips, r.total_spend, r.customer_tier, r.first_contact_date, r.created_by,
-    ].map((v, i) => (i === 3 ? v : escape(v))).join(","));
-  });
-  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `customers_${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast.success(`Export ${rows.length} รายการสำเร็จ`);
-}
+const CUSTOMER_FIELDS: ExcelField[] = [
+  { key: "full_name",  header: "ชื่อ-นามสกุล",   example: "สมชาย ใจดี",          required: true },
+  { key: "company",    header: "องค์กร/บริษัท",   example: "บริษัท ABC จำกัด" },
+  { key: "phone",      header: "เบอร์โทรศัพท์",   example: "0812345678",          required: true },
+  { key: "line_id",    header: "Line ID",          example: "somchai_line" },
+  { key: "email",      header: "อีเมล",            example: "somchai@email.com" },
+  { key: "source",     header: "ช่องทาง",          example: "FB" },
+  { key: "segment",    header: "กลุ่มลูกค้า",     example: "B2C Individual" },
+];
 
 export default function Customers() {
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
+  const addCustomer = useCRM((s) => s.addCustomer);
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
@@ -114,6 +105,35 @@ export default function Customers() {
   };
   const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterDateRange !== "all" || q !== "";
 
+  // Build export-ready records from filtered customers
+  const exportData = useMemo(() =>
+    filtered.map((c) => ({
+      full_name: c.full_name,
+      company: c.company,
+      phone: c.phone,
+      line_id: c.line_id,
+      email: c.email ?? "",
+      source: c.source,
+      segment: c.segment,
+    })),
+    [filtered],
+  );
+
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => {
+      addCustomer({
+        full_name:  String(row.full_name  ?? ""),
+        company:    String(row.company    ?? "-"),
+        phone:      String(row.phone      ?? ""),
+        line_id:    String(row.line_id    ?? "-"),
+        email:      row.email ? String(row.email) : undefined,
+        source:     (row.source as Source) || "Field Sale",
+        segment:    (row.segment as any)  || "B2C Individual",
+      });
+    });
+    toast.success(`นำเข้า ${rows.length} ลูกค้าแล้ว`);
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -123,8 +143,14 @@ export default function Customers() {
             {currentRep === "All" ? "จัดการข้อมูลลูกค้าทั้งทีม" : `ฐานข้อมูลลูกค้าของ ${currentRep}`} — {filtered.length} รายการ
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => exportCSV(filtered)}><Download className="w-4 h-4 mr-2" /> Export CSV</Button>
+        <div className="flex gap-2 flex-wrap">
+          <ImportExportMenu
+            fields={CUSTOMER_FIELDS}
+            sheetName="ลูกค้า"
+            filename="customers"
+            data={exportData}
+            onImport={handleImport}
+          />
           <Button className="bg-gradient-primary" onClick={() => setOpenAdd(true)}><Plus className="w-4 h-4 mr-2" /> เพิ่มลูกค้า / สร้าง Lead</Button>
         </div>
       </div>

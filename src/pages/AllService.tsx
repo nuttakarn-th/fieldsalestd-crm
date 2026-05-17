@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import {
   type VisaType,
 } from "@/store/serviceStore";
 import { toast } from "sonner";
+import { ImportExportMenu } from "@/components/ImportExportMenu";
+import type { ExcelField } from "@/lib/excelUtils";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["หนัง", "ผ้า", "กำมะหยี่"];
@@ -63,6 +65,16 @@ export default function AllService() {
 }
 
 /* ========= Tour ========= */
+const TOUR_FIELDS: ExcelField[] = [
+  { key: "category",      header: "ประเภท",          example: "International Tour" },
+  { key: "code",          header: "รหัสทัวร์",       example: "HQO-KMG04", required: true },
+  { key: "city",          header: "เมือง",           example: "คุนหมิง",    required: true },
+  { key: "country",       header: "ประเทศ",          example: "จีน" },
+  { key: "price_per_seat",header: "ราคา/ที่นั่ง",   example: "25900",  type: "number" },
+  { key: "quota",         header: "โควต้า",          example: "24",     type: "number" },
+  { key: "note",          header: "หมายเหตุ",        example: "ซากุระบาน" },
+];
+
 function TourSection({ canEdit }: { canEdit: boolean }) {
   const tours = useServices((s) => s.tours);
   const addTour = useServices((s) => s.addTour);
@@ -91,20 +103,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     quota: "",
   });
 
-  // Parse "4 วัน 3 คืน" → { days: "4", nights: "3" }
   const parseDuration = (s: string): { days: string; nights: string } => {
     const dMatch = s.match(/(\d+)\s*วัน/);
     const nMatch = s.match(/(\d+)\s*คืน/);
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
   };
 
-  // Parse "YYYY-MM-DD ถึง YYYY-MM-DD" → start + return
   const parsePeriod = (p: string): { startDate: string; returnDate: string } => {
     const m = p.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
     return { startDate: m?.[1] ?? "", returnDate: m?.[2] ?? "" };
   };
 
-  // Format YYYY-MM-DD to Thai short e.g. "15 มี.ค. 2026"
   const fmtThai = (iso: string): string => {
     if (!iso) return "";
     try {
@@ -112,7 +121,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     } catch { return iso; }
   };
 
-  // Auto-calculate days/nights when both dates set (only if user hasn't manually changed)
   React.useEffect(() => {
     if (form.startDate && form.returnDate) {
       const s = new Date(form.startDate);
@@ -147,7 +155,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const days = Number(form.days || 0);
     const nights = Number(form.nights || 0);
     const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
-    // Build period text — keep original format for backward compat: "DD-DD เดือน ปี" or "YYYY-MM-DD ถึง YYYY-MM-DD"
     const period = form.startDate && form.returnDate
       ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}`
       : "";
@@ -167,11 +174,47 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setOpen(false);
   };
 
+  const exportData = useMemo(() =>
+    tours.map((t) => ({
+      category: t.category,
+      code: t.code,
+      city: t.city,
+      country: t.country,
+      price_per_seat: t.price_per_seat,
+      quota: t.quota,
+      note: t.note ?? "",
+    })), [tours]);
+
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => {
+      addTour({
+        category: (row.category as TourCategory) || "International Tour",
+        code: String(row.code ?? ""),
+        city: String(row.city ?? ""),
+        country: String(row.country ?? ""),
+        period: "",
+        duration: "",
+        price_per_seat: Number(row.price_per_seat ?? 0),
+        quota: Number(row.quota ?? 0),
+        note: String(row.note ?? ""),
+      });
+    });
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
-        {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
+        <div className="flex items-center gap-2">
+          <ImportExportMenu
+            fields={TOUR_FIELDS}
+            sheetName="ทัวร์"
+            filename="tours"
+            data={exportData}
+            onImport={handleImport}
+          />
+          {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
+        </div>
       </div>
       {TOUR_CATS.map((cat) => {
         const items = tours.filter((t) => t.category === cat);
@@ -271,6 +314,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 }
 
 /* ========= Car ========= */
+const CAR_FIELDS: ExcelField[] = [
+  { key: "name",         header: "ชื่อรถ",         example: "Toyota Commuter", required: true },
+  { key: "type",         header: "ประเภท",          example: "Van" },
+  { key: "total_seats",  header: "จำนวนที่นั่ง",   example: "12",   type: "number" },
+  { key: "rate_per_day", header: "ราคา/วัน",        example: "2500", type: "number" },
+  { key: "seat_material",header: "ประเภทเบาะ",      example: "หนัง" },
+  { key: "quota",        header: "โควต้า",          example: "5",    type: "number" },
+  { key: "note",         header: "หมายเหตุ",        example: "" },
+];
+
 function CarSection({ canEdit }: { canEdit: boolean }) {
   const cars = useServices((s) => s.cars);
   const addCar = useServices((s) => s.addCar);
@@ -295,11 +348,41 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     toast.success(editId ? "อัปเดตแล้ว" : "เพิ่มรถใหม่แล้ว"); setOpen(false);
   };
 
+  const exportData = useMemo(() =>
+    cars.map((c) => ({
+      name: c.name, type: c.type,
+      total_seats: c.total_seats, rate_per_day: c.rate_per_day,
+      seat_material: c.seat_material, quota: c.quota, note: c.note ?? "",
+    })), [cars]);
+
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => {
+      addCar({
+        name: String(row.name ?? ""),
+        type: String(row.type ?? ""),
+        total_seats: Number(row.total_seats ?? 0),
+        rate_per_day: Number(row.rate_per_day ?? 0),
+        seat_material: (row.seat_material as SeatMaterial) || "ผ้า",
+        quota: Number(row.quota ?? 0),
+        note: String(row.note ?? ""),
+      });
+    });
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">รวม {cars.length} คัน</p>
-        {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
+        <div className="flex items-center gap-2">
+          <ImportExportMenu
+            fields={CAR_FIELDS}
+            sheetName="รถเช่า"
+            filename="cars"
+            data={exportData}
+            onImport={handleImport}
+          />
+          {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
+        </div>
       </div>
       <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
@@ -334,6 +417,9 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   )}
                 </tr>
               ))}
+              {cars.length === 0 && (
+                <tr><td colSpan={canEdit ? 8 : 7} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -385,6 +471,14 @@ function BookingSection({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/* ---- Flight ---- */
+const FLIGHT_FIELDS: ExcelField[] = [
+  { key: "airline", header: "สายการบิน", example: "Thai Airways", required: true },
+  { key: "route",   header: "เส้นทาง",   example: "BKK-HND" },
+  { key: "quota",   header: "โควต้า",    example: "50", type: "number" },
+  { key: "note",    header: "หมายเหตุ",  example: "" },
+];
+
 function FlightSection({ canEdit }: { canEdit: boolean }) {
   const items = useServices((s) => s.flights);
   const add = useServices((s) => s.addFlight);
@@ -396,12 +490,19 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
   const openAdd = () => { setEditId(null); setF({ airline: "", route: "", note: "", quota: "" }); setOpen(true); };
   const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ airline: x.airline, route: x.route, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
   const submit = () => { if (!f.airline) { toast.error("ใส่ชื่อสายการบิน"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+
+  const exportData = useMemo(() => items.map((i) => ({ airline: i.airline, route: i.route, quota: i.quota, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ airline: String(row.airline ?? ""), route: String(row.route ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+  };
+
   return (
     <SimpleTable
       title="ตั๋วเครื่องบิน"
       cols={["สายการบิน", "เส้นทาง", "หมายเหตุ", "โควต้า"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.airline, i.route, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={FLIGHT_FIELDS} sheetName="ตั๋วเครื่องบิน" filename="flights" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -420,6 +521,15 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/* ---- Hotel ---- */
+const HOTEL_FIELDS: ExcelField[] = [
+  { key: "name",    header: "ชื่อโรงแรม", example: "Mandarin Oriental", required: true },
+  { key: "city",    header: "เมือง",       example: "Bangkok" },
+  { key: "country", header: "ประเทศ",      example: "Thailand" },
+  { key: "quota",   header: "โควต้า",     example: "30", type: "number" },
+  { key: "note",    header: "หมายเหตุ",   example: "" },
+];
+
 function HotelSection({ canEdit }: { canEdit: boolean }) {
   const items = useServices((s) => s.hotels);
   const add = useServices((s) => s.addHotel);
@@ -431,12 +541,19 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
   const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "", quota: "" }); setOpen(true); };
   const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
   const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+
+  const exportData = useMemo(() => items.map((i) => ({ name: i.name, city: i.city, country: i.country, quota: i.quota, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ name: String(row.name ?? ""), city: String(row.city ?? ""), country: String(row.country ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+  };
+
   return (
     <SimpleTable
       title="โรงแรม"
       cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ", "โควต้า"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -455,6 +572,14 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
     />
   );
 }
+
+/* ---- Visa ---- */
+const VISA_FIELDS: ExcelField[] = [
+  { key: "visa_type", header: "ประเภทวีซ่า", example: "TR",        required: true },
+  { key: "country",   header: "ประเทศ",       example: "ญี่ปุ่น",  required: true },
+  { key: "quota",     header: "โควต้า",       example: "100",       type: "number" },
+  { key: "note",      header: "หมายเหตุ",     example: "" },
+];
 
 function VisaSection({ canEdit }: { canEdit: boolean }) {
   const items = useServices((s) => s.visas);
@@ -476,12 +601,19 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
     "O-A": "วีซ่าเกษียณอายุ (O-A)",
     "O-X": "วีซ่าเกษียณอายุ (O-X)",
   };
+
+  const exportData = useMemo(() => items.map((i) => ({ visa_type: i.visa_type, country: i.country, quota: i.quota, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ visa_type: (row.visa_type as VisaType) || "TR", country: String(row.country ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+  };
+
   return (
     <SimpleTable
       title="Visa"
       cols={["ประเภท", "ประเทศ", "หมายเหตุ", "โควต้า"]}
       rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -506,6 +638,15 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
   );
 }
 
+/* ---- Insurance ---- */
+const INSURANCE_FIELDS: ExcelField[] = [
+  { key: "plan_name", header: "ชื่อแผน",     example: "แผน A",           required: true },
+  { key: "coverage",  header: "วงเงิน",       example: "1,000,000 THB" },
+  { key: "price",     header: "ราคา",         example: "350",             type: "number" },
+  { key: "quota",     header: "โควต้า",       example: "200",             type: "number" },
+  { key: "note",      header: "หมายเหตุ",     example: "" },
+];
+
 function InsuranceSection({ canEdit }: { canEdit: boolean }) {
   const items = useServices((s) => s.insurances);
   const add = useServices((s) => s.addInsurance);
@@ -517,12 +658,19 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
   const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "", quota: "" }); setOpen(true); };
   const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
   const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0), quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+
+  const exportData = useMemo(() => items.map((i) => ({ plan_name: i.plan_name, coverage: i.coverage, price: i.price, quota: i.quota, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ plan_name: String(row.plan_name ?? ""), coverage: String(row.coverage ?? ""), price: Number(row.price ?? 0), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+  };
+
   return (
     <SimpleTable
       title="ประกันการเดินทาง"
       cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ", "โควต้า"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -552,13 +700,17 @@ interface SimpleTableProps {
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   dialog: React.ReactNode;
+  importExport?: React.ReactNode;
 }
-function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog }: SimpleTableProps) {
+function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog, importExport }: SimpleTableProps) {
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">{title} · {rows.length} รายการ</p>
-        {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
+        <div className="flex items-center gap-2">
+          {importExport}
+          {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
+        </div>
       </div>
       <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
