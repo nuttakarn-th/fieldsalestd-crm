@@ -40,6 +40,7 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
       <div
         ref={ref}
         className="relative w-full bg-white text-gray-900 rounded-2xl overflow-hidden shadow-2xl"
+        style={{ aspectRatio: "5 / 10" }}
       >
         {/* ── Gradient header with Logo ── */}
         <div className="relative flex items-center justify-center py-4 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-rose-500">
@@ -54,8 +55,8 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
         {/* ── Main content ── */}
         <div className="flex flex-col items-center px-5 pt-5 pb-4 gap-0">
 
-          {/* Profile photo — square 1:1 rounded */}
-          <div className="w-32 h-32 rounded-2xl overflow-hidden shadow-lg border-2 border-white ring-2 ring-purple-100 mb-3">
+          {/* Profile photo — square 1:1 rounded, larger */}
+          <div className="w-40 h-40 rounded-2xl overflow-hidden shadow-lg border-2 border-white ring-2 ring-purple-100 mb-3">
             <img
               src={avatar || "/Blank-Display.png"}
               alt={fullName}
@@ -65,35 +66,35 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
           </div>
 
           {/* Name */}
-          <h2 className="text-[22px] font-bold leading-tight text-center text-gray-900 mb-0.5">
+          <h2 className="text-[23px] font-bold leading-tight text-center text-gray-900 mb-0.5">
             {fullName}
           </h2>
 
           {/* Position — thin, italic, gray */}
-          <p className="text-xs font-light italic text-gray-400 tracking-wider text-center mb-4">
+          <p className="text-sm font-light italic text-gray-400 tracking-wider text-center mb-4">
             {position}
           </p>
 
-          {/* ── Contact icons ── */}
+          {/* ── Contact — bigger text ── */}
           {(tel || email || lineQrUrl) && (
             <>
               <div className="w-full border-t border-gray-100 mb-3" />
-              <div className="flex flex-col items-center gap-2 w-full mb-3">
+              <div className="flex flex-col items-center gap-2.5 w-full mb-3">
                 {tel && (
-                  <div className="flex items-center gap-2 text-[12px] text-gray-600">
-                    <Phone className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                  <div className="flex items-center gap-2.5 text-[15px] text-gray-700">
+                    <Phone className="w-4 h-4 text-pink-500 shrink-0" />
                     <span className="font-medium">{tel}</span>
                   </div>
                 )}
                 {email && (
-                  <div className="flex items-center gap-2 text-[11px] text-gray-600">
-                    <Mail className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-                    <span className="truncate max-w-[180px]">{email}</span>
+                  <div className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                    <Mail className="w-4 h-4 text-violet-500 shrink-0" />
+                    <span className="truncate max-w-[200px]">{email}</span>
                   </div>
                 )}
                 {lineQrUrl && (
-                  <div className="flex items-center gap-2 text-[12px] text-gray-600">
-                    <LineIcon className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                  <div className="flex items-center gap-2.5 text-[15px] text-gray-700">
+                    <LineIcon className="w-4 h-4 text-green-500 shrink-0" />
                     <span className="font-medium">LINE</span>
                   </div>
                 )}
@@ -101,13 +102,13 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
             </>
           )}
 
-          {/* ── QR codes — side by side, centered ── */}
+          {/* ── QR codes — larger, side by side ── */}
           <div className="w-full border-t border-gray-100 mb-3" />
           <div className="flex items-start justify-center gap-5 mb-4">
             {/* vCard QR */}
             <div className="flex flex-col items-center gap-1.5">
               <div className="bg-white p-1.5 rounded-xl border border-gray-100 shadow-sm">
-                <QRCodeSVG value={vCard} size={90} level="H" includeMargin={false} />
+                <QRCodeSVG value={vCard} size={110} level="H" includeMargin={false} />
               </div>
               <p className="text-[9px] text-gray-400 font-medium tracking-wide">Contact vCard</p>
             </div>
@@ -118,23 +119,23 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
                 <img
                   src={lineQrUrl}
                   alt="LINE QR"
-                  className="w-[93px] h-[93px] rounded-xl border border-gray-100 shadow-sm object-contain bg-white p-1"
+                  className="w-[113px] h-[113px] rounded-xl border border-gray-100 shadow-sm object-contain bg-white p-1"
                 />
               ) : (
-                <div className="w-[93px] h-[93px] rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50">
-                  <QrCode className="w-7 h-7 text-gray-200" />
+                <div className="w-[113px] h-[113px] rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50">
+                  <QrCode className="w-8 h-8 text-gray-200" />
                 </div>
               )}
               <p className="text-[9px] text-gray-400 font-medium tracking-wide">LINE QR</p>
             </div>
           </div>
 
-          {/* ── Footer ── */}
-          <div className="w-full border-t border-gray-100 mb-3" />
+          {/* ── Footer — smaller, 1-line address ── */}
+          <div className="w-full border-t border-gray-100 mb-2" />
           <div className="text-center space-y-0.5 pb-1">
-            <p className="text-[11px] font-semibold text-gray-700">{COMPANY_NAME}</p>
-            <p className="text-[9px] text-gray-400 leading-relaxed max-w-[220px] mx-auto">{address}</p>
-            <p className="text-[10px] text-gray-500 font-medium pt-1">www.standardtour.com</p>
+            <p className="text-[10px] font-semibold text-gray-600">{COMPANY_NAME}</p>
+            <p className="text-[8px] text-gray-400 truncate max-w-[240px] mx-auto">{address}</p>
+            <p className="text-[10px] text-gray-500 font-medium pt-0.5">www.standardtour.com</p>
           </div>
 
         </div>

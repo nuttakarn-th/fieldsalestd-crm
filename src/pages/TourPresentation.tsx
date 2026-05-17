@@ -159,16 +159,21 @@ export default function TourPresentation() {
       />
 
       <main className="max-w-6xl mx-auto px-6 pb-16 space-y-6">
-        <section className="rounded-3xl bg-card border shadow-soft p-6">
-          <h2 className="text-xl font-bold mb-2">Company Profile</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+        <section className="rounded-3xl bg-card border shadow-soft p-6 sm:p-8 text-center">
+          <h2
+            className="font-black tracking-tight leading-none mb-3"
+            style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontSize: "clamp(2rem, 6vw, 3.5rem)" }}
+          >
+            Company Profile
+          </h2>
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap max-w-2xl mx-auto">
             {settings.companyProfile}
           </p>
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div className="rounded-xl bg-muted/40 p-3"><p className="text-xs text-muted-foreground">ก่อตั้ง</p><p className="font-semibold">2533</p></div>
-            <div className="rounded-xl bg-muted/40 p-3"><p className="text-xs text-muted-foreground">ใบอนุญาต</p><p className="font-semibold">{settings.license}</p></div>
-            <div className="rounded-xl bg-muted/40 p-3"><p className="text-xs text-muted-foreground">สำนักงาน</p><p className="font-semibold">เชียงใหม่ · กรุงเทพฯ</p></div>
-            <div className="rounded-xl bg-muted/40 p-3"><p className="text-xs text-muted-foreground">บริการ</p><p className="font-semibold">Tour · Flight · Rent</p></div>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm max-w-2xl mx-auto">
+            <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">ก่อตั้ง</p><p className="font-semibold">2533</p></div>
+            <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">ใบอนุญาต</p><p className="font-semibold">{settings.license}</p></div>
+            <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">สำนักงาน</p><p className="font-semibold">เชียงใหม่ · กรุงเทพฯ</p></div>
+            <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">บริการ</p><p className="font-semibold">Tour · Flight · Rent</p></div>
           </div>
         </section>
 
