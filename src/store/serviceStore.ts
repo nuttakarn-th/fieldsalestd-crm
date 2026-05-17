@@ -14,28 +14,28 @@ export interface TourItem {
   duration: string;
   price_per_seat: number;
   note?: string;
-  quota: number;
+  total_seats: number;  // ที่นั่งทั้งหมด (คงที่ — ตั้งตอน Admin เพิ่มทัวร์)
+  quota: number;        // ที่นั่งว่างเหลืออยู่ (ลดอัตโนมัติเมื่อ Closed Won)
 }
 
-// ===== Car rental =====
+// ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
 export type SeatMaterial = "หนัง" | "ผ้า" | "กำมะหยี่";
 export interface CarItem {
   id: string;
   name: string;
   type: string;
-  total_seats: number;
+  total_seats: number;   // จำนวนที่นั่งในรถ (ไม่ใช่โควต้า)
   rate_per_day: number;
   seat_material: SeatMaterial;
   note?: string;
-  quota: number;
 }
 
-// ===== Booking sub-services =====
-export interface FlightItem { id: string; airline: string; route: string; note?: string; quota: number }
-export interface HotelItem { id: string; name: string; city: string; country: string; note?: string; quota: number }
+// ===== Booking sub-services — ไม่มีโควต้า (บริการ Unlimited) =====
+export interface FlightItem  { id: string; airline: string; route: string; note?: string }
+export interface HotelItem   { id: string; name: string; city: string; country: string; note?: string }
 export type VisaType = "TR" | "TS" | "Non-Immigrant" | "O" | "ED" | "O-A" | "O-X";
-export interface VisaItem { id: string; visa_type: VisaType; country: string; note?: string; quota: number }
-export interface InsuranceItem { id: string; plan_name: string; coverage: string; price: number; note?: string; quota: number }
+export interface VisaItem     { id: string; visa_type: VisaType; country: string; note?: string }
+export interface InsuranceItem { id: string; plan_name: string; coverage: string; price: number; note?: string }
 
 interface ServiceState {
   tours: TourItem[];
@@ -48,6 +48,8 @@ interface ServiceState {
   addTour: (t: Omit<TourItem, "id">) => void;
   updateTour: (id: string, p: Partial<TourItem>) => void;
   deleteTour: (id: string) => void;
+  /** ปรับที่นั่งว่าง: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
+  adjustQuota: (tourId: string, delta: number) => void;
 
   addCar: (c: Omit<CarItem, "id">) => void;
   updateCar: (id: string, p: Partial<CarItem>) => void;
@@ -69,21 +71,18 @@ interface ServiceState {
   updateInsurance: (id: string, p: Partial<InsuranceItem>) => void;
   deleteInsurance: (id: string) => void;
 
-  adjustQuota: (kind: "tour" | "car" | "flight" | "hotel" | "visa" | "insurance", id: string, delta: number) => void;
-
   loadFromSupabase: () => Promise<void>;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-// Fire-and-forget Supabase insert/update/delete
-function sbInsert(table: string, row: any) {
+function sbInsert(table: string, row: object) {
   if (!SUPABASE_ENABLED || !supabase) return;
   supabase.from(table).insert(row).then(({ error }) => {
     if (error) console.error(`[supabase] insert ${table} ล้มเหลว:`, error);
   });
 }
-function sbUpdate(table: string, id: string, patch: any) {
+function sbUpdate(table: string, id: string, patch: object) {
   if (!SUPABASE_ENABLED || !supabase) return;
   supabase.from(table).update(patch).eq("id", id).then(({ error }) => {
     if (error) console.error(`[supabase] update ${table} ล้มเหลว:`, error);
@@ -106,8 +105,10 @@ export const useServices = create<ServiceState>()(
       visas: [],
       insurances: [],
 
+      // ── Tour ──
       addTour: (t) => {
-        const item: TourItem = { ...t, id: uid() };
+        // quota เริ่มต้น = total_seats (ยังไม่มีคนจอง)
+        const item: TourItem = { ...t, quota: t.total_seats, id: uid() };
         set({ tours: [...get().tours, item] });
         sbInsert("tours", item);
       },
@@ -119,7 +120,15 @@ export const useServices = create<ServiceState>()(
         set({ tours: get().tours.filter((x) => x.id !== id) });
         sbDelete("tours", id);
       },
+      adjustQuota: (tourId, delta) => {
+        const tour = get().tours.find((x) => x.id === tourId);
+        if (!tour) return;
+        const newQuota = Math.max(0, tour.quota + delta);
+        set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, quota: newQuota } : x) });
+        sbUpdate("tours", tourId, { quota: newQuota });
+      },
 
+      // ── Car ──
       addCar: (c) => {
         const item: CarItem = { ...c, id: uid() };
         set({ cars: [...get().cars, item] });
@@ -134,6 +143,7 @@ export const useServices = create<ServiceState>()(
         sbDelete("cars", id);
       },
 
+      // ── Flight ──
       addFlight: (f) => {
         const item: FlightItem = { ...f, id: uid() };
         set({ flights: [...get().flights, item] });
@@ -148,6 +158,7 @@ export const useServices = create<ServiceState>()(
         sbDelete("flights", id);
       },
 
+      // ── Hotel ──
       addHotel: (h) => {
         const item: HotelItem = { ...h, id: uid() };
         set({ hotels: [...get().hotels, item] });
@@ -162,6 +173,7 @@ export const useServices = create<ServiceState>()(
         sbDelete("hotels", id);
       },
 
+      // ── Visa ──
       addVisa: (v) => {
         const item: VisaItem = { ...v, id: uid() };
         set({ visas: [...get().visas, item] });
@@ -176,6 +188,7 @@ export const useServices = create<ServiceState>()(
         sbDelete("visas", id);
       },
 
+      // ── Insurance ──
       addInsurance: (i) => {
         const item: InsuranceItem = { ...i, id: uid() };
         set({ insurances: [...get().insurances, item] });
@@ -190,31 +203,6 @@ export const useServices = create<ServiceState>()(
         sbDelete("insurances", id);
       },
 
-      adjustQuota: (kind, id, delta) => {
-        const apply = <T extends { id: string; quota: number }>(arr: T[]) =>
-          arr.map((x) => (x.id === id ? { ...x, quota: Math.max(0, x.quota + delta) } : x));
-        const newQuota = (() => {
-          let cur = 0;
-          switch (kind) {
-            case "tour": cur = get().tours.find((x) => x.id === id)?.quota ?? 0; break;
-            case "car": cur = get().cars.find((x) => x.id === id)?.quota ?? 0; break;
-            case "flight": cur = get().flights.find((x) => x.id === id)?.quota ?? 0; break;
-            case "hotel": cur = get().hotels.find((x) => x.id === id)?.quota ?? 0; break;
-            case "visa": cur = get().visas.find((x) => x.id === id)?.quota ?? 0; break;
-            case "insurance": cur = get().insurances.find((x) => x.id === id)?.quota ?? 0; break;
-          }
-          return Math.max(0, cur + delta);
-        })();
-        switch (kind) {
-          case "tour": set({ tours: apply(get().tours) }); sbUpdate("tours", id, { quota: newQuota }); break;
-          case "car": set({ cars: apply(get().cars) }); sbUpdate("cars", id, { quota: newQuota }); break;
-          case "flight": set({ flights: apply(get().flights) }); sbUpdate("flights", id, { quota: newQuota }); break;
-          case "hotel": set({ hotels: apply(get().hotels) }); sbUpdate("hotels", id, { quota: newQuota }); break;
-          case "visa": set({ visas: apply(get().visas) }); sbUpdate("visas", id, { quota: newQuota }); break;
-          case "insurance": set({ insurances: apply(get().insurances) }); sbUpdate("insurances", id, { quota: newQuota }); break;
-        }
-      },
-
       loadFromSupabase: async () => {
         if (!SUPABASE_ENABLED || !supabase) return;
         try {
@@ -227,19 +215,26 @@ export const useServices = create<ServiceState>()(
             supabase.from("insurances").select("*"),
           ]);
           const updates: Partial<ServiceState> = {};
-          if (tours.data) updates.tours = tours.data as TourItem[];
-          if (cars.data) updates.cars = cars.data as CarItem[];
-          if (flights.data) updates.flights = flights.data as FlightItem[];
-          if (hotels.data) updates.hotels = hotels.data as HotelItem[];
-          if (visas.data) updates.visas = visas.data as VisaItem[];
+          if (tours.data) {
+            // backward compat: ถ้า total_seats ยังไม่มีใน DB → ใช้ quota เป็น total_seats
+            updates.tours = (tours.data as (TourItem & { quota?: number })[]).map((t) => ({
+              ...t,
+              total_seats: t.total_seats > 0 ? t.total_seats : (t.quota ?? 0),
+              quota: t.quota ?? 0,
+            }));
+          }
+          if (cars.data)       updates.cars       = cars.data       as CarItem[];
+          if (flights.data)    updates.flights    = flights.data    as FlightItem[];
+          if (hotels.data)     updates.hotels     = hotels.data     as HotelItem[];
+          if (visas.data)      updates.visas      = visas.data      as VisaItem[];
           if (insurances.data) updates.insurances = insurances.data as InsuranceItem[];
           set(updates);
           const summary = [
-            tours.data?.length && `tours ${tours.data.length}`,
-            cars.data?.length && `cars ${cars.data.length}`,
-            flights.data?.length && `flights ${flights.data.length}`,
-            hotels.data?.length && `hotels ${hotels.data.length}`,
-            visas.data?.length && `visas ${visas.data.length}`,
+            tours.data?.length      && `tours ${tours.data.length}`,
+            cars.data?.length       && `cars ${cars.data.length}`,
+            flights.data?.length    && `flights ${flights.data.length}`,
+            hotels.data?.length     && `hotels ${hotels.data.length}`,
+            visas.data?.length      && `visas ${visas.data.length}`,
             insurances.data?.length && `insurances ${insurances.data.length}`,
           ].filter(Boolean).join(", ");
           if (summary) console.info(`[supabase] โหลด services: ${summary}`);
@@ -248,6 +243,6 @@ export const useServices = create<ServiceState>()(
         }
       },
     }),
-    { name: "stdtour-services-v3" },
+    { name: "stdtour-services-v4" },
   ),
 );

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,9 +22,75 @@ const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"
 const SEAT_MATS: SeatMaterial[] = ["หนัง", "ผ้า", "กำมะหยี่"];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
-function QuotaBadge({ q }: { q: number }) {
-  const tone = q === 0 ? "bg-destructive/15 text-destructive border-destructive/30" : q < 5 ? "bg-warning/20 text-warning-foreground border-warning/40" : "bg-success/15 text-success border-success/30";
-  return <Badge variant="outline" className={`${tone} text-[10px]`}>คงเหลือ {q}</Badge>;
+// ── Quota Progress Bar (เฉพาะ Tour) ──
+function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; total_seats: number; canEdit: boolean; tourId: string }) {
+  const adjustQuota = useServices((s) => s.adjustQuota);
+  const [adjusting, setAdjusting] = useState(false);
+  const [delta, setDelta] = useState("");
+
+  if (total_seats === 0) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const booked = total_seats - quota;
+  const pct = Math.round((quota / total_seats) * 100);
+  const barColor = quota === 0
+    ? "bg-destructive"
+    : pct <= 20
+    ? "bg-amber-500"
+    : "bg-success";
+
+  return (
+    <div className="min-w-[110px] space-y-0.5">
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span className="font-semibold text-foreground">ว่าง {quota}</span>
+        <span>/{total_seats}</span>
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground">จอง {booked} ที่</span>
+        {quota === 0 && <span className="text-[10px] font-bold text-destructive">FULL</span>}
+      </div>
+      {/* Admin ±adjust */}
+      {canEdit && !adjusting && (
+        <button
+          className="text-[10px] text-primary hover:underline"
+          onClick={() => setAdjusting(true)}
+        >ปรับที่นั่ง ±</button>
+      )}
+      {canEdit && adjusting && (
+        <div className="flex items-center gap-1 mt-1">
+          <button
+            className="w-5 h-5 rounded border text-xs flex items-center justify-center hover:bg-muted"
+            onClick={() => { adjustQuota(tourId, -1); }}
+          ><Minus className="w-3 h-3" /></button>
+          <Input
+            type="number"
+            className="h-5 w-14 text-[10px] px-1"
+            placeholder="±"
+            value={delta}
+            onChange={(e) => setDelta(e.target.value)}
+          />
+          <Button
+            size="sm"
+            className="h-5 text-[10px] px-2"
+            onClick={() => {
+              const d = parseInt(delta);
+              if (!isNaN(d) && d !== 0) {
+                adjustQuota(tourId, d);
+                toast.success(`ปรับที่นั่ง ${d > 0 ? "+" : ""}${d} แล้ว`);
+              }
+              setDelta("");
+              setAdjusting(false);
+            }}
+          >ตกลง</Button>
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1" onClick={() => { setDelta(""); setAdjusting(false); }}>
+            ✕
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AllService() {
@@ -66,13 +132,13 @@ export default function AllService() {
 
 /* ========= Tour ========= */
 const TOUR_FIELDS: ExcelField[] = [
-  { key: "category",      header: "ประเภท",          example: "International Tour" },
-  { key: "code",          header: "รหัสทัวร์",       example: "HQO-KMG04", required: true },
-  { key: "city",          header: "เมือง",           example: "คุนหมิง",    required: true },
-  { key: "country",       header: "ประเทศ",          example: "จีน" },
-  { key: "price_per_seat",header: "ราคา/ที่นั่ง",   example: "25900",  type: "number" },
-  { key: "quota",         header: "โควต้า",          example: "24",     type: "number" },
-  { key: "note",          header: "หมายเหตุ",        example: "ซากุระบาน" },
+  { key: "category",      header: "ประเภท",            example: "International Tour" },
+  { key: "code",          header: "รหัสทัวร์",         example: "HQO-KMG04", required: true },
+  { key: "city",          header: "เมือง",             example: "คุนหมิง",    required: true },
+  { key: "country",       header: "ประเทศ",            example: "จีน" },
+  { key: "price_per_seat",header: "ราคา/ที่นั่ง",     example: "25900",  type: "number" },
+  { key: "total_seats",   header: "จำนวนที่นั่งทั้งหมด", example: "40",  type: "number" },
+  { key: "note",          header: "หมายเหตุ",          example: "ซากุระบาน" },
 ];
 
 function TourSection({ canEdit }: { canEdit: boolean }) {
@@ -86,11 +152,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [form, setForm] = useState({
     category: "International Tour" as TourCategory,
     code: "", city: "", country: "",
-    startDate: "" as string, returnDate: "" as string,
-    days: "" as string, nights: "" as string,
-    price_per_seat: "" as string,
+    startDate: "", returnDate: "",
+    days: "", nights: "",
+    price_per_seat: "",
     note: "",
-    quota: "" as string,
+    total_seats: "",
   });
 
   const blankForm = () => ({
@@ -100,25 +166,24 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     days: "", nights: "",
     price_per_seat: "",
     note: "",
-    quota: "",
+    total_seats: "",
   });
 
-  const parseDuration = (s: string): { days: string; nights: string } => {
+  const parseDuration = (s: string) => {
     const dMatch = s.match(/(\d+)\s*วัน/);
     const nMatch = s.match(/(\d+)\s*คืน/);
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
   };
 
-  const parsePeriod = (p: string): { startDate: string; returnDate: string } => {
+  const parsePeriod = (p: string) => {
     const m = p.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
     return { startDate: m?.[1] ?? "", returnDate: m?.[2] ?? "" };
   };
 
   const fmtThai = (iso: string): string => {
     if (!iso) return "";
-    try {
-      return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
-    } catch { return iso; }
+    try { return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }); }
+    catch { return iso; }
   };
 
   React.useEffect(() => {
@@ -127,11 +192,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       const r = new Date(form.returnDate);
       if (!isNaN(s.getTime()) && !isNaN(r.getTime()) && r >= s) {
         const nights = Math.round((r.getTime() - s.getTime()) / 86400000);
-        const days = nights + 1;
-        setForm((f) => ({ ...f, days: String(days), nights: String(nights) }));
+        setForm((f) => ({ ...f, days: String(nights + 1), nights: String(nights) }));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.startDate, form.returnDate]);
 
   const openAdd = () => { setEditId(null); setForm(blankForm()); setOpen(true); };
@@ -146,10 +210,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       days: dur.days, nights: dur.nights,
       price_per_seat: String(t.price_per_seat),
       note: t.note ?? "",
-      quota: String(t.quota),
+      total_seats: String(t.total_seats),
     });
     setOpen(true);
   };
+
   const submit = () => {
     if (!form.code || !form.city) { toast.error("กรุณากรอกรหัสและชื่อเมือง"); return; }
     const days = Number(form.days || 0);
@@ -158,61 +223,67 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const period = form.startDate && form.returnDate
       ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}`
       : "";
-    const payload = {
-      category: form.category,
-      code: form.code,
-      city: form.city,
-      country: form.country,
-      period,
-      duration,
-      price_per_seat: Number(form.price_per_seat || 0),
-      note: form.note,
-      quota: Number(form.quota || 0),
-    };
-    if (editId) updateTour(editId, payload); else addTour(payload);
+    const newTotalSeats = Number(form.total_seats || 0);
+
+    if (editId) {
+      const existing = tours.find((x) => x.id === editId);
+      // ถ้า total_seats เพิ่มขึ้น → เพิ่ม quota ตามส่วนต่าง
+      const seatDiff = existing ? newTotalSeats - existing.total_seats : 0;
+      const newQuota = existing ? Math.max(0, existing.quota + seatDiff) : newTotalSeats;
+      updateTour(editId, {
+        category: form.category, code: form.code, city: form.city, country: form.country,
+        period, duration,
+        price_per_seat: Number(form.price_per_seat || 0),
+        note: form.note,
+        total_seats: newTotalSeats,
+        quota: newQuota,
+      });
+    } else {
+      addTour({
+        category: form.category, code: form.code, city: form.city, country: form.country,
+        period, duration,
+        price_per_seat: Number(form.price_per_seat || 0),
+        note: form.note,
+        total_seats: newTotalSeats,
+        quota: newTotalSeats, // เริ่มต้น quota = total_seats (ยังว่างทั้งหมด)
+      });
+    }
     toast.success(editId ? "อัปเดตทัวร์แล้ว" : "เพิ่มทัวร์ใหม่แล้ว");
     setOpen(false);
   };
 
   const exportData = useMemo(() =>
     tours.map((t) => ({
-      category: t.category,
-      code: t.code,
-      city: t.city,
-      country: t.country,
-      price_per_seat: t.price_per_seat,
-      quota: t.quota,
-      note: t.note ?? "",
+      category: t.category, code: t.code, city: t.city, country: t.country,
+      price_per_seat: t.price_per_seat, total_seats: t.total_seats, note: t.note ?? "",
     })), [tours]);
 
   const handleImport = (rows: Record<string, unknown>[]) => {
     rows.forEach((row) => {
+      const seats = Number(row.total_seats ?? 0);
       addTour({
         category: (row.category as TourCategory) || "International Tour",
-        code: String(row.code ?? ""),
-        city: String(row.city ?? ""),
-        country: String(row.country ?? ""),
-        period: "",
-        duration: "",
+        code: String(row.code ?? ""), city: String(row.city ?? ""),
+        country: String(row.country ?? ""), period: "", duration: "",
         price_per_seat: Number(row.price_per_seat ?? 0),
-        quota: Number(row.quota ?? 0),
+        total_seats: seats, quota: seats,
         note: String(row.note ?? ""),
       });
     });
+    toast.success(`นำเข้า ${rows.length} ทัวร์แล้ว`);
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
+        <div>
+          <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก
+          </p>
+        </div>
         <div className="flex items-center gap-2">
-          <ImportExportMenu
-            fields={TOUR_FIELDS}
-            sheetName="ทัวร์"
-            filename="tours"
-            data={exportData}
-            onImport={handleImport}
-          />
+          <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImport} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
         </div>
       </div>
@@ -235,7 +306,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     <th className="p-2 text-left">ระยะเวลา</th>
                     <th className="p-2 text-right">ราคา/ที่นั่ง</th>
                     <th className="p-2 text-left">หมายเหตุ</th>
-                    <th className="p-2 text-center">โควต้า</th>
+                    <th className="p-2 text-left">ที่นั่ง / โควต้า</th>
                     {canEdit && <th className="p-2"></th>}
                   </tr>
                 </thead>
@@ -248,11 +319,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       <td className="p-2 text-xs">{t.duration}</td>
                       <td className="p-2 text-right font-bold">{t.price_per_seat.toLocaleString()}</td>
                       <td className="p-2 text-xs text-muted-foreground">{t.note || "-"}</td>
-                      <td className="p-2 text-center"><QuotaBadge q={t.quota} /></td>
+                      <td className="p-2">
+                        <QuotaBar quota={t.quota} total_seats={t.total_seats} canEdit={canEdit} tourId={t.id} />
+                      </td>
                       {canEdit && (
-                        <td className="p-2 text-right">
+                        <td className="p-2 text-right whitespace-nowrap">
                           <Button size="icon" variant="ghost" onClick={() => openEdit(t.id)}><Pencil className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => { if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => {
+                            const booked = t.total_seats - t.quota;
+                            if (booked > 0) {
+                              toast.error(`ไม่สามารถลบได้ มีที่นั่งถูกจองแล้ว ${booked} ที่`);
+                              return;
+                            }
+                            if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); }
+                          }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </td>
                       )}
                     </tr>
@@ -263,6 +343,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           </div>
         );
       })}
+      {tours.length === 0 && (
+        <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">ยังไม่มีโปรแกรมทัวร์</div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
@@ -277,21 +360,22 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="HQO-KMG04-DR" /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} placeholder="เช่น 24" /></div>
+              <div>
+                <label className="text-xs font-semibold">จำนวนที่นั่งทั้งหมด</label>
+                <Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="เช่น 40" />
+                {editId && (() => {
+                  const t = tours.find((x) => x.id === editId);
+                  return t ? <p className="text-[10px] text-muted-foreground mt-0.5">ปัจจุบันว่าง {t.quota} / {t.total_seats} ที่นั่ง · จอง {t.total_seats - t.quota} ที่</p> : null;
+                })()}
+              </div>
               <div><label className="text-xs font-semibold">ชื่อเมือง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="คุนหมิง โหลวผิง" /></div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="จีน" /></div>
               <div className="col-span-2 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold">วันที่เดินทาง</label>
-                  <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold">วันที่กลับ</label>
-                  <Input type="date" value={form.returnDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} />
-                </div>
+                <div><label className="text-xs font-semibold">วันที่เดินทาง</label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
+                <div><label className="text-xs font-semibold">วันที่กลับ</label><Input type="date" value={form.returnDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} /></div>
               </div>
               <div className="col-span-2">
-                <label className="text-xs font-semibold">ระยะเวลา <span className="text-[10px] text-muted-foreground">(คำนวณอัตโนมัติจากวันที่ — แก้ตัวเลขเองได้)</span></label>
+                <label className="text-xs font-semibold">ระยะเวลา <span className="text-[10px] text-muted-foreground">(คำนวณอัตโนมัติ — แก้เองได้)</span></label>
                 <div className="flex items-center gap-1.5">
                   <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="4" className="w-full" />
                   <span className="text-xs text-muted-foreground shrink-0">วัน</span>
@@ -313,14 +397,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-/* ========= Car ========= */
+/* ========= Car — ไม่มีโควต้า ========= */
 const CAR_FIELDS: ExcelField[] = [
   { key: "name",         header: "ชื่อรถ",         example: "Toyota Commuter", required: true },
   { key: "type",         header: "ประเภท",          example: "Van" },
   { key: "total_seats",  header: "จำนวนที่นั่ง",   example: "12",   type: "number" },
   { key: "rate_per_day", header: "ราคา/วัน",        example: "2500", type: "number" },
   { key: "seat_material",header: "ประเภทเบาะ",      example: "หนัง" },
-  { key: "quota",        header: "โควต้า",          example: "5",    type: "number" },
   { key: "note",         header: "หมายเหตุ",        example: "" },
 ];
 
@@ -332,55 +415,43 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "", total_seats: "" as string, rate_per_day: "" as string, seat_material: "ผ้า" as SeatMaterial, note: "", quota: "" as string });
+  const [form, setForm] = useState({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า" as SeatMaterial, note: "" });
 
-  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า", note: "", quota: "" }); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า", note: "" }); setOpen(true); };
   const openEdit = (id: string) => {
     const c = cars.find((x) => x.id === id); if (!c) return;
     setEditId(id);
-    setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), rate_per_day: String(c.rate_per_day), seat_material: c.seat_material, note: c.note ?? "", quota: String(c.quota) });
+    setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), rate_per_day: String(c.rate_per_day), seat_material: c.seat_material, note: c.note ?? "" });
     setOpen(true);
   };
   const submit = () => {
     if (!form.name) { toast.error("กรุณากรอกชื่อรถ"); return; }
-    const payload = { name: form.name, type: form.type, total_seats: Number(form.total_seats || 0), rate_per_day: Number(form.rate_per_day || 0), seat_material: form.seat_material, note: form.note, quota: Number(form.quota || 0) };
+    const payload = { name: form.name, type: form.type, total_seats: Number(form.total_seats || 0), rate_per_day: Number(form.rate_per_day || 0), seat_material: form.seat_material, note: form.note };
     if (editId) updateCar(editId, payload); else addCar(payload);
     toast.success(editId ? "อัปเดตแล้ว" : "เพิ่มรถใหม่แล้ว"); setOpen(false);
   };
 
   const exportData = useMemo(() =>
-    cars.map((c) => ({
-      name: c.name, type: c.type,
-      total_seats: c.total_seats, rate_per_day: c.rate_per_day,
-      seat_material: c.seat_material, quota: c.quota, note: c.note ?? "",
-    })), [cars]);
+    cars.map((c) => ({ name: c.name, type: c.type, total_seats: c.total_seats, rate_per_day: c.rate_per_day, seat_material: c.seat_material, note: c.note ?? "" })), [cars]);
 
   const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => {
-      addCar({
-        name: String(row.name ?? ""),
-        type: String(row.type ?? ""),
-        total_seats: Number(row.total_seats ?? 0),
-        rate_per_day: Number(row.rate_per_day ?? 0),
-        seat_material: (row.seat_material as SeatMaterial) || "ผ้า",
-        quota: Number(row.quota ?? 0),
-        note: String(row.note ?? ""),
-      });
-    });
+    rows.forEach((row) => addCar({
+      name: String(row.name ?? ""), type: String(row.type ?? ""),
+      total_seats: Number(row.total_seats ?? 0), rate_per_day: Number(row.rate_per_day ?? 0),
+      seat_material: (row.seat_material as SeatMaterial) || "ผ้า", note: String(row.note ?? ""),
+    }));
+    toast.success(`นำเข้า ${rows.length} รถแล้ว`);
   };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm text-muted-foreground">รวม {cars.length} คัน</p>
+        <div>
+          <p className="text-sm text-muted-foreground">รวม {cars.length} คัน</p>
+          <p className="text-xs text-muted-foreground mt-0.5">🚗 บริการเช่ารถ — ไม่จำกัดโควต้า (Unlimited)</p>
+        </div>
         <div className="flex items-center gap-2">
-          <ImportExportMenu
-            fields={CAR_FIELDS}
-            sheetName="รถเช่า"
-            filename="cars"
-            data={exportData}
-            onImport={handleImport}
-          />
+          <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
         </div>
       </div>
@@ -395,7 +466,6 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                 <th className="p-3 text-right">ราคา/วัน</th>
                 <th className="p-3 text-left">เบาะ</th>
                 <th className="p-3 text-left">หมายเหตุ</th>
-                <th className="p-3 text-center">โควต้า</th>
                 {canEdit && <th className="p-3"></th>}
               </tr>
             </thead>
@@ -408,7 +478,6 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   <td className="p-3 text-right font-bold">{c.rate_per_day.toLocaleString()}</td>
                   <td className="p-3">{c.seat_material}</td>
                   <td className="p-3 text-xs text-muted-foreground">{c.note || "-"}</td>
-                  <td className="p-3 text-center"><QuotaBadge q={c.quota} /></td>
                   {canEdit && (
                     <td className="p-3 text-right">
                       <Button size="icon" variant="ghost" onClick={() => openEdit(c.id)}><Pencil className="w-4 h-4" /></Button>
@@ -417,9 +486,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   )}
                 </tr>
               ))}
-              {cars.length === 0 && (
-                <tr><td colSpan={canEdit ? 8 : 7} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>
-              )}
+              {cars.length === 0 && <tr><td colSpan={canEdit ? 7 : 6} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>}
             </tbody>
           </table>
         </div>
@@ -431,7 +498,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs font-semibold">ชื่อรถ</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Toyota Commuter" /></div>
             <div><label className="text-xs font-semibold">ประเภท</label><Input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="SUV / Van / Sedan" /></div>
-            <div><label className="text-xs font-semibold">ที่นั่ง</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="12" /></div>
+            <div><label className="text-xs font-semibold">จำนวนที่นั่ง</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="12" /></div>
             <div><label className="text-xs font-semibold">ราคา/วัน</label><Input type="number" min={0} value={form.rate_per_day} onChange={(e) => setForm({ ...form, rate_per_day: e.target.value })} placeholder="2500" /></div>
             <div>
               <label className="text-xs font-semibold">ประเภทเบาะ</label>
@@ -440,7 +507,6 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                 <SelectContent>{SEAT_MATS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={form.quota} onChange={(e) => setForm({ ...form, quota: e.target.value })} placeholder="5" /></div>
             <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
           </div>
           <DialogFooter>
@@ -475,7 +541,6 @@ function BookingSection({ canEdit }: { canEdit: boolean }) {
 const FLIGHT_FIELDS: ExcelField[] = [
   { key: "airline", header: "สายการบิน", example: "Thai Airways", required: true },
   { key: "route",   header: "เส้นทาง",   example: "BKK-HND" },
-  { key: "quota",   header: "โควต้า",    example: "50", type: "number" },
   { key: "note",    header: "หมายเหตุ",  example: "" },
 ];
 
@@ -486,32 +551,32 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteFlight);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ airline: "", route: "", note: "", quota: "" as string });
-  const openAdd = () => { setEditId(null); setF({ airline: "", route: "", note: "", quota: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ airline: x.airline, route: x.route, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
-  const submit = () => { if (!f.airline) { toast.error("ใส่ชื่อสายการบิน"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ airline: "", route: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ airline: "", route: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ airline: x.airline, route: x.route, note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.airline) { toast.error("ใส่ชื่อสายการบิน"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
 
-  const exportData = useMemo(() => items.map((i) => ({ airline: i.airline, route: i.route, quota: i.quota, note: i.note ?? "" })), [items]);
+  const exportData = useMemo(() => items.map((i) => ({ airline: i.airline, route: i.route, note: i.note ?? "" })), [items]);
   const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ airline: String(row.airline ?? ""), route: String(row.route ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+    rows.forEach((row) => add({ airline: String(row.airline ?? ""), route: String(row.route ?? ""), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
   };
 
   return (
     <SimpleTable
-      title="ตั๋วเครื่องบิน"
-      cols={["สายการบิน", "เส้นทาง", "หมายเหตุ", "โควต้า"]}
-      rows={items.map((i) => ({ id: i.id, cells: [i.airline, i.route, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
+      title="ตั๋วเครื่องบิน (Unlimited)"
+      cols={["สายการบิน", "เส้นทาง", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [i.airline, i.route, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       importExport={<ImportExportMenu fields={FLIGHT_FIELDS} sheetName="ตั๋วเครื่องบิน" filename="flights" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
             <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}ตั๋วเครื่องบิน</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><label className="text-xs font-semibold">สายการบิน</label><Input value={f.airline} onChange={(e) => setF({ ...f, airline: e.target.value })} /></div>
+            <div className="space-y-3">
+              <div><label className="text-xs font-semibold">สายการบิน</label><Input value={f.airline} onChange={(e) => setF({ ...f, airline: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">เส้นทาง</label><Input value={f.route} onChange={(e) => setF({ ...f, route: e.target.value })} placeholder="BKK-HND" /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="50" /></div>
-              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
+              <div><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
           </DialogContent>
@@ -526,7 +591,6 @@ const HOTEL_FIELDS: ExcelField[] = [
   { key: "name",    header: "ชื่อโรงแรม", example: "Mandarin Oriental", required: true },
   { key: "city",    header: "เมือง",       example: "Bangkok" },
   { key: "country", header: "ประเทศ",      example: "Thailand" },
-  { key: "quota",   header: "โควต้า",     example: "30", type: "number" },
   { key: "note",    header: "หมายเหตุ",   example: "" },
 ];
 
@@ -537,21 +601,22 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteHotel);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ name: "", city: "", country: "", note: "", quota: "" as string });
-  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "", quota: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
-  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ name: "", city: "", country: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
 
-  const exportData = useMemo(() => items.map((i) => ({ name: i.name, city: i.city, country: i.country, quota: i.quota, note: i.note ?? "" })), [items]);
+  const exportData = useMemo(() => items.map((i) => ({ name: i.name, city: i.city, country: i.country, note: i.note ?? "" })), [items]);
   const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ name: String(row.name ?? ""), city: String(row.city ?? ""), country: String(row.country ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+    rows.forEach((row) => add({ name: String(row.name ?? ""), city: String(row.city ?? ""), country: String(row.country ?? ""), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
   };
 
   return (
     <SimpleTable
-      title="โรงแรม"
-      cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ", "โควต้า"]}
-      rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
+      title="โรงแรม (Unlimited)"
+      cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
       dialog={
@@ -562,7 +627,6 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
               <div className="col-span-2"><label className="text-xs font-semibold">ชื่อโรงแรม</label><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">เมือง</label><Input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="30" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
@@ -575,9 +639,8 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
 
 /* ---- Visa ---- */
 const VISA_FIELDS: ExcelField[] = [
-  { key: "visa_type", header: "ประเภทวีซ่า", example: "TR",        required: true },
-  { key: "country",   header: "ประเทศ",       example: "ญี่ปุ่น",  required: true },
-  { key: "quota",     header: "โควต้า",       example: "100",       type: "number" },
+  { key: "visa_type", header: "ประเภทวีซ่า", example: "TR",       required: true },
+  { key: "country",   header: "ประเทศ",       example: "ญี่ปุ่น", required: true },
   { key: "note",      header: "หมายเหตุ",     example: "" },
 ];
 
@@ -588,30 +651,26 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteVisa);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "", quota: "" as string });
-  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "", quota: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
-  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } const p = { ...f, quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
   const VISA_DESC: Record<VisaType, string> = {
-    "TR": "วีซ่าท่องเที่ยว",
-    "TS": "วีซ่าผ่านทาง",
-    "Non-Immigrant": "วีซ่าทำงาน/ธุรกิจ",
-    "O": "วีซ่าคู่สมรส",
-    "ED": "วีซ่าการศึกษา",
-    "O-A": "วีซ่าเกษียณอายุ (O-A)",
-    "O-X": "วีซ่าเกษียณอายุ (O-X)",
+    "TR": "วีซ่าท่องเที่ยว", "TS": "วีซ่าผ่านทาง", "Non-Immigrant": "วีซ่าทำงาน/ธุรกิจ",
+    "O": "วีซ่าคู่สมรส", "ED": "วีซ่าการศึกษา", "O-A": "วีซ่าเกษียณอายุ (O-A)", "O-X": "วีซ่าเกษียณอายุ (O-X)",
   };
 
-  const exportData = useMemo(() => items.map((i) => ({ visa_type: i.visa_type, country: i.country, quota: i.quota, note: i.note ?? "" })), [items]);
+  const exportData = useMemo(() => items.map((i) => ({ visa_type: i.visa_type, country: i.country, note: i.note ?? "" })), [items]);
   const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ visa_type: (row.visa_type as VisaType) || "TR", country: String(row.country ?? ""), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+    rows.forEach((row) => add({ visa_type: (row.visa_type as VisaType) || "TR", country: String(row.country ?? ""), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
   };
 
   return (
     <SimpleTable
-      title="Visa"
-      cols={["ประเภท", "ประเทศ", "หมายเหตุ", "โควต้า"]}
-      rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
+      title="Visa (Unlimited)"
+      cols={["ประเภท", "ประเทศ", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
       dialog={
@@ -627,7 +686,6 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
                 </Select>
               </div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="100" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
@@ -640,11 +698,10 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
 
 /* ---- Insurance ---- */
 const INSURANCE_FIELDS: ExcelField[] = [
-  { key: "plan_name", header: "ชื่อแผน",     example: "แผน A",           required: true },
-  { key: "coverage",  header: "วงเงิน",       example: "1,000,000 THB" },
-  { key: "price",     header: "ราคา",         example: "350",             type: "number" },
-  { key: "quota",     header: "โควต้า",       example: "200",             type: "number" },
-  { key: "note",      header: "หมายเหตุ",     example: "" },
+  { key: "plan_name", header: "ชื่อแผน", example: "แผน A",           required: true },
+  { key: "coverage",  header: "วงเงิน",  example: "1,000,000 THB" },
+  { key: "price",     header: "ราคา",    example: "350",             type: "number" },
+  { key: "note",      header: "หมายเหตุ",example: "" },
 ];
 
 function InsuranceSection({ canEdit }: { canEdit: boolean }) {
@@ -654,21 +711,22 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
   const del = useServices((s) => s.deleteInsurance);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ plan_name: "", coverage: "", price: "" as string, note: "", quota: "" as string });
-  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "", quota: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "", quota: String(x.quota) }); setOpen(true); };
-  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0), quota: Number(f.quota || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const [f, setF] = useState({ plan_name: "", coverage: "", price: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
 
-  const exportData = useMemo(() => items.map((i) => ({ plan_name: i.plan_name, coverage: i.coverage, price: i.price, quota: i.quota, note: i.note ?? "" })), [items]);
+  const exportData = useMemo(() => items.map((i) => ({ plan_name: i.plan_name, coverage: i.coverage, price: i.price, note: i.note ?? "" })), [items]);
   const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ plan_name: String(row.plan_name ?? ""), coverage: String(row.coverage ?? ""), price: Number(row.price ?? 0), quota: Number(row.quota ?? 0), note: String(row.note ?? "") }));
+    rows.forEach((row) => add({ plan_name: String(row.plan_name ?? ""), coverage: String(row.coverage ?? ""), price: Number(row.price ?? 0), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
   };
 
   return (
     <SimpleTable
-      title="ประกันการเดินทาง"
-      cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ", "โควต้า"]}
-      rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-", <QuotaBadge key="q" q={i.quota} />] }))}
+      title="ประกันการเดินทาง (Unlimited)"
+      cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
       dialog={
@@ -679,7 +737,6 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
               <div className="col-span-2"><label className="text-xs font-semibold">ชื่อแผน</label><Input value={f.plan_name} onChange={(e) => setF({ ...f, plan_name: e.target.value })} /></div>
               <div><label className="text-xs font-semibold">วงเงิน</label><Input value={f.coverage} onChange={(e) => setF({ ...f, coverage: e.target.value })} placeholder="1,000,000 THB" /></div>
               <div><label className="text-xs font-semibold">ราคา</label><Input type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="350" /></div>
-              <div><label className="text-xs font-semibold">โควต้า</label><Input type="number" min={0} value={f.quota} onChange={(e) => setF({ ...f, quota: e.target.value })} placeholder="200" /></div>
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>

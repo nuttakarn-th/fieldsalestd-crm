@@ -68,6 +68,7 @@ export function CustomerLeadDialog({
   // --- Lead fields ---
   const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
   const [intProgram, setIntProgram] = useState("__custom__");
+  const [tourId, setTourId] = useState<string | undefined>(undefined); // FK → TourItem.id
   const [carServiceId, setCarServiceId] = useState("__custom__");
   const [flightServiceId, setFlightServiceId] = useState("__custom__");
   const [intNote, setIntNote] = useState("");
@@ -130,7 +131,7 @@ export function CustomerLeadDialog({
   const reset = () => {
     setMode("new"); setExistingId(""); setFullName(""); setCompany(""); setPhone(""); setLineId("");
     setEmail(""); setProvince(""); setBirthday(""); setInterests([]); setMeetingNote("");
-    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setIntNote("");
+    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setTourId(undefined); setIntNote("");
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setDomProvince(""); setCarDetail(""); setFlightDetail(""); setPax("2"); setQuotedPrice("");
     setUrgency("Warm"); setNextFollowUp(new Date().toISOString().split("T")[0]);
@@ -174,6 +175,7 @@ export function CustomerLeadDialog({
       lead_category: leadCategory,
       scope: buType === "ทัวร์ภายในประเทศ" ? "Domestic" : "International",
       program,
+      tour_id: tourId,
       pax_count: parseInt(pax) || 1,
       travel_month: travelMonth,
       tour_type: tourType,
@@ -286,7 +288,13 @@ export function CustomerLeadDialog({
           {buType === "ทัวร์ต่างประเทศ" && (
             <>
               <Label>โปรแกรมทัวร์ <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span></Label>
-              <Select value={intProgram} onValueChange={setIntProgram}>
+              <Select value={intProgram} onValueChange={(v) => {
+                setIntProgram(v);
+                if (v !== "__custom__") {
+                  const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
+                  setTourId(t?.id);
+                } else { setTourId(undefined); }
+              }}>
                 <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   {(["International Tour", "Incentive"] as const).map((cat) => {
@@ -320,7 +328,13 @@ export function CustomerLeadDialog({
           {buType === "ทัวร์ภายในประเทศ" && (
             <>
               <Label>โปรแกรมทัวร์ในประเทศ</Label>
-              <Select value={intProgram} onValueChange={setIntProgram}>
+              <Select value={intProgram} onValueChange={(v) => {
+                setIntProgram(v);
+                if (v !== "__custom__") {
+                  const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
+                  setTourId(t?.id);
+                } else { setTourId(undefined); }
+              }}>
                 <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
                 <SelectContent className="max-h-72">
                   {tours.filter((t) => t.category === "Domestic").map((t) => (

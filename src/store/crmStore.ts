@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { useServices } from "@/store/serviceStore";
 
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
@@ -44,6 +45,7 @@ export interface Lead {
   lead_category: LeadCategory;
   scope: TripScope;
   program: string;
+  tour_id?: string;       // FK → TourItem.id (มีเฉพาะทัวร์ที่เลือกจาก All Service)
   pax_count: number;
   travel_month: string;
   tour_type: string;
@@ -692,6 +694,7 @@ export const useCRM = create<CRMState>((set, get) => ({
   updateLeadStatus: (leadId, status, lostReason) => {
     const lead = get().leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
+    const prevStatus = lead.status; // capture ก่อน update
     const today = new Date().toISOString().split("T")[0];
     const leadPatch: Partial<Lead> = {
       status,
@@ -707,6 +710,20 @@ export const useCRM = create<CRMState>((set, get) => ({
         if (error) console.error("[supabase] update lead status ล้มเหลว:", error);
       });
     }
+
+    // ── Auto-deduct / restore tour quota ──
+    const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
+    if (isTour && lead.tour_id) {
+      const { adjustQuota } = useServices.getState();
+      if (status === "Closed Won" && prevStatus !== "Closed Won") {
+        // ปิดดีลทัวร์ → ตัดที่นั่งออก
+        adjustQuota(lead.tour_id, -lead.pax_count);
+      } else if (prevStatus === "Closed Won" && status !== "Closed Won") {
+        // ยกเลิกดีลที่เคย Won → คืนที่นั่งกลับ
+        adjustQuota(lead.tour_id, +lead.pax_count);
+      }
+    }
+
     if (status === "Closed Won") {
       const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
       if (cust) {
