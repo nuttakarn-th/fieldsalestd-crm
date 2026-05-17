@@ -4,6 +4,7 @@ import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { useCRM } from "@/store/crmStore";
 import { useChatRead } from "@/store/chatReadStore";
@@ -124,6 +125,7 @@ export default function Hub() {
         </Link>
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
+          <StandyBtn />
           <HubChatButton />
           <TeamNotifications />
           <UserMenu />
@@ -180,6 +182,7 @@ export default function Hub() {
       </main>
 
       <ChatWidget />
+      <StandyWidget />
       {isSales && <AddCustomerFAB />}
     </div>
   );

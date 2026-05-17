@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { useCRM } from "@/store/crmStore";
 import { useCurrentUser } from "@/store/authStore";
 import { useChatRead } from "@/store/chatReadStore";
@@ -66,12 +67,14 @@ export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps)
         <span className="font-bold text-sm text-muted-foreground">Standard Tour</span>
         <div className="flex-1">{extra ?? null}</div>
         <div className="flex items-center gap-1 shrink-0">
+          <StandyBtn />
           <ChatHeaderBtn />
           <TeamNotifications />
           <UserMenu />
         </div>
       </header>
       <ChatWidget />
+      <StandyWidget />
     </>
   );
 }
