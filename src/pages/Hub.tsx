@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -33,6 +33,13 @@ const baseTiles = [
     icon: Phone,
     to: "/contact-info",
     gradient: "from-sky-500 via-indigo-500 to-purple-600",
+  },
+  {
+    title: "ข้อมูลทีมงาน",
+    description: "รายชื่อและข้อมูลทีมงานทุกตำแหน่ง พร้อมช่องทางติดต่อ",
+    icon: Users2,
+    to: "/app/sales-team",
+    gradient: "from-violet-500 via-purple-600 to-fuchsia-600",
   },
 ];
 

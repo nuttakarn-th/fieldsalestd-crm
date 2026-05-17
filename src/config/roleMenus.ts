@@ -8,7 +8,6 @@ import {
   Route as RouteIcon,
   MapPinned,
   Users2,
-  Contact,
   FileText,
   Megaphone,
   Receipt,
@@ -74,12 +73,6 @@ const adminMenu: RoleMenu = {
         { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
       ],
     },
-    {
-      category: "REPORT & DATA",
-      items: [
-        { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
-      ],
-    },
   ],
   account: [],
 };
@@ -107,12 +100,6 @@ const salesManagerMenu: RoleMenu = {
         { title: "All Service", url: "/app/all-service", icon: PackageSearch },
       ],
     },
-    {
-      category: "REPORT & DATA",
-      items: [
-        { title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact },
-      ],
-    },
   ],
   account: [],
 };
@@ -137,10 +124,6 @@ const salesMenu: RoleMenu = {
         { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
         { title: "All Service", url: "/app/all-service", icon: PackageSearch },
       ],
-    },
-    {
-      category: "REPORT & DATA",
-      items: [{ title: "ข้อมูลทีม Sales", url: "/app/sales-team", icon: Contact }],
     },
   ],
   account: [],
