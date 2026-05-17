@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
@@ -13,6 +14,16 @@ import {
 } from "@/store/crmStore";
 import { useActiveSalesNames } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
+
+const SERVICE_INTERESTS = [
+  { key: "ทัวร์ต่างประเทศ", label: "✈️ ทัวร์ต่างประเทศ" },
+  { key: "ทัวร์ภายในประเทศ", label: "🏔️ ทัวร์ภายในประเทศ" },
+  { key: "เช่ารถ ท่องเที่ยว", label: "🚗 เช่ารถ" },
+  { key: "จองตั๋วเครื่องบิน", label: "🎫 ตั๋วเครื่องบิน" },
+  { key: "โรงแรม", label: "🏨 โรงแรม" },
+  { key: "Visa", label: "📋 Visa" },
+  { key: "ประกันการเดินทาง", label: "🛡️ ประกัน" },
+];
 
 export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const customers = useCRM((s) => s.customers);
@@ -28,10 +39,16 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
   const [mode, setMode] = useState<"new" | "existing">("new");
   const [existingId, setExistingId] = useState("");
 
+  // --- Customer fields ---
   const [fullName, setFullName] = useState("");
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [lineId, setLineId] = useState("");
+  const [email, setEmail] = useState("");
+  const [province, setProvince] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
+  const [meetingNote, setMeetingNote] = useState("");
   const [source, setSource] = useState<Source>("Line OA");
 
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
@@ -39,6 +56,8 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
   useEffect(() => {
     if (!owner && SALES_REPS[0]) setOwner(SALES_REPS[0]);
   }, [owner, SALES_REPS]);
+
+  // --- Lead fields ---
   const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
   const [intProgram, setIntProgram] = useState("__custom__");
   const [carServiceId, setCarServiceId] = useState("__custom__");
@@ -68,13 +87,33 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
         setCompany(c.company === "-" ? "" : c.company);
         setPhone(c.phone);
         setLineId(c.line_id);
+        setEmail(c.email ?? "");
+        setProvince(c.province ?? "");
+        setBirthday(c.birthday ?? "");
+        setInterests(c.interests ?? []);
+        setMeetingNote(c.note ?? "");
         setSource(c.source);
       }
     }
   }, [existingId, mode, customers]);
 
+  // Auto-tick interest when buType changes
+  useEffect(() => {
+    if (buType && !interests.includes(buType)) {
+      setInterests((prev) => [...new Set([...prev, buType])]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buType]);
+
+  const toggleInterest = (key: string) => {
+    setInterests((prev) =>
+      prev.includes(key) ? prev.filter((i) => i !== key) : [...prev, key],
+    );
+  };
+
   const reset = () => {
     setMode("new"); setExistingId(""); setFullName(""); setCompany(""); setPhone(""); setLineId("");
+    setEmail(""); setProvince(""); setBirthday(""); setInterests([]); setMeetingNote("");
     setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setIntNote("");
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setDomProvince(""); setCarDetail(""); setFlightDetail(""); setPax("2"); setQuotedPrice("");
@@ -88,24 +127,29 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
       return;
     }
     let cid = existingId;
+    const customerPatch = {
+      full_name: fullName, company: company || "-", phone, line_id: lineId,
+      email: email || undefined,
+      province: province || undefined,
+      birthday: birthday || undefined,
+      interests: interests.length > 0 ? interests : undefined,
+      note: meetingNote || undefined,
+      source,
+    };
     if (mode === "new") {
-      cid = addCustomer({
-        full_name: fullName, company: company || "-", phone, line_id: lineId,
-        source, segment: "B2C Individual",
-        created_by: owner,
-      });
+      cid = addCustomer({ ...customerPatch, segment: "B2C Individual", created_by: owner });
     } else if (existingId) {
-      updateCustomer(existingId, { full_name: fullName, company: company || "-", phone, line_id: lineId, source });
+      updateCustomer(existingId, customerPatch);
     } else {
       toast.error("กรุณาเลือกลูกค้าเดิม");
       return;
     }
 
     let program = "";
-    if (buType === "ทัวร์ต่างประเทศ") program = intProgram === "อื่นๆ (โปรดระบุ)" ? `อื่นๆ: ${intNote}` : intProgram;
-    else if (buType === "ทัวร์ภายในประเทศ") program = `ทัวร์ในประเทศ: จ.${domProvince}`;
-    else if (buType === "เช่ารถ ท่องเที่ยว") program = `เช่ารถ: ${carDetail}`;
-    else program = `จองตั๋ว: ${flightDetail}`;
+    if (buType === "ทัวร์ต่างประเทศ") program = intProgram === "__custom__" ? intNote : intProgram;
+    else if (buType === "ทัวร์ภายในประเทศ") program = intProgram === "__custom__" ? `ทัวร์ในประเทศ: จ.${domProvince}` : intProgram;
+    else if (buType === "เช่ารถ ท่องเที่ยว") program = carServiceId === "__custom__" ? `เช่ารถ: ${carDetail}` : (() => { const c = cars.find((x) => x.id === carServiceId); return c ? `เช่ารถ: ${c.name} ${c.type}` : carDetail; })();
+    else program = flightServiceId === "__custom__" ? `จองตั๋ว: ${flightDetail}` : (() => { const f = flights.find((x) => x.id === flightServiceId); return f ? `จองตั๋ว: ${f.airline} ${f.route}` : flightDetail; })();
 
     addLead({
       customer_id: cid,
@@ -156,29 +200,65 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
           <TabsContent value="new" />
         </Tabs>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div><Label>ชื่อลูกค้า *</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
-          <div><Label>บริษัท / องค์กร</Label><Input value={company} onChange={(e) => setCompany(e.target.value)} /></div>
-          <div><Label>เบอร์โทร *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-          <div><Label>Line ID</Label><Input value={lineId} onChange={(e) => setLineId(e.target.value)} /></div>
-          <div>
-            <Label>ช่องทางที่มา</Label>
-            <Select value={source} onValueChange={(v) => setSource(v as Source)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-            </Select>
+        {/* ── ข้อมูลลูกค้า ── */}
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">👤 ข้อมูลลูกค้า</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><Label>ชื่อลูกค้า *</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+            <div><Label>บริษัท / องค์กร</Label><Input value={company} onChange={(e) => setCompany(e.target.value)} /></div>
+            <div><Label>เบอร์โทร *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><Label>Line ID</Label><Input value={lineId} onChange={(e) => setLineId(e.target.value)} /></div>
+            <div><Label>อีเมล <span className="text-[10px] text-muted-foreground">(สำหรับส่งใบเสนอราคา / Ads)</span></Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" /></div>
+            <div><Label>จังหวัด <span className="text-[10px] text-muted-foreground">(Geo-targeting)</span></Label><Input value={province} onChange={(e) => setProvince(e.target.value)} placeholder="เช่น กรุงเทพฯ, เชียงใหม่" /></div>
+            <div><Label>วันเกิด <span className="text-[10px] text-muted-foreground">(Birthday campaign)</span></Label><Input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} /></div>
+            <div>
+              <Label>ช่องทางที่มา</Label>
+              <Select value={source} onValueChange={(v) => setSource(v as Source)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Sales Owner</Label>
+              <Select value={owner} onValueChange={(v) => setOwner(v as SalesRep)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{SALES_REPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {/* บริการที่สนใจ */}
           <div>
-            <Label>Sales Owner</Label>
-            <Select value={owner} onValueChange={(v) => setOwner(v as SalesRep)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{SALES_REPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-            </Select>
+            <Label>บริการที่สนใจ <span className="text-[10px] text-muted-foreground">(เลือกได้หลายอย่าง)</span></Label>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
+              {SERVICE_INTERESTS.map((s) => (
+                <div key={s.key} className="flex items-center gap-1.5">
+                  <Checkbox
+                    id={`int-${s.key}`}
+                    checked={interests.includes(s.key)}
+                    onCheckedChange={() => toggleInterest(s.key)}
+                  />
+                  <label htmlFor={`int-${s.key}`} className="text-sm cursor-pointer select-none">{s.label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* หมายเหตุการพบลูกค้า */}
+          <div>
+            <Label>หมายเหตุ / บันทึกการพบลูกค้า <span className="text-[10px] text-muted-foreground">(ชอบอะไร, ไม่ชอบอะไร, ข้อสังเกต)</span></Label>
+            <Textarea
+              value={meetingNote}
+              onChange={(e) => setMeetingNote(e.target.value)}
+              placeholder="เช่น ชอบทัวร์ญี่ปุ่น ไม่เอาจีน / งบ 40k ต่อท่าน / ติดต่อได้หลัง 18.00 น."
+              className="min-h-[70px]"
+            />
           </div>
         </div>
 
+        {/* ── รายละเอียดบริการ (Lead) ── */}
         <div className="border-t pt-3 space-y-3">
-          <p className="text-sm font-semibold">📋 รายละเอียดบริการ (Lead)</p>
+          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">📋 รายละเอียดบริการ (Lead)</p>
           <div>
             <Label>ประเภทบริการ (BU Type)</Label>
             <Select value={buType} onValueChange={(v) => setBuType(v as BUType)}>
@@ -214,7 +294,7 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
               {intProgram === "__custom__" && (
                 <Textarea placeholder="ระบุโปรแกรมที่ต้องการ..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
               )}
-              {tours.filter((t) => t.category === "Outbound" || t.category === "Incentive").length === 0 && (
+              {tours.filter((t) => t.category === "International Tour" || t.category === "Incentive").length === 0 && (
                 <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
                   ⚠️ ยังไม่มีโปรแกรมทัวร์ต่างประเทศใน All Service — Admin เพิ่มได้ที่หน้า "All Service"
                 </p>

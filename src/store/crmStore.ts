@@ -18,6 +18,11 @@ export interface Customer {
   phone: string;
   line_id: string;
   email?: string;
+  province?: string;          // จังหวัด — for geo-targeting ads
+  birthday?: string;          // YYYY-MM-DD — for birthday campaigns
+  interests?: string[];       // multi-service tags e.g. ["ทัวร์ต่างประเทศ","Visa"]
+  note?: string;              // meeting notes / บันทึกการพบลูกค้า
+  last_contacted_at?: string; // ISO datetime — auto-updated on new lead
   source: Source;
   segment: Segment;
   total_trips: number;
@@ -640,6 +645,9 @@ export const useCRM = create<CRMState>((set, get) => ({
       lost_reason: null,
     };
     set({ leads: [newL, ...get().leads] });
+    // Auto-update last_contacted_at on the linked customer
+    const now = new Date().toISOString();
+    get().updateCustomer(l.customer_id, { last_contacted_at: now });
     if (SUPABASE_ENABLED && supabase) {
       supabase.from("leads").insert(newL).then(({ error }) => {
         if (error) console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,21 @@ const CUSTOMER_FIELDS: ExcelField[] = [
   { key: "phone",      header: "เบอร์โทรศัพท์",   example: "0812345678",          required: true },
   { key: "line_id",    header: "Line ID",          example: "somchai_line" },
   { key: "email",      header: "อีเมล",            example: "somchai@email.com" },
+  { key: "province",   header: "จังหวัด",          example: "กรุงเทพฯ" },
   { key: "source",     header: "ช่องทาง",          example: "FB" },
   { key: "segment",    header: "กลุ่มลูกค้า",     example: "B2C Individual" },
 ];
+
+// interest key → short label + color
+const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
+  "ทัวร์ต่างประเทศ":  { label: "✈️ Intl",   className: "bg-blue-100 text-blue-700 border-blue-200" },
+  "ทัวร์ภายในประเทศ": { label: "🏔️ Dom",    className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  "เช่ารถ ท่องเที่ยว":{ label: "🚗 รถ",     className: "bg-amber-100 text-amber-700 border-amber-200" },
+  "จองตั๋วเครื่องบิน":{ label: "🎫 ตั๋ว",   className: "bg-sky-100 text-sky-700 border-sky-200" },
+  "โรงแรม":           { label: "🏨 Hotel",  className: "bg-purple-100 text-purple-700 border-purple-200" },
+  "Visa":             { label: "📋 Visa",   className: "bg-rose-100 text-rose-700 border-rose-200" },
+  "ประกันการเดินทาง": { label: "🛡️ ประกัน", className: "bg-orange-100 text-orange-700 border-orange-200" },
+};
 
 export default function Customers() {
   const customers = useCRM((s) => s.customers);
@@ -60,7 +72,9 @@ export default function Customers() {
         c.company.toLowerCase().includes(s) ||
         c.line_id.toLowerCase().includes(s) ||
         c.created_by.toLowerCase().includes(s) ||
-        (c.email ?? "").toLowerCase().includes(s),
+        (c.email ?? "").toLowerCase().includes(s) ||
+        (c.province ?? "").toLowerCase().includes(s) ||
+        (c.note ?? "").toLowerCase().includes(s),
       );
     }
 
@@ -113,6 +127,7 @@ export default function Customers() {
       phone: c.phone,
       line_id: c.line_id,
       email: c.email ?? "",
+      province: c.province ?? "",
       source: c.source,
       segment: c.segment,
     })),
@@ -216,13 +231,24 @@ export default function Customers() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold truncate">{c.full_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}</p>
+                <p className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}{c.province ? ` · ${c.province}` : ""}</p>
               </div>
               <Badge variant="outline" className={`${tierBadge(c.customer_tier)} shrink-0`}>{c.customer_tier}</Badge>
             </div>
+            {/* Interest tags */}
+            {(c.interests ?? []).length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {c.interests!.map((key) => {
+                  const style = INTEREST_STYLE[key];
+                  if (!style) return null;
+                  return <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${style.className}`}>{style.label}</span>;
+                })}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-1 text-xs">
               <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-primary hover:underline"><Phone className="w-3 h-3" /> {c.phone}</a>
-              <span className="flex items-center gap-1.5 text-success truncate"><MessageCircle className="w-3 h-3 shrink-0" /> {c.line_id}</span>
+              <span className="flex items-center gap-1.5 text-success truncate"><MessageCircle className="w-3 h-3 shrink-0" /> {c.line_id || "—"}</span>
+              {c.email && <span className="col-span-2 flex items-center gap-1.5 text-muted-foreground truncate"><Mail className="w-3 h-3 shrink-0" />{c.email}</span>}
               <span className="text-muted-foreground"><b className="text-foreground">{c.source}</b> · {c.segment}</span>
               <span className="text-right font-bold text-primary">{formatTHB(c.total_spend)}</span>
             </div>
@@ -260,40 +286,77 @@ export default function Customers() {
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="text-left p-3 font-medium">ชื่อลูกค้า / องค์กร</th>
-                <th className="text-left p-3 font-medium">ติดต่อ (เบอร์ / Line)</th>
+                <th className="text-left p-3 font-medium">ติดต่อ</th>
+                <th className="text-left p-3 font-medium">บริการที่สนใจ</th>
                 <th className="text-left p-3 font-medium">ช่องทาง / กลุ่ม</th>
-                <th className="text-left p-3 font-medium">ระดับ (Tier)</th>
-                <th className="text-left p-3 font-medium">Sales เจ้าของ</th>
-                <th className="text-right p-3 font-medium">ยอดซื้อรวม</th>
-                <th className="p-3 font-medium w-28">จัดการ</th>
+                <th className="text-left p-3 font-medium">Tier</th>
+                <th className="text-left p-3 font-medium">Sales</th>
+                <th className="text-right p-3 font-medium">ยอดซื้อ</th>
+                <th className="p-3 font-medium w-24">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filtered.map((c) => (
                 <tr key={c.customer_id} className="hover:bg-muted/30 transition">
-                  <td className="p-3">
-                    <div className="font-semibold">{c.full_name}</div>
-                    <div className="text-xs text-muted-foreground">{c.company !== "-" ? c.company : "B2C"}</div>
+                  {/* ชื่อ / องค์กร / จังหวัด */}
+                  <td className="p-3 max-w-[200px]">
+                    <div className="font-semibold truncate">{c.full_name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}</div>
+                    {c.province && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                        <MapPin className="w-2.5 h-2.5" />{c.province}
+                      </div>
+                    )}
                     {c.transferred_from === currentRep && c.transferred_to && (
                       <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
-                        <ArrowRightLeft className="w-2.5 h-2.5" /> โอนลูกค้า → {c.transferred_to}
-                        {c.transferred_at && <span className="opacity-70">· {new Date(c.transferred_at).toLocaleDateString("th-TH")}</span>}
+                        <ArrowRightLeft className="w-2.5 h-2.5" /> โอน → {c.transferred_to}
                       </div>
                     )}
                     {c.transferred_to === currentRep && c.transferred_from && c.transferred_from !== currentRep && (
                       <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
                         <Inbox className="w-2.5 h-2.5" /> รับโอนจาก {c.transferred_from}
-                        {c.transferred_at && <span className="opacity-70">· {new Date(c.transferred_at).toLocaleDateString("th-TH")}</span>}
                       </div>
                     )}
-                    {c.created_at && (
-                      <div className="mt-1 text-[10px] text-muted-foreground">เพิ่มเมื่อ {new Date(c.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false })}</div>
+                    {c.last_contacted_at && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        ติดต่อล่าสุด {new Date(c.last_contacted_at).toLocaleDateString("th-TH", { dateStyle: "short" })}
+                      </div>
+                    )}
+                    {c.note && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground italic truncate max-w-[180px]" title={c.note}>
+                        📝 {c.note}
+                      </div>
                     )}
                   </td>
+                  {/* ติดต่อ */}
                   <td className="p-3">
                     <div className="flex items-center gap-1.5 text-xs"><Phone className="w-3 h-3 text-primary" /> {c.phone}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-success mt-0.5"><MessageCircle className="w-3 h-3" /> {c.line_id}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-success mt-0.5"><MessageCircle className="w-3 h-3" /> {c.line_id || "—"}</div>
+                    {c.email && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                        <Mail className="w-3 h-3" />
+                        <span className="truncate max-w-[130px]">{c.email}</span>
+                      </div>
+                    )}
                   </td>
+                  {/* บริการที่สนใจ */}
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(c.interests ?? []).length > 0
+                        ? (c.interests!).map((key) => {
+                            const style = INTEREST_STYLE[key];
+                            if (!style) return null;
+                            return (
+                              <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${style.className}`}>
+                                {style.label}
+                              </span>
+                            );
+                          })
+                        : <span className="text-xs text-muted-foreground">—</span>
+                      }
+                    </div>
+                  </td>
+                  {/* ช่องทาง */}
                   <td className="p-3">
                     <div className="text-sm">{c.source}</div>
                     <div className="text-xs text-muted-foreground">{c.segment}</div>
@@ -330,7 +393,7 @@ export default function Customers() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</td></tr>
+                <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</td></tr>
               )}
             </tbody>
           </table>
