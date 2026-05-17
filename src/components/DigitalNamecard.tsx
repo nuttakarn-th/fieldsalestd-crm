@@ -32,8 +32,8 @@ export interface DigitalNamecardProps {
  */
 export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
   ({ fullName, position, avatar, tel, email, lineQrUrl, vCard, theme = "day", hqAddress }, ref) => {
-    const logoSrc = theme === "night" ? "/logo-white.png" : "/logo-color.png";
-    const logoFallback = theme === "night" ? "/logo-white.svg" : "/logo-color.svg";
+    const logoSrc = "/logo-white.png";
+    const logoFallback = "/logo-white.svg";
     const address = hqAddress || HQ_ADDRESS_DEFAULT;
 
     return (

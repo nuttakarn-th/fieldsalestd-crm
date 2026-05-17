@@ -72,7 +72,7 @@ function NamecardModal({ u, onClose }: NamecardModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative w-full max-w-[240px] my-4 flex flex-col gap-3">
+      <div className="relative w-full max-w-[300px] my-4 flex flex-col gap-3">
         {/* Close button — inside viewport always */}
         <button
           onClick={onClose}
