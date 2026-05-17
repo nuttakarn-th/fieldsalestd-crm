@@ -132,7 +132,7 @@ export default function Login() {
           </div>
 
           {/* ═══ RIGHT: Login Panel ═══ */}
-          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left w-full">
+          <div className="flex-1 flex flex-col items-center text-center w-full">
 
             {/* Heading — hidden on mobile, visible on md+ */}
             <h1
