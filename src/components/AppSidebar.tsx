@@ -61,13 +61,19 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="border-b border-sidebar-border p-3">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 shrink-0 flex items-center justify-center overflow-hidden">
-            <img src="/logo-icon.svg" alt="Standard Tour" className="w-full h-full object-contain" />
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Logo icon — 1:1 circle, ใช้ PNG จริง, fallback SVG */}
+          <div className="w-9 h-9 shrink-0 rounded-full overflow-hidden">
+            <img
+              src="/logo-icon.png"
+              alt="Standard Tour"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+            />
           </div>
           {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="font-bold text-sidebar-foreground text-sm leading-tight">Standard Tour CRM</p>
+            <div className="overflow-hidden min-w-0">
+              <p className="font-bold text-sidebar-foreground text-sm leading-tight truncate">Standard Tour CRM</p>
               <p className="text-[10px] text-sidebar-foreground/60 leading-tight">Travel Sales Suite</p>
             </div>
           )}
@@ -76,10 +82,12 @@ export function AppSidebar() {
 
       <SidebarContent className="flex flex-col gap-0">
         {menu.sections.map((section) => (
-          <SidebarGroup key={section.category} className="py-1.5">
-            <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
-              {section.category}
-            </SidebarGroupLabel>
+          <SidebarGroup key={section.category} className={collapsed ? "py-1" : "py-1.5"}>
+            {!collapsed && (
+              <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
+                {section.category}
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">{section.items.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
@@ -87,20 +95,24 @@ export function AppSidebar() {
         ))}
 
         {menu.account.length > 0 && (
-          <SidebarGroup className="py-1.5">
-            <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
-              ACCOUNT
-            </SidebarGroupLabel>
+          <SidebarGroup className={collapsed ? "py-1" : "py-1.5"}>
+            {!collapsed && (
+              <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
+                ACCOUNT
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu className="gap-0.5">{menu.account.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
-        <SidebarGroup className="py-1.5">
-          <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
-            SYSTEM
-          </SidebarGroupLabel>
+        <SidebarGroup className={collapsed ? "py-1" : "py-1.5"}>
+          {!collapsed && (
+            <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
+              SYSTEM
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
@@ -166,13 +178,18 @@ export function AppSidebar() {
             <div className={`rounded-lg p-2.5 bg-gradient-to-br ${roleBadgeColor(effectiveRole)} text-white shadow-elegant`}>
               <div className="flex items-center gap-2">
                 {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.full_name} className="w-8 h-8 rounded-full object-cover" />
+                  <img
+                    src={user.avatar_url}
+                    alt={user.full_name}
+                    className="w-8 h-8 shrink-0 rounded-full object-cover aspect-square"
+                    style={{ minWidth: "2rem", minHeight: "2rem" }}
+                  />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-white/25 backdrop-blur flex items-center justify-center text-sm font-bold">
+                  <div className="w-8 h-8 shrink-0 rounded-full bg-white/25 backdrop-blur flex items-center justify-center text-sm font-bold" style={{ minWidth: "2rem", minHeight: "2rem" }}>
                     {user.full_name[0]?.toUpperCase() ?? <UserIcon className="w-4 h-4" />}
                   </div>
                 )}
-                <div className="overflow-hidden">
+                <div className="overflow-hidden min-w-0">
                   <p className="text-xs leading-tight truncate font-semibold">{user.full_name}</p>
                   <p className="text-[10px] leading-tight opacity-90">มุมมอง — {effectiveRole}</p>
                 </div>

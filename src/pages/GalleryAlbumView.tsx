@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 async function uploadGalleryImage(file: File, albumId: string): Promise<string> {
   if (!SUPABASE_ENABLED || !supabase) throw new Error("Supabase not enabled");
-  const compressed = await compressImage(file, { maxWidth: 1800, maxSizeKB: 600 });
+  const compressed = await compressImage(file, { maxWidth: 1200, maxSizeKB: 250 });
   const blob = await fetch(compressed.dataUrl).then((r) => r.blob());
   const photoFile = new File([blob], `${crypto.randomUUID()}.jpg`, { type: "image/jpeg" });
   const path = `gallery/${albumId}/${photoFile.name}`;
