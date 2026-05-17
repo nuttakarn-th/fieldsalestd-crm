@@ -107,12 +107,12 @@ export default function Hub() {
   ];
   const isSales = user.role === "Sales";
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
+    <div className="min-h-screen text-white" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
       <header className="px-6 py-5 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
           <div className="w-11 h-11 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
             <img
-              src="/logo-color-white.png"
+              src="/logo-icon.png"
               alt="Standard Tour"
               className="w-full h-full object-cover"
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
@@ -120,7 +120,7 @@ export default function Hub() {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold leading-tight truncate">Standard Tour Hub</h1>
-            <p className="text-xs text-muted-foreground truncate">สวัสดี {user.full_name} · {user.role}</p>
+            <p className="text-xs text-white/60 truncate">สวัสดี {user.full_name} · {user.role}</p>
           </div>
         </Link>
         <div className="flex-1" />
@@ -136,8 +136,8 @@ export default function Hub() {
         {/* Title */}
         <div className="text-center mb-6 sm:mb-8">
           <h2
-            className="font-extrabold tracking-tighter leading-none text-white"
-            style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontSize: "clamp(3rem, 12vw, 7rem)" }}
+            className="tracking-tighter leading-none text-white"
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(3rem, 12vw, 7rem)" }}
           >
             Standard Tour Hub.
           </h2>
