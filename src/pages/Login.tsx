@@ -5,7 +5,7 @@ import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
 import { toast } from "sonner";
 
-// Fallback gradient palette for slides without images
+// Fallback gradient palette
 const SLIDE_GRADIENTS = [
   "from-indigo-600 via-purple-700 to-pink-600",
   "from-sky-500 via-blue-700 to-indigo-700",
@@ -25,17 +25,14 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (currentUserId) navigate("/", { replace: true });
   }, [currentUserId, navigate]);
 
-  // slides data
   const slides = bannerSlides.length > 0 ? bannerSlides : [
     { id: "fallback", imageUrl: "", title: "Standard Tour CRM", subtitle: "ระบบติดตามการขาย และจัดการลูกค้า", showTitle: true },
   ];
 
-  // Auto-advance every 5s
   useEffect(() => {
     if (slides.length <= 1) return;
     const timer = setInterval(() => setCurrentSlide((s) => (s + 1) % slides.length), 5000);
@@ -43,7 +40,7 @@ export default function Login() {
   }, [slides.length]);
 
   const slide = slides[currentSlide] ?? slides[0];
-  const showSlideTitle = slide.showTitle !== false; // default true
+  const showSlideTitle = slide.showTitle !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,22 +57,32 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e] flex flex-col">
-
-      {/* ── Top-left logo (white version for dark bg) ── */}
-      <div className="absolute top-4 left-5 z-10">
-        <img src="/logo-white.svg" alt="Standard Tour" className="h-7 w-auto" />
+    <div
+      className="min-h-screen flex flex-col"
+      style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", fontFamily: "'Inter', sans-serif" }}
+    >
+      {/* ── Top-left logo (white version) ── */}
+      <div className="absolute top-5 left-6 z-10 flex items-center gap-2">
+        {/* Logo white: ถ้ามีไฟล์ logo-white.png ใน public/ ให้ใช้ แต่ถ้าไม่มีใช้ SVG placeholder */}
+        <img
+          src="/logo-white.png"
+          alt="Standard Tour"
+          className="h-7 w-auto"
+          onError={(e) => {
+            // Fallback to SVG if PNG not available
+            (e.target as HTMLImageElement).src = "/logo-white.svg";
+          }}
+        />
       </div>
 
-      {/* ── Main content: centered two-column ── */}
-      <div className="flex-1 flex items-center justify-center px-4 py-20">
-        <div className="w-full max-w-5xl flex flex-col md:flex-row items-center gap-8 md:gap-12">
+      {/* ── Main content: vertically + horizontally centered ── */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-20">
+        <div className="w-full max-w-[960px] flex flex-col md:flex-row items-center gap-10 md:gap-14">
 
-          {/* ═══ LEFT: 1:1 Banner Slideshow ═══ */}
-          <div className="w-full max-w-[420px] md:w-[420px] shrink-0">
-            {/* Square card */}
+          {/* ═══ LEFT: Banner Slideshow 1:1 ═══ */}
+          <div className="w-full md:w-[460px] shrink-0">
+            {/* Square white card */}
             <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-2xl bg-white">
-              {/* Slide layers */}
               {slides.map((s, i) => (
                 <div
                   key={s.id}
@@ -89,31 +96,33 @@ export default function Login() {
                 </div>
               ))}
 
-              {/* Overlay text (only if showTitle !== false) */}
+              {/* Text overlay */}
               {showSlideTitle && (slide.title || slide.subtitle) && (
-                <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-              )}
-              {showSlideTitle && (slide.title || slide.subtitle) && (
-                <div className="absolute bottom-5 left-4 right-4 text-white text-center drop-shadow-lg">
-                  {slide.title && (
-                    <h2 className="font-bold text-base sm:text-lg leading-tight">{slide.title}</h2>
-                  )}
-                  {slide.subtitle && (
-                    <p className="text-xs text-white/80 mt-1">{slide.subtitle}</p>
-                  )}
-                </div>
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-5 left-5 right-5 text-white text-center">
+                    {slide.title && (
+                      <p className="font-extrabold text-base leading-snug drop-shadow" style={{ fontFamily: "'Inter', sans-serif" }}>
+                        {slide.title}
+                      </p>
+                    )}
+                    {slide.subtitle && (
+                      <p className="text-sm text-white/80 mt-1 drop-shadow">{slide.subtitle}</p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Dot navigation — below card */}
+            {/* Dots below card */}
             {slides.length > 1 && (
-              <div className="flex justify-center gap-2 mt-3">
+              <div className="flex justify-center gap-2 mt-4">
                 {slides.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentSlide(i)}
                     className={`rounded-full transition-all duration-300 ${
-                      i === currentSlide ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/40 hover:bg-white/70"
+                      i === currentSlide ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/35 hover:bg-white/60"
                     }`}
                     aria-label={`Slide ${i + 1}`}
                   />
@@ -123,51 +132,74 @@ export default function Login() {
           </div>
 
           {/* ═══ RIGHT: Login Panel ═══ */}
-          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left max-w-sm w-full">
+
             {/* Heading */}
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-tight mb-2">
-              Customer Relationship
-              <br />Management
+            <h1
+              className="text-white leading-tight mb-3"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2rem, 3.5vw, 2.75rem)", letterSpacing: "-0.02em" }}
+            >
+              Customer<br />Relationship<br />Management
             </h1>
-            <p className="text-sm text-white/50 mb-7">
-              ระบบติดตามการขาย และจัดการลูกค้า Standard Tour
+            <p className="text-sm text-white/45 mb-8 leading-relaxed">
+              our ultimate hub for managing leads, closing deals,<br className="hidden md:block" />
+              and delivering exceptional travel experiences.<br className="hidden md:block" />
+              Let's make every journey count.
             </p>
 
-            {/* Login card */}
-            <div className="w-full max-w-sm bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-6 shadow-2xl">
-              <h2 className="text-white font-extrabold text-xl mb-5 tracking-tight">Get Started Now.</h2>
+            {/* Form card */}
+            <div className="w-full rounded-2xl border border-white/15 p-6 shadow-2xl"
+              style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(16px)" }}>
+
+              <h2
+                className="text-white mb-5"
+                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: "1.2rem", letterSpacing: "-0.01em" }}
+              >
+                Get Started Now.
+              </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Username */}
                 <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Username</label>
+                  <label
+                    className="block mb-1.5 text-white/70"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
+                  >
+                    Username
+                  </label>
                   <input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="username"
+                    placeholder="Enter Your Username"
                     autoComplete="username"
                     autoFocus
-                    className="w-full rounded-xl bg-white/10 border border-white/25 text-white placeholder:text-white/35 px-4 py-2.5 text-sm outline-none focus:border-pink-400 focus:bg-white/15 transition-all"
+                    style={{ fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,0.08)" }}
+                    className="w-full rounded-xl border border-white/20 text-white placeholder:text-white/30 px-4 py-2.5 text-sm outline-none focus:border-pink-400 transition-all"
                   />
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-xs font-semibold text-white/70 mb-1.5">Password</label>
+                  <label
+                    className="block mb-1.5 text-white/70"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: "11px", letterSpacing: "0.03em" }}
+                  >
+                    Password
+                  </label>
                   <div className="relative">
                     <input
                       type={showPwd ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Enter Your Password"
                       autoComplete="current-password"
-                      className="w-full rounded-xl bg-white/10 border border-white/25 text-white placeholder:text-white/35 px-4 py-2.5 pr-11 text-sm outline-none focus:border-pink-400 focus:bg-white/15 transition-all"
+                      style={{ fontFamily: "'Inter', sans-serif", background: "rgba(255,255,255,0.08)" }}
+                      className="w-full rounded-xl border border-white/20 text-white placeholder:text-white/30 px-4 py-2.5 pr-11 text-sm outline-none focus:border-pink-400 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPwd((s) => !s)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/90 transition-colors"
-                      aria-label={showPwd ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
                     >
                       {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -178,14 +210,21 @@ export default function Login() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 active:scale-[0.98] text-white font-bold text-sm transition-all disabled:opacity-60 shadow-lg mt-1"
+                  className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all disabled:opacity-60 mt-1 active:scale-[0.98]"
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: 700,
+                    background: "linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)",
+                  }}
                 >
                   {submitting ? "กำลังเข้าสู่ระบบ..." : "Log in"}
                 </button>
               </form>
             </div>
 
-            <p className="mt-5 text-white/20 text-xs">Standard Tour Sales CRM · Version 1.1 (11.5.26)</p>
+            <p className="mt-5 text-white/20 text-xs" style={{ fontFamily: "'Inter', sans-serif" }}>
+              Standard Tour Sales CRM : Version 1.1 (11.5.26)
+            </p>
           </div>
 
         </div>
