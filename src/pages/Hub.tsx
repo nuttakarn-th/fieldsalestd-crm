@@ -130,30 +130,49 @@ export default function Hub() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 pt-4 sm:pt-6">
-        <div className="text-center mb-8 sm:mb-10">
-          <h2 className="font-inter font-extrabold text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tighter leading-none">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 pt-2 sm:pt-4">
+        {/* Title */}
+        <div className="text-center mb-6 sm:mb-8">
+          <h2
+            className="font-extrabold tracking-tighter leading-none text-white"
+            style={{ fontFamily: "'Inter', sans-serif", fontSize: "clamp(3rem, 8vw, 6rem)" }}
+          >
             Standard Tour Hub.
           </h2>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">ระบบติดตามการขาย และจัดการลูกค้า Standard Tour</p>
+          <p className="text-white/40 mt-2 text-sm sm:text-base">ระบบติดตามการขาย และจัดการลูกค้า Standard Tour</p>
         </div>
 
-        {/* Mobile: 2 คอลัมน์ 1:1 | Tablet: 3 คอลัมน์ | Desktop: 4-5 คอลัมน์ 3:4 */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        {/* Grid:
+            Mobile  → 1 column (horizontal card — ครบทุกเมนูใน 1 หน้า)
+            Tablet  → 3 column vertical card
+            Desktop → 4–5 column compact vertical card              */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3">
           {tiles.map((t) => (
             <Link key={t.title} to={t.to} className="group">
               <article
-                className={`relative overflow-hidden rounded-2xl sm:rounded-3xl p-4 sm:p-5 flex flex-col items-center justify-center text-center text-white shadow-elegant transition-transform group-hover:-translate-y-1 bg-gradient-to-br ${t.gradient} aspect-square sm:aspect-[3/4]`}
+                className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${t.gradient} text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl
+                  flex flex-row items-center gap-3 px-4 py-3.5
+                  sm:flex-col sm:items-center sm:justify-center sm:text-center sm:px-3 sm:py-4 sm:aspect-[4/5]`}
               >
-                <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
-                <t.icon className="relative w-14 h-14 sm:w-14 sm:h-14 lg:w-16 lg:h-16 mb-3 sm:mb-3" strokeWidth={1.5} />
-                <div className="relative space-y-1.5 sm:space-y-2">
-                  <h2 className="text-base sm:text-lg lg:text-xl font-bold leading-tight">{t.title}</h2>
-                  <p className="hidden sm:block text-xs text-white/85 line-clamp-3">{t.description}</p>
-                  <span className="inline-flex items-center justify-center gap-1 text-xs font-semibold pt-1 sm:pt-2">
-                    เข้าใช้งาน <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform group-hover:translate-x-1" />
+                <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+
+                {/* Icon */}
+                <t.icon
+                  className="relative shrink-0 w-8 h-8 sm:w-10 sm:h-10 sm:mb-2"
+                  strokeWidth={1.5}
+                />
+
+                {/* Text */}
+                <div className="relative flex-1 sm:flex-none text-left sm:text-center">
+                  <h2 className="text-sm sm:text-sm font-bold leading-tight">{t.title}</h2>
+                  <p className="hidden sm:block text-[11px] text-white/80 mt-1 line-clamp-2 leading-snug">{t.description}</p>
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold mt-1.5 opacity-90">
+                    เข้าใช้งาน <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
                   </span>
                 </div>
+
+                {/* Mobile arrow */}
+                <ArrowRight className="sm:hidden shrink-0 w-4 h-4 opacity-60 transition-transform group-hover:translate-x-0.5" />
               </article>
             </Link>
           ))}
