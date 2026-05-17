@@ -76,11 +76,11 @@ export default function Login() {
       </div>
 
       {/* ── Main content: vertically + horizontally centered ── */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-20">
-        <div className="w-full max-w-[960px] flex flex-col md:flex-row items-center gap-10 md:gap-14">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-16">
+        <div className="w-full max-w-[1020px] flex flex-col md:flex-row md:items-start gap-8 md:gap-12">
 
           {/* ═══ LEFT: Banner Slideshow 1:1 ═══ */}
-          <div className="w-full md:w-[460px] shrink-0">
+          <div className="w-full md:w-[540px] shrink-0">
             {/* Square white card */}
             <div className="relative w-full aspect-square rounded-2xl overflow-hidden shadow-2xl bg-white">
               {slides.map((s, i) => (
@@ -132,33 +132,33 @@ export default function Login() {
           </div>
 
           {/* ═══ RIGHT: Login Panel ═══ */}
-          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left max-w-sm w-full">
+          <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left w-full">
 
             {/* Heading — hidden on mobile, visible on md+ */}
             <h1
-              className="hidden md:block text-white leading-tight mb-3"
-              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2rem, 3.5vw, 2.75rem)", letterSpacing: "-0.02em" }}
+              className="hidden md:block text-white mb-2"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(1.8rem, 2.8vw, 2.4rem)", letterSpacing: "-0.02em", lineHeight: 1.05 }}
             >
               Customer<br />Relationship<br />Management
             </h1>
-            <p className="hidden md:block text-sm text-white/45 mb-8 leading-relaxed">
-              our ultimate hub for managing leads, closing deals,<br className="hidden md:block" />
-              and delivering exceptional travel experiences.<br className="hidden md:block" />
+            <p className="hidden md:block text-xs text-white/45 mb-5 leading-relaxed">
+              our ultimate hub for managing leads, closing deals,<br />
+              and delivering exceptional travel experiences.<br />
               Let's make every journey count.
             </p>
 
             {/* Form card */}
-            <div className="w-full rounded-2xl border border-white/15 p-6 shadow-2xl"
+            <div className="w-full rounded-2xl border border-white/15 p-5 shadow-2xl"
               style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(16px)" }}>
 
               <h2
-                className="text-white mb-5"
-                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: "1.2rem", letterSpacing: "-0.01em" }}
+                className="text-white mb-4"
+                style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.01em" }}
               >
                 Get Started Now.
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Username */}
                 <div>
                   <label
@@ -222,7 +222,7 @@ export default function Login() {
               </form>
             </div>
 
-            <p className="mt-5 text-white/20 text-xs" style={{ fontFamily: "'Inter', sans-serif" }}>
+            <p className="mt-4 text-white/20 text-xs" style={{ fontFamily: "'Inter', sans-serif" }}>
               Standard Tour Sales CRM : Version 1.1 (11.5.26)
             </p>
           </div>
