@@ -37,8 +37,8 @@ export default function AppLayout() {
           <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center px-3 sm:px-6 gap-3">
             <SidebarTrigger className="shrink-0" />
             <Link to="/" className="flex items-center gap-2 shrink-0 group" aria-label="กลับหน้าหลัก" title="หน้าหลัก">
-              <div className="w-8 h-8 rounded-lg bg-white shadow-glow group-hover:scale-105 transition flex items-center justify-center overflow-hidden p-1">
-                <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
+              <div className="w-8 h-8 shrink-0 overflow-hidden group-hover:scale-105 transition">
+                <img src="/logo-icon.svg" alt="Standard Tour" className="w-full h-full object-contain" />
               </div>
               <span className="hidden md:inline font-bold text-sm">Standard Tour CRM</span>
             </Link>

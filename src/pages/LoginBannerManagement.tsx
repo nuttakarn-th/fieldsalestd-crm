@@ -18,9 +18,10 @@ interface DraftSlide {
   imageUrl: string;
   title: string;
   subtitle: string;
+  showTitle: boolean;
 }
 
-const emptyDraft = (): DraftSlide => ({ imageUrl: "", title: "", subtitle: "" });
+const emptyDraft = (): DraftSlide => ({ imageUrl: "", title: "", subtitle: "", showTitle: true });
 
 async function uploadBannerImage(file: File, slideId: string): Promise<string | null> {
   if (!SUPABASE_ENABLED || !supabase) return null;
@@ -77,7 +78,7 @@ export default function LoginBannerManagement() {
 
   const startEdit = (slide: BannerSlide) => {
     setEditingId(slide.id);
-    setEditDraft({ imageUrl: slide.imageUrl, title: slide.title, subtitle: slide.subtitle ?? "" });
+    setEditDraft({ imageUrl: slide.imageUrl, title: slide.title, subtitle: slide.subtitle ?? "", showTitle: slide.showTitle !== false });
     setAdding(false);
   };
 
@@ -88,11 +89,11 @@ export default function LoginBannerManagement() {
 
   const saveEdit = () => {
     if (!editingId) return;
-    if (!editDraft.title.trim()) { toast.error("กรุณากรอกหัวข้อ"); return; }
     updateBannerSlide(editingId, {
       title: editDraft.title.trim(),
       subtitle: editDraft.subtitle.trim() || undefined,
       imageUrl: editDraft.imageUrl.trim(),
+      showTitle: editDraft.showTitle,
     });
     toast.success("บันทึกสำเร็จ");
     cancelEdit();
@@ -148,12 +149,12 @@ export default function LoginBannerManagement() {
   };
 
   const saveAdd = () => {
-    if (!addDraft.title.trim()) { toast.error("กรุณากรอกหัวข้อ"); return; }
     addBannerSlide({
       id: `bs-${Date.now()}`,
-      title: addDraft.title.trim(),
+      title: addDraft.title.trim() || "Banner",
       subtitle: addDraft.subtitle.trim() || undefined,
       imageUrl: addDraft.imageUrl.trim(),
+      showTitle: addDraft.showTitle,
     });
     toast.success("เพิ่ม Slide แล้ว");
     setAdding(false);
@@ -240,6 +241,9 @@ export default function LoginBannerManagement() {
                     ) : (
                       <p className="text-xs text-muted-foreground mt-1.5">🎨 Gradient สี (ยังไม่มีภาพ)</p>
                     )}
+                    <span className={`inline-block mt-1.5 text-[10px] px-2 py-0.5 rounded-full ${slide.showTitle !== false ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>
+                      {slide.showTitle !== false ? "✓ แสดง Title" : "— ซ่อน Title"}
+                    </span>
                   </div>
 
                   {/* Actions */}
@@ -336,6 +340,22 @@ function SlideForm({ draft, setDraft, uploading, fileRef, onFileUpload, onSave, 
           onChange={(e) => setDraft((d) => ({ ...d, subtitle: e.target.value }))}
           placeholder="เช่น ผู้นำด้านบริการท่องเที่ยวคุณภาพ"
         />
+      </div>
+
+      {/* Show title toggle */}
+      <div className="flex items-center gap-3 py-1">
+        <button
+          type="button"
+          onClick={() => setDraft((d) => ({ ...d, showTitle: !d.showTitle }))}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${draft.showTitle ? "bg-pink-500" : "bg-gray-300 dark:bg-gray-600"}`}
+          aria-checked={draft.showTitle}
+          role="switch"
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${draft.showTitle ? "translate-x-4" : "translate-x-0.5"}`} />
+        </button>
+        <span className="text-xs font-semibold">
+          {draft.showTitle ? "แสดง Title / Subtitle บน Banner" : "ซ่อน Title / Subtitle (แสดงแค่รูป)"}
+        </span>
       </div>
 
       {/* Image URL */}

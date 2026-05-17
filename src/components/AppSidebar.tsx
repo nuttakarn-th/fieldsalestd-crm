@@ -62,8 +62,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="border-b border-sidebar-border p-3">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg bg-white shadow-glow shrink-0 flex items-center justify-center overflow-hidden p-0.5">
-            <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
+          <div className="w-9 h-9 shrink-0 flex items-center justify-center overflow-hidden">
+            <img src="/logo-icon.svg" alt="Standard Tour" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
             <div className="overflow-hidden">

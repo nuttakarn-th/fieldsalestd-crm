@@ -17,6 +17,7 @@ export interface BannerSlide {
   imageUrl: string;
   title: string;
   subtitle?: string;
+  showTitle?: boolean; // false = ไม่แสดง title/subtitle บน banner (default: true)
 }
 
 interface State {
