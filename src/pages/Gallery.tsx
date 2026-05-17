@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Images, Trash2, X, Check, Camera } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Images, Trash2, X, Check, Camera } from "lucide-react";
+import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useGallery } from "@/store/galleryStore";
 import { useCurrentUser } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
@@ -62,23 +63,21 @@ export default function Gallery() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
-      {/* Header */}
-      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3 flex-wrap">
-        <Link to="/"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Camera className="w-6 h-6 text-primary" /> Gallery
-          </h1>
-          <p className="text-sm text-muted-foreground">อัลบั้มภาพสถานที่ท่องเที่ยว รีวิว และกิจกรรม</p>
-        </div>
-        <Button
-          onClick={() => { setCreating(true); }}
-          disabled={creating}
-          className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg"
-        >
-          <Plus className="w-4 h-4 mr-1.5" /> สร้าง Album
-        </Button>
-      </header>
+      <StandaloneHeader
+        backTo="/"
+        extra={
+          <div className="flex justify-end">
+            <Button
+              onClick={() => { setCreating(true); }}
+              disabled={creating}
+              size="sm"
+              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg"
+            >
+              <Plus className="w-4 h-4 mr-1.5" /> สร้าง Album
+            </Button>
+          </div>
+        }
+      />
 
       <main className="max-w-6xl mx-auto px-6 pb-16 space-y-6">
         {/* Create Album form */}

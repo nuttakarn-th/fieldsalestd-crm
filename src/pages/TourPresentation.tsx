@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye, Maximize2 } from "lucide-react";
+import { Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye, Maximize2 } from "lucide-react";
+import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -147,18 +147,16 @@ export default function TourPresentation() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
-      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3">
-        <Link to="/"><Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold">Standard Tour Presentation</h1>
-          <p className="text-sm text-muted-foreground">Company Profile · ช่องทางสื่อ · เอกสารนำเสนอ</p>
-        </div>
-        {isAdmin && (
-          <Button variant="outline" onClick={openEdit}>
-            <Edit3 className="w-4 h-4 mr-2" /> แก้ไขข้อมูลทั่วไป
-          </Button>
-        )}
-      </header>
+      <StandaloneHeader
+        backTo="/"
+        extra={isAdmin ? (
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={openEdit} size="sm">
+              <Edit3 className="w-4 h-4 mr-2" /> แก้ไขข้อมูลทั่วไป
+            </Button>
+          </div>
+        ) : undefined}
+      />
 
       <main className="max-w-6xl mx-auto px-6 pb-16 space-y-6">
         <section className="rounded-3xl bg-card border shadow-soft p-6">

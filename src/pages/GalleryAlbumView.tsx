@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, Upload, Trash2, X, ChevronLeft, ChevronRight,
+  Upload, Trash2, X, ChevronLeft, ChevronRight,
   Expand, Images, ImagePlus, Star,
 } from "lucide-react";
+import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useGallery } from "@/store/galleryStore";
 import { useCurrentUser } from "@/store/authStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -118,34 +119,28 @@ export default function GalleryAlbumView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
-      {/* Header */}
-      <header className="px-6 py-5 max-w-7xl mx-auto flex items-center gap-3 flex-wrap">
-        <Link to="/gallery">
-          <Button variant="outline" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{album?.name ?? "..."}</h1>
-          {album?.description && (
-            <p className="text-sm text-muted-foreground truncate">{album.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {uploading && (
-            <span className="text-sm text-muted-foreground">
-              {uploadProgress.done}/{uploadProgress.total} อัปโหลด...
-            </span>
-          )}
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFilePick} />
-          <Button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 gap-1.5"
-          >
-            <ImagePlus className="w-4 h-4" />
-            {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
-          </Button>
-        </div>
-      </header>
+      <StandaloneHeader
+        backTo="/gallery"
+        extra={
+          <div className="flex items-center justify-end gap-2">
+            {uploading && (
+              <span className="text-sm text-muted-foreground">
+                {uploadProgress.done}/{uploadProgress.total} อัปโหลด...
+              </span>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFilePick} />
+            <Button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              size="sm"
+              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 gap-1.5"
+            >
+              <ImagePlus className="w-4 h-4" />
+              {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
+            </Button>
+          </div>
+        }
+      />
 
       {/* Photo grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
