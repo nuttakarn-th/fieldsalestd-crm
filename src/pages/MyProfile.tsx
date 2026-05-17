@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Navigate } from "react-router-dom";
-import { User as UserIcon, Save, Eye, EyeOff, Camera, Download, Edit3, X, QrCode } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Save, Eye, EyeOff, Camera, Download, Edit3, X, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +10,7 @@ import { useSiteSettings } from "@/store/siteSettingsStore";
 import { roleBadgeColor } from "@/config/roleMenus";
 import { compressImage } from "@/lib/imageCompression";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
+import { DigitalNamecard } from "@/components/DigitalNamecard";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ const COMPANY_NAME = "บริษัท สแตนดาร์ดทัวร
 export default function MyProfile() {
   const user = useCurrentUser();
   const updateUser = useAuth((s) => s.updateUser);
+  const theme = useAuth((s) => s.theme);
   const settings = useSiteSettings();
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -118,80 +119,25 @@ export default function MyProfile() {
         }
       />
 
-      <main className="max-w-md mx-auto px-4 pb-16 space-y-4">
-        {/* Page title */}
-        <div className="text-center pt-2 pb-2">
+      <main className="max-w-sm mx-auto px-4 pb-16 space-y-3">
+        <div className="text-center pt-1 pb-2">
           <h1 className="text-2xl font-bold">นามบัตรดิจิทัล</h1>
           <p className="text-sm text-muted-foreground mt-0.5">ข้อมูลส่วนตัวและช่องทางติดต่อของคุณ</p>
         </div>
 
-        {/* ── Namecard 3:4 ── */}
-        <div
+        {/* ── Namecard (shared component) ── */}
+        <DigitalNamecard
           ref={cardRef}
-          className="relative w-full bg-white text-gray-900 rounded-2xl border shadow-2xl overflow-hidden"
-          style={{ aspectRatio: "3 / 4" }}
-        >
-          {/* Top accent stripe */}
-          <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-rose-500" />
-
-          <div className="h-full flex flex-col items-center px-6 pt-10 pb-5 text-center">
-            {/* Avatar */}
-            <div className="mb-3">
-              {avatar ? (
-                <img src={avatar} alt={user.full_name} className="w-28 h-28 rounded-full object-cover object-top border-4 border-white shadow-lg ring-2 ring-purple-200" />
-              ) : (
-                <div className={`w-28 h-28 rounded-full bg-gradient-to-br ${roleBadgeColor(user.role)} flex items-center justify-center text-3xl font-bold text-white border-4 border-white shadow-lg`}>
-                  {user.full_name[0]?.toUpperCase() ?? <UserIcon className="w-10 h-10" />}
-                </div>
-              )}
-            </div>
-
-            {/* Name + Position */}
-            <h2 className="text-2xl font-bold leading-tight">{user.full_name}</h2>
-            <p className="text-sm text-gray-600 mt-0.5">{user.department || user.role}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{COMPANY_NAME}</p>
-
-            {/* Divider */}
-            <div className="w-full border-t border-gray-100 my-4" />
-
-            {/* Contact */}
-            <div className="w-full space-y-2 text-sm text-left">
-              {user.tel && <p className="text-gray-700">📱 {user.tel}</p>}
-              {user.email && <p className="text-gray-700 truncate">✉️ {user.email}</p>}
-            </div>
-
-            {/* Divider */}
-            {(user.tel || user.email) && <div className="w-full border-t border-gray-100 my-4" />}
-
-            {/* QR codes */}
-            <div className="w-full grid grid-cols-2 gap-4">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
-                  <QRCodeSVG value={vCard} size={100} level="H" includeMargin={false} />
-                </div>
-                <p className="text-[10px] text-gray-400 font-medium">Contact vCard</p>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                {lineQr ? (
-                  <img src={lineQr} alt="Line QR" className="w-[100px] h-[100px] rounded-lg border border-gray-100 shadow-sm object-contain bg-white p-1.5" />
-                ) : (
-                  <div className="w-[100px] h-[100px] rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50">
-                    <QrCode className="w-8 h-8 text-gray-300" />
-                  </div>
-                )}
-                <p className="text-[10px] text-gray-400 font-medium">LINE QR</p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="mt-auto pt-4 w-full text-center space-y-0.5">
-              <p className="text-[9px] text-gray-400 leading-snug">{settings.hqAddress}</p>
-              <p className="text-[9px] text-gray-400 leading-snug">
-                www.standardtour.com · เลขผู้เสียภาษี {settings.taxId} · ใบอนุญาต {settings.license}
-              </p>
-            </div>
-          </div>
-        </div>
+          fullName={user.full_name}
+          position={user.department || user.role}
+          avatar={user.avatar_url}
+          tel={user.tel}
+          email={user.email}
+          lineQrUrl={user.line_qr_url}
+          vCard={vCard}
+          theme={theme}
+          hqAddress={settings.hqAddress}
+        />
 
         <p className="text-xs text-muted-foreground text-center">
           ส่งภาพนี้ให้ลูกค้าเพื่อ save เป็นรายชื่อในมือถือ — สแกน QR ซ้ายเพื่อเพิ่มเป็น Contact, ขวาเพื่อเพิ่มใน Line
