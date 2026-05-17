@@ -1,9 +1,12 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2 } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
-import { ChatWidget } from "@/components/ChatWidget";
+import { TeamNotifications } from "@/components/TeamNotifications";
+import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
+import { useCRM } from "@/store/crmStore";
+import { useChatRead } from "@/store/chatReadStore";
 
 const baseTiles = [
   {
@@ -67,6 +70,32 @@ const loginBannerTile = {
   gradient: "from-violet-500 via-purple-600 to-indigo-700",
 };
 
+function HubChatButton() {
+  const toggle = useChatUI((s) => s.toggle);
+  const messages = useCRM((s) => s.chatMessages);
+  const currentUser = useCurrentUser();
+  const currentRep = useCRM((s) => s.currentRep);
+  const lastReadAt = useChatRead((s) => s.lastReadAt);
+  const me = currentUser?.full_name || (currentRep === "All" ? "Manager" : currentRep);
+  const unread = messages.filter(
+    (m) => m.author !== me && new Date(m.created_at).getTime() > new Date(lastReadAt).getTime()
+  ).length;
+  return (
+    <button
+      onClick={toggle}
+      className="shrink-0 relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+      aria-label="แชท"
+    >
+      <MessageSquare className="w-5 h-5 text-muted-foreground" />
+      {unread > 0 && (
+        <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-[9px] font-bold flex items-center justify-center text-white leading-none">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function Hub() {
   const user = useCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
@@ -78,9 +107,9 @@ export default function Hub() {
   const isSales = user.role === "Sales";
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/40 to-background">
-      <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3">
+      <header className="px-6 py-5 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
-          <div className="w-12 h-12 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
+          <div className="w-11 h-11 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
             <img
               src="/logo-icon.png"
               alt="Standard Tour"
@@ -88,13 +117,17 @@ export default function Hub() {
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
             />
           </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Standard Tour Hub</h1>
-            <p className="text-sm text-muted-foreground">สวัสดี {user.full_name} · {user.role}</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold leading-tight truncate">Standard Tour Hub</h1>
+            <p className="text-xs text-muted-foreground truncate">สวัสดี {user.full_name} · {user.role}</p>
           </div>
         </Link>
         <div className="flex-1" />
-        <UserMenu />
+        <div className="flex items-center gap-1 shrink-0">
+          <HubChatButton />
+          <TeamNotifications />
+          <UserMenu />
+        </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 pt-4 sm:pt-6">
