@@ -1,138 +1,236 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Phone, MessageCircle, Mail, Users2, TrendingUp, FileText, MapPin } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Phone, Mail, MessageCircle, TrendingUp } from "lucide-react";
 import { useCRM, formatTHB } from "@/store/crmStore";
-import { useAuth } from "@/store/authStore";
+import { useAuth, type AppRole } from "@/store/authStore";
 import { useChatUI } from "@/components/ChatWidget";
-import { roleBadgeColor } from "@/config/roleMenus";
 
+/* ── Role display order ── */
+const ROLE_ORDER: AppRole[] = [
+  "Admin",
+  "Sales Manager",
+  "Sales",
+  "Marketing",
+  "Co-Ordinator",
+  "Accounting",
+];
+
+const ROLE_LABEL: Record<string, string> = {
+  "Admin": "Admin",
+  "Sales Manager": "Sales Manager",
+  "Sales": "Sales",
+  "Marketing": "Marketing",
+  "Co-Ordinator": "Co-Ordinator",
+  "Accounting": "Accounting",
+};
+
+/* ── Line SVG icon ── */
+function LineIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.627.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.105.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+    </svg>
+  );
+}
+
+/* ── Member Card ── */
+interface MemberCardProps {
+  u: ReturnType<typeof useAuth extends (s: any) => infer R ? never : never> extends never
+    ? import("@/store/authStore").AppUser
+    : import("@/store/authStore").AppUser;
+  stats: { customers: number; leads: number; closedWon: number; totalSales: number };
+  onChat: (name: string) => void;
+}
+
+function MemberCard({ u, stats, onChat }: MemberCardProps) {
+  return (
+    <div className="bg-card border rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant hover:-translate-y-1 transition-all duration-300 group flex flex-col">
+      {/* Photo */}
+      <div className="aspect-square w-full overflow-hidden bg-muted shrink-0">
+        <img
+          src={u.avatar_url || "/Blank-Display.png"}
+          alt={u.full_name}
+          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+          onError={(e) => { (e.target as HTMLImageElement).src = "/Blank-Display.png"; }}
+        />
+      </div>
+
+      {/* Info */}
+      <div className="p-3 flex flex-col gap-2 flex-1">
+        {/* Name + Role */}
+        <div className="text-center">
+          <h3 className="font-bold text-sm leading-tight truncate" style={{ fontFamily: "'Inter', sans-serif" }}>
+            {u.full_name}
+          </h3>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+            {u.department || u.role}
+          </p>
+        </div>
+
+        {/* Stats mini row */}
+        <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground bg-muted/40 rounded-lg px-2 py-1.5">
+          <span className="flex items-center gap-1">
+            <span className="font-semibold text-foreground">{stats.customers}</span> ลูกค้า
+          </span>
+          <span className="opacity-30">·</span>
+          <span className="flex items-center gap-1">
+            <TrendingUp className="w-2.5 h-2.5 text-primary" />
+            <span className="font-semibold text-primary">{stats.closedWon}</span> ปิด
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-border/50" />
+
+        {/* Contact icon buttons */}
+        <div className="flex items-center justify-center gap-2">
+          {u.tel ? (
+            <a
+              href={`tel:${u.tel}`}
+              className="w-8 h-8 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors"
+              title={u.tel}
+            >
+              <Phone className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
+              <Phone className="w-3.5 h-3.5" />
+            </span>
+          )}
+
+          {u.email ? (
+            <a
+              href={`mailto:${u.email}`}
+              className="w-8 h-8 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center hover:bg-violet-500 hover:text-white transition-colors"
+              title={u.email}
+            >
+              <Mail className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
+              <Mail className="w-3.5 h-3.5" />
+            </span>
+          )}
+
+          {u.line_qr_url ? (
+            <a
+              href={u.line_qr_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-colors"
+              title="LINE"
+            >
+              <LineIcon className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
+              <LineIcon className="w-3.5 h-3.5" />
+            </span>
+          )}
+
+          <button
+            onClick={() => onChat(u.full_name)}
+            className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+            title="แชทใน CRM"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Page ── */
 export default function SalesTeam() {
   const openChat = useChatUI((s) => s.open);
   const users = useAuth((s) => s.users);
   const customers = useCRM((s) => s.customers);
   const leads = useCRM((s) => s.leads);
-  const quotations = useCRM((s) => s.quotations);
-  const routes = useCRM((s) => s.routes);
 
-  // Show all users with Sales-related roles
-  const teamUsers = useMemo(
-    () => users
-      .filter((u) => ["Sales", "Sales Manager"].includes(u.role))
-      .sort((a, b) => a.role.localeCompare(b.role) || a.full_name.localeCompare(b.full_name, "th")),
-    [users],
-  );
+  /* Group all users by role in defined order */
+  const grouped = useMemo(() => {
+    const map: Record<string, typeof users> = {};
+    users.forEach((u) => {
+      if (!map[u.role]) map[u.role] = [];
+      map[u.role].push(u);
+    });
+    return ROLE_ORDER
+      .filter((r) => (map[r]?.length ?? 0) > 0)
+      .map((r) => ({
+        role: r,
+        label: ROLE_LABEL[r] ?? r,
+        members: (map[r] ?? []).sort((a, b) =>
+          a.full_name.localeCompare(b.full_name, "th")
+        ),
+      }));
+  }, [users]);
 
   const statsFor = (name: string) => {
     const myCustomers = customers.filter((c) => c.created_by === name).length;
     const myLeads = leads.filter((l) => l.assigned_to === name);
     const closedWon = myLeads.filter((l) => l.status === "Closed Won");
     const totalSales = closedWon.reduce((s, l) => s + (l.quoted_price || 0), 0);
-    const myDocs = quotations.filter((q) => q.rep === name);
-    const myRoutes = routes.filter((r) => r.rep === name);
-    const completedStops = myRoutes.flatMap((r) => r.stops).filter((s) => s.status === "completed").length;
-    return {
-      customers: myCustomers,
-      leads: myLeads.length,
-      closedWon: closedWon.length,
-      totalSales,
-      docs: myDocs.length,
-      routes: myRoutes.length,
-      completedStops,
-    };
+    return { customers: myCustomers, leads: myLeads.length, closedWon: closedWon.length, totalSales };
   };
 
+  const totalMembers = users.length;
+
   return (
-    <div className="p-4 sm:p-6 space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
-          <Users2 className="w-6 h-6 text-primary-foreground" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">ข้อมูลทีม Sales</h1>
-          <p className="text-sm text-muted-foreground">รายชื่อ + สรุปผลงานของแต่ละคน · {teamUsers.length} คน</p>
-        </div>
+    <div className="px-4 sm:px-8 py-8 space-y-10 max-w-7xl mx-auto">
+
+      {/* ── Page Header ── */}
+      <div className="text-center space-y-2 pb-4">
+        <h1
+          className="text-4xl sm:text-5xl tracking-tight"
+          style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
+        >
+          Standard{" "}
+          <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">
+            Teams
+          </span>
+        </h1>
+        <p className="text-muted-foreground text-base sm:text-lg">
+          บริการด้วยจิต ดูแลด้วยใจ
+        </p>
+        <p className="text-xs text-muted-foreground/60">
+          ทีมงานทั้งหมด {totalMembers} คน
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {teamUsers.map((u) => {
-          const s = statsFor(u.full_name);
-          return (
-            <div key={u.user_id} className="bg-card border rounded-2xl p-5 shadow-soft hover:shadow-elegant transition">
-              <div className="flex items-center gap-3 mb-4">
-                {u.avatar_url ? (
-                  <img src={u.avatar_url} alt={u.full_name} className="w-14 h-14 rounded-2xl object-cover shadow-glow" />
-                ) : (
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${roleBadgeColor(u.role)} flex items-center justify-center text-white text-xl font-bold shadow-glow`}>
-                    {u.full_name[0]}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-lg truncate">{u.full_name}</h3>
-                  <Badge variant="outline" className="text-[10px]">{u.department || u.role}</Badge>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-muted-foreground">ลูกค้า</p>
-                  <p className="font-bold text-base">{s.customers}</p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-muted-foreground">Leads</p>
-                  <p className="font-bold text-base">{s.leads} <span className="text-success font-normal">· ปิด {s.closedWon}</span></p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2 col-span-2">
-                  <p className="text-muted-foreground flex items-center gap-1"><TrendingUp className="w-3 h-3" /> ยอดขายปิดได้</p>
-                  <p className="font-bold text-base text-primary">{formatTHB(s.totalSales)}</p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-muted-foreground flex items-center gap-1"><FileText className="w-3 h-3" /> เอกสาร</p>
-                  <p className="font-bold text-base">{s.docs}</p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" /> Mission สำเร็จ</p>
-                  <p className="font-bold text-base">{s.completedStops}</p>
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="space-y-1 text-sm mb-3">
-                {u.tel && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-4 h-4 text-primary" />
-                    <span className="font-medium text-foreground">{u.tel}</span>
-                  </div>
-                )}
-                {u.email && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="w-4 h-4 text-primary" />
-                    <span className="truncate text-foreground">{u.email}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                {u.tel && (
-                  <Button asChild className="flex-1 bg-gradient-coral hover:opacity-90">
-                    <a href={`tel:${u.tel}`}><Phone className="w-4 h-4 mr-2" /> โทร</a>
-                  </Button>
-                )}
-                <Button variant="outline" className="flex-1 border-primary/40 text-primary hover:bg-primary/5" onClick={() => openChat(u.full_name as never)}>
-                  <MessageCircle className="w-4 h-4 mr-2" /> Chat
-                </Button>
-              </div>
+      {/* ── Role Sections ── */}
+      {grouped.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground">
+          ยังไม่มีพนักงานในระบบ — Admin เพิ่มได้ที่หน้า User Management
+        </div>
+      ) : (
+        grouped.map(({ role, label, members }) => (
+          <section key={role} className="space-y-4">
+            {/* Section label */}
+            <div className="flex items-center gap-3">
+              <span
+                className="text-xs font-bold uppercase tracking-widest text-muted-foreground"
+                style={{ fontFamily: "'Inter', sans-serif" }}
+              >
+                {label}
+              </span>
+              <div className="flex-1 border-t border-border/50" />
+              <span className="text-[10px] text-muted-foreground/50">{members.length} คน</span>
             </div>
-          );
-        })}
-        {teamUsers.length === 0 && (
-          <div className="col-span-full rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-            ยังไม่มีพนักงานในทีม Sales — Admin เพิ่มได้ที่หน้า User Management
-          </div>
-        )}
-      </div>
+
+            {/* Cards grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+              {members.map((u) => (
+                <MemberCard
+                  key={u.user_id}
+                  u={u}
+                  stats={statsFor(u.full_name)}
+                  onChat={openChat as (name: string) => void}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
     </div>
   );
 }
