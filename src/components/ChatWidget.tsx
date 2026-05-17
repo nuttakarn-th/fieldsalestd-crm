@@ -191,8 +191,8 @@ export function ChatWidget() {
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-16 sm:bottom-24 right-3 sm:right-6 z-50 w-[calc(100vw-1.5rem)] sm:w-96 h-[32rem] bg-card border rounded-2xl shadow-elegant flex flex-col overflow-hidden">
-          <div className="px-4 py-3 bg-gradient-primary text-primary-foreground flex items-center justify-between">
+        <div className="fixed bottom-0 right-0 sm:bottom-4 sm:right-4 z-50 w-full sm:w-96 h-[32rem] sm:h-[32rem] bg-card border sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between text-white" style={{ background: "linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)" }}>
             <div>
               <p className="font-bold text-sm">Standard Tour Messenger</p>
               <p className="text-[11px] opacity-80">คุณคือ {me} • Mention ด้วย @ชื่อ</p>

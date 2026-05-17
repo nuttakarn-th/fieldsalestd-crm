@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Phone, Mail, MessageCircle, TrendingUp, ArrowLeft } from "lucide-react";
+import { Phone, Mail, MessageCircle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCRM, formatTHB } from "@/store/crmStore";
+import { useCRM } from "@/store/crmStore";
 import { useAuth, type AppRole } from "@/store/authStore";
 import { useChatUI } from "@/components/ChatWidget";
 
@@ -39,11 +39,11 @@ interface MemberCardProps {
   u: ReturnType<typeof useAuth extends (s: any) => infer R ? never : never> extends never
     ? import("@/store/authStore").AppUser
     : import("@/store/authStore").AppUser;
-  stats: { customers: number; leads: number; closedWon: number; totalSales: number };
+
   onChat: (name: string) => void;
 }
 
-function MemberCard({ u, stats, onChat }: MemberCardProps) {
+function MemberCard({ u, onChat }: MemberCardProps) {
   return (
     <div className="bg-card border rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant hover:-translate-y-1 transition-all duration-300 group flex flex-col">
       {/* Photo */}
@@ -66,18 +66,6 @@ function MemberCard({ u, stats, onChat }: MemberCardProps) {
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
             {u.department || u.role}
           </p>
-        </div>
-
-        {/* Stats mini row */}
-        <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground bg-muted/40 rounded-lg px-2 py-1.5">
-          <span className="flex items-center gap-1">
-            <span className="font-semibold text-foreground">{stats.customers}</span> ลูกค้า
-          </span>
-          <span className="opacity-30">·</span>
-          <span className="flex items-center gap-1">
-            <TrendingUp className="w-2.5 h-2.5 text-primary" />
-            <span className="font-semibold text-primary">{stats.closedWon}</span> ปิด
-          </span>
         </div>
 
         {/* Divider */}
@@ -146,8 +134,6 @@ function MemberCard({ u, stats, onChat }: MemberCardProps) {
 export default function SalesTeam() {
   const openChat = useChatUI((s) => s.open);
   const users = useAuth((s) => s.users);
-  const customers = useCRM((s) => s.customers);
-  const leads = useCRM((s) => s.leads);
 
   /* Group all users by role in defined order */
   const grouped = useMemo(() => {
@@ -166,14 +152,6 @@ export default function SalesTeam() {
         ),
       }));
   }, [users]);
-
-  const statsFor = (name: string) => {
-    const myCustomers = customers.filter((c) => c.created_by === name).length;
-    const myLeads = leads.filter((l) => l.assigned_to === name);
-    const closedWon = myLeads.filter((l) => l.status === "Closed Won");
-    const totalSales = closedWon.reduce((s, l) => s + (l.quoted_price || 0), 0);
-    return { customers: myCustomers, leads: myLeads.length, closedWon: closedWon.length, totalSales };
-  };
 
   const totalMembers = users.length;
 
@@ -244,7 +222,6 @@ export default function SalesTeam() {
                 <MemberCard
                   key={u.user_id}
                   u={u}
-                  stats={statsFor(u.full_name)}
                   onChat={openChat as (name: string) => void}
                 />
               ))}
