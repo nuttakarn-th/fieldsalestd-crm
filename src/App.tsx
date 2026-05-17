@@ -32,6 +32,7 @@ import QuotationForm from "./pages/QuotationForm.tsx";
 import UserManagement from "./pages/UserManagement.tsx";
 import MyProfile from "./pages/MyProfile.tsx";
 import AllService from "./pages/AllService.tsx";
+import CustomerDetail from "./pages/CustomerDetail.tsx";
 import CampaignManagement from "./pages/CampaignManagement.tsx";
 import MarketingReport from "./pages/MarketingReport.tsx";
 import FinancialReport from "./pages/FinancialReport.tsx";
@@ -78,6 +79,7 @@ const App = () => (
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="customers/:customerId" element={<CustomerDetail />} />
             <Route path="pipeline" element={<Pipeline />} />
             <Route path="targets" element={<Targets />} />
             <Route path="followup" element={<FollowUp />} />

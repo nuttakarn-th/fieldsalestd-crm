@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
 };
 
 export default function Customers() {
+  const navigate = useNavigate();
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
@@ -227,7 +229,11 @@ export default function Customers() {
           <div className="col-span-full p-8 text-center text-muted-foreground bg-card border rounded-xl">ไม่พบข้อมูลลูกค้า</div>
         )}
         {filtered.map((c) => (
-          <div key={c.customer_id} className="bg-card border rounded-xl p-4 shadow-soft space-y-2">
+          <div
+            key={c.customer_id}
+            className="bg-card border rounded-xl p-4 shadow-soft space-y-2 cursor-pointer hover:border-primary/40 transition"
+            onClick={() => navigate(`/app/customers/${c.customer_id}`)}
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold truncate">{c.full_name}</p>
@@ -262,9 +268,9 @@ export default function Customers() {
                   <span title="โอนแล้ว" className="text-muted-foreground p-2"><Lock className="w-4 h-4" /></span>
                 ) : (
                   <>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(c)}><Pencil className="w-4 h-4 text-primary" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditing(c); }}><Pencil className="w-4 h-4 text-primary" /></Button>
                     {currentRep !== "All" && c.created_by === currentRep && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setTransferOf(c); setTransferTo(""); }}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setTransferOf(c); setTransferTo(""); }}>
                         <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                       </Button>
                     )}
@@ -297,7 +303,11 @@ export default function Customers() {
             </thead>
             <tbody className="divide-y">
               {filtered.map((c) => (
-                <tr key={c.customer_id} className="hover:bg-muted/30 transition">
+                <tr
+                  key={c.customer_id}
+                  className="hover:bg-muted/30 transition cursor-pointer"
+                  onClick={() => navigate(`/app/customers/${c.customer_id}`)}
+                >
                   {/* ชื่อ / องค์กร / จังหวัด */}
                   <td className="p-3 max-w-[200px]">
                     <div className="font-semibold truncate">{c.full_name}</div>
@@ -380,9 +390,9 @@ export default function Customers() {
                         </span>
                       ) : (
                         <>
-                          <Button size="icon" variant="ghost" onClick={() => setEditing(c)} title="แก้ไข"><Pencil className="w-4 h-4 text-primary" /></Button>
+                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditing(c); }} title="แก้ไข"><Pencil className="w-4 h-4 text-primary" /></Button>
                           {currentRep !== "All" && c.created_by === currentRep && (
-                            <Button size="icon" variant="ghost" title="โอนลูกค้า" onClick={() => { setTransferOf(c); setTransferTo(""); }}>
+                            <Button size="icon" variant="ghost" title="โอนลูกค้า" onClick={(e) => { e.stopPropagation(); setTransferOf(c); setTransferTo(""); }}>
                               <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                             </Button>
                           )}

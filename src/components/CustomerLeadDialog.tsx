@@ -25,7 +25,15 @@ const SERVICE_INTERESTS = [
   { key: "ประกันการเดินทาง", label: "🛡️ ประกัน" },
 ];
 
-export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function CustomerLeadDialog({
+  open,
+  onOpenChange,
+  prefilledCustomerId,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  prefilledCustomerId?: string;
+}) {
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const addCustomer = useCRM((s) => s.addCustomer);
@@ -78,6 +86,14 @@ export function CustomerLeadDialog({ open, onOpenChange }: { open: boolean; onOp
   useEffect(() => {
     if (open && currentRep !== "All") setOwner(currentRep);
   }, [open, currentRep]);
+
+  // Pre-fill existing customer when launched from CustomerDetail page
+  useEffect(() => {
+    if (open && prefilledCustomerId) {
+      setMode("existing");
+      setExistingId(prefilledCustomerId);
+    }
+  }, [open, prefilledCustomerId]);
 
   useEffect(() => {
     if (mode === "existing" && existingId) {
