@@ -73,8 +73,13 @@ export default function Hub() {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/40 to-background">
       <header className="px-6 py-6 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
-          <div className="w-12 h-12 rounded-2xl bg-white shadow-glow group-hover:scale-105 transition flex items-center justify-center overflow-hidden p-1.5">
-            <img src="/favicon.ico" alt="Standard Tour" className="w-full h-full object-contain" />
+          <div className="w-12 h-12 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
+            <img
+              src="/logo-icon.png"
+              alt="Standard Tour"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+            />
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold">Standard Tour Hub</h1>

@@ -134,14 +134,14 @@ export default function Login() {
           {/* ═══ RIGHT: Login Panel ═══ */}
           <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left max-w-sm w-full">
 
-            {/* Heading */}
+            {/* Heading — hidden on mobile, visible on md+ */}
             <h1
-              className="text-white leading-tight mb-3"
+              className="hidden md:block text-white leading-tight mb-3"
               style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2rem, 3.5vw, 2.75rem)", letterSpacing: "-0.02em" }}
             >
               Customer<br />Relationship<br />Management
             </h1>
-            <p className="text-sm text-white/45 mb-8 leading-relaxed">
+            <p className="hidden md:block text-sm text-white/45 mb-8 leading-relaxed">
               our ultimate hub for managing leads, closing deals,<br className="hidden md:block" />
               and delivering exceptional travel experiences.<br className="hidden md:block" />
               Let's make every journey count.
