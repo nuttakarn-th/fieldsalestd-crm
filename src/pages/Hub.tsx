@@ -64,7 +64,7 @@ const marketingTiles = [
     gradient: "from-purple-600 via-violet-600 to-indigo-600",
   },
   {
-    title: "ฐานข้อมูลลูกค้า",
+    title: "Leads/Customers",
     description: "รายชื่อลูกค้า, สถานะ, ประวัติการติดต่อและข้อมูลการจอง",
     icon: Users,
     to: "/marketing-customers",

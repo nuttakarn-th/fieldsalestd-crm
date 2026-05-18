@@ -76,12 +76,12 @@
   }
 
   .dark {
-    /* Neutral black/grey background — no purple tint */
-    --background: 220 10% 9%;
+    /* Deep purple gradient — matches Hub homepage background */
+    --background: 248 65% 10%;
     --foreground: 0 0% 96%;
-    --card: 220 10% 13%;
+    --card: 248 30% 15%;
     --card-foreground: 0 0% 96%;
-    --popover: 220 10% 13%;
+    --popover: 248 30% 13%;
     --popover-foreground: 0 0% 96%;
     /* Keep brand accents (purple/pink) for buttons/highlights */
     --primary: 300 75% 65%;
@@ -106,13 +106,13 @@
     /* Override gradients for dark mode — was white-only */
     --gradient-card: linear-gradient(180deg, hsl(220 10% 13%), hsl(220 10% 11%));
     /* Sidebar — indigo dark theme */
-    --sidebar-background: 232 18% 9%;
+    --sidebar-background: 248 45% 10%;
     --sidebar-foreground: 240 5% 90%;
     --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 232 14% 16%;
+    --sidebar-accent: 248 30% 17%;
     --sidebar-accent-foreground: 240 5% 96%;
-    --sidebar-border: 232 12% 18%;
+    --sidebar-border: 248 20% 20%;
     --sidebar-ring: 239 84% 67%;
   }
 }
@@ -124,6 +124,10 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Kanit', system-ui, sans-serif;
+  }
+  .dark body {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) fixed;
+    background-attachment: fixed;
   }
   h1, h2, h3, h4 {
     font-family: 'Kanit', system-ui, sans-serif;
