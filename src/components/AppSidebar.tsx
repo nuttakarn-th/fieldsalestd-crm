@@ -1,6 +1,6 @@
-import { ArrowLeft, User as UserIcon, Eye } from "lucide-react";
+import { ArrowLeft, User as UserIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useAuth, useCurrentUser, ALL_ROLES, type AppRole } from "@/store/authStore";
+import { useAuth, useCurrentUser, type AppRole } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/config/roleMenus";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,7 +31,6 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const user = useCurrentUser();
   const viewAsRole = useAuth((s) => s.viewAsRole);
-  const setViewAsRole = useAuth((s) => s.setViewAsRole);
   const allUsers = useAuth((s) => s.users);
   const currentRep = useCRM((s) => s.currentRep);
   const setCurrentRep = useCRM((s) => s.setCurrentRep);
@@ -131,29 +130,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-2 space-y-2">
         {!collapsed && (
           <>
-            {user.role === "Admin" && (
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80 flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> ROLE & TEAM
-                </p>
-                <p className="text-[10px] text-sidebar-foreground/60">ในมุมมอง ROLE</p>
-                <Select
-                  value={viewAsRole ?? "Admin"}
-                  onValueChange={(v) => setViewAsRole(v === "Admin" ? null : (v as AppRole))}
-                >
-                  <SelectTrigger className="bg-sidebar-accent border-sidebar-border text-sidebar-foreground h-8 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Admin">👑 Admin (มุมมองเต็ม)</SelectItem>
-                    {ALL_ROLES.map((r) => (
-                      <SelectItem key={r} value={r}>🎭 {r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {showRepSelector && (
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-primary/80">TEAM VIEW</p>

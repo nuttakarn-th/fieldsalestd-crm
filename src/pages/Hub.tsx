@@ -1,6 +1,7 @@
+import { useState, useRef, useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock } from "lucide-react";
-import { useCurrentUser } from "@/store/authStore";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, Eye } from "lucide-react";
+import { useCurrentUser, useAuth, ALL_ROLES, type AppRole } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
@@ -140,6 +141,63 @@ function StaleLeadBtn() {
   );
 }
 
+function SwitchRoleBtn() {
+  const user = useCurrentUser();
+  const viewAsRole = useAuth((s) => s.viewAsRole);
+  const setViewAsRole = useAuth((s) => s.setViewAsRole);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  if (user?.role !== "Admin") return null;
+
+  const isViewing = !!viewAsRole;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title={isViewing ? `มุมมอง: ${viewAsRole}` : "ดูในมุมมอง Role อื่น"}
+        className={`shrink-0 relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors ${isViewing ? "text-amber-400" : "text-white/60"}`}
+      >
+        <Eye className="w-5 h-5" />
+        {isViewing && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 border border-black/20" />}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-11 w-52 bg-popover border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div className="px-3 pt-2.5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+            ดูในมุมมอง Role
+          </div>
+          {([null, ...ALL_ROLES] as (AppRole | null)[]).map((r) => {
+            const label = r === null ? "👑 Admin (มุมมองเต็ม)" : `🎭 ${r}`;
+            const active = r === null ? !viewAsRole : viewAsRole === r;
+            return (
+              <button
+                key={r ?? "__admin__"}
+                onClick={() => { setViewAsRole(r as AppRole | null); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors ${
+                  active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent text-foreground"
+                }`}
+              >
+                {label}
+                {active && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HubChatButton() {
   const toggle = useChatUI((s) => s.toggle);
   const messages = useCRM((s) => s.chatMessages);
@@ -168,16 +226,18 @@ function HubChatButton() {
 
 export default function Hub() {
   const user = useCurrentUser();
+  const viewAsRole = useAuth((s) => s.viewAsRole);
   if (!user) return <Navigate to="/login" replace />;
-  const isMarketing = user.role === "Marketing";
+  const effectiveRole: AppRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
+  const isMarketing = effectiveRole === "Marketing";
   const sharedTiles = baseTiles.filter((t) => isMarketing ? t.to !== "/app" : true);
   const tiles = [
     ...(isMarketing ? marketingTiles : []),
     ...sharedTiles,
-    ...(user.role === "Admin" ? [adminUserTile, loginBannerTile] : []),
+    ...(effectiveRole === "Admin" ? [adminUserTile, loginBannerTile] : []),
     profileTile,
   ];
-  const isSales = user.role === "Sales";
+  const isSales = effectiveRole === "Sales";
   return (
     <div className="min-h-screen text-white flex flex-col" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
       <header className="px-6 py-5 flex items-center gap-3">
@@ -198,6 +258,7 @@ export default function Hub() {
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
           <StandyBtn />
+          <SwitchRoleBtn />
           <StaleLeadBtn />
           <HubChatButton />
           <TeamNotifications />
