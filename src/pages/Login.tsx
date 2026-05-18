@@ -77,7 +77,7 @@ export default function Login() {
 
       {/* ── Main content: vertically + horizontally centered ── */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-16">
-        <div className="w-full max-w-[1020px] flex flex-col md:flex-row md:items-start gap-8 md:gap-12">
+        <div className="w-full max-w-[1020px] flex flex-col md:flex-row md:items-center gap-8 md:gap-12">
 
           {/* ═══ LEFT: Banner Slideshow 1:1 ═══ */}
           <div className="w-full md:w-[540px] shrink-0">
