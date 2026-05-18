@@ -14,7 +14,6 @@ import {
   Wallet,
   PackageSearch,
   User as UserIcon,
-  Home,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -74,12 +73,6 @@ const adminMenu: RoleMenu = {
         { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
       ],
     },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
-      ],
-    },
   ],
   account: [],
 };
@@ -107,12 +100,6 @@ const salesManagerMenu: RoleMenu = {
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
-      ],
-    },
   ],
   account: [],
 };
@@ -136,12 +123,6 @@ const salesMenu: RoleMenu = {
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
-      ],
-    },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
@@ -168,12 +149,6 @@ const marketingMenu: RoleMenu = {
     {
       category: "REPORT & DATA",
       items: [{ title: "Marketing Report", url: "/marketing-report", icon: BarChart3 }],
-    },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
-      ],
     },
   ],
   account: [],
@@ -203,12 +178,6 @@ const coordinatorMenu: RoleMenu = {
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
-      ],
-    },
   ],
   account: [],
 };
@@ -229,12 +198,6 @@ const accountingMenu: RoleMenu = {
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Payment / Invoice", url: "/app/payment", icon: Receipt },
         { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
-      ],
-    },
-    {
-      category: "NAVIGATION",
-      items: [
-        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
