@@ -14,6 +14,7 @@ import {
   Wallet,
   PackageSearch,
   User as UserIcon,
+  Home,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -52,7 +53,7 @@ const adminMenu: RoleMenu = {
     {
       category: "CUSTOMER",
       items: [
-        { title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users },
+        { title: "Leads/Customers", url: "/app/customers", icon: Users },
       ],
     },
     {
@@ -61,8 +62,8 @@ const adminMenu: RoleMenu = {
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
         { title: "Target Pipeline", url: "/app/targets", icon: Target },
         { title: "Sales Mission", url: "/app/sales-mission", icon: Users2 },
-        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
+        { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
@@ -71,6 +72,12 @@ const adminMenu: RoleMenu = {
       items: [
         { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
         { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
+      ],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
@@ -88,7 +95,7 @@ const salesManagerMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
     },
     {
       category: "SALES MANAGEMENT",
@@ -96,8 +103,14 @@ const salesManagerMenu: RoleMenu = {
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
         { title: "Target Pipeline", url: "/app/targets", icon: Target },
         { title: "Sales Mission", url: "/app/sales-mission", icon: Users2 },
-        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
@@ -112,17 +125,23 @@ const salesMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
     },
     {
       category: "SALES MANAGEMENT",
       items: [
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
         { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
-        { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
-        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "Calendar Route", url: "/app/calendar", icon: MapPinned },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
+        { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
@@ -137,7 +156,7 @@ const marketingMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/marketing-customers", icon: Users }],
+      items: [{ title: "Leads/Customers", url: "/marketing-customers", icon: Users }],
     },
     {
       category: "MARKETING",
@@ -149,6 +168,12 @@ const marketingMenu: RoleMenu = {
     {
       category: "REPORT & DATA",
       items: [{ title: "Marketing Report", url: "/marketing-report", icon: BarChart3 }],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
+      ],
     },
   ],
   account: [],
@@ -165,17 +190,23 @@ const coordinatorMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
     },
     {
       category: "SALES MANAGEMENT",
       items: [
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
         { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
-        { title: "ปฏิทิน Route", url: "/app/calendar", icon: MapPinned },
-        { title: "ตาราง Follow Up", url: "/app/followup", icon: CalendarDays },
-        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "Calendar Route", url: "/app/calendar", icon: MapPinned },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
+        { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+      ],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
@@ -190,14 +221,20 @@ const accountingMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
     },
     {
       category: "FINANCE",
       items: [
-        { title: "ใบเสนอราคา", url: "/app/quotation", icon: FileText },
+        { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Payment / Invoice", url: "/app/payment", icon: Receipt },
         { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
+      ],
+    },
+    {
+      category: "NAVIGATION",
+      items: [
+        { title: "กลับหน้าหลัก", url: "/", icon: Home },
       ],
     },
   ],
