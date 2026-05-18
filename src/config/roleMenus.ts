@@ -133,22 +133,22 @@ const marketingMenu: RoleMenu = {
   sections: [
     {
       category: "OVERVIEW",
-      items: [{ title: "Dashboard (Marketing)", url: "/app", icon: LayoutDashboard, end: true }],
+      items: [{ title: "Marketing Dashboard", url: "/marketing-dashboard", icon: LayoutDashboard, end: true }],
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/app/customers", icon: Users }],
+      items: [{ title: "ฐานข้อมูลลูกค้า", url: "/marketing-customers", icon: Users }],
     },
     {
       category: "MARKETING",
       items: [
-        { title: "Campaign Management", url: "/app/campaigns", icon: Megaphone },
+        { title: "Campaign Management", url: "/marketing-campaigns", icon: Megaphone },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
     {
       category: "REPORT & DATA",
-      items: [{ title: "Marketing Report", url: "/app/marketing-report", icon: BarChart3 }],
+      items: [{ title: "Marketing Report", url: "/marketing-report", icon: BarChart3 }],
     },
   ],
   account: [],

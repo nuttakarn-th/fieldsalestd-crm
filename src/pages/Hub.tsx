@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
@@ -11,7 +11,7 @@ import { useChatRead } from "@/store/chatReadStore";
 
 const baseTiles = [
   {
-    title: "Sales CRM",
+    title: "Sales Dashboard",
     description: "ระบบจัดการการขาย, ลูกค้า, Pipeline, Planning, Mission และรายงาน",
     icon: Briefcase,
     to: "/app",
@@ -51,6 +51,37 @@ const baseTiles = [
     icon: PackageSearch,
     to: "/service-stock",
     gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+  },
+];
+
+const marketingTiles = [
+  {
+    title: "Marketing Dashboard",
+    description: "ภาพรวมยอดขาย, Lead, Pipeline และเป้าหมายของทีม",
+    icon: LayoutDashboard,
+    to: "/marketing-dashboard",
+    gradient: "from-purple-600 via-violet-600 to-indigo-600",
+  },
+  {
+    title: "ฐานข้อมูลลูกค้า",
+    description: "รายชื่อลูกค้า, สถานะ, ประวัติการติดต่อและข้อมูลการจอง",
+    icon: Users,
+    to: "/marketing-customers",
+    gradient: "from-blue-500 via-blue-600 to-indigo-600",
+  },
+  {
+    title: "Campaign Management",
+    description: "จัดการแคมเปญการตลาด, โปรโมชัน และติดตามผล",
+    icon: Megaphone,
+    to: "/marketing-campaigns",
+    gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
+  },
+  {
+    title: "Marketing Report",
+    description: "รายงานผลแคมเปญ, ยอดขาย และวิเคราะห์ข้อมูลการตลาด",
+    icon: BarChart3,
+    to: "/marketing-report",
+    gradient: "from-amber-400 via-orange-500 to-rose-500",
   },
 ];
 
@@ -107,8 +138,11 @@ function HubChatButton() {
 export default function Hub() {
   const user = useCurrentUser();
   if (!user) return <Navigate to="/login" replace />;
+  const isMarketing = user.role === "Marketing";
+  const sharedTiles = baseTiles.filter((t) => isMarketing ? t.to !== "/app" : true);
   const tiles = [
-    ...baseTiles,
+    ...(isMarketing ? marketingTiles : []),
+    ...sharedTiles,
     ...(user.role === "Admin" ? [adminUserTile, loginBannerTile] : []),
     profileTile,
   ];

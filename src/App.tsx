@@ -42,6 +42,10 @@ import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
 import UsersPage from "./pages/UsersPage.tsx";
 import LoginBannerPage from "./pages/LoginBannerPage.tsx";
 import AllServicePage from "./pages/AllServicePage.tsx";
+import MarketingDashboardPage from "./pages/MarketingDashboardPage.tsx";
+import CustomersPage from "./pages/CustomersPage.tsx";
+import CampaignsPage from "./pages/CampaignsPage.tsx";
+import MarketingReportPage from "./pages/MarketingReportPage.tsx";
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -83,6 +87,10 @@ const App = () => (
           <Route path="/users" element={<UsersPage />} />
           <Route path="/login-banner" element={<LoginBannerPage />} />
           <Route path="/service-stock" element={<AllServicePage />} />
+          <Route path="/marketing-dashboard" element={<MarketingDashboardPage />} />
+          <Route path="/marketing-customers" element={<CustomersPage />} />
+          <Route path="/marketing-campaigns" element={<CampaignsPage />} />
+          <Route path="/marketing-report" element={<MarketingReportPage />} />
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
