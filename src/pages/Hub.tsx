@@ -108,7 +108,7 @@ export default function Hub() {
   const isSales = user.role === "Sales";
   return (
     <div className="min-h-screen text-white flex flex-col" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
-      <header className="px-6 py-5 max-w-6xl mx-auto flex items-center gap-3">
+      <header className="px-6 py-5 flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
           <div className="w-11 h-11 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
             <img
@@ -136,8 +136,8 @@ export default function Hub() {
         {/* Title */}
         <div className="text-center mb-6 sm:mb-8">
           <h2
-            className="tracking-tighter leading-none text-white"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(3rem, 12vw, 7rem)" }}
+            className="tracking-tighter leading-none text-white sm:whitespace-nowrap"
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 5vw, 5.5rem)" }}
           >
             Standard Tour Hub.
           </h2>
