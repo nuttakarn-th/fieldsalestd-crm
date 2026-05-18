@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
@@ -45,6 +45,13 @@ const baseTiles = [
     to: "/teams",
     gradient: "from-violet-500 via-purple-600 to-fuchsia-600",
   },
+  {
+    title: "Service and Stock",
+    description: "ทัวร์, รถเช่า, ตั๋วเครื่องบิน, โรงแรม, วีซ่า และประกันภัย",
+    icon: PackageSearch,
+    to: "/service-stock",
+    gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+  },
 ];
 
 const profileTile = {
@@ -59,7 +66,7 @@ const adminUserTile = {
   title: "Add/Edit User",
   description: "จัดการผู้ใช้งานในระบบ — เพิ่ม / แก้ไข / ลบ และตั้งค่า Role",
   icon: UserCog,
-  to: "/app/users",
+  to: "/users",
   gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
 
@@ -67,7 +74,7 @@ const loginBannerTile = {
   title: "Login Banner",
   description: "จัดการ Slide ภาพและข้อความที่แสดงบนหน้าเข้าสู่ระบบ",
   icon: Image,
-  to: "/app/login-banner",
+  to: "/login-banner",
   gradient: "from-violet-500 via-purple-600 to-indigo-700",
 };
 
