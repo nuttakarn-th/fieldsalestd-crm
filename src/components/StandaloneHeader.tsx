@@ -51,9 +51,9 @@ interface StandaloneHeaderProps {
 export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps) {
   return (
     <>
-      <header className="px-5 sm:px-8 py-5 max-w-7xl mx-auto flex items-center gap-3">
-        <Link to={backTo}>
-          <Button variant="outline" size="icon" className="shrink-0">
+      <header className="px-3 sm:px-8 py-3 sm:py-5 max-w-7xl mx-auto flex items-center gap-2 sm:gap-3 min-w-0">
+        <Link to={backTo} className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0 w-9 h-9">
             <ArrowLeft className="w-4 h-4" />
           </Button>
         </Link>
@@ -65,8 +65,9 @@ export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps)
             onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
           />
         </div>
-        <span className="hidden sm:inline font-bold text-sm text-muted-foreground">Standard Tour</span>
-        <div className="flex-1">{extra ?? null}</div>
+        <span className="hidden sm:inline font-bold text-sm text-muted-foreground shrink-0">Standard Tour</span>
+        {extra && <div className="min-w-0 shrink">{extra}</div>}
+        <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
           <SwitchRoleBtn />
           <StandyBtn />

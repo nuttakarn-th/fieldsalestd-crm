@@ -54,8 +54,9 @@ export default function ContactInfo() {
         backTo="/"
         extra={isAdmin ? (
           <div className="flex justify-end">
-            <Button variant="outline" onClick={openEdit} size="sm">
-              <Edit3 className="w-4 h-4 mr-2" /> แก้ไข (Admin)
+            <Button variant="outline" onClick={openEdit} size="sm" className="gap-1.5">
+              <Edit3 className="w-4 h-4" />
+              <span className="hidden sm:inline">แก้ไข (Admin)</span>
             </Button>
           </div>
         ) : undefined}

@@ -151,8 +151,9 @@ export default function TourPresentation() {
         backTo="/"
         extra={isAdmin ? (
           <div className="flex justify-end">
-            <Button variant="outline" onClick={openEdit} size="sm">
-              <Edit3 className="w-4 h-4 mr-2" /> แก้ไขข้อมูลทั่วไป
+            <Button variant="outline" onClick={openEdit} size="sm" className="gap-1.5">
+              <Edit3 className="w-4 h-4" />
+              <span className="hidden sm:inline">แก้ไขข้อมูลทั่วไป</span>
             </Button>
           </div>
         ) : undefined}
