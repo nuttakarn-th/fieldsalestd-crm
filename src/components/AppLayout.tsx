@@ -9,6 +9,7 @@ import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
+import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import { useCRM, type SalesRep } from "@/store/crmStore";
 import { useChatRead } from "@/store/chatReadStore";
@@ -78,6 +79,7 @@ export default function AppLayout() {
             </Link>
             <GlobalSearch />
             <div className="ml-auto flex items-center gap-1 shrink-0">
+              <SwitchRoleBtn />
               <StandyBtn />
               <ChatHeaderButton />
               <TeamNotifications />
