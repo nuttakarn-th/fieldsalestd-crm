@@ -11,14 +11,14 @@ import { useChatRead } from "@/store/chatReadStore";
 
 const baseTiles = [
   {
-    title: "Sales Dashboard",
+    title: "Sales&CRM",
     description: "ระบบจัดการการขาย, ลูกค้า, Pipeline, Planning, Mission และรายงาน",
     icon: Briefcase,
     to: "/app",
     gradient: "from-fuchsia-500 via-pink-500 to-rose-500",
   },
   {
-    title: "Standard Tour Presentation",
+    title: "STD Presentation",
     description: "Company Profile และช่องทางสื่อโซเชียลทั้งหมดของบริษัท",
     icon: Sparkles,
     to: "/tour-presentation",
@@ -32,14 +32,14 @@ const baseTiles = [
     gradient: "from-cyan-500 via-sky-500 to-indigo-500",
   },
   {
-    title: "ข้อมูลติดต่อ",
+    title: "Contact us",
     description: "Line ID, QR, เบอร์โทรแต่ละแผนก และที่อยู่บริษัท",
     icon: Phone,
     to: "/contact-info",
     gradient: "from-sky-500 via-indigo-500 to-purple-600",
   },
   {
-    title: "ข้อมูลทีมงาน",
+    title: "Teams",
     description: "รายชื่อและข้อมูลทีมงานทุกตำแหน่ง พร้อมช่องทางติดต่อ",
     icon: Users2,
     to: "/teams",
@@ -56,7 +56,7 @@ const baseTiles = [
 
 const marketingTiles = [
   {
-    title: "Marketing Dashboard",
+    title: "Sales Dashboard",
     description: "ภาพรวมยอดขาย, Lead, Pipeline และเป้าหมายของทีม",
     icon: LayoutDashboard,
     to: "/marketing-dashboard",
@@ -239,7 +239,10 @@ export default function Hub() {
 
                 {/* Text */}
                 <div className="relative flex-1 sm:flex-none text-left sm:text-center">
-                  <h2 className="text-sm sm:text-[11px] sm:font-bold leading-tight">{t.title}</h2>
+                  <h2
+                    className="text-sm sm:text-[13px] leading-tight"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
+                  >{t.title}</h2>
                   <p className="hidden sm:block text-[10px] text-white/80 mt-0.5 line-clamp-2 leading-snug">{t.description}</p>
                   <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1 opacity-90">
                     เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
