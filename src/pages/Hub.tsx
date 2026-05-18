@@ -207,7 +207,7 @@ export default function Hub() {
 
       <main className="flex-1 flex flex-col sm:justify-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-8">
         {/* Title */}
-        <div className="text-center mb-6 sm:mb-8">
+        <div className="flex flex-col items-center mb-6 sm:mb-8">
           <h2
             className="tracking-tighter leading-none text-white sm:whitespace-nowrap"
             style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 9.5vw, 8.5rem)" }}
