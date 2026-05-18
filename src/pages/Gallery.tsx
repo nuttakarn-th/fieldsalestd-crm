@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Plus, Images, Trash2, X, Check, Camera } from "lucide-react";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useGallery } from "@/store/galleryStore";
