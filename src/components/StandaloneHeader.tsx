@@ -65,7 +65,7 @@ export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps)
             onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
           />
         </div>
-        <span className="font-bold text-sm text-muted-foreground">Standard Tour</span>
+        <span className="hidden sm:inline font-bold text-sm text-muted-foreground">Standard Tour</span>
         <div className="flex-1">{extra ?? null}</div>
         <div className="flex items-center gap-1 shrink-0">
           <SwitchRoleBtn />

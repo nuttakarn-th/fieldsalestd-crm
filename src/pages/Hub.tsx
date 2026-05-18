@@ -195,7 +195,7 @@ export default function Hub() {
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
             />
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="hidden sm:flex flex-col flex-1 min-w-0">
             <h1 className="text-lg font-bold leading-tight truncate">Standard Tour Hub</h1>
             <p className="text-xs text-white/60 truncate">สวัสดี {user.full_name} · {user.role}</p>
           </div>

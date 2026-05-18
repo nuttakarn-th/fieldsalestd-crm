@@ -39,7 +39,7 @@ export function SwitchRoleBtn({ variant = "light" }: SwitchRoleBtnProps) {
       >
         <Eye className="w-4 h-4 shrink-0" />
         {isViewing ? (
-          <span className="leading-none">{viewAsRole}</span>
+          <span className="hidden sm:inline leading-none">{viewAsRole}</span>
         ) : null}
         {isViewing && (
           <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 pointer-events-none" />
