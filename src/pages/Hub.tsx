@@ -137,7 +137,7 @@ export default function Hub() {
         <div className="text-center mb-6 sm:mb-8">
           <h2
             className="tracking-tighter leading-none text-white sm:whitespace-nowrap"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 5vw, 5.5rem)" }}
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 7vw, 7.5rem)" }}
           >
             Standard Tour Hub.
           </h2>
