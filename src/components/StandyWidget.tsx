@@ -188,7 +188,7 @@ export function StandyWidget() {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[9999] flex flex-col w-[340px] sm:w-[380px] max-h-[70vh] rounded-2xl shadow-2xl border border-border bg-background overflow-hidden"
+      className="fixed bottom-4 right-4 z-[9999] flex flex-col w-[340px] sm:w-[380px] max-h-[70vh] rounded-2xl shadow-2xl border border-border bg-background text-foreground overflow-hidden"
       style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}
     >
       {/* ── Header ── */}

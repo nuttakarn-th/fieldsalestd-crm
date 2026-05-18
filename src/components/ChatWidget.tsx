@@ -191,7 +191,7 @@ export function ChatWidget() {
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-4 right-4 z-50 w-[340px] sm:w-96 h-[32rem] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-4 right-4 z-50 w-[340px] sm:w-96 h-[32rem] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden text-foreground">
           <div className="px-4 py-3 flex items-center justify-between text-white" style={{ background: "linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)" }}>
             <div>
               <p className="font-bold text-sm">Standard Tour Messenger</p>
@@ -221,7 +221,7 @@ export function ChatWidget() {
                         <span className="truncate">{replied.text}</span>
                       </div>
                     )}
-                    <div className={`px-3 py-2 rounded-2xl text-sm ${isMe ? "bg-gradient-coral text-white rounded-br-sm" : "bg-card border rounded-bl-sm"}`}>
+                    <div className={`px-3 py-2 rounded-2xl text-sm ${isMe ? "bg-gradient-coral text-white rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"}`}>
                       {m.image_url && <img src={m.image_url} alt="แนบรูป" className="rounded-lg mb-1 max-w-full max-h-60 object-cover" />}
                       {renderText(m.text)}
                     </div>
