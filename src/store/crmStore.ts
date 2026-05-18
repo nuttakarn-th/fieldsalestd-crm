@@ -57,6 +57,7 @@ export interface Lead {
   closed_date: string | null;
   lost_reason: string | null;
   status_note?: string | null;
+  requirement_tags?: string[];  // tags เก็บความต้องการ เช่น ["ทัวร์ญี่ปุ่น","ครอบครัว"]
 }
 
 export interface MonthlyTarget {
@@ -178,6 +179,10 @@ export const URGENCY_OPTIONS: { val: Urgency; label: string; emoji: string }[] =
   { val: "Cold", label: "Cold (ถามเฉยๆ)", emoji: "🔵" },
 ];
 export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "Quotation Sent", "Negotiating", "Closed Won", "Closed Lost"];
+export const REQUIREMENT_TAGS = [
+  "ทัวร์ญี่ปุ่น","ทัวร์เกาหลี","ทัวร์จีน","ทัวร์ยุโรป","ทัวร์เวียดนาม",
+  "ทัวร์ไทย","เช่ารถ","จองตั๋ว","โรงแรม","ครอบครัว","กลุ่มบริษัท","ฮันนีมูน","ผู้สูงอายุ",
+];
 export const LOST_REASONS = ["ราคาแพงเกินไป","ลูกค้าเปลี่ยนใจ/ยกเลิกทริป","คู่แข่งได้งาน","ติดต่อไม่ได้","เลื่อนการเดินทางไม่มีกำหนด","โปรแกรมไม่ตอบโจทย์"];
 export const SEGMENTS: Segment[] = ["B2C Individual", "B2C Group", "B2B Agent", "Corporate"];
 

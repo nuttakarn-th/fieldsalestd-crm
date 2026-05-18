@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3 } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
@@ -109,6 +109,37 @@ const loginBannerTile = {
   gradient: "from-violet-500 via-purple-600 to-indigo-700",
 };
 
+function StaleLeadBtn() {
+  const leads     = useCRM((s) => s.leads);
+  const currentRep = useCRM((s) => s.currentRep);
+  const user      = useCurrentUser();
+  const today     = new Date().toISOString().split("T")[0];
+
+  const stale = leads.filter((l) => {
+    const isOpen    = l.status !== "Closed Won" && l.status !== "Closed Lost";
+    const overdue   = l.next_followup_date && l.next_followup_date < today;
+    const isMyLead  = currentRep === "All" || l.assigned_to === currentRep;
+    const isSalesRole = user?.role === "Sales";
+    return isOpen && overdue && (isSalesRole ? isMyLead : true);
+  }).length;
+
+  if (stale === 0) return null;
+
+  return (
+    <Link
+      to="/app/followup"
+      className="shrink-0 relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
+      aria-label={`Lead เลยกำหนด Follow Up ${stale} รายการ`}
+      title={`Lead เลยกำหนด Follow Up ${stale} รายการ`}
+    >
+      <AlarmClock className="w-5 h-5 text-amber-400" />
+      <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-amber-500 text-[9px] font-bold flex items-center justify-center text-white leading-none">
+        {stale > 9 ? "9+" : stale}
+      </span>
+    </Link>
+  );
+}
+
 function HubChatButton() {
   const toggle = useChatUI((s) => s.toggle);
   const messages = useCRM((s) => s.chatMessages);
@@ -167,6 +198,7 @@ export default function Hub() {
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
           <StandyBtn />
+          <StaleLeadBtn />
           <HubChatButton />
           <TeamNotifications />
           <UserMenu />
