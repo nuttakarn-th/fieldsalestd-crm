@@ -210,7 +210,7 @@ export default function Hub() {
         <div className="text-center mb-6 sm:mb-8">
           <h2
             className="tracking-tighter leading-none text-white sm:whitespace-nowrap"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 7vw, 7.5rem)" }}
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 9.5vw, 8.5rem)" }}
           >
             Standard Tour Hub.
           </h2>
@@ -233,14 +233,14 @@ export default function Hub() {
 
                 {/* Icon */}
                 <t.icon
-                  className="relative shrink-0 w-8 h-8 sm:w-8 sm:h-8 sm:mb-1.5"
+                  className="relative shrink-0 w-8 h-8 sm:w-10 sm:h-10 sm:mb-2"
                   strokeWidth={1.5}
                 />
 
                 {/* Text */}
                 <div className="relative flex-1 sm:flex-none text-left sm:text-center">
                   <h2
-                    className="text-sm sm:text-[13px] leading-tight"
+                    className="text-sm sm:text-[15px] leading-tight"
                     style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
                   >{t.title}</h2>
                   <p className="hidden sm:block text-[10px] text-white/80 mt-0.5 line-clamp-2 leading-snug">{t.description}</p>
