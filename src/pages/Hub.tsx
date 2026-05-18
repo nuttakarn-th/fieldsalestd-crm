@@ -107,7 +107,7 @@ export default function Hub() {
   ];
   const isSales = user.role === "Sales";
   return (
-    <div className="min-h-screen text-white" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
+    <div className="min-h-screen text-white flex flex-col" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
       <header className="px-6 py-5 max-w-6xl mx-auto flex items-center gap-3">
         <Link to="/" className="flex items-center gap-3 group" aria-label="กลับหน้าหลัก">
           <div className="w-11 h-11 rounded-full overflow-hidden shadow-glow group-hover:scale-105 transition shrink-0">
@@ -132,7 +132,7 @@ export default function Hub() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 pt-2 sm:pt-4">
+      <main className="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Title */}
         <div className="text-center mb-6 sm:mb-8">
           <h2
