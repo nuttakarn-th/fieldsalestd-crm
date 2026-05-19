@@ -108,12 +108,13 @@ export default function MyProfile() {
         backTo="/"
         extra={
           <div className="flex items-center justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-              <Edit3 className="w-4 h-4 mr-1" /> แก้ไข
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5" title="แก้ไข">
+              <Edit3 className="w-4 h-4" />
+              <span className="hidden sm:inline">แก้ไข</span>
             </Button>
-            <Button size="sm" onClick={downloadCard} disabled={downloading} className="bg-gradient-primary text-primary-foreground">
-              <Download className="w-4 h-4 mr-1" />
-              {downloading ? "กำลังบันทึก..." : "ดาวน์โหลด"}
+            <Button size="sm" onClick={downloadCard} disabled={downloading} className="bg-gradient-primary text-primary-foreground gap-1.5" title="ดาวน์โหลด">
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">{downloading ? "กำลังบันทึก..." : "ดาวน์โหลด"}</span>
             </Button>
           </div>
         }

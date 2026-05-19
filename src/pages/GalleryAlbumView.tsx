@@ -124,7 +124,7 @@ export default function GalleryAlbumView() {
         extra={
           <div className="flex items-center justify-end gap-2">
             {uploading && (
-              <span className="text-sm text-muted-foreground">
+              <span className="hidden sm:inline text-sm text-muted-foreground">
                 {uploadProgress.done}/{uploadProgress.total} อัปโหลด...
               </span>
             )}
@@ -134,9 +134,12 @@ export default function GalleryAlbumView() {
               disabled={uploading}
               size="sm"
               className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 gap-1.5"
+              title="เพิ่มรูปภาพ"
             >
               <ImagePlus className="w-4 h-4" />
-              {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
+              <span className="hidden sm:inline">
+                {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
+              </span>
             </Button>
           </div>
         }

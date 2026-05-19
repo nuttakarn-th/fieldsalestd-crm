@@ -71,9 +71,11 @@ export default function Gallery() {
               onClick={() => { setCreating(true); }}
               disabled={creating}
               size="sm"
-              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg"
+              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg gap-1.5"
+              title="สร้าง Album"
             >
-              <Plus className="w-4 h-4 mr-1.5" /> สร้าง Album
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">สร้าง Album</span>
             </Button>
           </div>
         }
