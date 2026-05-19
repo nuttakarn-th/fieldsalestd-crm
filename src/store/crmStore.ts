@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useServices } from "@/store/serviceStore";
 
@@ -419,7 +420,9 @@ interface CRMState {
   completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number) => void;
 }
 
-export const useCRM = create<CRMState>((set, get) => ({
+export const useCRM = create<CRMState>()(
+  persist(
+    (set, get) => ({
   // ถ้า Supabase เปิด → เริ่มด้วย array ว่าง แล้วให้ loadAllFromSupabase ดึงข้อมูลจริง
   // ถ้า Supabase ปิด → ใช้ mock seed data เพื่อ dev/demo
   customers: SUPABASE_ENABLED ? [] : seeded.customers,
@@ -886,7 +889,23 @@ export const useCRM = create<CRMState>((set, get) => ({
       }, ...get().teamNotifications],
     });
   },
-}));
+    }),
+    {
+      name: "std-crm-store",
+      storage: createJSONStorage(() => localStorage),
+      // ไม่ persist ส่วนที่ควร load จาก Supabase หรือ state ชั่วคราว
+      partialize: (state) => ({
+        customers:         state.customers,
+        leads:             state.leads,
+        targets:           state.targets,
+        routes:            state.routes,
+        currentRep:        state.currentRep,
+        chatMessages:      state.chatMessages,
+        teamNotifications: state.teamNotifications,
+      }),
+    }
+  )
+);
 
 export const formatTHB = (n: number) =>
   new Intl.NumberFormat("th-TH", { style: "currency", currency: "THB", maximumFractionDigits: 0 }).format(n);

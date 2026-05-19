@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
-import { useActiveSalesNames } from "@/store/authStore";
+import { useCurrentUser, useActiveSalesNames } from "@/store/authStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -13,16 +13,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { ImportExportMenu } from "@/components/ImportExportMenu";
 import type { ExcelField } from "@/lib/excelUtils";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const CUSTOMER_FIELDS: ExcelField[] = [
-  { key: "full_name",  header: "ชื่อ-นามสกุล",   example: "สมชาย ใจดี",          required: true },
-  { key: "company",    header: "องค์กร/บริษัท",   example: "บริษัท ABC จำกัด" },
-  { key: "phone",      header: "เบอร์โทรศัพท์",   example: "0812345678",          required: true },
-  { key: "line_id",    header: "Line ID",          example: "somchai_line" },
-  { key: "email",      header: "อีเมล",            example: "somchai@email.com" },
-  { key: "province",   header: "จังหวัด",          example: "กรุงเทพฯ" },
-  { key: "source",     header: "ช่องทาง",          example: "FB" },
-  { key: "segment",    header: "กลุ่มลูกค้า",     example: "B2C Individual" },
+  // ── ข้อมูลพื้นฐาน ──────────────────────────────────────────
+  { key: "full_name",    header: "ชื่อ-นามสกุล",        example: "สมชาย ใจดี",              required: true },
+  { key: "company",      header: "องค์กร/บริษัท",        example: "บริษัท ABC จำกัด" },
+  { key: "phone",        header: "เบอร์โทรศัพท์",        example: "0812345678",              required: true },
+  { key: "line_id",      header: "Line ID",               example: "somchai_line" },
+  { key: "email",        header: "อีเมล",                 example: "somchai@email.com" },
+  // ── ข้อมูลการตลาด ──────────────────────────────────────────
+  { key: "birthday",     header: "วันเกิด (YYYY-MM-DD)",  example: "1990-05-20" },
+  { key: "province",     header: "จังหวัด",               example: "กรุงเทพฯ" },
+  { key: "interests",    header: "ความสนใจ (คั่นด้วย ,)", example: "ทัวร์ต่างประเทศ,ครอบครัว" },
+  { key: "group_type",   header: "ประเภทกลุ่ม",           example: "ครอบครัว" },
+  { key: "budget_range", header: "งบประมาณ",              example: "30,000-60,000" },
+  // ── ข้อมูลการขาย ────────────────────────────────────────────
+  { key: "source",       header: "ช่องทาง",               example: "FB" },
+  { key: "segment",      header: "กลุ่มลูกค้า",           example: "B2C Individual" },
+  { key: "created_by",   header: "Sales ที่ดูแล",         example: "เฟิร์ส" },
+  { key: "note",         header: "บันทึก",                example: "พบที่งาน Travel Expo สนใจทัวร์ญี่ปุ่น" },
 ];
 
 // interest key → short label + color
@@ -36,13 +49,52 @@ const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ประกันการเดินทาง": { label: "🛡️ ประกัน", className: "bg-orange-100 text-orange-700 border-orange-200" },
 };
 
+// ── Marketing Export helpers ──────────────────────────────────────────────────
+function exportCSV(rows: string[][], filename: string) {
+  const BOM = "﻿";
+  const csv = BOM + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportLineList(customers: Customer[]) {
+  const header = ["ชื่อ", "เบอร์โทร", "Line ID", "จังหวัด", "ความสนใจ", "กลุ่มลูกค้า"];
+  const rows = customers.map((c) => [
+    c.full_name, c.phone, c.line_id ?? "",
+    c.province ?? "", (c.interests ?? []).join("|"), c.segment,
+  ]);
+  exportCSV([header, ...rows], `LINE_broadcast_list_${new Date().toISOString().split("T")[0]}.csv`);
+  toast.success(`Export ${customers.length} รายการสำหรับ LINE OA แล้ว ✅`);
+}
+
+function exportFBList(customers: Customer[]) {
+  // Facebook Custom Audience format
+  const header = ["phone", "email", "fn", "ln", "ct", "country"];
+  const rows = customers.map((c) => {
+    const [fn, ...rest] = c.full_name.split(" ");
+    return [
+      c.phone.replace(/\D/g, ""),
+      c.email ?? "",
+      fn ?? "", rest.join(" "),
+      c.province ?? "", "TH",
+    ];
+  });
+  exportCSV([header, ...rows], `FB_custom_audience_${new Date().toISOString().split("T")[0]}.csv`);
+  toast.success(`Export ${customers.length} รายการสำหรับ Facebook Custom Audience แล้ว ✅`);
+}
+
 export default function Customers() {
   const navigate = useNavigate();
+  const user = useCurrentUser();
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
   const addCustomer = useCRM((s) => s.addCustomer);
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
+  const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -138,15 +190,28 @@ export default function Customers() {
 
   const handleImport = (rows: Record<string, unknown>[]) => {
     rows.forEach((row) => {
+      // แปลง interests: รับทั้ง string คั่นด้วย , หรือ array
+      const rawInterests = row.interests;
+      const interests: string[] = rawInterests
+        ? (typeof rawInterests === "string"
+            ? rawInterests.split(",").map((s) => s.trim()).filter(Boolean)
+            : Array.isArray(rawInterests) ? rawInterests : [])
+        : [];
+
       addCustomer({
-        full_name:  String(row.full_name  ?? ""),
-        company:    String(row.company    ?? "-"),
-        phone:      String(row.phone      ?? ""),
-        line_id:    String(row.line_id    ?? "-"),
-        email:      row.email ? String(row.email) : undefined,
-        source:     (row.source as Source) || "Field Sale",
-        segment:    (row.segment as any)  || "B2C Individual",
-      });
+        full_name:    String(row.full_name    ?? ""),
+        company:      String(row.company      ?? "-"),
+        phone:        String(row.phone        ?? ""),
+        line_id:      String(row.line_id      ?? "-"),
+        email:        row.email      ? String(row.email)      : undefined,
+        birthday:     row.birthday   ? String(row.birthday)   : undefined,
+        province:     row.province   ? String(row.province)   : undefined,
+        interests:    interests.length > 0 ? interests : undefined,
+        note:         row.note       ? String(row.note)       : undefined,
+        source:       (row.source    as Source) || "Field Sale",
+        segment:      (row.segment   as any)    || "B2C Individual",
+        created_by:   (row.created_by as any)   || "เฟิร์ส",
+      } as any);
     });
     toast.success(`นำเข้า ${rows.length} ลูกค้าแล้ว`);
   };
@@ -168,6 +233,41 @@ export default function Customers() {
             data={exportData}
             onImport={handleImport}
           />
+          {/* Marketing Export — LINE & Facebook */}
+          {isMarketing && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-purple-300 text-purple-700 hover:bg-purple-50 gap-1.5">
+                  <Megaphone className="w-4 h-4" />
+                  <span className="hidden sm:inline">Marketing Export</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Export สำหรับแคมเปญ ({filtered.length} คน)
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => exportLineList(filtered)} className="gap-2 cursor-pointer">
+                  <span className="text-base">💬</span>
+                  <div>
+                    <p className="font-semibold text-sm">LINE OA Broadcast List</p>
+                    <p className="text-xs text-muted-foreground">ชื่อ + เบอร์ + Line ID + ความสนใจ</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportFBList(filtered)} className="gap-2 cursor-pointer">
+                  <span className="text-base">📱</span>
+                  <div>
+                    <p className="font-semibold text-sm">Facebook Custom Audience</p>
+                    <p className="text-xs text-muted-foreground">Phone + Email + ชื่อ + จังหวัด (FB format)</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <div className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                  💡 ใช้ Filter ก่อน Export เพื่อเลือกกลุ่มเป้าหมาย
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button className="bg-gradient-primary" onClick={() => setOpenAdd(true)}><Plus className="w-4 h-4 mr-2" /> เพิ่มลูกค้า / สร้าง Lead</Button>
         </div>
       </div>
