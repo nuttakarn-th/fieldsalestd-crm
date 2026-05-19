@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Phone, MessageCircle, Calendar as CalendarIcon, AlertCircle, Clock, Pencil, RefreshCw } from "lucide-react";
+import { Phone, MessageCircle, Calendar as CalendarIcon, AlertCircle, Clock, Pencil, RefreshCw, ClipboardCheck, ChevronDown, ChevronUp, History } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useCRM, urgencyBadge, LEAD_STATUSES, LOST_REASONS, type Lead, type Customer, type LeadStatus } from "@/store/crmStore";
+import { FollowupLogDialog } from "@/components/FollowupLogDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+const RESULT_COLOR: Record<string, string> = {
+  "ไม่เจอ/ไม่รับ": "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  "เจอแต่ไม่ว่าง":  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "คุยแล้ว":        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  "นัดได้แล้ว":     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+};
 
 export default function FollowUp() {
   const leads = useCRM((s) => s.leads);
@@ -22,6 +30,15 @@ export default function FollowUp() {
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [statusLead, setStatusLead] = useState<Lead | null>(null);
+  const [logLead, setLogLead] = useState<Lead | null>(null);
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+
+  const toggleLogs = (id: string) =>
+    setExpandedLogs((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   const [stStatus, setStStatus] = useState<LeadStatus>("Contacted");
   const [stNote, setStNote] = useState("");
   const [stNext, setStNext] = useState<Date | undefined>(undefined);
@@ -70,37 +87,95 @@ export default function FollowUp() {
 
   const Card = ({ lead }: { lead: Lead }) => {
     const c = cust(lead.customer_id);
+    const logs = lead.followup_logs ?? [];
+    const lastLog = logs[logs.length - 1];
+    const showLogs = expandedLogs.has(lead.lead_id);
     return (
-      <div className="bg-card rounded-lg border p-3 flex flex-col md:flex-row md:items-center gap-3 shadow-soft">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold">{c?.full_name}</p>
-            <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[10px]`}>{lead.urgency}</Badge>
-            <span className="text-xs text-muted-foreground">{c?.company !== "-" ? c?.company : "B2C"}</span>
-            {c && (
-              <button onClick={() => setEditing(c)} className="ml-auto md:ml-0 inline-flex items-center gap-1 text-[11px] text-primary hover:text-accent transition-smooth">
-                <Pencil className="w-3 h-3" /> แก้ไข
-              </button>
+      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+        {/* Main row */}
+        <div className="p-3 flex flex-col md:flex-row md:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold">{c?.full_name}</p>
+              <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[10px]`}>{lead.urgency}</Badge>
+              <span className="text-xs text-muted-foreground">{c?.company !== "-" ? c?.company : "B2C"}</span>
+              {c && (
+                <button onClick={() => setEditing(c)} className="ml-auto md:ml-0 inline-flex items-center gap-1 text-[11px] text-primary hover:text-accent transition-smooth">
+                  <Pencil className="w-3 h-3" /> แก้ไข
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lead.program}</p>
+            <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {lead.next_followup_date}</span>
+              <span>👤 {lead.assigned_to}</span>
+              <span>📌 {lead.status}</span>
+              {lastLog && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${RESULT_COLOR[lastLog.result] ?? ""}`}>
+                  ล่าสุด: {lastLog.result}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* PRIMARY: บันทึกผล */}
+            <Button
+              size="sm"
+              onClick={() => setLogLead(lead)}
+              className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">บันทึกผล</span>
+            </Button>
+            {/* Update status */}
+            <Button size="sm" variant="outline" onClick={() => openStatus(lead)} className="border-primary/40 text-primary hover:bg-primary/10 gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Update Status</span>
+            </Button>
+            <a href={`tel:${c?.phone}`} className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs flex items-center gap-1.5 hover:bg-primary/20">
+              <Phone className="w-3.5 h-3.5" /> {c?.phone}
+            </a>
+          </div>
+        </div>
+
+        {/* Log history toggle */}
+        {logs.length > 0 && (
+          <>
+            <button
+              onClick={() => toggleLogs(lead.lead_id)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 bg-muted/40 hover:bg-muted/70 transition-colors text-xs text-muted-foreground border-t border-border"
+            >
+              <History className="w-3 h-3" />
+              <span>ประวัติ Follow-up ({logs.length} ครั้ง)</span>
+              {showLogs ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+            </button>
+            {showLogs && (
+              <div className="divide-y divide-border border-t border-border">
+                {[...logs].reverse().map((log) => (
+                  <div key={log.log_id} className="px-4 py-2.5 flex items-start gap-3">
+                    <div className="mt-0.5 shrink-0">
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${RESULT_COLOR[log.result] ?? "bg-muted text-muted-foreground"}`}>
+                        {log.result}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {log.note && <p className="text-xs text-foreground">{log.note}</p>}
+                      <div className="flex gap-3 mt-0.5 text-[10px] text-muted-foreground">
+                        <span>{log.date}</span>
+                        <span>โดย {log.logged_by}</span>
+                        {log.next_followup_date && (
+                          <span className="text-primary">→ นัด {log.next_followup_date}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lead.program}</p>
-          <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {lead.next_followup_date}</span>
-            <span>👤 {lead.assigned_to}</span>
-            <span>📌 {lead.status}</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => openStatus(lead)} className="border-primary/40 text-primary hover:bg-primary/10">
-            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Update Status
-          </Button>
-          <a href={`tel:${c?.phone}`} className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs flex items-center gap-1.5 hover:bg-primary/20">
-            <Phone className="w-3.5 h-3.5" /> {c?.phone}
-          </a>
-          <span className="px-3 py-1.5 rounded-md bg-success/10 text-success text-xs flex items-center gap-1.5">
-            <MessageCircle className="w-3.5 h-3.5" /> {c?.line_id}
-          </span>
-        </div>
+          </>
+        )}
       </div>
     );
   };
@@ -148,6 +223,14 @@ export default function FollowUp() {
       <Section title="วันนี้ (Today)" items={todays} icon={Clock} colorClass="text-warning-foreground" />
       <Section title="นัดหมายล่วงหน้า (Upcoming)" items={upcoming} icon={CalendarIcon} colorClass="text-primary" />
       <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
+      {logLead && (
+        <FollowupLogDialog
+          lead={logLead}
+          customerName={cust(logLead.customer_id)?.full_name ?? "ลูกค้า"}
+          open={!!logLead}
+          onOpenChange={(v) => { if (!v) setLogLead(null); }}
+        />
+      )}
 
       <Dialog open={!!statusLead} onOpenChange={(o) => !o && setStatusLead(null)}>
         <DialogContent>

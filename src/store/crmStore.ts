@@ -37,6 +37,22 @@ export interface Customer {
   created_at?: string;
 }
 
+export type FollowupResult =
+  | "ไม่เจอ/ไม่รับ"
+  | "เจอแต่ไม่ว่าง"
+  | "คุยแล้ว"
+  | "นัดได้แล้ว";
+
+export interface FollowupLog {
+  log_id: string;
+  lead_id: string;
+  date: string;           // YYYY-MM-DD
+  result: FollowupResult;
+  note?: string;
+  next_followup_date?: string | null;  // วันนัดครั้งต่อไป (ถ้ามี)
+  logged_by: string;
+}
+
 export interface Lead {
   lead_id: string;
   customer_id: string;
@@ -58,6 +74,7 @@ export interface Lead {
   lost_reason: string | null;
   status_note?: string | null;
   requirement_tags?: string[];  // tags เก็บความต้องการ เช่น ["ทัวร์ญี่ปุ่น","ครอบครัว"]
+  followup_logs?: FollowupLog[];  // ประวัติการ Follow-up ทุกครั้ง
 }
 
 export interface MonthlyTarget {
@@ -390,6 +407,7 @@ interface CRMState {
   addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
+  addFollowupLog: (leadId: string, log: Omit<FollowupLog, "log_id" | "lead_id">) => void;
   setTarget: (month: string, rep: SalesRep, patch: Partial<Omit<MonthlyTarget, "month" | "rep">>) => void;
   addRoute: (rep: SalesRep, date: string, title: string) => string;
   updateRoute: (id: string, patch: Partial<Omit<RoutePlan, "route_id" | "stops">>) => void;
@@ -685,6 +703,24 @@ export const useCRM = create<CRMState>((set, get) => ({
         if (error) console.error("[supabase] upsert target ล้มเหลว:", error);
       });
     }
+  },
+
+  addFollowupLog: (leadId, log) => {
+    const newLog: FollowupLog = { ...log, log_id: `FL${Date.now()}`, lead_id: leadId };
+    set({
+      leads: get().leads.map((l) => {
+        if (l.lead_id !== leadId) return l;
+        const updated: Lead = {
+          ...l,
+          followup_logs: [...(l.followup_logs ?? []), newLog],
+          status_note: log.note || l.status_note,
+          next_followup_date: log.next_followup_date !== undefined
+            ? log.next_followup_date
+            : l.next_followup_date,
+        };
+        return updated;
+      }),
+    });
   },
 
   updateLead: (leadId, patch) => {
