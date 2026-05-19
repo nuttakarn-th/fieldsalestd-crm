@@ -7,6 +7,7 @@ export type AppRole =
   | "Admin"
   | "Sales Manager"
   | "Sales"
+  | "OB Co-ordinator"
   | "Marketing"
   | "Co-Ordinator"
   | "Accounting";
@@ -14,6 +15,7 @@ export type AppRole =
 export const ALL_ROLES: AppRole[] = [
   "Sales Manager",
   "Sales",
+  "OB Co-ordinator",
   "Marketing",
   "Co-Ordinator",
   "Accounting",

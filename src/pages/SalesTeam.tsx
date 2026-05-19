@@ -16,6 +16,7 @@ const ROLE_ORDER: AppRole[] = [
   "Admin",
   "Sales Manager",
   "Sales",
+  "OB Co-ordinator",
   "Marketing",
   "Co-Ordinator",
   "Accounting",

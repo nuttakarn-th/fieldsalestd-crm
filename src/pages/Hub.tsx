@@ -182,7 +182,7 @@ export default function Hub() {
     ...(effectiveRole === "Admin" ? [adminUserTile, loginBannerTile] : []),
     profileTile,
   ];
-  const isSales = effectiveRole === "Sales";
+  const isSales = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";
   return (
     <div className="min-h-screen text-white flex flex-col" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
       <header className="px-6 py-5 flex items-center gap-3">

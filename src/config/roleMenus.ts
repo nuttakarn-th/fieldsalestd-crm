@@ -154,6 +154,36 @@ const marketingMenu: RoleMenu = {
   account: [],
 };
 
+const obCoordinatorMenu: RoleMenu = {
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [{ title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true }],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "SALES MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
+        { title: "Calendar Route", url: "/app/calendar", icon: MapPinned },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
+        { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
+      ],
+    },
+    {
+      category: "SERVICES",
+      items: [
+        { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+      ],
+    },
+  ],
+  account: [],
+};
+
 const coordinatorMenu: RoleMenu = {
   sections: [
     {
@@ -209,6 +239,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
     case "Admin": return adminMenu;
     case "Sales Manager": return salesManagerMenu;
     case "Sales": return salesMenu;
+    case "OB Co-ordinator": return obCoordinatorMenu;
     case "Marketing": return marketingMenu;
     case "Co-Ordinator": return coordinatorMenu;
     case "Accounting": return accountingMenu;
@@ -216,7 +247,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
 }
 
 export function canEditServices(role: AppRole): boolean {
-  return role === "Admin" || role === "Sales Manager" || role === "Co-Ordinator" || role === "Marketing";
+  return role === "Admin" || role === "Sales Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing";
 }
 
 export function roleBadgeColor(role: AppRole): string {
@@ -224,6 +255,7 @@ export function roleBadgeColor(role: AppRole): string {
     case "Admin": return "from-red-500 to-rose-600";
     case "Sales Manager": return "from-amber-500 to-orange-600";
     case "Sales": return "from-pink-500 to-fuchsia-600";
+    case "OB Co-ordinator": return "from-teal-500 to-emerald-600";
     case "Marketing": return "from-purple-500 to-indigo-600";
     case "Co-Ordinator": return "from-sky-500 to-cyan-600";
     case "Accounting": return "from-emerald-500 to-teal-600";
