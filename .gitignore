@@ -32,3 +32,4 @@ dist-ssr
 *.sw?
 vite.config.ts.timestamp*
 vite.config.ts.timestamp*
+vite.config.ts.timestamp*
