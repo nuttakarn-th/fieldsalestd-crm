@@ -122,8 +122,10 @@ export default function MyProfile() {
 
       <main className="max-w-sm mx-auto px-4 pb-16 space-y-3">
         <div className="text-center pt-1 pb-2">
-          <h1 className="text-2xl font-bold">นามบัตรดิจิทัล</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">ข้อมูลส่วนตัวและช่องทางติดต่อของคุณ</p>
+          <h1 style={{ fontFamily: "'Inter', sans-serif", fontSize: "2.25rem", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            Digital Namecard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">ข้อมูลส่วนตัวและช่องทางติดต่อของคุณ</p>
         </div>
 
         {/* ── Namecard (shared component) ── */}
