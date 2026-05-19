@@ -32,14 +32,23 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   const currentRep  = useCRM((s) => s.currentRep);
   const user        = useCurrentUser();
 
-  const [name,     setName]     = useState("");
-  const [phone,    setPhone]    = useState("");
-  const [buType,   setBuType]   = useState<BUType>("ทัวร์ต่างประเทศ");
-  const [tags,     setTags]     = useState<string[]>([]);
-  const [urgency,  setUrgency]  = useState<Urgency>("Cold");
-  const [note,     setNote]     = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [fullOpen, setFullOpen] = useState(false);
+  const [name,      setName]      = useState("");
+  const [phone,     setPhone]     = useState("");
+  const [buType,    setBuType]    = useState<BUType>("ทัวร์ต่างประเทศ");
+  const [tags,      setTags]      = useState<string[]>([]);
+  const [urgency,   setUrgency]   = useState<Urgency>("Cold");
+  const [note,      setNote]      = useState("");
+  const [followup,  setFollowup]  = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
+  const [saving,    setSaving]    = useState(false);
+  const [fullOpen,  setFullOpen]  = useState(false);
+
+  const addDays = (days: number) => new Date(Date.now() + days * 86400000).toISOString().split("T")[0];
+  const QUICK_FOLLOWUP = [
+    { label: "พรุ่งนี้", days: 1 },
+    { label: "+3 วัน",   days: 3 },
+    { label: "+7 วัน",   days: 7 },
+    { label: "+14 วัน",  days: 14 },
+  ];
 
   const rep = currentRep === "All"
     ? (user?.full_name as any) ?? "เฟิร์ส"
@@ -50,7 +59,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
 
   const reset = () => {
     setName(""); setPhone(""); setBuType("ทัวร์ต่างประเทศ");
-    setTags([]); setUrgency("Cold"); setNote(""); setSaving(false);
+    setTags([]); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setSaving(false);
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
@@ -61,7 +70,6 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
     setSaving(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-      const followup = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
       const customerId = addCustomer({
         full_name: name.trim(),
@@ -200,6 +208,35 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
                 placeholder="บันทึกการพบลูกค้า, ความต้องการเพิ่มเติม..."
                 rows={2}
                 className="text-sm resize-none"
+              />
+            </div>
+
+            {/* วันนัด Follow-up */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                วันนัดหมาย / Follow-up
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                {QUICK_FOLLOWUP.map((q) => (
+                  <button
+                    key={q.days}
+                    type="button"
+                    onClick={() => setFollowup(addDays(q.days))}
+                    className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                      followup === addDays(q.days)
+                        ? "bg-emerald-500 text-white border-emerald-500 font-semibold"
+                        : "bg-muted text-muted-foreground border-border hover:border-emerald-300"
+                    }`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="date"
+                value={followup}
+                onChange={(e) => setFollowup(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
