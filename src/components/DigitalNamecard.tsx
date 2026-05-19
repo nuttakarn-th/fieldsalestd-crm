@@ -137,7 +137,7 @@ export const DigitalNamecard = forwardRef<HTMLDivElement, DigitalNamecardProps>(
           <div className="w-full border-t border-gray-100 mb-1.5" />
           <div className="text-center space-y-0.5 pb-2">
             <p className="text-[10px] font-semibold text-gray-600">{COMPANY_NAME}</p>
-            <p className="text-[8px] text-gray-400 truncate max-w-[220px] mx-auto">{address}</p>
+            <p className="text-[8px] text-gray-400 leading-relaxed px-3 mx-auto">{address}</p>
             <p className="text-[10px] text-gray-500 font-medium">www.standardtour.com</p>
           </div>
 
