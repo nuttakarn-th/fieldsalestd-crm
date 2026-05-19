@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Pencil, Plus, Phone, MessageCircle, Mail, MapPin, Cake, Star,
-  TrendingUp, CalendarDays, Clock, ChevronDown, ChevronUp,
+  TrendingUp, CalendarDays, Clock, ChevronDown, ChevronUp, ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   useCRM, formatTHB, tierBadge, statusColor, urgencyBadge,
   LEAD_STATUSES, URGENCY_OPTIONS,
-  type Customer, type Lead, type LeadStatus,
+  type Customer, type Lead, type LeadStatus, type TransferLog,
 } from "@/store/crmStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -397,6 +397,42 @@ export default function CustomerDetail() {
           </div>
         </div>
       </div>
+
+      {/* ── Transfer Log Timeline ── */}
+      {(customer.transfer_logs ?? []).length > 0 && (
+        <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
+          <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+            <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
+            <p className="font-semibold text-sm">ประวัติการโอนลูกค้า ({(customer.transfer_logs ?? []).length} ครั้ง)</p>
+          </div>
+          <div className="p-4">
+            <ol className="relative border-l border-border space-y-4 ml-3">
+              {[...(customer.transfer_logs ?? [])].reverse().map((log: TransferLog, idx) => (
+                <li key={log.log_id} className="ml-4">
+                  <div className="absolute -left-[7px] mt-1 w-3.5 h-3.5 rounded-full border-2 border-background bg-primary" />
+                  <div className="bg-muted/30 rounded-lg px-3 py-2 space-y-0.5">
+                    <p className="text-sm font-medium">
+                      <span className="text-muted-foreground">{log.from_rep}</span>
+                      {" → "}
+                      <span className="font-semibold text-primary">{log.to_rep}</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      🕐 {new Date(log.transferred_at).toLocaleDateString("th-TH", {
+                        year: "numeric", month: "long", day: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                      {log.transferred_by && log.transferred_by !== log.from_rep && (
+                        <span> · โดย {log.transferred_by}</span>
+                      )}
+                    </p>
+                    {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
 
       {/* Dialogs */}
       <EditCustomerDialog customer={editingCustomer} onClose={() => setEditingCustomer(null)} />

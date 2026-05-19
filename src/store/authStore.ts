@@ -146,6 +146,21 @@ export const useAuth = create<AuthState>()(
           supabase.from("app_users").insert({ ...rest, password_hash: passwordHash }).then(({ error }) => {
             if (error) console.error("[supabase] เพิ่ม user ล้มเหลว:", error);
           });
+          // sync ชื่อไปยัง sales_reps เพื่อไม่ให้ FK constraint ปฏิเสธ insert ของ customers/leads/routes
+          const salesRoles: AppRole[] = ["Sales", "OB Co-ordinator", "Sales Manager"];
+          if (salesRoles.includes(u.role)) {
+            const isManager = u.role === "Sales Manager";
+            supabase.from("sales_reps").upsert({
+              name: newUser.full_name,
+              position: u.role,
+              phone: u.tel?.trim() || null,
+              email: u.email?.trim() || null,
+              is_manager: isManager,
+              is_active: true,
+            }, { onConflict: "name" }).then(({ error }) => {
+              if (error) console.error("[supabase] sync sales_rep ล้มเหลว:", error);
+            });
+          }
         }
         return { ok: true, user_id };
       },
@@ -278,16 +293,18 @@ export function useCurrentUser(): AppUser | null {
   return id ? users.find((u) => u.user_id === id) ?? null : null;
 }
 
-/** Returns full_names of all active users with role 'Sales' or 'Sales Manager' */
+/** Returns full_names of all active users with role 'Sales', 'Sales Manager', or 'OB Co-ordinator' */
 export function useActiveSalesNames(): string[] {
   const users = useAuth((s) => s.users);
   return users
-    .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+    .filter((u) => u.role === "Sales" || u.role === "Sales Manager" || u.role === "OB Co-ordinator")
     .map((u) => u.full_name);
 }
 
-/** Returns active Sales (excluding Manager) — for assignment dropdowns */
+/** Returns active Sales + OB Co-ordinator (excluding Manager) — for assignment dropdowns */
 export function useActiveSalesOnly(): string[] {
   const users = useAuth((s) => s.users);
-  return users.filter((u) => u.role === "Sales").map((u) => u.full_name);
+  return users
+    .filter((u) => u.role === "Sales" || u.role === "OB Co-ordinator")
+    .map((u) => u.full_name);
 }

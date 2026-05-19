@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useServices } from "@/store/serviceStore";
+import { useAuth } from "@/store/authStore";
 
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
@@ -9,7 +10,8 @@ export type Segment = "B2C Individual" | "B2C Group" | "B2B Agent" | "Corporate"
 export type LeadStatus = "New" | "Contacted" | "Quotation Sent" | "Negotiating" | "Closed Won" | "Closed Lost";
 export type Urgency = "Hot" | "Warm" | "Cold";
 export type BUType = "ทัวร์ต่างประเทศ" | "ทัวร์ภายในประเทศ" | "เช่ารถ ท่องเที่ยว" | "จองตั๋วเครื่องบิน";
-export type SalesRep = "เฟิร์ส" | "โดนัท" | "ปาม";
+// ชื่อ SalesRep เป็น string แบบ dynamic — รองรับ user ทุกคน (ไม่ hardcode)
+export type SalesRep = string;
 export type LeadCategory = "ลูกค้าทั่วไป" | "บริษัทเอกชน" | "หน่วยงานราชการ" | "มหาวิทยาลัยเอกชน" | "มหาวิทยาลัยรัฐบาล";
 export type TripScope = "Domestic" | "International";
 
@@ -35,7 +37,17 @@ export interface Customer {
   transferred_to?: SalesRep;
   transferred_from?: SalesRep;
   transferred_at?: string;
+  transfer_logs?: TransferLog[];  // ประวัติการโอนลูกค้าทั้งหมด
   created_at?: string;
+}
+
+export interface TransferLog {
+  log_id: string;
+  from_rep: string;
+  to_rep: string;
+  transferred_at: string;    // ISO datetime
+  note?: string;
+  transferred_by?: string;   // ผู้ดำเนินการ (ถ้าต่างจาก from_rep)
 }
 
 export type FollowupResult =
@@ -519,7 +531,14 @@ export const useCRM = create<CRMState>()(
       });
     }
   },
-  markNotificationsRead: () => set({ teamNotifications: get().teamNotifications.map((n) => ({ ...n, read: true })) }),
+  markNotificationsRead: () => {
+    set({ teamNotifications: get().teamNotifications.map((n) => ({ ...n, read: true })) });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("team_notifications").update({ read: true }).eq("read", false).then(({ error }) => {
+        if (error) console.error("[supabase] mark notifications read ล้มเหลว:", error);
+      });
+    }
+  },
   setCurrentRep: (r) => set({ currentRep: r }),
 
   loadCustomersFromSupabase: async () => {
@@ -547,22 +566,23 @@ export const useCRM = create<CRMState>()(
   loadAllFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
-      const [customers, leads, targets, quotations, routes, chats] = await Promise.all([
+      const [customers, leads, targets, quotations, routes, chats, notifs] = await Promise.all([
         supabase.from("customers").select("*").order("created_at", { ascending: false }),
         supabase.from("leads").select("*"),
         supabase.from("monthly_targets").select("*"),
         supabase.from("quotations").select("*").order("created_at", { ascending: false }),
         supabase.from("route_plans").select("*, route_stops (*)").order("date", { ascending: false }),
         supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
+        supabase.from("team_notifications").select("*").order("created_at", { ascending: false }).limit(100),
       ]);
       const loadedSummary: string[] = [];
-      // เช็ค error แต่ละตาราง
       if (customers.error) console.error("[supabase] load customers error:", customers.error);
       if (leads.error) console.error("[supabase] load leads error:", leads.error);
       if (targets.error) console.error("[supabase] load targets error:", targets.error);
       if (quotations.error) console.error("[supabase] load quotations error:", quotations.error);
       if (routes.error) console.error("[supabase] load routes error:", routes.error);
       if (chats.error) console.error("[supabase] load chats error:", chats.error);
+      if (notifs.error) console.error("[supabase] load notifications error:", notifs.error);
 
       // อัพเดต state ทุกตาราง — แม้ว่าจะว่าง ก็ต้อง replace (ไม่ใช้ mock)
       const updates: Partial<CRMState> = {
@@ -575,6 +595,7 @@ export const useCRM = create<CRMState>()(
           stops: (r.route_stops || []).sort((a: RouteStop, b: RouteStop) => a.seq - b.seq),
         })) as RoutePlan[],
         chatMessages: (chats.data ?? []) as ChatMessage[],
+        teamNotifications: (notifs.data ?? []) as TeamNotification[],
       };
       if (customers.data?.length) loadedSummary.push(`customers ${customers.data.length}`);
       if (leads.data?.length) loadedSummary.push(`leads ${leads.data.length}`);
@@ -582,6 +603,7 @@ export const useCRM = create<CRMState>()(
       if (quotations.data?.length) loadedSummary.push(`quotations ${quotations.data.length}`);
       if (routes.data?.length) loadedSummary.push(`routes ${routes.data.length}`);
       if (chats.data?.length) loadedSummary.push(`chats ${chats.data.length}`);
+      if (notifs.data?.length) loadedSummary.push(`notifications ${notifs.data.length}`);
       set(updates);
       // eslint-disable-next-line no-console
       console.info(loadedSummary.length > 0
@@ -595,7 +617,14 @@ export const useCRM = create<CRMState>()(
 
   addCustomer: (c) => {
     const id = `C${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
-    const creator = c.created_by ?? (get().currentRep === "All" ? SALES_REPS[0] : (get().currentRep as SalesRep));
+    // ใช้ชื่อ user ที่ login อยู่จริง — ไม่ fallback เป็น "เฟิร์ส" อีกต่อไป
+    const authState = useAuth.getState();
+    const currentUser = authState.currentUserId
+      ? authState.users.find((u) => u.user_id === authState.currentUserId)
+      : null;
+    const creator = c.created_by
+      ?? currentUser?.full_name
+      ?? (get().currentRep !== "All" ? get().currentRep : SALES_REPS[0]);
     const newC: Customer = {
       ...c,
       customer_id: id,
@@ -607,22 +636,26 @@ export const useCRM = create<CRMState>()(
       created_at: new Date().toISOString(),
     };
     const now = new Date().toISOString();
+    const notif: TeamNotification = {
+      id: `n${Date.now()}`,
+      type: "customer_created",
+      title: "เพิ่มข้อมูลลูกค้าใหม่",
+      detail: `${newC.full_name}${newC.company !== "-" ? ` · ${newC.company}` : ""} · ${newC.phone}`,
+      sales: creator,
+      created_at: now,
+      action_url: "/app/customers",
+    };
     set({
       customers: [newC, ...get().customers],
-      teamNotifications: [{
-        id: `n${Date.now()}`,
-        type: "customer_created",
-        title: "เพิ่มข้อมูลลูกค้าใหม่",
-        detail: `${newC.full_name}${newC.company !== "-" ? ` · ${newC.company}` : ""} · ${newC.phone}`,
-        sales: creator,
-        created_at: now,
-        action_url: "/app/customers",
-      }, ...get().teamNotifications],
+      teamNotifications: [notif, ...get().teamNotifications],
     });
     // Fire-and-forget persist to Supabase (ไม่ block UI)
     if (SUPABASE_ENABLED && supabase) {
       supabase.from("customers").insert(newC).then(({ error }) => {
         if (error) console.error("[supabase] เพิ่มลูกค้าล้มเหลว:", error);
+      });
+      supabase.from("team_notifications").insert(notif).then(({ error }) => {
+        if (error) console.error("[supabase] insert notification ล้มเหลว:", error);
       });
     }
     return id;
@@ -642,11 +675,20 @@ export const useCRM = create<CRMState>()(
     if (!cust) return;
     const fromRep = cust.created_by;
     if (fromRep === toRep) return;
+    const now = new Date().toISOString();
+    const newLog: TransferLog = {
+      log_id: `TL${Date.now()}`,
+      from_rep: fromRep,
+      to_rep: toRep,
+      transferred_at: now,
+    };
+    const existingLogs = cust.transfer_logs ?? [];
     const transferPatch = {
       created_by: toRep,
       transferred_to: toRep,
       transferred_from: fromRep,
-      transferred_at: new Date().toISOString(),
+      transferred_at: now,
+      transfer_logs: [...existingLogs, newLog],
     };
     set({
       customers: get().customers.map((c) =>
@@ -710,10 +752,11 @@ export const useCRM = create<CRMState>()(
 
   addFollowupLog: (leadId, log) => {
     const newLog: FollowupLog = { ...log, log_id: `FL${Date.now()}`, lead_id: leadId };
+    let updatedLead: Lead | undefined;
     set({
       leads: get().leads.map((l) => {
         if (l.lead_id !== leadId) return l;
-        const updated: Lead = {
+        updatedLead = {
           ...l,
           followup_logs: [...(l.followup_logs ?? []), newLog],
           status_note: log.note || l.status_note,
@@ -721,9 +764,20 @@ export const useCRM = create<CRMState>()(
             ? log.next_followup_date
             : l.next_followup_date,
         };
-        return updated;
+        return updatedLead;
       }),
     });
+    // Sync followup_logs, status_note และ next_followup_date ไปยัง Supabase
+    if (SUPABASE_ENABLED && supabase && updatedLead) {
+      const patch = {
+        followup_logs: updatedLead.followup_logs,
+        status_note: updatedLead.status_note ?? null,
+        next_followup_date: updatedLead.next_followup_date ?? null,
+      };
+      supabase.from("leads").update(patch).eq("lead_id", leadId).then(({ error }) => {
+        if (error) console.error("[supabase] update followup_logs ล้มเหลว:", error);
+      });
+    }
   },
 
   updateLead: (leadId, patch) => {
@@ -877,17 +931,21 @@ export const useCRM = create<CRMState>()(
       lat: lat ?? stop.lat,
       lng: lng ?? stop.lng,
     });
-    set({
-      teamNotifications: [{
-        id: `n${Date.now()}`,
-        type: "mission_completed",
-        title: "Mission เสร็จสิ้น",
-        detail: `${stop.place_name} · ${duration} นาที${note ? ` · ${note}` : ""}`,
-        sales: route.rep,
-        created_at: completedAt.toISOString(),
-        action_url: `/app/route-completed/${routeId}`,
-      }, ...get().teamNotifications],
-    });
+    const missionNotif: TeamNotification = {
+      id: `n${Date.now()}`,
+      type: "mission_completed",
+      title: "Mission เสร็จสิ้น",
+      detail: `${stop.place_name} · ${duration} นาที${note ? ` · ${note}` : ""}`,
+      sales: route.rep,
+      created_at: completedAt.toISOString(),
+      action_url: `/app/route-completed/${routeId}`,
+    };
+    set({ teamNotifications: [missionNotif, ...get().teamNotifications] });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("team_notifications").insert(missionNotif).then(({ error }) => {
+        if (error) console.error("[supabase] insert mission notification ล้มเหลว:", error);
+      });
+    }
   },
     }),
     {

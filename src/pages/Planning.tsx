@@ -58,8 +58,8 @@ export default function Planning() {
         <div className="rounded-xl border border-warning/40 bg-warning/10 p-6 flex items-center gap-3">
           <Lock className="w-5 h-5 text-warning-foreground" />
           <div>
-            <p className="font-semibold">หน้านี้สำหรับ Sales เท่านั้น</p>
-            <p className="text-sm text-muted-foreground">สลับ Role เป็น Sales ที่ Sidebar เพื่อใช้งาน Planning + Route</p>
+            <p className="font-semibold">หน้านี้สำหรับ Sales และ OB Co-ordinator เท่านั้น</p>
+            <p className="text-sm text-muted-foreground">กรุณา Login ด้วย Account Sales หรือ OB Co-ordinator เพื่อใช้งาน Planning + Route</p>
           </div>
         </div>
       </div>

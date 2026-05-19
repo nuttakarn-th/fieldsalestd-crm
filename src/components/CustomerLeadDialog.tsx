@@ -12,7 +12,7 @@ import {
   useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
   type Source, type SalesRep, type BUType, type Urgency, type LeadCategory,
 } from "@/store/crmStore";
-import { useActiveSalesNames } from "@/store/authStore";
+import { useActiveSalesNames, useCurrentUser } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 
 const SERVICE_INTERESTS = [
@@ -34,6 +34,7 @@ export function CustomerLeadDialog({
   onOpenChange: (v: boolean) => void;
   prefilledCustomerId?: string;
 }) {
+  const currentUser = useCurrentUser();
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const addCustomer = useCRM((s) => s.addCustomer);
@@ -85,8 +86,11 @@ export function CustomerLeadDialog({
   const [leadCategory, setLeadCategory] = useState<LeadCategory>("บริษัทเอกชน");
 
   useEffect(() => {
-    if (open && currentRep !== "All") setOwner(currentRep);
-  }, [open, currentRep]);
+    if (open) {
+      const me = currentUser?.full_name ?? (currentRep !== "All" ? currentRep : "");
+      if (me) setOwner(me as SalesRep);
+    }
+  }, [open, currentRep, currentUser]);
 
   // Pre-fill existing customer when launched from CustomerDetail page
   useEffect(() => {

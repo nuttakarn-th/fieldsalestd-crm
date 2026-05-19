@@ -51,9 +51,8 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
     { label: "+14 วัน",  days: 14 },
   ];
 
-  const rep = currentRep === "All"
-    ? (user?.full_name as any) ?? "เฟิร์ส"
-    : currentRep;
+  // ใช้ชื่อ user ที่ login อยู่เสมอ — ไม่ fallback เป็น "เฟิร์ส" อีกต่อไป
+  const rep = user?.full_name ?? (currentRep !== "All" ? currentRep : "");
 
   const toggleTag = (t: string) =>
     setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);

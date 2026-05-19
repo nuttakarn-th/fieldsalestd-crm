@@ -48,8 +48,8 @@ export default function AppLayout() {
   useEffect(() => {
     if (!user) return;
     const effectiveRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
-    if (effectiveRole === "Sales") {
-      // Use this user's own name as currentRep (always exact match)
+    // Sales + OB Co-ordinator ใช้ชื่อตัวเองเสมอ
+    if (effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator") {
       setCurrentRep(user.full_name as SalesRep);
     } else if (user.role === "Admin" && !viewAsRole) {
       setCurrentRep("All");
@@ -57,7 +57,7 @@ export default function AppLayout() {
   }, [user, viewAsRole, setCurrentRep]);
 
   const effectiveRole = user ? (user.role === "Admin" && viewAsRole ? viewAsRole : user.role) : null;
-  const showFAB = effectiveRole === "Sales";
+  const showFAB = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";
 
   return (
     <SidebarProvider>

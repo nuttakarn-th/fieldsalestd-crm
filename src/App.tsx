@@ -9,6 +9,7 @@ import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
 import { useServices } from "@/store/serviceStore";
 import { ChatRealtimeSync } from "@/components/ChatRealtimeSync";
+import { DataRealtimeSync } from "@/components/DataRealtimeSync";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Hub from "./pages/Hub.tsx";
@@ -38,6 +39,7 @@ import MarketingReport from "./pages/MarketingReport.tsx";
 import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
+import OBDashboard from "./pages/OBDashboard.tsx";
 import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
 import UsersPage from "./pages/UsersPage.tsx";
 import LoginBannerPage from "./pages/LoginBannerPage.tsx";
@@ -72,6 +74,7 @@ const App = () => (
     <TooltipProvider>
       <SupabaseSync />
       <ChatRealtimeSync />
+      <DataRealtimeSync />
       <Toaster />
       <Sonner />
       <BrowserRouter>
@@ -117,6 +120,7 @@ const App = () => (
             <Route path="financial-report" element={<FinancialReport />} />
             <Route path="payment" element={<PaymentInvoice />} />
             <Route path="booking-overview" element={<BookingOverview />} />
+            <Route path="ob-dashboard" element={<OBDashboard />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
