@@ -39,6 +39,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   const [urgency,   setUrgency]   = useState<Urgency>("Cold");
   const [note,      setNote]      = useState("");
   const [followup,  setFollowup]  = useState(() => new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]);
+  const [noPhone,   setNoPhone]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [fullOpen,  setFullOpen]  = useState(false);
 
@@ -59,14 +60,14 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
 
   const reset = () => {
     setName(""); setPhone(""); setBuType("ทัวร์ต่างประเทศ");
-    setTags([]); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setSaving(false);
+    setTags([]); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false);
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("กรุณาระบุชื่อลูกค้า"); return; }
-    if (!phone.trim()) { toast.error("กรุณาระบุเบอร์โทร"); return; }
+    if (!noPhone && !phone.trim()) { toast.error("กรุณาระบุเบอร์โทร หรือติ๊ก 'ยังไม่ได้เบอร์'"); return; }
     setSaving(true);
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -137,13 +138,30 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
                 />
               </div>
               <div className="col-span-2 space-y-1">
-                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">เบอร์โทร *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    เบอร์โทร {!noPhone && "*"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setNoPhone((v) => !v); setPhone(""); }}
+                    className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
+                      noPhone
+                        ? "bg-amber-100 text-amber-700 border-amber-400 font-semibold dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-muted text-muted-foreground border-border hover:border-amber-300"
+                    }`}
+                  >
+                    {noPhone ? "✕ ยังไม่ได้เบอร์" : "ยังไม่ได้เบอร์"}
+                  </button>
+                </div>
                 <Input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0812345678"
+                  placeholder={noPhone ? "— ยังไม่มีเบอร์ —" : "0812345678"}
                   type="tel"
                   inputMode="tel"
+                  disabled={noPhone}
+                  className={noPhone ? "opacity-40" : ""}
                 />
               </div>
             </div>
