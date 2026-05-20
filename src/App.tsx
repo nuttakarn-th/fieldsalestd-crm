@@ -54,6 +54,7 @@ import TourContentLink from "./pages/TourContentLink.tsx";
 import ContentAssetLibrary from "./pages/ContentAssetLibrary.tsx";
 import PostPerformanceTracker from "./pages/PostPerformanceTracker.tsx";
 import ContentManagementLayout from "./pages/ContentManagementLayout.tsx";
+import ContentPhotoFrame from "./pages/ContentPhotoFrame.tsx";
 import AudienceBuilderLayout from "./pages/AudienceBuilderLayout.tsx";
 import AudienceLineExport from "./pages/audience/AudienceLineExport.tsx";
 import AudienceFacebook from "./pages/audience/AudienceFacebook.tsx";
@@ -108,10 +109,11 @@ const App = () => (
           <Route path="/marketing-campaigns" element={<CampaignsPage />} />
           <Route path="/marketing-report" element={<MarketingReportPage />} />
           <Route path="/marketing-contents" element={<ContentManagementLayout />}>
-            <Route path="calendar"    element={<ContentCalendar />} />
-            <Route path="tour-link"   element={<TourContentLink />} />
-            <Route path="assets"      element={<ContentAssetLibrary />} />
-            <Route path="performance" element={<PostPerformanceTracker />} />
+            <Route path="calendar"     element={<ContentCalendar />} />
+            <Route path="tour-link"    element={<TourContentLink />} />
+            <Route path="assets"       element={<ContentAssetLibrary />} />
+            <Route path="performance"  element={<PostPerformanceTracker />} />
+            <Route path="photo-frame"  element={<ContentPhotoFrame />} />
           </Route>
           <Route path="/audience-builder" element={<AudienceBuilderLayout />}>
             <Route path="line-export" element={<AudienceLineExport />} />

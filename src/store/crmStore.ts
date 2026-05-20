@@ -215,6 +215,16 @@ export interface ContentPost {
 }
 export const CONTENT_CHANNELS: ContentChannel[] = ["Facebook", "Instagram", "LINE"];
 export const CONTENT_STATUSES: ContentStatus[]  = ["Draft", "Scheduled", "Published", "Done"];
+
+/** Template กรอบรูปสำหรับ Photo Frame Studio — เก็บเป็น base64 dataUrl */
+export interface ContentTemplate {
+  template_id: string;
+  name:        string;
+  dataUrl:     string;  // base64 PNG/WEBP
+  width:       number;
+  height:      number;
+  created_at:  string;
+}
 export const INT_PROGRAMS = [
   "HQO-KMG04-DR - คุนหมิง โหลวผิง ซากุระ 4 วัน 3 คืน (DR)",
   "HQO-CKG01-PN - ฉงชิ่ง ต้าจู๋ 4 วัน 3 คืน",
@@ -432,6 +442,9 @@ interface CRMState {
   addContentPost:    (p: Omit<ContentPost, "post_id" | "created_at">) => void;
   updateContentPost: (id: string, patch: Partial<Omit<ContentPost, "post_id" | "created_at">>) => void;
   deleteContentPost: (id: string) => void;
+  contentTemplates:     ContentTemplate[];
+  addContentTemplate:    (t: Omit<ContentTemplate, "template_id" | "created_at">) => void;
+  deleteContentTemplate: (id: string) => void;
   addQuotation: (q: Omit<QuotationDoc, "id" | "created_at" | "subtotal" | "vat_amount" | "total" | "doc_no"> & { doc_no?: string }) => string;
   updateQuotation: (id: string, patch: Partial<Omit<QuotationDoc, "id" | "created_at" | "doc_no" | "subtotal" | "vat_amount" | "total">>) => void;
   deleteQuotation: (id: string) => void;
@@ -485,6 +498,14 @@ export const useCRM = create<CRMState>()(
   },
   deleteContentPost: (id) => {
     set({ contentPosts: get().contentPosts.filter((p) => p.post_id !== id) });
+  },
+  contentTemplates: [],
+  addContentTemplate: (t) => {
+    const tmpl: ContentTemplate = { ...t, template_id: `CT-${Date.now()}`, created_at: new Date().toISOString() };
+    set({ contentTemplates: [tmpl, ...get().contentTemplates] });
+  },
+  deleteContentTemplate: (id) => {
+    set({ contentTemplates: get().contentTemplates.filter((t) => t.template_id !== id) });
   },
   addQuotation: (q) => {
     const subtotal = q.items.reduce((s, it) => s + it.qty * it.unit_price, 0);
@@ -998,6 +1019,7 @@ export const useCRM = create<CRMState>()(
         chatMessages:      state.chatMessages,
         teamNotifications: state.teamNotifications,
         contentPosts:      state.contentPosts,
+        contentTemplates:  state.contentTemplates,
       }),
     }
   )

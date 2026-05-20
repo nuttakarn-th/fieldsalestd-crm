@@ -4,7 +4,7 @@
  * มี Sidebar ซ้ายแสดง 4 เครื่องมือ + Header กลับ Hub
  */
 import { NavLink, Outlet, Navigate, useLocation } from "react-router-dom";
-import { CalendarRange, Plane, BookOpen, TrendingUp, ChevronLeft, LayoutGrid } from "lucide-react";
+import { CalendarRange, Plane, BookOpen, TrendingUp, Layers, ChevronLeft, LayoutGrid } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 
 const NAV_ITEMS = [
@@ -35,6 +35,13 @@ const NAV_ITEMS = [
     icon:  TrendingUp,
     to:    "/marketing-contents/performance",
     gradient: "from-rose-500 to-pink-600",
+  },
+  {
+    title: "Photo Frame Studio",
+    desc:  "ใส่กรอบรูป Template → Download",
+    icon:  Layers,
+    to:    "/marketing-contents/photo-frame",
+    gradient: "from-amber-500 to-orange-600",
   },
 ];
 
