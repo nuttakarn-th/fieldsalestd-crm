@@ -193,6 +193,21 @@ export interface QuotationDoc {
 export const LEAD_CATEGORIES: LeadCategory[] = ["ลูกค้าทั่วไป", "บริษัทเอกชน", "หน่วยงานราชการ", "มหาวิทยาลัยเอกชน", "มหาวิทยาลัยรัฐบาล"];
 export const SOURCES: Source[] = ["Field Sale", "FB", "Line OA", "Website", "TikTok", "Google", "Walk-in", "Referral", "Agent"];
 export const BU_TYPES: BUType[] = ["ทัวร์ต่างประเทศ", "ทัวร์ภายในประเทศ", "เช่ารถ ท่องเที่ยว", "จองตั๋วเครื่องบิน"];
+
+export type ContentStatus   = "Draft" | "Scheduled" | "Published" | "Done";
+export type ContentChannel  = "Facebook" | "Instagram" | "LINE";
+export interface ContentPost {
+  post_id:        string;
+  title:          string;
+  caption:        string;
+  channel:        ContentChannel;
+  scheduled_date: string; // YYYY-MM-DD
+  status:         ContentStatus;
+  campaign_id?:   string;
+  created_at:     string;
+}
+export const CONTENT_CHANNELS: ContentChannel[] = ["Facebook", "Instagram", "LINE"];
+export const CONTENT_STATUSES: ContentStatus[]  = ["Draft", "Scheduled", "Published", "Done"];
 export const INT_PROGRAMS = [
   "HQO-KMG04-DR - คุนหมิง โหลวผิง ซากุระ 4 วัน 3 คืน (DR)",
   "HQO-CKG01-PN - ฉงชิ่ง ต้าจู๋ 4 วัน 3 คืน",
@@ -406,6 +421,10 @@ interface CRMState {
   chatMessages: ChatMessage[];
   teamNotifications: TeamNotification[];
   quotations: QuotationDoc[];
+  contentPosts: ContentPost[];
+  addContentPost:    (p: Omit<ContentPost, "post_id" | "created_at">) => void;
+  updateContentPost: (id: string, patch: Partial<Omit<ContentPost, "post_id" | "created_at">>) => void;
+  deleteContentPost: (id: string) => void;
   addQuotation: (q: Omit<QuotationDoc, "id" | "created_at" | "subtotal" | "vat_amount" | "total" | "doc_no"> & { doc_no?: string }) => string;
   updateQuotation: (id: string, patch: Partial<Omit<QuotationDoc, "id" | "created_at" | "doc_no" | "subtotal" | "vat_amount" | "total">>) => void;
   deleteQuotation: (id: string) => void;
@@ -449,6 +468,17 @@ export const useCRM = create<CRMState>()(
   ],
   teamNotifications: [],
   quotations: [],
+  contentPosts: [],
+  addContentPost: (p) => {
+    const post: ContentPost = { ...p, post_id: `CP-${Date.now()}`, created_at: new Date().toISOString() };
+    set({ contentPosts: [post, ...get().contentPosts] });
+  },
+  updateContentPost: (id, patch) => {
+    set({ contentPosts: get().contentPosts.map((p) => p.post_id === id ? { ...p, ...patch } : p) });
+  },
+  deleteContentPost: (id) => {
+    set({ contentPosts: get().contentPosts.filter((p) => p.post_id !== id) });
+  },
   addQuotation: (q) => {
     const subtotal = q.items.reduce((s, it) => s + it.qty * it.unit_price, 0);
     const afterDiscount = Math.max(0, subtotal - (q.discount || 0));
@@ -960,6 +990,7 @@ export const useCRM = create<CRMState>()(
         currentRep:        state.currentRep,
         chatMessages:      state.chatMessages,
         teamNotifications: state.teamNotifications,
+        contentPosts:      state.contentPosts,
       }),
     }
   )

@@ -49,6 +49,7 @@ import MarketingDashboardPage from "./pages/MarketingDashboardPage.tsx";
 import CustomersPage from "./pages/CustomersPage.tsx";
 import CampaignsPage from "./pages/CampaignsPage.tsx";
 import MarketingReportPage from "./pages/MarketingReportPage.tsx";
+import ContentCalendar from "./pages/ContentCalendar.tsx";
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -95,6 +96,7 @@ const App = () => (
           <Route path="/marketing-customers" element={<CustomersPage />} />
           <Route path="/marketing-campaigns" element={<CampaignsPage />} />
           <Route path="/marketing-report" element={<MarketingReportPage />} />
+          <Route path="/marketing-content-calendar" element={<ContentCalendar />} />
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />

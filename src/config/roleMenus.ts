@@ -14,6 +14,7 @@ import {
   Wallet,
   PackageSearch,
   Map,
+  CalendarRange,
   User as UserIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -147,6 +148,7 @@ const marketingMenu: RoleMenu = {
       category: "MARKETING",
       items: [
         { title: "Campaign Management", url: "/marketing-campaigns", icon: Megaphone },
+        { title: "Content Calendar", url: "/marketing-content-calendar", icon: CalendarRange },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
