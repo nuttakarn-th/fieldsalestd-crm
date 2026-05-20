@@ -40,6 +40,7 @@ import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
 import OBDashboard from "./pages/OBDashboard.tsx";
+import ProvinceHeatmap from "./pages/ProvinceHeatmap.tsx";
 import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
 import UsersPage from "./pages/UsersPage.tsx";
 import LoginBannerPage from "./pages/LoginBannerPage.tsx";
@@ -121,6 +122,7 @@ const App = () => (
             <Route path="payment" element={<PaymentInvoice />} />
             <Route path="booking-overview" element={<BookingOverview />} />
             <Route path="ob-dashboard" element={<OBDashboard />} />
+            <Route path="heatmap" element={<ProvinceHeatmap />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
