@@ -15,6 +15,9 @@ import {
   PackageSearch,
   Map,
   CalendarRange,
+  Plane,
+  BookOpen,
+  TrendingUp,
   User as UserIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -147,9 +150,12 @@ const marketingMenu: RoleMenu = {
     {
       category: "MARKETING",
       items: [
-        { title: "Campaign Management", url: "/marketing-campaigns", icon: Megaphone },
-        { title: "Content Calendar", url: "/marketing-content-calendar", icon: CalendarRange },
-        { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Campaign Management",  url: "/marketing-campaigns",        icon: Megaphone },
+        { title: "Content Calendar",     url: "/marketing-content-calendar", icon: CalendarRange },
+        { title: "Tour → Content Link",  url: "/marketing-tour-content",     icon: Plane },
+        { title: "Asset Library",        url: "/marketing-asset-library",    icon: BookOpen },
+        { title: "Post Performance",     url: "/marketing-performance",      icon: TrendingUp },
+        { title: "Service and Stock",    url: "/service-stock",              icon: PackageSearch },
       ],
     },
     {
