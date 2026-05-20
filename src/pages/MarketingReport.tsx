@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { BarChart3, TrendingUp, Users, Clock, Target, Zap, Map } from "lucide-react";
+import { useState, useMemo } from "react";
+import { BarChart3, TrendingUp, Users, Clock, Target, Zap, Map, Cake, Phone, Download, Copy, Check, Gift } from "lucide-react";
 import { useCRM } from "@/store/crmStore";
-import type { Lead, SalesRep, BUType } from "@/store/crmStore";
+import type { Lead, SalesRep, BUType, Customer } from "@/store/crmStore";
 import ProvinceHeatmap from "./ProvinceHeatmap";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ function daysBetween(from: Date, to: Date): number {
 // ─── component ────────────────────────────────────────────────────────────
 
 export default function MarketingReport() {
-  const [activeTab, setActiveTab] = useState<"report" | "heatmap">("report");
+  const [activeTab, setActiveTab] = useState<"report" | "heatmap" | "birthday">("report");
   const leads = useCRM((s) => s.leads);
 
   // ── Closed Won leads with valid timestamps ──
@@ -140,6 +140,17 @@ export default function MarketingReport() {
           <Map className="w-4 h-4" />
           Province Heatmap
         </button>
+        <button
+          onClick={() => setActiveTab("birthday")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "birthday"
+              ? "bg-pink-600 text-white shadow-glow"
+              : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          <Cake className="w-4 h-4" />
+          Birthday Campaign
+        </button>
       </div>
 
       {/* ── Heatmap Tab ── */}
@@ -148,6 +159,9 @@ export default function MarketingReport() {
           <ProvinceHeatmap />
         </div>
       )}
+
+      {/* ── Birthday Campaign Tab ── */}
+      {activeTab === "birthday" && <BirthdayCampaign />}
 
       {/* ── Report Tab content only shows when activeTab === "report" ── */}
       {activeTab === "report" && (<>
@@ -282,6 +296,209 @@ export default function MarketingReport() {
 
       </>)}
 
+    </div>
+  );
+}
+
+// ─── Birthday Campaign Component ─────────────────────────────────────────
+
+function BirthdayCampaign() {
+  const customers = useCRM((s) => s.customers);
+  const [filter, setFilter] = useState<"month" | "week">("month");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const today = new Date();
+  const todayMonth = today.getMonth() + 1;
+  const todayDay = today.getDate();
+
+  // ─ helper: parse birthday YYYY-MM-DD ─
+  function parseBirthday(bday: string): { month: number; day: number } | null {
+    const parts = bday.split("-");
+    if (parts.length !== 3) return null;
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (isNaN(m) || isNaN(d)) return null;
+    return { month: m, day: d };
+  }
+
+  // ─ days until next birthday ─
+  function daysUntil(month: number, day: number): number {
+    const now = new Date();
+    let next = new Date(now.getFullYear(), month - 1, day);
+    if (next < now) next = new Date(now.getFullYear() + 1, month - 1, day);
+    return Math.ceil((next.getTime() - now.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+  }
+
+  const filtered = useMemo(() => {
+    return customers
+      .filter((c) => {
+        if (!c.birthday) return false;
+        const bd = parseBirthday(c.birthday);
+        if (!bd) return false;
+        if (filter === "month") return bd.month === todayMonth;
+        // week: เกิดใน 7 วันข้างหน้า (รวมวันนี้)
+        const days = daysUntil(bd.month, bd.day);
+        return days <= 7;
+      })
+      .map((c) => {
+        const bd = parseBirthday(c.birthday!)!;
+        return { ...c, bdMonth: bd.month, bdDay: bd.day, daysLeft: daysUntil(bd.month, bd.day) };
+      })
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [customers, filter, todayMonth]);
+
+  function isToday(month: number, day: number) {
+    return month === todayMonth && day === todayDay;
+  }
+
+  function copyGreeting(c: Customer) {
+    const text = `🎂 สุขสันต์วันเกิดค่ะ คุณ${c.full_name}! ขอให้มีความสุขมากๆ นะคะ Standard Tour ขอส่งความปรารถนาดีมาให้ค่ะ 🎉`;
+    navigator.clipboard.writeText(text);
+    setCopied(c.customer_id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  function exportCSV() {
+    const header = "ชื่อ,บริษัท,เบอร์โทร,LINE ID,วันเกิด,เหลืออีก(วัน)";
+    const rows = filtered.map(
+      (c) =>
+        `"${c.full_name}","${c.company ?? "-"}","${c.phone}","${c.line_id ?? "-"}","${c.bdDay}/${c.bdMonth}","${c.daysLeft}"`
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `birthday-campaign-${filter === "month" ? "month" : "7days"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const todayCount = filtered.filter((c) => isToday(c.bdMonth, c.bdDay)).length;
+  const soonCount  = filtered.filter((c) => c.daysLeft <= 7 && !isToday(c.bdMonth, c.bdDay)).length;
+
+  return (
+    <div className="space-y-5">
+      {/* ── Summary strip ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-800 rounded-xl p-4 text-center">
+          <Gift className="w-5 h-5 mx-auto text-pink-500 mb-1" />
+          <p className="text-2xl font-extrabold text-pink-600">{todayCount}</p>
+          <p className="text-xs text-muted-foreground">เกิดวันนี้ 🎂</p>
+        </div>
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-xl p-4 text-center">
+          <Cake className="w-5 h-5 mx-auto text-purple-500 mb-1" />
+          <p className="text-2xl font-extrabold text-purple-600">{soonCount}</p>
+          <p className="text-xs text-muted-foreground">เร็วๆ นี้ (≤7 วัน)</p>
+        </div>
+        <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 text-center">
+          <Users className="w-5 h-5 mx-auto text-indigo-500 mb-1" />
+          <p className="text-2xl font-extrabold text-indigo-600">{filtered.length}</p>
+          <p className="text-xs text-muted-foreground">รายการทั้งหมด</p>
+        </div>
+      </div>
+
+      {/* ── Filter + Export ── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setFilter("month")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            filter === "month" ? "bg-pink-600 text-white" : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          เดือนนี้ ({today.toLocaleString("th-TH", { month: "long" })})
+        </button>
+        <button
+          onClick={() => setFilter("week")}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            filter === "week" ? "bg-pink-600 text-white" : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          7 วันข้างหน้า
+        </button>
+        <div className="ml-auto">
+          <button
+            onClick={exportCSV}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV ({filtered.length})
+          </button>
+        </div>
+      </div>
+
+      {/* ── List ── */}
+      {filtered.length === 0 ? (
+        <div className="bg-card border rounded-xl p-10 text-center">
+          <Cake className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="text-muted-foreground text-sm">ไม่มีลูกค้าที่มีวันเกิด{filter === "month" ? "ในเดือนนี้" : "ใน 7 วันข้างหน้า"}</p>
+          <p className="text-xs text-muted-foreground mt-1">เพิ่มวันเกิดใน Customer Profile เพื่อใช้งาน Birthday Campaign</p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+          <div className="divide-y divide-border">
+            {filtered.map((c) => {
+              const today_ = isToday(c.bdMonth, c.bdDay);
+              return (
+                <div
+                  key={c.customer_id}
+                  className={`flex items-center gap-3 px-4 py-3 ${today_ ? "bg-pink-50 dark:bg-pink-950/20" : ""}`}
+                >
+                  {/* Avatar */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${today_ ? "bg-gradient-to-br from-pink-500 to-rose-600" : "bg-gradient-to-br from-purple-500 to-indigo-600"}`}>
+                    {c.full_name.charAt(0)}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm truncate">{c.full_name}</p>
+                      {today_ && (
+                        <span className="text-[10px] bg-pink-100 dark:bg-pink-900 text-pink-700 dark:text-pink-300 px-2 py-0.5 rounded-full font-bold">🎂 วันนี้!</span>
+                      )}
+                      {!today_ && c.daysLeft <= 3 && (
+                        <span className="text-[10px] bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">อีก {c.daysLeft} วัน</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                      <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>
+                      {c.line_id && <span>LINE: {c.line_id}</span>}
+                      <span className="text-pink-500 font-medium">
+                        🎂 {c.bdDay}/{c.bdMonth}
+                        {!today_ && <> · อีก {c.daysLeft} วัน</>}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Copy greeting */}
+                  <button
+                    onClick={() => copyGreeting(c)}
+                    title="Copy ข้อความอวยพร"
+                    className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      copied === c.customer_id
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-muted hover:bg-pink-100 hover:text-pink-700 text-muted-foreground"
+                    }`}
+                  >
+                    {copied === c.customer_id ? (
+                      <><Check className="w-3.5 h-3.5" /> Copied!</>
+                    ) : (
+                      <><Copy className="w-3.5 h-3.5" /> อวยพร</>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          ข้อความที่ Copy ไว้สามารถส่งผ่าน LINE / Facebook ได้เลย
+        </p>
+      )}
     </div>
   );
 }
