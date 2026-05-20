@@ -147,7 +147,7 @@ export default function UserManagement() {
                     <td className="p-3">{u.username}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono">{reveal ? u.password : "••••••"}</span>
+                        <span className="font-mono text-sm">{reveal ? (u.plain_password ?? "(reset เพื่อดูรหัส)") : "••••••"}</span>
                         <button
                           onClick={() => setRevealed({ ...revealed, [u.user_id]: !reveal })}
                           className="text-muted-foreground hover:text-foreground"

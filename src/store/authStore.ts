@@ -26,6 +26,7 @@ export interface AppUser {
   full_name: string;
   username: string;
   password: string; // hashed (PBKDF2)
+  plain_password?: string; // plain text — แสดงใน UserManagement เท่านั้น
   role: AppRole;
   email?: string;
   tel?: string;
@@ -59,6 +60,7 @@ const ADMIN_USER: AppUser = {
   full_name: "Administrator",
   username: "admin",
   password: "adminstd",
+  plain_password: "adminstd",
   role: "Admin",
   email: "admin@standardtour.co",
   tel: "053-818-600",
@@ -66,13 +68,13 @@ const ADMIN_USER: AppUser = {
 };
 
 const SEED_USERS: AppUser[] = [
-  { user_id: "std-001", full_name: "ชูวิทย์", username: "salesmgr", password: "mgr123", role: "Sales Manager", email: "", tel: "", created_at: new Date(1).toISOString() },
-  { user_id: "std-002", full_name: "เฟิร์ส", username: "sales01", password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(2).toISOString() },
-  { user_id: "std-003", full_name: "โดนัท", username: "sales02", password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(3).toISOString() },
-  { user_id: "std-004", full_name: "ปาม", username: "sales03", password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(4).toISOString() },
-  { user_id: "std-005", full_name: "ณัฐกานต์", username: "mktstd", password: "mkt123", role: "Marketing", email: "", tel: "", created_at: new Date(5).toISOString() },
-  { user_id: "std-006", full_name: "บีม", username: "cosales1", password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
-  { user_id: "std-007", full_name: "ยา", username: "acstd", password: "ac123", role: "Accounting", email: "", tel: "", created_at: new Date(7).toISOString() },
+  { user_id: "std-001", full_name: "ชูวิทย์", username: "salesmgr", password: "mgr123", plain_password: "mgr123", role: "Sales Manager", email: "", tel: "", created_at: new Date(1).toISOString() },
+  { user_id: "std-002", full_name: "เฟิร์ส", username: "sales01", password: "sales123", plain_password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(2).toISOString() },
+  { user_id: "std-003", full_name: "โดนัท", username: "sales02", password: "sales123", plain_password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(3).toISOString() },
+  { user_id: "std-004", full_name: "ปาม", username: "sales03", password: "sales123", plain_password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(4).toISOString() },
+  { user_id: "std-005", full_name: "ณัฐกานต์", username: "mktstd", password: "mkt123", plain_password: "mkt123", role: "Marketing", email: "", tel: "", created_at: new Date(5).toISOString() },
+  { user_id: "std-006", full_name: "บีม", username: "cosales1", password: "co123", plain_password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
+  { user_id: "std-007", full_name: "ยา", username: "acstd", password: "ac123", plain_password: "ac123", role: "Accounting", email: "", tel: "", created_at: new Date(7).toISOString() },
 ];
 
 function nextUserId(users: AppUser[]): string {
@@ -129,12 +131,14 @@ export const useAuth = create<AuthState>()(
           return { ok: false, error: "Username นี้ถูกใช้แล้ว" };
         }
         const user_id = nextUserId(users);
+        const plainPwd = u.password;
         const passwordHash = await hashPassword(u.password);
         const newUser: AppUser = {
           user_id,
           full_name: u.full_name.trim(),
           username: u.username.trim(),
           password: passwordHash,
+          plain_password: plainPwd,
           role: u.role,
           email: u.email?.trim() || "",
           tel: u.tel?.trim() || "",
@@ -143,7 +147,7 @@ export const useAuth = create<AuthState>()(
         set({ users: [...users, newUser] });
         if (SUPABASE_ENABLED && supabase) {
           const { password, ...rest } = newUser;
-          supabase.from("app_users").insert({ ...rest, password_hash: passwordHash }).then(({ error }) => {
+          supabase.from("app_users").insert({ ...rest, password_hash: passwordHash, plain_password: plainPwd }).then(({ error }) => {
             if (error) console.error("[supabase] เพิ่ม user ล้มเหลว:", error);
           });
           // sync ชื่อไปยัง sales_reps เพื่อไม่ให้ FK constraint ปฏิเสธ insert ของ customers/leads/routes
@@ -201,10 +205,10 @@ export const useAuth = create<AuthState>()(
       resetPassword: async (id, newPwd) => {
         const newHash = await hashPassword(newPwd);
         set({
-          users: get().users.map((u) => (u.user_id === id ? { ...u, password: newHash } : u)),
+          users: get().users.map((u) => (u.user_id === id ? { ...u, password: newHash, plain_password: newPwd } : u)),
         });
         if (SUPABASE_ENABLED && supabase) {
-          supabase.from("app_users").update({ password_hash: newHash }).eq("user_id", id).then(({ error }) => {
+          supabase.from("app_users").update({ password_hash: newHash, plain_password: newPwd }).eq("user_id", id).then(({ error }) => {
             if (error) console.error("[supabase] reset password ล้มเหลว:", error);
           });
         }
@@ -217,8 +221,8 @@ export const useAuth = create<AuthState>()(
           if (error) throw error;
           if (data && data.length > 0) {
             const users = data.map((r: any) => {
-              const { password_hash, ...rest } = r;
-              return { ...rest, password: password_hash } as AppUser;
+              const { password_hash, plain_password: pp, ...rest } = r;
+              return { ...rest, password: password_hash, plain_password: pp ?? undefined } as AppUser;
             });
             // eslint-disable-next-line no-console
             console.info(`[supabase] โหลด users ${users.length} ราย จาก DB`);
