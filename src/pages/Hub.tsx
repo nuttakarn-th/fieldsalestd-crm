@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target } from "lucide-react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
@@ -83,6 +83,13 @@ const marketingTiles = [
     icon: LayoutGrid,
     to: "/marketing-contents",
     gradient: "from-violet-500 via-purple-600 to-indigo-600",
+  },
+  {
+    title: "Audience Builder",
+    description: "LINE Export, FB Audience, Birthday, Cold Lead, VIP List, Interest Segment — เครื่องมือ Targeting ครบ",
+    icon: Target,
+    to: "/audience-builder",
+    gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
   },
   {
     title: "Marketing Report",

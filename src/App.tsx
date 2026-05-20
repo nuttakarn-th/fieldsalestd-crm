@@ -54,6 +54,13 @@ import TourContentLink from "./pages/TourContentLink.tsx";
 import ContentAssetLibrary from "./pages/ContentAssetLibrary.tsx";
 import PostPerformanceTracker from "./pages/PostPerformanceTracker.tsx";
 import ContentManagementLayout from "./pages/ContentManagementLayout.tsx";
+import AudienceBuilderLayout from "./pages/AudienceBuilderLayout.tsx";
+import AudienceLineExport from "./pages/audience/AudienceLineExport.tsx";
+import AudienceFacebook from "./pages/audience/AudienceFacebook.tsx";
+import AudienceBirthday from "./pages/audience/AudienceBirthday.tsx";
+import AudienceColdLead from "./pages/audience/AudienceColdLead.tsx";
+import AudienceVIPList from "./pages/audience/AudienceVIPList.tsx";
+import AudienceInterestSegment from "./pages/audience/AudienceInterestSegment.tsx";
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -105,6 +112,14 @@ const App = () => (
             <Route path="tour-link"   element={<TourContentLink />} />
             <Route path="assets"      element={<ContentAssetLibrary />} />
             <Route path="performance" element={<PostPerformanceTracker />} />
+          </Route>
+          <Route path="/audience-builder" element={<AudienceBuilderLayout />}>
+            <Route path="line-export" element={<AudienceLineExport />} />
+            <Route path="facebook"    element={<AudienceFacebook />} />
+            <Route path="birthday"    element={<AudienceBirthday />} />
+            <Route path="cold-lead"   element={<AudienceColdLead />} />
+            <Route path="vip"         element={<AudienceVIPList />} />
+            <Route path="interest"    element={<AudienceInterestSegment />} />
           </Route>
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />

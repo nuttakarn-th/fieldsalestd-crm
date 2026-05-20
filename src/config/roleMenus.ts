@@ -16,6 +16,9 @@ import {
   Map,
   LayoutGrid,
   User as UserIcon,
+  RefreshCcw,
+  Diamond,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -104,6 +107,14 @@ const salesManagerMenu: RoleMenu = {
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
+    {
+      category: "AUDIENCE TOOLS",
+      items: [
+        { title: "Cold Lead Re-engage", url: "/audience-builder/cold-lead", icon: RefreshCcw },
+        { title: "VIP Loyalty List",    url: "/audience-builder/vip",       icon: Diamond },
+        { title: "Interest Segment",    url: "/audience-builder/interest",  icon: Tag },
+      ],
+    },
   ],
   account: [],
 };
@@ -130,6 +141,12 @@ const salesMenu: RoleMenu = {
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
       ],
     },
+    {
+      category: "AUDIENCE TOOLS",
+      items: [
+        { title: "Cold Lead Re-engage", url: "/audience-builder/cold-lead", icon: RefreshCcw },
+      ],
+    },
   ],
   account: [],
 };
@@ -149,6 +166,7 @@ const marketingMenu: RoleMenu = {
       items: [
         { title: "Campaign Management",   url: "/marketing-campaigns",    icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",     icon: LayoutGrid },
+        { title: "Audience Builder",      url: "/audience-builder",       icon: Target },
         { title: "Service and Stock",     url: "/service-stock",          icon: PackageSearch },
       ],
     },
