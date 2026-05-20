@@ -154,7 +154,6 @@ const marketingMenu: RoleMenu = {
       category: "REPORT & DATA",
       items: [
         { title: "Marketing Report", url: "/marketing-report", icon: BarChart3 },
-        { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
       ],
     },
   ],

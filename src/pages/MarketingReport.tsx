@@ -1,6 +1,8 @@
-import { BarChart3, TrendingUp, Users, Clock, Target, Zap } from "lucide-react";
+import { useState } from "react";
+import { BarChart3, TrendingUp, Users, Clock, Target, Zap, Map } from "lucide-react";
 import { useCRM } from "@/store/crmStore";
 import type { Lead, SalesRep, BUType } from "@/store/crmStore";
+import ProvinceHeatmap from "./ProvinceHeatmap";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -19,6 +21,7 @@ function daysBetween(from: Date, to: Date): number {
 // ─── component ────────────────────────────────────────────────────────────
 
 export default function MarketingReport() {
+  const [activeTab, setActiveTab] = useState<"report" | "heatmap">("report");
   const leads = useCRM((s) => s.leads);
 
   // ── Closed Won leads with valid timestamps ──
@@ -112,6 +115,42 @@ export default function MarketingReport() {
           <p className="text-sm text-muted-foreground">สรุปประสิทธิภาพช่องทางการตลาดและการปิดการขาย</p>
         </div>
       </div>
+
+      {/* ── Tab Buttons ── */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab("report")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "report"
+              ? "bg-primary text-primary-foreground shadow-glow"
+              : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Marketing Report
+        </button>
+        <button
+          onClick={() => setActiveTab("heatmap")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeTab === "heatmap"
+              ? "bg-primary text-primary-foreground shadow-glow"
+              : "bg-muted text-muted-foreground hover:bg-accent"
+          }`}
+        >
+          <Map className="w-4 h-4" />
+          Province Heatmap
+        </button>
+      </div>
+
+      {/* ── Heatmap Tab ── */}
+      {activeTab === "heatmap" && (
+        <div className="-mx-4 sm:-mx-6">
+          <ProvinceHeatmap />
+        </div>
+      )}
+
+      {/* ── Report Tab content only shows when activeTab === "report" ── */}
+      {activeTab === "report" && (<>
 
       {/* ── Summary Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -240,6 +279,8 @@ export default function MarketingReport() {
           <p className="text-4xl font-extrabold text-red-500">{lostCount}</p>
         </div>
       </div>
+
+      </>)}
 
     </div>
   );
