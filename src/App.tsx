@@ -53,6 +53,7 @@ import ContentCalendar from "./pages/ContentCalendar.tsx";
 import TourContentLink from "./pages/TourContentLink.tsx";
 import ContentAssetLibrary from "./pages/ContentAssetLibrary.tsx";
 import PostPerformanceTracker from "./pages/PostPerformanceTracker.tsx";
+import ContentManagementLayout from "./pages/ContentManagementLayout.tsx";
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -99,10 +100,12 @@ const App = () => (
           <Route path="/marketing-customers" element={<CustomersPage />} />
           <Route path="/marketing-campaigns" element={<CampaignsPage />} />
           <Route path="/marketing-report" element={<MarketingReportPage />} />
-          <Route path="/marketing-content-calendar" element={<ContentCalendar />} />
-          <Route path="/marketing-tour-content" element={<TourContentLink />} />
-          <Route path="/marketing-asset-library" element={<ContentAssetLibrary />} />
-          <Route path="/marketing-performance" element={<PostPerformanceTracker />} />
+          <Route path="/marketing-contents" element={<ContentManagementLayout />}>
+            <Route path="calendar"    element={<ContentCalendar />} />
+            <Route path="tour-link"   element={<TourContentLink />} />
+            <Route path="assets"      element={<ContentAssetLibrary />} />
+            <Route path="performance" element={<PostPerformanceTracker />} />
+          </Route>
           <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />

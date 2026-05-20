@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, CalendarRange, Plane, BookOpen, TrendingUp } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid } from "lucide-react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
@@ -78,32 +78,11 @@ const marketingTiles = [
     gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
   },
   {
-    title: "Content Calendar",
-    description: "วางแผนโพสต์ Social Media รายเดือน — FB / IG / LINE พร้อมติดตามสถานะ",
-    icon: CalendarRange,
-    to: "/marketing-content-calendar",
+    title: "Contents Management",
+    description: "Content Calendar, Tour → Content Link, Asset Library, Post Performance — ครบในที่เดียว",
+    icon: LayoutGrid,
+    to: "/marketing-contents",
     gradient: "from-violet-500 via-purple-600 to-indigo-600",
-  },
-  {
-    title: "Tour → Content Link",
-    description: "เลือกโปรแกรมทัวร์ → ระบบแนะนำ Content ideas อัตโนมัติ 5 ข้อ",
-    icon: Plane,
-    to: "/marketing-tour-content",
-    gradient: "from-sky-500 via-blue-600 to-indigo-600",
-  },
-  {
-    title: "Content Asset Library",
-    description: "คลัง Copy template และ Hashtag แยกตามประเทศ/โปรแกรม พร้อม Copy",
-    icon: BookOpen,
-    to: "/marketing-asset-library",
-    gradient: "from-emerald-500 via-teal-500 to-cyan-600",
-  },
-  {
-    title: "Post Performance",
-    description: "บันทึก Reach / Engagement / Lead ต่อ Post — รู้ว่า Content ไหนสร้าง Lead",
-    icon: TrendingUp,
-    to: "/marketing-performance",
-    gradient: "from-rose-500 via-pink-600 to-fuchsia-600",
   },
   {
     title: "Marketing Report",
