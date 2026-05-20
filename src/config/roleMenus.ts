@@ -110,9 +110,9 @@ const salesManagerMenu: RoleMenu = {
     {
       category: "AUDIENCE TOOLS",
       items: [
-        { title: "Cold Lead Re-engage", url: "/audience-builder/cold-lead", icon: RefreshCcw },
-        { title: "VIP Loyalty List",    url: "/audience-builder/vip",       icon: Diamond },
-        { title: "Interest Segment",    url: "/audience-builder/interest",  icon: Tag },
+        { title: "Cold Lead Re-engage", url: "/app/audience/cold-lead", icon: RefreshCcw },
+        { title: "VIP Loyalty List",    url: "/app/audience/vip",       icon: Diamond },
+        { title: "Interest Segment",    url: "/app/audience/interest",  icon: Tag },
       ],
     },
   ],
@@ -144,7 +144,7 @@ const salesMenu: RoleMenu = {
     {
       category: "AUDIENCE TOOLS",
       items: [
-        { title: "Cold Lead Re-engage", url: "/audience-builder/cold-lead", icon: RefreshCcw },
+        { title: "Cold Lead Re-engage", url: "/app/audience/cold-lead", icon: RefreshCcw },
       ],
     },
   ],

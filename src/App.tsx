@@ -144,6 +144,9 @@ const App = () => (
             <Route path="all-service" element={<AllService />} />
             <Route path="campaigns" element={<CampaignManagement />} />
             <Route path="marketing-report" element={<MarketingReport />} />
+            <Route path="audience/cold-lead" element={<AudienceColdLead />} />
+            <Route path="audience/vip"       element={<AudienceVIPList />} />
+            <Route path="audience/interest"  element={<AudienceInterestSegment />} />
             <Route path="financial-report" element={<FinancialReport />} />
             <Route path="payment" element={<PaymentInvoice />} />
             <Route path="booking-overview" element={<BookingOverview />} />
