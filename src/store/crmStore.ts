@@ -223,6 +223,7 @@ export interface ContentTemplate {
   dataUrl:     string;  // base64 PNG/WEBP
   width:       number;
   height:      number;
+  folder?:     string;  // ชื่อโฟล์เดอร์ (optional)
   created_at:  string;
 }
 export const INT_PROGRAMS = [
@@ -444,6 +445,7 @@ interface CRMState {
   deleteContentPost: (id: string) => void;
   contentTemplates:     ContentTemplate[];
   addContentTemplate:    (t: Omit<ContentTemplate, "template_id" | "created_at">) => void;
+  updateContentTemplate: (id: string, patch: Partial<Omit<ContentTemplate, "template_id" | "created_at">>) => void;
   deleteContentTemplate: (id: string) => void;
   addQuotation: (q: Omit<QuotationDoc, "id" | "created_at" | "subtotal" | "vat_amount" | "total" | "doc_no"> & { doc_no?: string }) => string;
   updateQuotation: (id: string, patch: Partial<Omit<QuotationDoc, "id" | "created_at" | "doc_no" | "subtotal" | "vat_amount" | "total">>) => void;
@@ -503,6 +505,9 @@ export const useCRM = create<CRMState>()(
   addContentTemplate: (t) => {
     const tmpl: ContentTemplate = { ...t, template_id: `CT-${Date.now()}`, created_at: new Date().toISOString() };
     set({ contentTemplates: [tmpl, ...get().contentTemplates] });
+  },
+  updateContentTemplate: (id, patch) => {
+    set({ contentTemplates: get().contentTemplates.map((t) => t.template_id === id ? { ...t, ...patch } : t) });
   },
   deleteContentTemplate: (id) => {
     set({ contentTemplates: get().contentTemplates.filter((t) => t.template_id !== id) });
