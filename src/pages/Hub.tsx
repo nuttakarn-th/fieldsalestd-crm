@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, CalendarRange } from "lucide-react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
@@ -76,6 +76,13 @@ const marketingTiles = [
     icon: Megaphone,
     to: "/marketing-campaigns",
     gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
+  },
+  {
+    title: "Content Calendar",
+    description: "วางแผนโพสต์ Social Media รายเดือน — FB / IG / LINE พร้อมติดตามสถานะ",
+    icon: CalendarRange,
+    to: "/marketing-content-calendar",
+    gradient: "from-violet-500 via-purple-600 to-indigo-600",
   },
   {
     title: "Marketing Report",
