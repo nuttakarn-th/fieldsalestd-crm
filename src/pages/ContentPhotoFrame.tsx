@@ -330,14 +330,14 @@ function FolderGroup({
           <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
         </button>
 
-        {/* Pencil rename — only for named folders */}
+        {/* Pencil rename — always visible on touch, hover on desktop */}
         {isNamed && onRename && !editing && (
           <button
             onClick={e => { e.stopPropagation(); setEditName(label); setEditing(true); }}
             title="เปลี่ยนชื่อโฟล์เดอร์"
-            className="opacity-0 group-hover/folder:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:text-amber-600 text-muted-foreground transition-all shrink-0"
+            className="opacity-100 md:opacity-0 md:group-hover/folder:opacity-100 w-6 h-6 flex items-center justify-center rounded hover:bg-amber-100 hover:text-amber-600 text-muted-foreground transition-all shrink-0"
           >
-            <Pencil className="w-2.5 h-2.5" />
+            <Pencil className="w-3 h-3" />
           </button>
         )}
       </div>
@@ -361,6 +361,7 @@ export default function ContentPhotoFrame() {
   const [photoPositions,  setPhotoPositions]  = useState<(TmplPos | undefined)[]>([]);
   const [openFolders,     setOpenFolders]     = useState<Set<string>>(new Set(["__none__"]));
   const [drawTick,        setDrawTick]        = useState(0);
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const editorRef        = useRef<HTMLCanvasElement>(null);
@@ -843,24 +844,42 @@ export default function ContentPhotoFrame() {
 
   return (
     <div
-      className="flex overflow-hidden bg-background"
+      className="relative flex overflow-hidden bg-background"
       style={{ height: "calc(100vh - 56px)" }}
     >
+      {/* Mobile backdrop */}
+      {showTemplatePanel && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setShowTemplatePanel(false)}
+        />
+      )}
 
       {/* ══════════════ LEFT: Template Library ══════════════ */}
-      <div className="w-52 shrink-0 border-r bg-card flex flex-col overflow-hidden">
+      <div className={`absolute md:relative inset-y-0 left-0 z-50 md:z-auto w-64 md:w-52 shrink-0 border-r bg-card flex flex-col overflow-hidden transition-transform duration-300 ${
+        showTemplatePanel ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      }`}>
 
         {/* Header */}
         <div className="px-3 py-2.5 border-b flex items-center justify-between shrink-0">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
             Templates ({contentTemplates.length})
           </p>
-          <button
-            onClick={() => templateInputRef.current?.click()}
-            className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all"
-          >
-            <Plus className="w-3 h-3" /> เพิ่ม
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => templateInputRef.current?.click()}
+              className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all"
+            >
+              <Plus className="w-3 h-3" /> เพิ่ม
+            </button>
+            <button
+              onClick={() => setShowTemplatePanel(false)}
+              className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-all text-muted-foreground"
+              title="ปิด"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
           <input
             ref={templateInputRef}
             type="file"
@@ -942,7 +961,16 @@ export default function ContentPhotoFrame() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* ── Toolbar ── */}
-        <div className="shrink-0 px-3 py-2 border-b bg-card flex items-center gap-2 flex-wrap">
+        <div className="shrink-0 px-3 py-2 border-b bg-card flex items-center gap-2 overflow-x-auto">
+
+          {/* Mobile: Templates toggle */}
+          <button
+            onClick={() => setShowTemplatePanel(v => !v)}
+            className="md:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700 hover:bg-amber-200 transition-all shrink-0"
+          >
+            <Layers className="w-3.5 h-3.5" /> Templates
+          </button>
+          <div className="w-px h-5 bg-border shrink-0 md:hidden" />
 
           {/* Template chip */}
           {selectedTemplate ? (
