@@ -1476,7 +1476,7 @@ function PublicHeader({ lineUrl }: { lineUrl?: string }) {
 export default function TourPackagePresentation() {
   const settings  = useSiteSettings();
   const user      = useCurrentUser();
-  const canEdit   = !!user;
+  const canEdit   = !!user && (["Admin", "Sales Manager", "OB Co-ordinator", "Marketing"] as string[]).includes(user.role);
 
   const packages         = settings.tourPackages ?? [];
   const tourPackageBanners = settings.tourPackageBanners ?? [];
