@@ -1098,8 +1098,12 @@ function PackageCard({
 
   return (
     <article className="group bg-card rounded-2xl border shadow-sm overflow-hidden flex flex-col hover:shadow-lg transition-all hover:-translate-y-0.5">
-      {/* Cover 1:1 */}
-      <div className="relative aspect-square bg-muted/30 overflow-hidden">
+      {/* Cover 1:1 — คลิกที่รูปเปิด flipbook ได้เลย */}
+      <div
+        className="relative aspect-square bg-muted/30 overflow-hidden cursor-pointer"
+        onClick={onOpen}
+        title="คลิกเพื่อเปิดอ่าน"
+      >
         {pkg.coverUrl ? (
           <img
             src={pkg.coverUrl}
@@ -1122,36 +1126,33 @@ function PackageCard({
           </div>
         )}
 
-        {/* Hover overlay actions */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end justify-end p-2 gap-1 opacity-0 group-hover:opacity-100">
-          {canEdit && (
-            <>
-              <button
-                onClick={onUploadCover}
-                title="เปลี่ยนภาพปก"
-                className="w-8 h-8 rounded-full bg-white/90 text-violet-600 flex items-center justify-center shadow hover:bg-white transition-all"
-              >
-                <ImageIcon className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={onToggleHighlight}
-                title={pkg.isHighlight ? "ยกเลิก Highlight" : "ตั้งเป็น Highlight"}
-                className={`w-8 h-8 rounded-full flex items-center justify-center shadow transition-all ${
-                  pkg.isHighlight ? "bg-amber-400 text-amber-900" : "bg-white/90 text-amber-500 hover:bg-white"
-                }`}
-              >
-                {pkg.isHighlight ? <StarOff className="w-3.5 h-3.5" /> : <Star className="w-3.5 h-3.5" />}
-              </button>
-            </>
-          )}
-          <button
-            onClick={handleShare}
-            title="แชร์โปรแกรม"
-            className="w-8 h-8 rounded-full bg-white/90 text-foreground flex items-center justify-center shadow hover:bg-white transition-all"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-          </button>
+        {/* Open hint overlay on hover */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 pointer-events-none">
+          <BookOpen className="w-8 h-8 text-white drop-shadow-lg" />
+          <span className="text-white text-xs font-semibold drop-shadow-lg">เปิดอ่าน</span>
         </div>
+
+        {/* Admin action buttons — stopPropagation ป้องกัน trigger onOpen */}
+        {canEdit && (
+          <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all pointer-events-auto">
+            <button
+              onClick={e => { e.stopPropagation(); onUploadCover(); }}
+              title="เปลี่ยนภาพปก"
+              className="w-8 h-8 rounded-full bg-white/90 text-violet-600 flex items-center justify-center shadow hover:bg-white transition-all"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
+              title={pkg.isHighlight ? "ยกเลิก Highlight" : "ตั้งเป็น Highlight"}
+              className={`w-8 h-8 rounded-full flex items-center justify-center shadow transition-all ${
+                pkg.isHighlight ? "bg-amber-400 text-amber-900" : "bg-white/90 text-amber-500 hover:bg-white"
+              }`}
+            >
+              {pkg.isHighlight ? <StarOff className="w-3.5 h-3.5" /> : <Star className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
