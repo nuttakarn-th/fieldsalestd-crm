@@ -354,6 +354,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   } | null>(null);
   const rafRef      = useRef<number | null>(null);
   const touchStartX = useRef<number | null>(null);
+  const mouseStartX = useRef<number | null>(null);
+  const mouseDragging = useRef(false);
 
   const FLIP_MS = 1000;
   const N_POLY  = 10;
@@ -442,12 +444,36 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     startFlip('left', lPg(spread), rPg(spread - 1));
   }
 
+  // ── Touch swipe (mobile) ──
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
   function onTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
     if (dx < -50) goNext(); else if (dx > 50) goPrev();
+  }
+
+  // ── Mouse drag (desktop) ──
+  function onMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return; // left button only
+    mouseStartX.current = e.clientX;
+    mouseDragging.current = false;
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (mouseStartX.current === null) return;
+    if (Math.abs(e.clientX - mouseStartX.current) > 8) mouseDragging.current = true;
+  }
+  function onMouseUp(e: React.MouseEvent) {
+    if (mouseStartX.current === null) return;
+    const dx = e.clientX - mouseStartX.current;
+    mouseStartX.current = null;
+    if (!mouseDragging.current) return; // was a click, not a drag
+    if (dx < -50) goNext(); else if (dx > 50) goPrev();
+    mouseDragging.current = false;
+  }
+  function onMouseLeave() {
+    mouseStartX.current = null;
+    mouseDragging.current = false;
   }
 
   useEffect(() => {
@@ -531,9 +557,14 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
 
       {/* Viewer */}
       <div
-        className="flex-1 min-h-0 flex items-center justify-center relative"
+        className="flex-1 min-h-0 flex items-center justify-center relative select-none"
+        style={{ cursor: mouseDragging.current ? "grabbing" : "grab" }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseLeave}
       >
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white">
