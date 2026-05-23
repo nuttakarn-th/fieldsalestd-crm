@@ -343,7 +343,6 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const [,          forceUpdate]       = useState(0);
   const [zoom,          setZoom]       = useState(1);
   const [isMobile,      setIsMobile]   = useState(window.innerWidth < 768);
-  const [mobilePageIdx, setMobilePageIdx] = useState(0);
 
   const flipRef    = useRef<{
     progress:    number;
@@ -372,13 +371,14 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     pages[s * 2] ?? null, [pages]);
 
   // Compute display book dimensions from window size
+  // Mobile: larger maxW so single pages are readable; desktop: dual-page side-by-side
   const { pageW, pageH } = useMemo(() => {
     if (imgW === 0 || imgH === 0) return { pageW: 0, pageH: 0 };
-    const maxH  = window.innerHeight * 0.72;
-    const maxW  = window.innerWidth  * 0.37;   // per-page width
+    const maxH  = window.innerHeight * (isMobile ? 0.65 : 0.72);
+    const maxW  = window.innerWidth  * (isMobile ? 0.42 : 0.37);   // per-page width
     const scale = Math.min(maxH / imgH, maxW / imgW, 1);
     return { pageW: Math.floor(imgW * scale), pageH: Math.floor(imgH * scale) };
-  }, [imgW, imgH]);
+  }, [imgW, imgH, isMobile]);
   const bookW = pageW * 2;
 
   // Window resize
@@ -433,13 +433,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   }
 
   function goNext() {
-    if (isMobile) { setMobilePageIdx(i => Math.min(i + 1, pages.length - 1)); return; }
     if (flipRef.current || spread >= totalSpreads - 1) return;
     startFlip('right', rPg(spread), lPg(spread + 1));
   }
 
   function goPrev() {
-    if (isMobile) { setMobilePageIdx(i => Math.max(i - 1, 0)); return; }
     if (flipRef.current || spread <= 0) return;
     startFlip('left', lPg(spread), rPg(spread - 1));
   }
@@ -460,10 +458,10 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [spread, isMobile, mobilePageIdx, pages.length, totalSpreads]);
+  }, [spread, pages.length, totalSpreads]);
 
-  const canPrev = isMobile ? mobilePageIdx > 0 : spread > 0;
-  const canNext = isMobile ? mobilePageIdx < pages.length - 1 : spread < totalSpreads - 1;
+  const canPrev = spread > 0;
+  const canNext = spread < totalSpreads - 1;
 
   // Polygon data for this render
   const fl         = flipRef.current;
@@ -508,23 +506,19 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           <p className="text-white font-semibold text-sm truncate">{pkg.title}</p>
           {pages.length > 0 && !loading && (
             <p className="text-white/50 text-xs">
-              {isMobile
-                ? `หน้า ${mobilePageIdx + 1} / ${pages.length}`
-                : `สเปรด ${spread + 1} / ${totalSpreads} · ${pages.length} หน้า`}
+              {`สเปรด ${spread + 1} / ${totalSpreads} · ${pages.length} หน้า`}
             </p>
           )}
         </div>
-        {!isMobile && (
-          <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
-            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="text-white/70 hover:text-white p-0.5">
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <span className="text-white text-xs font-medium w-12 text-center">{(zoom * 100).toFixed(0)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="text-white/70 hover:text-white p-0.5">
-              <ZoomIn className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
+          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="text-white/70 hover:text-white p-0.5">
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          <span className="text-white text-xs font-medium w-10 text-center">{(zoom * 100).toFixed(0)}%</span>
+          <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="text-white/70 hover:text-white p-0.5">
+            <ZoomIn className="w-4 h-4" />
+          </button>
+        </div>
         <a href={pkg.pdfUrl} target="_blank" rel="noreferrer"
           className="hidden sm:flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all">
           <FileText className="w-3.5 h-3.5" /> PDF
@@ -582,16 +576,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             <div className="flex-1 flex items-center justify-center overflow-hidden">
               <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
 
-                {/* MOBILE: single page */}
-                {isMobile && (
-                  <div style={{ filter: "drop-shadow(0 20px 50px rgba(0,0,0,0.8))" }}>
-                    <img src={pages[mobilePageIdx]} alt={`หน้า ${mobilePageIdx + 1}`}
-                      className="max-h-[70vh] max-w-[90vw] object-contain select-none" draggable={false} />
-                  </div>
-                )}
-
-                {/* DESKTOP: polygon flipbook */}
-                {!isMobile && pageW > 0 && (
+                {/* Polygon flipbook — mobile + desktop */}
+                {pageW > 0 && (
                   <div style={{ filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.85))" }}>
                     {/*
                       displayW = pageW  → spread 0 idle (cover only, no blank page)
@@ -698,17 +684,17 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
       {/* Thumbnail strip */}
       {!loading && pages.length > 0 && (
         <div className="shrink-0 bg-black/70 border-t border-white/10 py-2 px-4 flex items-center gap-2 overflow-x-auto">
-          {!isMobile && totalSpreads <= 15 ? (
+          {totalSpreads <= 15 ? (
             Array.from({ length: totalSpreads }).map((_, si) => (
               <button key={si} onClick={() => goToSpread(si)}
                 className={`shrink-0 relative flex gap-0.5 overflow-hidden rounded transition-all border-2 ${
                   si === spread ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
                 }`}
-                style={{ height: 48 }}>
+                style={{ height: 40 }}>
                 {lPg(si) && <img src={lPg(si)!} alt="" className="h-full w-auto object-cover" />}
-                {!lPg(si) && <div className="h-full w-6 bg-white/5" />}
+                {!lPg(si) && <div className="h-full w-5 bg-white/5" />}
                 {rPg(si) && <img src={rPg(si)!} alt="" className="h-full w-auto object-cover" />}
-                {!rPg(si) && <div className="h-full w-6 bg-white/5" />}
+                {!rPg(si) && <div className="h-full w-5 bg-white/5" />}
               </button>
             ))
           ) : (
@@ -716,11 +702,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
               <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-violet-500 rounded-full transition-all"
-                  style={{ width: `${isMobile ? ((mobilePageIdx + 1) / pages.length) * 100 : ((spread + 1) / totalSpreads) * 100}%` }}
+                  style={{ width: `${((spread + 1) / totalSpreads) * 100}%` }}
                 />
               </div>
               <span className="text-white/60 text-xs whitespace-nowrap">
-                {isMobile ? `${mobilePageIdx + 1} / ${pages.length}` : `${spread + 1} / ${totalSpreads}`}
+                {`${spread + 1} / ${totalSpreads}`}
               </span>
             </div>
           )}
