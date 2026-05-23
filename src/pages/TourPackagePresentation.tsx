@@ -9,13 +9,14 @@
  * - Mobile-friendly: swipe/touch to flip pages
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   BookOpen, Upload, Trash2, Edit3, Save, X, Plus, Tag,
   Globe2, MapPin, Clock, ChevronLeft, ChevronRight, Loader2,
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
-  FlipHorizontal2,
+  FlipHorizontal2, Phone, MessageCircle, LogIn,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -366,10 +367,10 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PackageCard({
-  pkg, isAdmin, onOpen, onEdit, onDelete, onUploadCover,
+  pkg, canEdit, onOpen, onEdit, onDelete, onUploadCover,
 }: {
   pkg: TourPackageItem;
-  isAdmin: boolean;
+  canEdit: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -407,8 +408,8 @@ function PackageCard({
           {pkg.continent}
         </div>
 
-        {/* Admin: upload cover */}
-        {isAdmin && (
+        {/* Staff: upload cover */}
+        {canEdit && (
           <button
             onClick={onUploadCover}
             className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white/90 text-violet-600 flex items-center justify-center shadow hover:bg-white opacity-0 group-hover:opacity-100 transition-all"
@@ -461,7 +462,7 @@ function PackageCard({
           >
             <FlipHorizontal2 className="w-3.5 h-3.5" /> เปิด Flipbook
           </Button>
-          {isAdmin && (
+          {canEdit && (
             <>
               <Button size="icon" variant="ghost" className="shrink-0" onClick={onEdit} title="แก้ไข">
                 <Edit3 className="w-4 h-4" />
@@ -635,15 +636,66 @@ function AddEditDialog({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PublicHeader — shown to customers (no login required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PublicHeader({ lineUrl }: { lineUrl?: string }) {
+  return (
+    <header className="sticky top-0 z-30 bg-white/80 dark:bg-background/80 backdrop-blur-md border-b border-border/60 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+        {/* Logo */}
+        <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0 border border-border/40">
+          <img
+            src="/logo-icon.png"
+            alt="Standard Tour"
+            className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-black text-sm sm:text-base leading-tight">Standard Tour</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">โปรแกรมทัวร์ &amp; E-Booklet</p>
+        </div>
+
+        {/* Contact LINE */}
+        {lineUrl && (
+          <a
+            href={lineUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-[#06C755] text-white hover:bg-[#05b34c] transition-colors shrink-0 shadow-sm"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">สอบถามทาง LINE</span>
+            <span className="sm:hidden">LINE</span>
+          </a>
+        )}
+
+        {/* Staff login link */}
+        <Link
+          to="/login"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 px-2 py-1 rounded-lg hover:bg-muted"
+          title="เข้าสู่ระบบ Staff"
+        >
+          <LogIn className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Staff</span>
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function TourPackagePresentation() {
-  const settings    = useSiteSettings();
-  const user        = useCurrentUser();
-  const isAdmin     = user?.role === "Admin";
+  const settings  = useSiteSettings();
+  const user      = useCurrentUser();
+  // ทุก Role ที่ Login แล้วสามารถจัดการ Package ได้ (ลูกค้าที่ไม่ได้ Login เห็นได้แต่แก้ไขไม่ได้)
+  const canEdit   = !!user;
 
-  const packages    = settings.tourPackages ?? [];
+  const packages  = settings.tourPackages ?? [];
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [flipbookPkg, setFlipbookPkg] = useState<TourPackageItem | null>(null);
@@ -780,7 +832,13 @@ export default function TourPackagePresentation() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-violet-50/20 to-indigo-50/20 dark:from-background dark:via-violet-950/10 dark:to-indigo-950/10">
-      <StandaloneHeader backTo="/tour-presentation" />
+
+      {/* ── Header: Staff (logged-in) vs Public (customer) ── */}
+      {user ? (
+        <StandaloneHeader backTo="/tour-presentation" />
+      ) : (
+        <PublicHeader lineUrl={settings.lineUrl} />
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
 
@@ -798,8 +856,8 @@ export default function TourPackagePresentation() {
           </p>
         </div>
 
-        {/* ── Admin: Upload PDF button ── */}
-        {isAdmin && (
+        {/* ── Staff: Upload PDF button ── */}
+        {canEdit && (
           <div className="flex justify-center mb-6">
             <Button
               onClick={() => pdfRef.current?.click()}
@@ -926,7 +984,7 @@ export default function TourPackagePresentation() {
             <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/40 mb-4" />
             <p className="font-semibold text-lg">ยังไม่มีโปรแกรมทัวร์</p>
             <p className="text-sm text-muted-foreground mt-1">
-              {isAdmin ? "กดปุ่ม '+ เพิ่ม Package ทัวร์' เพื่อเริ่มอัปโหลดไฟล์ PDF" : "Admin จะเพิ่มโปรแกรมทัวร์ที่นี่"}
+              {canEdit ? "กดปุ่ม '+ เพิ่ม Package ทัวร์' เพื่อเริ่มอัปโหลดไฟล์ PDF" : "ระบบจะแสดงโปรแกรมทัวร์ที่นี่"}
             </p>
           </div>
         ) : filtered.length === 0 ? (
@@ -951,7 +1009,7 @@ export default function TourPackagePresentation() {
                 />
                 <PackageCard
                   pkg={pkg}
-                  isAdmin={isAdmin}
+                  canEdit={canEdit}
                   onOpen={() => setFlipbookPkg(pkg)}
                   onEdit={() => setEditPkg(pkg)}
                   onDelete={() => handleDelete(pkg)}
