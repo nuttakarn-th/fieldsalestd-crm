@@ -362,10 +362,14 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const AMBIENT = 0.4;
   const GLOSS   = 0.6;
 
-  const totalSpreads = useMemo(() => Math.ceil(pages.length / 2), [pages]);
-  const lIdx = (s: number) => s * 2;
-  const rIdx = (s: number) => s * 2 + 1;
-  const pg   = (i: number) => (i >= 0 && i < pages.length ? pages[i] : null);
+  // Virtual page layout: spread 0 = [blank | cover], then pairs
+  // virtual[0]=blank, virtual[i]=pages[i-1] for i>=1
+  // Spread s: left=virtual[s*2], right=virtual[s*2+1]
+  const totalSpreads = useMemo(() => Math.ceil((pages.length + 1) / 2), [pages]);
+  const lPg = useCallback((s: number): string | null =>
+    s === 0 ? null : (pages[s * 2 - 1] ?? null), [pages]);
+  const rPg = useCallback((s: number): string | null =>
+    pages[s * 2] ?? null, [pages]);
 
   // Compute display book dimensions from window size
   const { pageW, pageH } = useMemo(() => {
@@ -431,13 +435,13 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   function goNext() {
     if (isMobile) { setMobilePageIdx(i => Math.min(i + 1, pages.length - 1)); return; }
     if (flipRef.current || spread >= totalSpreads - 1) return;
-    startFlip('right', pg(rIdx(spread)), pg(lIdx(spread + 1)));
+    startFlip('right', rPg(spread), lPg(spread + 1));
   }
 
   function goPrev() {
     if (isMobile) { setMobilePageIdx(i => Math.max(i - 1, 0)); return; }
     if (flipRef.current || spread <= 0) return;
-    startFlip('left', pg(lIdx(spread)), pg(rIdx(spread - 1)));
+    startFlip('left', lPg(spread), rPg(spread - 1));
   }
 
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
@@ -465,11 +469,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const fl         = flipRef.current;
   const dispSpread = fl ? fl.startSpread : spread;
 
-  let staticL = pg(lIdx(dispSpread));
-  let staticR = pg(rIdx(dispSpread));
+  let staticL = lPg(dispSpread);
+  let staticR = rPg(dispSpread);
   if (fl) {
-    if (fl.direction === 'right') staticR = pg(rIdx(dispSpread + 1));
-    else                          staticL = pg(lIdx(dispSpread - 1));
+    if (fl.direction === 'right') staticR = rPg(dispSpread + 1);
+    else                          staticL = lPg(dispSpread - 1);
   }
 
   const polyBase = fl && pageW > 0 ? {
@@ -686,9 +690,10 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
                   si === spread ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
                 }`}
                 style={{ height: 48 }}>
-                {pg(lIdx(si)) && <img src={pg(lIdx(si))!} alt="" className="h-full w-auto object-cover" />}
-                {pg(rIdx(si)) && <img src={pg(rIdx(si))!} alt="" className="h-full w-auto object-cover" />}
-                {!pg(lIdx(si)) && !pg(rIdx(si)) && <div className="h-full w-8 bg-white/10" />}
+                {lPg(si) && <img src={lPg(si)!} alt="" className="h-full w-auto object-cover" />}
+                {!lPg(si) && <div className="h-full w-6 bg-white/5" />}
+                {rPg(si) && <img src={rPg(si)!} alt="" className="h-full w-auto object-cover" />}
+                {!rPg(si) && <div className="h-full w-6 bg-white/5" />}
               </button>
             ))
           ) : (
