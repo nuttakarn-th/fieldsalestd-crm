@@ -20,6 +20,21 @@ export interface BannerSlide {
   showTitle?: boolean; // false = ไม่แสดง title/subtitle บน banner (default: true)
 }
 
+export interface TourPackageItem {
+  id: string;
+  title: string;
+  duration: string;         // e.g. "6 วัน 4 คืน"
+  continent: string;        // e.g. "ยุโรป", "เอเชีย"
+  country: string;          // e.g. "ญี่ปุ่น", "สวิตเซอร์แลนด์"
+  city: string;             // e.g. "โตเกียว", "เซอร์แมท"
+  tourTypes: string[];      // e.g. ["ครอบครัว", "Premium"]
+  pdfUrl: string;
+  pdfName: string;
+  coverUrl?: string;
+  description?: string;
+  uploadedAt: string;
+}
+
 interface State {
   // Tour Presentation
   companyProfile: string;
@@ -39,6 +54,8 @@ interface State {
   license: string;
   // Login Banner Slides
   bannerSlides: BannerSlide[];
+  // Tour Package Presentations
+  tourPackages: TourPackageItem[];
 
   setProfile: (v: string) => void;
   setSocial: (l: SocialLink[]) => void;
@@ -52,6 +69,9 @@ interface State {
   addBannerSlide: (slide: BannerSlide) => void;
   updateBannerSlide: (id: string, patch: Partial<BannerSlide>) => void;
   removeBannerSlide: (id: string) => void;
+  addTourPackage: (p: TourPackageItem) => void;
+  updateTourPackage: (id: string, patch: Partial<TourPackageItem>) => void;
+  removeTourPackage: (id: string) => void;
 
   loadFromSupabase: () => Promise<void>;
   saveToSupabase: () => Promise<void>;
@@ -95,6 +115,7 @@ const DEFAULTS = {
   taxId: "0505533000491",
   license: "21/00296",
   bannerSlides: DEFAULT_BANNER_SLIDES,
+  tourPackages: [] as TourPackageItem[],
 };
 
 // Pick only the data fields (no actions) for serialization
@@ -114,6 +135,7 @@ function snapshot(s: State) {
     taxId: s.taxId,
     license: s.license,
     bannerSlides: s.bannerSlides,
+    tourPackages: s.tourPackages,
   };
 }
 
@@ -138,6 +160,12 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
     get().saveToSupabase();
   },
   removeBannerSlide: (id) => { set({ bannerSlides: get().bannerSlides.filter((s) => s.id !== id) }); get().saveToSupabase(); },
+  addTourPackage: (p) => { set({ tourPackages: [...(get().tourPackages ?? []), p] }); get().saveToSupabase(); },
+  updateTourPackage: (id, patch) => {
+    set({ tourPackages: (get().tourPackages ?? []).map((x) => x.id === id ? { ...x, ...patch } : x) });
+    get().saveToSupabase();
+  },
+  removeTourPackage: (id) => { set({ tourPackages: (get().tourPackages ?? []).filter((x) => x.id !== id) }); get().saveToSupabase(); },
 
   loadFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
@@ -166,6 +194,8 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
         if (!payload.bannerSlides || payload.bannerSlides.length === 0) {
           payload.bannerSlides = DEFAULT_BANNER_SLIDES;
         }
+        // Ensure tourPackages defaults
+        if (!payload.tourPackages) payload.tourPackages = [];
         set(payload);
       }
     } catch (e) {

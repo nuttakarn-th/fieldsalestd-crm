@@ -1,18 +1,49 @@
 /**
- * ContentPhotoFrame.tsx — v2 Interactive Editor
- * - ลากกรอบรูป (Template) เพื่อขยับตำแหน่ง
- * - Scale slider ปรับขนาด Template
- * - ปุ่ม "เต็มภาพ" (Fit Full) และ "ตรงกลาง"
- * - Template Library แบบโฟล์เดอร์ที่ตั้งชื่อได้
+ * ContentPhotoFrame.tsx — v3 Interactive Editor
+ * - Per-photo independent TmplPos (cx/cy/scale/rotation/flipH/flipV)
+ * - New photos inherit active photo's position
+ * - Corner handles: drag to resize (center-fixed)
+ * - Rotation circle handle above template
+ * - Flip H / Flip V buttons
+ * - Fixed 56px thumbnail height in template panel
+ * - FolderGroup: pencil icon → inline rename
  */
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Layers, Upload, Trash2, Download, Plus, Check, ImageIcon, X,
   Folder, FolderOpen, ChevronRight, ChevronDown,
-  Maximize2, AlignCenter, Info,
+  Maximize2, AlignCenter, Info, Pencil, RotateCcw,
+  FlipHorizontal, FlipVertical,
 } from "lucide-react";
 import { useCRM, type ContentTemplate } from "@/store/crmStore";
 import { toast } from "sonner";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TmplPos {
+  cx: number;       // center X in canvas pixel space
+  cy: number;       // center Y in canvas pixel space
+  scale: number;    // 0.05 → 5
+  rotation: number; // radians
+  flipH: boolean;
+  flipV: boolean;
+}
+
+type DragMode = "none" | "move" | "resize-tl" | "resize-tr" | "resize-bl" | "resize-br" | "rotate";
+
+interface DragState {
+  mode: DragMode;
+  startMx: number;
+  startMy: number;
+  startCx: number;
+  startCy: number;
+  startScale: number;
+  startRotation: number;
+  startAngle: number;   // for rotate: atan2(startMy-cy, startMx-cx)
+  startDist: number;    // for resize: dist(center, startMouse)
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -36,8 +67,68 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function dist(ax: number, ay: number, bx: number, by: number) {
+  return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
+}
+
+/** Rotate local point (lx,ly) around canvas origin (cx,cy) by angle */
+function rotPoint(cx: number, cy: number, lx: number, ly: number, angle: number) {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return { x: cx + lx * cos - ly * sin, y: cy + lx * sin + ly * cos };
+}
+
+function defaultPos(): TmplPos {
+  return { cx: 0, cy: 0, scale: 1, rotation: 0, flipH: false, flipV: false };
+}
+
+function fitFullPos(photo: HTMLImageElement, t: ContentTemplate): TmplPos {
+  const scale = Math.max(photo.naturalWidth / t.width, photo.naturalHeight / t.height);
+  return {
+    cx: photo.naturalWidth  / 2,
+    cy: photo.naturalHeight / 2,
+    scale,
+    rotation: 0,
+    flipH: false,
+    flipV: false,
+  };
+}
+
+/** Get canvas-space corner points + rotation handle for a given TmplPos */
+function getHandles(pos: TmplPos, t: ContentTemplate, r: number) {
+  const { cx, cy, scale, rotation } = pos;
+  const tw = t.width  * scale;
+  const th = t.height * scale;
+  // above-center handle offset in canvas px
+  const d = 36 * r;
+  const corners = [
+    { ...rotPoint(cx, cy, -tw / 2, -th / 2, rotation), mode: "resize-tl" as DragMode },
+    { ...rotPoint(cx, cy, +tw / 2, -th / 2, rotation), mode: "resize-tr" as DragMode },
+    { ...rotPoint(cx, cy, -tw / 2, +th / 2, rotation), mode: "resize-bl" as DragMode },
+    { ...rotPoint(cx, cy, +tw / 2, +th / 2, rotation), mode: "resize-br" as DragMode },
+  ];
+  // Rotation handle: above template top-center in rotated space
+  const rotHandle = rotPoint(cx, cy, 0, -(th / 2 + d), rotation);
+  return { corners, rotHandle, tw, th };
+}
+
+/** Test if canvas point (mx,my) is inside the template rectangle */
+function hitInsideTemplate(mx: number, my: number, pos: TmplPos, t: ContentTemplate): boolean {
+  const { cx, cy, scale, rotation } = pos;
+  const tw = t.width  * scale / 2;
+  const th = t.height * scale / 2;
+  // Transform point to template-local space (rotate back)
+  const dx = mx - cx;
+  const dy = my - cy;
+  const cos = Math.cos(-rotation);
+  const sin = Math.sin(-rotation);
+  const lx = dx * cos - dy * sin;
+  const ly = dx * sin + dy * cos;
+  return Math.abs(lx) <= tw && Math.abs(ly) <= th;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// PhotoThumb — renders a File as <img> via objectURL
+// PhotoThumb
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PhotoThumb({ file }: { file: File }) {
@@ -51,7 +142,7 @@ function PhotoThumb({ file }: { file: File }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TemplateMiniCard — thumbnail card with folder assignment dropdown
+// TemplateMiniCard — fixed 56px height thumbnail
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TemplateMiniCard({
@@ -85,11 +176,11 @@ function TemplateMiniCard({
           : "hover:border-amber-300 border-border"
       }`}
     >
-      {/* Thumbnail */}
+      {/* Fixed-height thumbnail (56px) */}
       <div
         onClick={onSelect}
         className="relative cursor-pointer overflow-hidden rounded-t-lg"
-        style={{ aspectRatio: `${template.width}/${template.height}` }}
+        style={{ height: 56 }}
       >
         <div
           className="absolute inset-0"
@@ -176,7 +267,7 @@ function TemplateMiniCard({
         </button>
       </div>
       <p className="text-[9px] text-muted-foreground px-1.5 pb-1 leading-none">
-        {template.width}×{template.height}px
+        {template.width}×{template.height}
         {template.folder && <span className="ml-1 text-amber-500">📁 {template.folder}</span>}
       </p>
     </div>
@@ -184,34 +275,72 @@ function TemplateMiniCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FolderGroup — collapsible folder section
+// FolderGroup — collapsible with pencil-icon rename for named folders
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FolderGroup({
-  label, open, onToggle, count, isNamed = false, children,
+  label, open, onToggle, count, isNamed = false, onRename, children,
 }: {
   label: string;
   open: boolean;
   onToggle: () => void;
   count: number;
   isNamed?: boolean;
+  onRename?: (newName: string) => void;
   children: React.ReactNode;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(label);
+
+  function confirm() {
+    const n = editName.trim();
+    if (n && n !== label && onRename) onRename(n);
+    setEditing(false);
+  }
+
   return (
     <div>
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-1.5 px-1 py-1 rounded-lg hover:bg-muted/60 transition-colors text-left"
-      >
-        {open
-          ? <ChevronDown  className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-          : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-        {isNamed
-          ? <FolderOpen className="w-3.5 h-3.5 shrink-0 text-amber-500" />
-          : <Folder     className="w-3.5 h-3.5 shrink-0 text-muted-foreground/50" />}
-        <span className="text-[11px] font-semibold flex-1 truncate">{label}</span>
-        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
-      </button>
+      <div className="flex items-center gap-0.5 group/folder">
+        <button
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-1.5 px-1 py-1 rounded-lg hover:bg-muted/60 transition-colors text-left min-w-0"
+        >
+          {open
+            ? <ChevronDown  className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+          {isNamed
+            ? <FolderOpen className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+            : <Folder     className="w-3.5 h-3.5 shrink-0 text-muted-foreground/50" />}
+          {editing ? (
+            <input
+              autoFocus
+              value={editName}
+              onClick={e => e.stopPropagation()}
+              onChange={e => setEditName(e.target.value)}
+              onBlur={confirm}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.preventDefault(); confirm(); }
+                if (e.key === "Escape") { setEditing(false); setEditName(label); }
+              }}
+              className="flex-1 text-[11px] font-semibold bg-background border rounded px-1 py-0 min-w-0"
+            />
+          ) : (
+            <span className="text-[11px] font-semibold flex-1 truncate">{label}</span>
+          )}
+          <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full shrink-0">{count}</span>
+        </button>
+
+        {/* Pencil rename — only for named folders */}
+        {isNamed && onRename && !editing && (
+          <button
+            onClick={e => { e.stopPropagation(); setEditName(label); setEditing(true); }}
+            title="เปลี่ยนชื่อโฟล์เดอร์"
+            className="opacity-0 group-hover/folder:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:text-amber-600 text-muted-foreground transition-all shrink-0"
+          >
+            <Pencil className="w-2.5 h-2.5" />
+          </button>
+        )}
+      </div>
       {open && <div className="mt-1.5 space-y-1.5 pl-1">{children}</div>}
     </div>
   );
@@ -221,35 +350,35 @@ function FolderGroup({
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface TmplPos { x: number; y: number; scale: number; }
-
 export default function ContentPhotoFrame() {
   const { contentTemplates, addContentTemplate, updateContentTemplate, deleteContentTemplate } = useCRM();
 
-  // Selection
-  const [selectedId, setSelectedId] = useState<string | null>(contentTemplates[0]?.template_id ?? null);
-  // Photos
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
-  // Template overlay position/scale (in canvas/photo pixel coords)
-  const [tmpl, setTmpl] = useState<TmplPos>({ x: 0, y: 0, scale: 1 });
-  // Folder open/close state
-  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set(["__none__"]));
-  // Redraw trigger
-  const [drawTick, setDrawTick] = useState(0);
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [selectedId,      setSelectedId]      = useState<string | null>(contentTemplates[0]?.template_id ?? null);
+  const [photoFiles,      setPhotoFiles]      = useState<File[]>([]);
+  const [activeIdx,       setActiveIdx]       = useState(0);
+  // Per-photo positions (undefined = not yet initialized for that photo)
+  const [photoPositions,  setPhotoPositions]  = useState<(TmplPos | undefined)[]>([]);
+  const [openFolders,     setOpenFolders]     = useState<Set<string>>(new Set(["__none__"]));
+  const [drawTick,        setDrawTick]        = useState(0);
 
-  // Refs
-  const editorRef       = useRef<HTMLCanvasElement>(null);
-  const photoImgRef     = useRef<HTMLImageElement | null>(null);
-  const templateImgRef  = useRef<HTMLImageElement | null>(null);
-  const dragRef         = useRef({ active: false, startMx: 0, startMy: 0, startTx: 0, startTy: 0 });
+  // ── Refs ───────────────────────────────────────────────────────────────────
+  const editorRef        = useRef<HTMLCanvasElement>(null);
+  const photoImgRef      = useRef<HTMLImageElement | null>(null);
+  const templateImgRef   = useRef<HTMLImageElement | null>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef    = useRef<HTMLInputElement>(null);
+  const dragRef          = useRef<DragState>({
+    mode: "none", startMx: 0, startMy: 0, startCx: 0, startCy: 0,
+    startScale: 1, startRotation: 0, startAngle: 0, startDist: 0,
+  });
 
+  // ── Derived ────────────────────────────────────────────────────────────────
   const selectedTemplate = contentTemplates.find(t => t.template_id === selectedId) ?? null;
   const activePhoto      = photoFiles[activeIdx] ?? null;
-
-  // ── Derived folder groups ────────────────────────────────────────────────
+  // Current active photo's position (undefined if not initialized)
+  const curPos: TmplPos  = photoPositions[activeIdx] ?? defaultPos();
+  const { cx, cy, scale, rotation, flipH, flipV } = curPos;
 
   const folders = useMemo(() => {
     const s = new Set<string>();
@@ -266,40 +395,75 @@ export default function ContentPhotoFrame() {
     return g;
   }, [contentTemplates]);
 
-  // ── Auto-select first template ───────────────────────────────────────────
+  // ── Setter for current photo's position ────────────────────────────────────
+  function setPos(patch: Partial<TmplPos>) {
+    setPhotoPositions(prev => {
+      const arr = [...prev];
+      arr[activeIdx] = { ...(arr[activeIdx] ?? defaultPos()), ...patch };
+      return arr;
+    });
+  }
 
+  // ── Auto-select first template ─────────────────────────────────────────────
   useEffect(() => {
     if (!selectedId && contentTemplates.length > 0) setSelectedId(contentTemplates[0].template_id);
   }, [contentTemplates, selectedId]);
 
-  // ── Load template image when selection changes ───────────────────────────
-
+  // ── Load template image ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!selectedTemplate) { templateImgRef.current = null; setDrawTick(v => v + 1); return; }
+    if (!selectedTemplate) {
+      templateImgRef.current = null;
+      // Reset all photo positions when template removed
+      setPhotoPositions(prev => prev.map(() => undefined));
+      setDrawTick(v => v + 1);
+      return;
+    }
     loadImg(selectedTemplate.dataUrl).then(img => {
       templateImgRef.current = img;
-      if (photoImgRef.current) setTmpl(fitFullPos(photoImgRef.current, selectedTemplate));
+      // Reset all positions; active photo gets fitFullPos
+      setPhotoPositions(prev => prev.map((_, i) => {
+        if (i === activeIdx && photoImgRef.current) {
+          return fitFullPos(photoImgRef.current, selectedTemplate);
+        }
+        return undefined; // will be fitFullPos'd when that photo is activated
+      }));
       setDrawTick(v => v + 1);
     }).catch(() => { templateImgRef.current = null; setDrawTick(v => v + 1); });
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
-  // ── Load photo image when active photo changes ───────────────────────────
-
+  // ── Load active photo image ────────────────────────────────────────────────
   useEffect(() => {
     if (!activePhoto) { photoImgRef.current = null; setDrawTick(v => v + 1); return; }
     const url = URL.createObjectURL(activePhoto);
     loadImg(url)
       .then(img => {
         photoImgRef.current = img;
-        if (selectedTemplate) setTmpl(fitFullPos(img, selectedTemplate));
+        // Only apply fitFullPos if this photo's position is not yet initialized
+        setPhotoPositions(prev => {
+          if (prev[activeIdx] !== undefined) return prev; // already has a position
+          const arr = [...prev];
+          arr[activeIdx] = selectedTemplate
+            ? fitFullPos(img, selectedTemplate)
+            : { cx: img.naturalWidth / 2, cy: img.naturalHeight / 2, scale: 1, rotation: 0, flipH: false, flipV: false };
+          return arr;
+        });
         setDrawTick(v => v + 1);
       })
       .catch(() => {})
       .finally(() => URL.revokeObjectURL(url));
-  }, [activePhoto]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePhoto]);
 
-  // ── Canvas draw effect ───────────────────────────────────────────────────
+  // ── Canvas ratio helper ────────────────────────────────────────────────────
+  function canvasR() {
+    const c = editorRef.current;
+    if (!c) return 1;
+    const rect = c.getBoundingClientRect();
+    return rect.width > 0 ? c.width / rect.width : 1;
+  }
 
+  // ── Canvas draw effect ─────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = editorRef.current;
     if (!canvas) return;
@@ -319,67 +483,106 @@ export default function ContentPhotoFrame() {
     canvas.width  = photo.naturalWidth;
     canvas.height = photo.naturalHeight;
 
-    // 1. Draw background photo (full size)
+    // 1. Draw background photo
     ctx.drawImage(photo, 0, 0);
 
-    // 2. Draw template at current position/scale
+    // 2. Draw template with full transforms
     if (frame && selectedTemplate) {
-      const { x, y, scale } = tmpl;
       const tw = selectedTemplate.width  * scale;
       const th = selectedTemplate.height * scale;
-      ctx.drawImage(frame, x, y, tw, th);
-
-      // 3. Draw selection border + corner handles
-      const rect = canvas.getBoundingClientRect();
-      const r = rect.width > 0 ? canvas.width / rect.width : 1; // canvas px per CSS px
-      const lw = Math.max(2, 2 * r);
 
       ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+      ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+      ctx.drawImage(frame, -tw / 2, -th / 2, tw, th);
+      ctx.restore();
+
+      // 3. Draw selection border (dashed, in rotated space)
+      const r    = canvasR();
+      const lw   = Math.max(2, 2 * r);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
       ctx.setLineDash([lw * 3.5, lw * 1.5]);
       ctx.strokeStyle = "rgba(255,255,255,0.85)";
       ctx.shadowColor  = "rgba(0,0,0,0.5)";
       ctx.shadowBlur   = lw * 2;
       ctx.lineWidth = lw;
-      ctx.strokeRect(x, y, tw, th);
+      ctx.strokeRect(-tw / 2, -th / 2, tw, th);
       ctx.shadowBlur = 0;
       ctx.setLineDash([]);
-      // Corner squares
-      ctx.fillStyle = "rgba(99,102,241,0.95)";
+      ctx.restore();
+
+      // 4. Corner squares + rotation handle
+      const { corners, rotHandle } = getHandles(curPos, selectedTemplate, r);
       const hs = lw * 3.5;
-      [[x, y], [x + tw, y], [x, y + th], [x + tw, y + th]].forEach(([hx, hy]) => {
-        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+
+      // Corner squares (resize handles)
+      ctx.fillStyle = "rgba(99,102,241,0.95)";
+      corners.forEach(c2 => {
+        ctx.fillRect(c2.x - hs / 2, c2.y - hs / 2, hs, hs);
       });
+
+      // Line from top-center of template to rotation handle
+      const topCenter = rotPoint(cx, cy, 0, -th / 2, rotation);
+      ctx.beginPath();
+      ctx.moveTo(topCenter.x, topCenter.y);
+      ctx.lineTo(rotHandle.x, rotHandle.y);
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = lw;
+      ctx.stroke();
+
+      // Rotation circle
+      const rotRadius = hs * 1.3;
+      ctx.beginPath();
+      ctx.arc(rotHandle.x, rotHandle.y, rotRadius, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(139,92,246,0.95)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.7)";
+      ctx.lineWidth = lw * 0.6;
+      ctx.stroke();
+
+      // Rotation arrow symbol inside circle
+      ctx.save();
+      ctx.translate(rotHandle.x, rotHandle.y);
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = lw * 0.8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(0, 0, rotRadius * 0.45, -Math.PI * 0.15, Math.PI * 1.3);
+      ctx.stroke();
+      // Arrow tip
+      const tipAngle = Math.PI * 1.3;
+      const tipX = rotRadius * 0.45 * Math.cos(tipAngle);
+      const tipY = rotRadius * 0.45 * Math.sin(tipAngle);
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX - lw * 1.5, tipY - lw * 1.5);
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX + lw * 1.5, tipY - lw * 1.5);
+      ctx.stroke();
       ctx.restore();
     }
-  }, [drawTick, tmpl, selectedTemplate]);
+  }, [drawTick, cx, cy, scale, rotation, flipH, flipV, selectedTemplate, activeIdx]);
 
-  // ── Fit / Center helpers ─────────────────────────────────────────────────
-
-  function fitFullPos(photo: HTMLImageElement, t: ContentTemplate): TmplPos {
-    const scale = Math.max(photo.naturalWidth / t.width, photo.naturalHeight / t.height);
-    return {
-      x: (photo.naturalWidth  - t.width  * scale) / 2,
-      y: (photo.naturalHeight - t.height * scale) / 2,
-      scale,
-    };
-  }
-
+  // ── Fit / Center helpers ───────────────────────────────────────────────────
   function handleFitFull() {
     if (!photoImgRef.current || !selectedTemplate) return;
-    setTmpl(fitFullPos(photoImgRef.current, selectedTemplate));
+    setPos(fitFullPos(photoImgRef.current, selectedTemplate));
   }
 
   function handleCenter() {
-    if (!photoImgRef.current || !selectedTemplate) return;
-    setTmpl(prev => ({
-      ...prev,
-      x: (photoImgRef.current!.naturalWidth  - selectedTemplate.width  * prev.scale) / 2,
-      y: (photoImgRef.current!.naturalHeight - selectedTemplate.height * prev.scale) / 2,
-    }));
+    if (!photoImgRef.current) return;
+    setPos({ cx: photoImgRef.current.naturalWidth / 2, cy: photoImgRef.current.naturalHeight / 2 });
   }
 
-  // ── Canvas mouse interaction ─────────────────────────────────────────────
+  function handleResetTransform() {
+    setPos({ rotation: 0, flipH: false, flipV: false });
+  }
 
+  // ── Canvas coordinate helper ───────────────────────────────────────────────
   function canvasXY(e: React.MouseEvent<HTMLCanvasElement>) {
     const c = editorRef.current!;
     const r = c.getBoundingClientRect();
@@ -389,36 +592,131 @@ export default function ContentPhotoFrame() {
     };
   }
 
-  function hitTest(cx: number, cy: number) {
-    if (!selectedTemplate) return false;
-    const { x, y, scale } = tmpl;
-    return cx >= x && cx <= x + selectedTemplate.width  * scale
-        && cy >= y && cy <= y + selectedTemplate.height * scale;
-  }
-
+  // ── Mouse interaction ──────────────────────────────────────────────────────
   function onMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (!selectedTemplate) return;
     const { x, y } = canvasXY(e);
-    if (!hitTest(x, y)) return;
-    dragRef.current = { active: true, startMx: x, startMy: y, startTx: tmpl.x, startTy: tmpl.y };
+    const r   = canvasR();
+    const lw  = Math.max(2, 2 * r);
+    const hs  = lw * 3.5 * 1.5; // hit radius for handles (1.5x visual size)
+
+    const { corners, rotHandle } = getHandles(curPos, selectedTemplate, r);
+
+    // Check rotation handle first
+    if (dist(x, y, rotHandle.x, rotHandle.y) < hs * 1.5) {
+      dragRef.current = {
+        mode: "rotate",
+        startMx: x, startMy: y,
+        startCx: cx, startCy: cy,
+        startScale: scale, startRotation: rotation,
+        startAngle: Math.atan2(y - cy, x - cx),
+        startDist: 0,
+      };
+      return;
+    }
+
+    // Check corner handles
+    for (const corner of corners) {
+      if (dist(x, y, corner.x, corner.y) < hs) {
+        dragRef.current = {
+          mode: corner.mode,
+          startMx: x, startMy: y,
+          startCx: cx, startCy: cy,
+          startScale: scale, startRotation: rotation,
+          startAngle: 0,
+          startDist: dist(cx, cy, x, y),
+        };
+        return;
+      }
+    }
+
+    // Check inside template for move
+    if (hitInsideTemplate(x, y, curPos, selectedTemplate)) {
+      dragRef.current = {
+        mode: "move",
+        startMx: x, startMy: y,
+        startCx: cx, startCy: cy,
+        startScale: scale, startRotation: rotation,
+        startAngle: 0, startDist: 0,
+      };
+    }
   }
 
   function onMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
     const { x, y } = canvasXY(e);
-    const canvasEl = editorRef.current!;
-    canvasEl.style.cursor = dragRef.current.active ? "grabbing" : hitTest(x, y) ? "grab" : "crosshair";
-    if (!dragRef.current.active) return;
-    const { startMx, startMy, startTx, startTy } = dragRef.current;
-    setTmpl(p => ({ ...p, x: startTx + (x - startMx), y: startTy + (y - startMy) }));
+    const d = dragRef.current;
+
+    if (!selectedTemplate) return;
+
+    // Update cursor when not dragging
+    if (d.mode === "none") {
+      const r   = canvasR();
+      const lw  = Math.max(2, 2 * r);
+      const hs  = lw * 3.5 * 1.5;
+      const { corners, rotHandle } = getHandles(curPos, selectedTemplate, r);
+
+      if (dist(x, y, rotHandle.x, rotHandle.y) < hs * 1.5) {
+        editorRef.current!.style.cursor = "crosshair";
+      } else if (corners.some(c2 => dist(x, y, c2.x, c2.y) < hs)) {
+        editorRef.current!.style.cursor = "nwse-resize";
+      } else if (hitInsideTemplate(x, y, curPos, selectedTemplate)) {
+        editorRef.current!.style.cursor = "grab";
+      } else {
+        editorRef.current!.style.cursor = "crosshair";
+      }
+      return;
+    }
+
+    editorRef.current!.style.cursor = d.mode === "move" ? "grabbing" : d.mode === "rotate" ? "crosshair" : "nwse-resize";
+
+    if (d.mode === "move") {
+      setPos({ cx: d.startCx + (x - d.startMx), cy: d.startCy + (y - d.startMy) });
+    } else if (d.mode.startsWith("resize-")) {
+      const currDist = dist(d.startCx, d.startCy, x, y);
+      if (d.startDist > 0) {
+        const newScale = Math.max(0.05, Math.min(5, d.startScale * currDist / d.startDist));
+        setPos({ scale: newScale });
+      }
+    } else if (d.mode === "rotate") {
+      const currAngle = Math.atan2(y - d.startCy, x - d.startCx);
+      const newRotation = d.startRotation + (currAngle - d.startAngle);
+      setPos({ rotation: newRotation });
+    }
   }
 
-  function onMouseUp()    { dragRef.current.active = false; }
+  function onMouseUp()    { dragRef.current.mode = "none"; }
   function onMouseLeave() {
-    dragRef.current.active = false;
+    dragRef.current.mode = "none";
     if (editorRef.current) editorRef.current.style.cursor = "crosshair";
   }
 
-  // ── Upload: Templates ────────────────────────────────────────────────────
+  // ── Touch support for canvas ───────────────────────────────────────────────
+  function touchXY(e: React.TouchEvent<HTMLCanvasElement>) {
+    const t = e.touches[0];
+    const c = editorRef.current!;
+    const r = c.getBoundingClientRect();
+    return { x: (t.clientX - r.left) * (c.width / r.width), y: (t.clientY - r.top) * (c.height / r.height) };
+  }
 
+  function onTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const { x, y } = touchXY(e);
+    onMouseDown({ clientX: x, clientY: y } as unknown as React.MouseEvent<HTMLCanvasElement>);
+  }
+
+  function onTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
+    e.preventDefault();
+    const { x, y } = touchXY(e);
+    // Simulate canvas coords directly since touchXY already converts
+    const c = editorRef.current!;
+    const r = c.getBoundingClientRect();
+    const mocked = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY } as React.MouseEvent<HTMLCanvasElement>;
+    onMouseMove(mocked);
+  }
+
+  function onTouchEnd() { onMouseUp(); }
+
+  // ── Upload: Templates ──────────────────────────────────────────────────────
   async function onTemplateUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -437,14 +735,18 @@ export default function ContentPhotoFrame() {
     }
   }
 
-  // ── Upload: Photos ───────────────────────────────────────────────────────
-
+  // ── Upload: Photos (inherits current position) ─────────────────────────────
   function onPhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     if (!files.length) return;
-    const startIdx = photoFiles.length;
+    const inheritPos = photoPositions[activeIdx]; // may be undefined if no current photo
+    const startIdx   = photoFiles.length;
     setPhotoFiles(prev => [...prev, ...files]);
+    setPhotoPositions(prev => [
+      ...prev,
+      ...files.map(() => inheritPos ? { ...inheritPos } : undefined),
+    ]);
     setActiveIdx(startIdx);
   }
 
@@ -452,33 +754,42 @@ export default function ContentPhotoFrame() {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
     if (!files.length) return;
-    const startIdx = photoFiles.length;
+    const inheritPos = photoPositions[activeIdx];
+    const startIdx   = photoFiles.length;
     setPhotoFiles(prev => [...prev, ...files]);
+    setPhotoPositions(prev => [...prev, ...files.map(() => inheritPos ? { ...inheritPos } : undefined)]);
     setActiveIdx(startIdx);
-  }, [photoFiles.length]);
+  }, [photoFiles.length, photoPositions, activeIdx]);
 
-  // ── Download ─────────────────────────────────────────────────────────────
-
-  async function downloadOne(file: File) {
+  // ── Download ───────────────────────────────────────────────────────────────
+  async function downloadOne(file: File, posIdx: number) {
     if (!templateImgRef.current || !selectedTemplate) { toast.error("เลือก Template ก่อน"); return; }
     const url = URL.createObjectURL(file);
     const photo = await loadImg(url).catch(() => null);
     URL.revokeObjectURL(url);
     if (!photo) { toast.error("โหลดรูปไม่ได้"); return; }
-    const c = document.createElement("canvas");
-    c.width  = photo.naturalWidth;
-    c.height = photo.naturalHeight;
+
+    // Use this photo's position, falling back to fitFullPos
+    let pos = photoPositions[posIdx] ?? fitFullPos(photo, selectedTemplate);
+
+    const c   = document.createElement("canvas");
+    c.width   = photo.naturalWidth;
+    c.height  = photo.naturalHeight;
     const ctx = c.getContext("2d")!;
     ctx.drawImage(photo, 0, 0);
-    ctx.drawImage(
-      templateImgRef.current,
-      tmpl.x, tmpl.y,
-      selectedTemplate.width  * tmpl.scale,
-      selectedTemplate.height * tmpl.scale,
-    );
-    const a = document.createElement("a");
+
+    const tw = selectedTemplate.width  * pos.scale;
+    const th = selectedTemplate.height * pos.scale;
+    ctx.save();
+    ctx.translate(pos.cx, pos.cy);
+    ctx.rotate(pos.rotation);
+    ctx.scale(pos.flipH ? -1 : 1, pos.flipV ? -1 : 1);
+    ctx.drawImage(templateImgRef.current, -tw / 2, -th / 2, tw, th);
+    ctx.restore();
+
+    const a    = document.createElement("a");
     a.download = `framed_${file.name.replace(/\.[^.]+$/, "")}.png`;
-    a.href = c.toDataURL("image/png");
+    a.href     = c.toDataURL("image/png");
     a.click();
   }
 
@@ -487,13 +798,12 @@ export default function ContentPhotoFrame() {
     toast.info(`กำลัง Download ${photoFiles.length} รูป...`);
     for (let i = 0; i < photoFiles.length; i++) {
       if (i > 0) await new Promise(r => setTimeout(r, 350));
-      await downloadOne(photoFiles[i]);
+      await downloadOne(photoFiles[i], i);
     }
     toast.success(`Download ครบ ${photoFiles.length} รูป ✅`);
   }
 
-  // ── Folder helpers ───────────────────────────────────────────────────────
-
+  // ── Folder helpers ─────────────────────────────────────────────────────────
   function toggleFolder(key: string) {
     setOpenFolders(prev => {
       const next = new Set(prev);
@@ -502,18 +812,30 @@ export default function ContentPhotoFrame() {
     });
   }
 
+  function handleRenameFolder(oldName: string, newName: string) {
+    contentTemplates
+      .filter(t => t.folder === oldName)
+      .forEach(t => updateContentTemplate(t.template_id, { folder: newName }));
+    setOpenFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(oldName)) { next.delete(oldName); next.add(newName); }
+      return next;
+    });
+    toast.success(`เปลี่ยนชื่อโฟล์เดอร์เป็น "${newName}" ✅`);
+  }
+
   function handleDeleteTemplate(id: string) {
     deleteContentTemplate(id);
     if (selectedId === id) setSelectedId(contentTemplates.find(t => t.template_id !== id)?.template_id ?? null);
     toast.success("ลบ Template แล้ว");
   }
 
-  // ── Computed display info ────────────────────────────────────────────────
-
+  // ── Computed display info ──────────────────────────────────────────────────
   const pw = photoImgRef.current?.naturalWidth  ?? 0;
   const ph = photoImgRef.current?.naturalHeight ?? 0;
-  const tw = selectedTemplate ? Math.round(selectedTemplate.width  * tmpl.scale) : 0;
-  const th = selectedTemplate ? Math.round(selectedTemplate.height * tmpl.scale) : 0;
+  const tw = selectedTemplate ? Math.round(selectedTemplate.width  * scale) : 0;
+  const th = selectedTemplate ? Math.round(selectedTemplate.height * scale) : 0;
+  const rotDeg = (rotation * 180 / Math.PI).toFixed(1);
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -522,11 +844,11 @@ export default function ContentPhotoFrame() {
   return (
     <div
       className="flex overflow-hidden bg-background"
-      style={{ height: "calc(100vh - 56px)" }} // subtract ContentManagementLayout header
+      style={{ height: "calc(100vh - 56px)" }}
     >
 
       {/* ══════════════ LEFT: Template Library ══════════════ */}
-      <div className="w-56 shrink-0 border-r bg-card flex flex-col overflow-hidden">
+      <div className="w-52 shrink-0 border-r bg-card flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-3 py-2.5 border-b flex items-center justify-between shrink-0">
@@ -594,6 +916,7 @@ export default function ContentPhotoFrame() {
                   onToggle={() => toggleFolder(folder)}
                   count={grouped[folder]?.length ?? 0}
                   isNamed
+                  onRename={newName => handleRenameFolder(folder, newName)}
                 >
                   {(grouped[folder] ?? []).map(t => (
                     <TemplateMiniCard
@@ -603,8 +926,8 @@ export default function ContentPhotoFrame() {
                       folders={folders}
                       onSelect={() => setSelectedId(t.template_id)}
                       onDelete={() => handleDeleteTemplate(t.template_id)}
-                      onAssignFolder={folder =>
-                        updateContentTemplate(t.template_id, { folder: folder || undefined })
+                      onAssignFolder={f =>
+                        updateContentTemplate(t.template_id, { folder: f || undefined })
                       }
                     />
                   ))}
@@ -619,7 +942,7 @@ export default function ContentPhotoFrame() {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
         {/* ── Toolbar ── */}
-        <div className="shrink-0 px-4 py-2 border-b bg-card flex items-center gap-2 flex-wrap">
+        <div className="shrink-0 px-3 py-2 border-b bg-card flex items-center gap-2 flex-wrap">
 
           {/* Template chip */}
           {selectedTemplate ? (
@@ -630,7 +953,7 @@ export default function ContentPhotoFrame() {
               >
                 <img src={selectedTemplate.dataUrl} className="w-full h-full object-contain" alt="" />
               </div>
-              <span className="text-xs font-semibold text-muted-foreground max-w-[100px] truncate">
+              <span className="text-xs font-semibold text-muted-foreground max-w-[90px] truncate">
                 {selectedTemplate.name}
               </span>
             </div>
@@ -638,7 +961,7 @@ export default function ContentPhotoFrame() {
             <span className="text-xs text-amber-600 font-medium">⚠️ เลือก Template</span>
           )}
 
-          <div className="w-px h-5 bg-border mx-0.5 shrink-0" />
+          <div className="w-px h-5 bg-border shrink-0" />
 
           {/* Upload photos */}
           <button
@@ -649,49 +972,88 @@ export default function ContentPhotoFrame() {
           </button>
           <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onPhotoUpload} />
 
-          {/* Controls — shown only when photo is loaded */}
+          {/* Controls — shown when photo + template are loaded */}
           {pw > 0 && selectedTemplate && (
             <>
-              <div className="w-px h-5 bg-border mx-0.5 shrink-0" />
+              <div className="w-px h-5 bg-border shrink-0" />
 
               {/* Scale slider */}
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground font-medium">ขนาด Template</span>
+                <span className="text-xs text-muted-foreground font-medium hidden sm:inline">ขนาด</span>
                 <input
-                  type="range"
-                  min="0.05"
-                  max="5"
-                  step="0.005"
-                  value={tmpl.scale}
-                  onChange={e => setTmpl(p => ({ ...p, scale: parseFloat(e.target.value) }))}
-                  className="w-28 accent-violet-600"
+                  type="range" min="0.05" max="5" step="0.005"
+                  value={scale}
+                  onChange={e => setPos({ scale: parseFloat(e.target.value) })}
+                  className="w-24 accent-violet-600"
                 />
                 <span className="text-xs font-bold w-10 text-right tabular-nums">
-                  {(tmpl.scale * 100).toFixed(0)}%
+                  {(scale * 100).toFixed(0)}%
                 </span>
               </div>
+
+              <div className="w-px h-5 bg-border shrink-0" />
+
+              {/* Flip H */}
+              <button
+                onClick={() => setPos({ flipH: !flipH })}
+                title="Flip แนวนอน"
+                className={`flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg transition-all shrink-0 ${
+                  flipH ? "bg-violet-600 text-white" : "bg-muted hover:bg-accent"
+                }`}
+              >
+                <FlipHorizontal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Flip H</span>
+              </button>
+
+              {/* Flip V */}
+              <button
+                onClick={() => setPos({ flipV: !flipV })}
+                title="Flip แนวตั้ง"
+                className={`flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg transition-all shrink-0 ${
+                  flipV ? "bg-violet-600 text-white" : "bg-muted hover:bg-accent"
+                }`}
+              >
+                <FlipVertical className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Flip V</span>
+              </button>
+
+              {/* Reset rotation/flip */}
+              {(rotation !== 0 || flipH || flipV) && (
+                <button
+                  onClick={handleResetTransform}
+                  title="Reset rotation และ flip"
+                  className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg bg-muted hover:bg-accent transition-all shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{rotDeg}°</span>
+                </button>
+              )}
+
+              <div className="w-px h-5 bg-border shrink-0" />
 
               {/* Fit full */}
               <button
                 onClick={handleFitFull}
-                title="ขยาย Template ให้คลุมภาพทั้งหมด"
-                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-muted hover:bg-accent transition-all shrink-0"
+                title="ขยาย Template ให้คลุมภาพ"
+                className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg bg-muted hover:bg-accent transition-all shrink-0"
               >
-                <Maximize2 className="w-3.5 h-3.5" /> เต็มภาพ
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">เต็มภาพ</span>
               </button>
 
               {/* Center */}
               <button
                 onClick={handleCenter}
-                title="วาง Template ตรงกลางภาพ"
-                className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-muted hover:bg-accent transition-all shrink-0"
+                title="วาง Template ตรงกลาง"
+                className="flex items-center gap-1 text-xs font-medium px-2 py-1.5 rounded-lg bg-muted hover:bg-accent transition-all shrink-0"
               >
-                <AlignCenter className="w-3.5 h-3.5" /> ตรงกลาง
+                <AlignCenter className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">กลาง</span>
               </button>
 
               {/* Position info */}
-              <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
-                x:{Math.round(tmpl.x)} y:{Math.round(tmpl.y)} · {tw}×{th} / {pw}×{ph}px
+              <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums hidden lg:inline">
+                {tw}×{th} / {pw}×{ph}px
               </span>
             </>
           )}
@@ -702,7 +1064,7 @@ export default function ContentPhotoFrame() {
               onClick={downloadAll}
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shrink-0"
             >
-              <Download className="w-3.5 h-3.5" /> Download ทั้งหมด ({photoFiles.length})
+              <Download className="w-3.5 h-3.5" /> Download ({photoFiles.length})
             </button>
           )}
         </div>
@@ -727,7 +1089,6 @@ export default function ContentPhotoFrame() {
             </div>
           )}
 
-          {/* Canvas — always mounted so ref is valid */}
           <canvas
             ref={editorRef}
             style={{
@@ -742,13 +1103,16 @@ export default function ContentPhotoFrame() {
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseLeave}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           />
 
           {/* Hint overlay */}
           {activePhoto && selectedTemplate && pw > 0 && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm text-white text-[11px] px-3 py-1.5 rounded-full pointer-events-none flex items-center gap-1.5 whitespace-nowrap">
               <Info className="w-3 h-3 shrink-0" />
-              ลากกรอบเพื่อขยับตำแหน่ง · ใช้ Slider ปรับขนาด · กด "เต็มภาพ" เพื่อให้กรอบคลุมทั้งหมด
+              ลากกรอบ=ขยับ · มุม=ปรับขนาด · วงกลมม่วง=หมุน · Slider=ขนาด
             </div>
           )}
         </div>
@@ -769,11 +1133,11 @@ export default function ContentPhotoFrame() {
               >
                 <PhotoThumb file={f} />
 
-                {/* Per-photo download */}
+                {/* Individual download */}
                 <button
                   onClick={async e => {
                     e.stopPropagation();
-                    await downloadOne(f);
+                    await downloadOne(f, i);
                     toast.success(`Download "${f.name}" แล้ว ✅`);
                   }}
                   className="absolute bottom-0.5 right-0.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-emerald-700"
@@ -786,6 +1150,7 @@ export default function ContentPhotoFrame() {
                   onClick={e => {
                     e.stopPropagation();
                     setPhotoFiles(prev => prev.filter((_, j) => j !== i));
+                    setPhotoPositions(prev => prev.filter((_, j) => j !== i));
                     setActiveIdx(Math.max(0, i === activeIdx ? i - 1 : activeIdx > i ? activeIdx - 1 : activeIdx));
                   }}
                   className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-600"
@@ -793,7 +1158,6 @@ export default function ContentPhotoFrame() {
                   <X className="w-2.5 h-2.5" />
                 </button>
 
-                {/* Active border overlay */}
                 {activeIdx === i && (
                   <div className="absolute inset-0 border-2 border-violet-400 rounded-lg pointer-events-none" />
                 )}

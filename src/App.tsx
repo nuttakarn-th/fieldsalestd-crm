@@ -64,6 +64,7 @@ import AudienceVIPList from "./pages/audience/AudienceVIPList.tsx";
 import AudienceInterestSegment from "./pages/audience/AudienceInterestSegment.tsx";
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
+import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,7 @@ const App = () => (
           <Route path="/" element={<Hub />} />
           <Route path="/login" element={<Login />} />
           <Route path="/tour-presentation" element={<TourPresentation />} />
+          <Route path="/tour-packages" element={<TourPackagePresentation />} />
           <Route path="/contact-info" element={<ContactInfo />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />

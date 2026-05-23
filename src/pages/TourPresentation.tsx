@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye, Maximize2 } from "lucide-react";
+import { Facebook, Instagram, Youtube, Globe, ExternalLink, Music2, Edit3, Upload, FileText, Download, Trash2, Save, Plus, X, Image as ImageIcon, Eye, Maximize2, BookOpen } from "lucide-react";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +176,22 @@ export default function TourPresentation() {
             <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">สำนักงาน</p><p className="font-semibold">เชียงใหม่ · กรุงเทพฯ</p></div>
             <div className="rounded-xl bg-muted/40 p-3 text-center"><p className="text-xs text-muted-foreground">บริการ</p><p className="font-semibold">Tour · Flight · Rent</p></div>
           </div>
+        </section>
+
+        {/* Package Tour shortcut */}
+        <section className="rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-600 p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex-1 text-center sm:text-left">
+            <h2 className="text-xl font-bold mb-1 flex items-center justify-center sm:justify-start gap-2">
+              <BookOpen className="w-5 h-5" /> Package ทัวร์ — E-Booklet
+            </h2>
+            <p className="text-white/80 text-sm">เลือกดูโปรแกรมทัวร์ในรูปแบบ Flipbook พลิกหน้าแบบนิตยสาร กรองตามทวีป ประเทศ และประเภท</p>
+          </div>
+          <a
+            href="/tour-packages"
+            className="shrink-0 flex items-center gap-2 bg-white text-violet-700 font-semibold px-6 py-2.5 rounded-xl hover:bg-violet-50 transition-colors shadow-lg"
+          >
+            <BookOpen className="w-4 h-4" /> ดู Package ทัวร์
+          </a>
         </section>
 
         {/* Presentations Section */}
