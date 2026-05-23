@@ -101,8 +101,185 @@ async function renderPdfToImages(
   return pages;
 }
 
+// renderPdfToImages with page dimensions (for flipbook)
+async function renderPdfToImagesWithSize(
+  url: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ images: string[]; width: number; height: number }> {
+  const pdfjsLib = await getPdfjsLib();
+  const pdf      = await pdfjsLib.getDocument({ url, withCredentials: false }).promise;
+  const images: string[] = [];
+  let w = 0, h = 0;
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page     = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.8 });
+    const canvas   = document.createElement("canvas");
+    canvas.width   = viewport.width;
+    canvas.height  = viewport.height;
+    if (i === 1) { w = viewport.width; h = viewport.height; }
+    const ctx = canvas.getContext("2d")!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    images.push(canvas.toDataURL("image/jpeg", 0.88));
+    onProgress?.(i, pdf.numPages);
+  }
+  return { images, width: w, height: h };
+}
+
 // Cache for PDF first-page thumbnails
 const pdfThumbCache = new Map<string, string>();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Matrix utilities — ported from rematrix + matrix.coffee (flipbook-vue)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Mat4 = number[]; // 16-element column-major 4×4 matrix
+
+const m4Id = (): Mat4 => [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+
+function m4Mul(a: Mat4, b: Mat4): Mat4 {
+  const r = new Array(16).fill(0);
+  for (let c = 0; c < 4; c++)
+    for (let rr = 0; rr < 4; rr++)
+      for (let k = 0; k < 4; k++)
+        r[c*4+rr] += a[k*4+rr] * b[c*4+k];
+  return r;
+}
+const m4Persp = (d: number): Mat4 => { const m = m4Id(); m[11] = -1/d; return m; };
+const m4Tr    = (x: number, y = 0): Mat4 => { const m = m4Id(); m[12] = x; m[13] = y; return m; };
+const m4Tr3   = (x: number, y: number, z: number): Mat4 => { const m = m4Id(); m[12]=x; m[13]=y; m[14]=z; return m; };
+const m4RotY  = (deg: number): Mat4 => {
+  const r = deg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  return [c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1];
+};
+const m4Str  = (m: Mat4): string => `matrix3d(${m.join(',')})`;
+const m4TrX  = (m: Mat4, x: number): number => (x*m[0]+m[12]) / (x*m[3]+m[15]);
+
+class FM { // FlipMatrix
+  m: Mat4;
+  constructor(src?: Mat4 | FM) { this.m = src ? (src instanceof FM ? [...src.m] : [...src]) : m4Id(); }
+  clone()                      { return new FM(this); }
+  mul(n: Mat4)                 { this.m = m4Mul(this.m, n); return this; }
+  persp(d: number)             { return this.mul(m4Persp(d)); }
+  tr(x: number, y = 0)        { return this.mul(m4Tr(x, y)); }
+  tr3(x: number, y: number, z: number) { return this.mul(m4Tr3(x, y, z)); }
+  rotY(d: number)              { return this.mul(m4RotY(d)); }
+  trX(x: number)               { return m4TrX(this.m, x); }
+  str()                        { return m4Str(this.m); }
+}
+
+// Easing (from flipbook-vue)
+const easeIn    = (x: number) => x * x;
+const easeOut   = (x: number) => 1 - easeIn(1 - x);
+const easeInOut = (x: number) => x < 0.5 ? easeIn(x*2)/2 : 0.5 + easeOut((x-0.5)*2)/2;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// makePolygons + computeLighting — ported from flipbook-vue makePolygonArray
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FBPolygon {
+  key:       string;
+  image:     string | null;
+  lighting:  string;
+  bgPos:     string;
+  transform: string;
+  z:         number;
+}
+
+function computeLighting(rot: number, dRotate: number, ambient: number, gloss: number): string {
+  const gradients: string[] = [];
+  const lp = [-0.5, -0.25, 0, 0.25, 0.5];
+  if (ambient < 1) {
+    const bk = 1 - ambient;
+    const diff = lp.map(d => (1 - Math.cos((rot - dRotate * d) / 180 * Math.PI)) * bk);
+    gradients.push(`linear-gradient(to right,rgba(0,0,0,${diff[0]}),rgba(0,0,0,${diff[1]}) 25%,rgba(0,0,0,${diff[2]}) 50%,rgba(0,0,0,${diff[3]}) 75%,rgba(0,0,0,${diff[4]}))`);
+  }
+  if (gloss > 0) {
+    const DEG = 30, POW = 200;
+    const spec = lp.map(d => Math.max(
+      Math.cos((rot + DEG - dRotate * d) / 180 * Math.PI) ** POW,
+      Math.cos((rot - DEG - dRotate * d) / 180 * Math.PI) ** POW,
+    ));
+    gradients.push(`linear-gradient(to right,rgba(255,255,255,${spec[0]*gloss}),rgba(255,255,255,${spec[1]*gloss}) 25%,rgba(255,255,255,${spec[2]*gloss}) 50%,rgba(255,255,255,${spec[3]*gloss}) 75%,rgba(255,255,255,${spec[4]*gloss}))`);
+  }
+  return gradients.join(',');
+}
+
+function makePolygons(p: {
+  face: 'front' | 'back';
+  progress: number;
+  direction: 'left' | 'right';
+  image: string | null;
+  viewW: number; pageWidth: number; pageHeight: number;
+  xMargin: number; yMargin: number;
+  nPolygons: number; perspective: number; ambient: number; gloss: number;
+}): FBPolygon[] {
+  const { face, progress, direction, image, viewW, pageWidth, pageHeight,
+          xMargin, yMargin, nPolygons, perspective: persp, ambient, gloss } = p;
+
+  // Page x position and origin side — displayedPages=2 always (desktop)
+  let pageX = xMargin;
+  let originRight = false;
+  if (direction === 'left') {
+    if (face === 'back')  pageX = viewW / 2; else originRight = true;
+  } else {
+    if (face === 'front') pageX = viewW / 2; else originRight = true;
+  }
+
+  // Build page-level transform matrix (perspective centred on viewport)
+  const pageMat = new FM();
+  pageMat.tr(viewW / 2);
+  pageMat.persp(persp);
+  pageMat.tr(-viewW / 2);
+  pageMat.tr(pageX, yMargin);
+
+  // Page rotation from flip progress
+  let pageRotation = 0;
+  if (progress > 0.5) pageRotation = -(progress - 0.5) * 2 * 180;
+  if (direction === 'left') pageRotation = -pageRotation;
+  if (face === 'back')      pageRotation += 180;
+  if (pageRotation !== 0) {
+    if (originRight) pageMat.tr(pageWidth);
+    pageMat.rotY(pageRotation);
+    if (originRight) pageMat.tr(-pageWidth);
+  }
+
+  // Cylinder parameters
+  let theta = progress < 0.5
+    ? progress * 2 * Math.PI
+    : (1 - (progress - 0.5) * 2) * Math.PI;
+  if (theta === 0) theta = 1e-9;
+  const radius = pageWidth / theta;
+  const dRadian = theta / nPolygons;
+
+  let rotate  = dRadian / 2 / Math.PI * 180;
+  let dRotate = dRadian / Math.PI * 180;
+  if (originRight) rotate = -theta / Math.PI * 180 + dRotate / 2;
+  if (face === 'back') { rotate = -rotate; dRotate = -dRotate; }
+
+  const polygons: FBPolygon[] = [];
+  let radian = 0;
+
+  for (let i = 0; i < nPolygons; i++) {
+    const bgPos = `${i / (nPolygons - 1) * 100}% 0px`;
+    const m     = pageMat.clone();
+
+    const rad = originRight ? theta - radian : radian;
+    let x = Math.sin(rad) * radius;
+    if (originRight) x = pageWidth - x;
+    let z = (1 - Math.cos(rad)) * radius;
+    if (face === 'back') z = -z;
+
+    m.tr3(x, 0, z);
+    m.rotY(-rotate);
+
+    const lighting = computeLighting(pageRotation - rotate, dRotate, ambient, gloss);
+    polygons.push({ key: `${face}${i}`, image, lighting, bgPos, transform: m.str(), z: Math.abs(Math.round(z)) });
+
+    radian += dRadian;
+    rotate += dRotate;
+  }
+  return polygons;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PdfCoverThumb — lazy-loads first page of PDF as cover
@@ -152,153 +329,169 @@ function PdfCoverThumb({ pdfUrl, alt }: { pdfUrl: string; alt: string }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BookFlipbookModal — real dual-page book experience
+// BookFlipbookModal — polygon curl effect (ported from flipbook-vue)
 // ─────────────────────────────────────────────────────────────────────────────
-
-type FlipPhase = "idle" | "fwd" | "bwd";
 
 function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: () => void }) {
   const [pages,         setPages]      = useState<string[]>([]);
+  const [imgW,          setImgW]       = useState(0);
+  const [imgH,          setImgH]       = useState(0);
   const [loading,       setLoading]    = useState(true);
   const [loadProgress,  setProgress]   = useState(0);
   const [loadTotal,     setTotal]      = useState(0);
-  const [spread,        setSpread]     = useState(0);   // current spread index
-  const [flipPhase,     setFlipPhase]  = useState<FlipPhase>("idle");
-  const [isAnimating,   setAnimating]  = useState(false);
+  const [spread,        setSpread]     = useState(0);
+  const [,          forceUpdate]       = useState(0);
   const [zoom,          setZoom]       = useState(1);
   const [isMobile,      setIsMobile]   = useState(window.innerWidth < 768);
   const [mobilePageIdx, setMobilePageIdx] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-  const flipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Spread calculations
+  const flipRef    = useRef<{
+    progress:    number;
+    direction:   'right' | 'left';
+    frontImg:    string | null;
+    backImg:     string | null;
+    t0:          number;
+    startSpread: number;
+  } | null>(null);
+  const rafRef      = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const FLIP_MS = 1000;
+  const N_POLY  = 10;
+  const PERSP   = 2400;
+  const AMBIENT = 0.4;
+  const GLOSS   = 0.6;
+
   const totalSpreads = useMemo(() => Math.ceil(pages.length / 2), [pages]);
-  // Page indices for each position
   const lIdx = (s: number) => s * 2;
   const rIdx = (s: number) => s * 2 + 1;
   const pg   = (i: number) => (i >= 0 && i < pages.length ? pages[i] : null);
 
-  // During fwd animation: current right page flips to become next left page
-  // During bwd animation: current left page flips back to become prev right page
-  const staticLeft = flipPhase === "bwd"
-    ? pg(lIdx(spread - 1))   // reveal prev left
-    : pg(lIdx(spread));       // current left (stays)
+  // Compute display book dimensions from window size
+  const { pageW, pageH } = useMemo(() => {
+    if (imgW === 0 || imgH === 0) return { pageW: 0, pageH: 0 };
+    const maxH  = window.innerHeight * 0.72;
+    const maxW  = window.innerWidth  * 0.37;   // per-page width
+    const scale = Math.min(maxH / imgH, maxW / imgW, 1);
+    return { pageW: Math.floor(imgW * scale), pageH: Math.floor(imgH * scale) };
+  }, [imgW, imgH]);
+  const bookW = pageW * 2;
 
-  const staticRight = flipPhase === "fwd"
-    ? pg(rIdx(spread + 1))   // reveal next right
-    : pg(rIdx(spread));       // current right (stays)
-
-  // The flipper face content
-  const flipFrontSrc = flipPhase === "fwd"
-    ? pg(rIdx(spread))        // current right page flips away
-    : pg(lIdx(spread));       // current left page flips back (bwd)
-
-  const flipBackSrc = flipPhase === "fwd"
-    ? pg(lIdx(spread + 1))   // next left is revealed on back
-    : pg(rIdx(spread - 1));  // prev right is revealed on back (bwd)
-
-  // Flipper position: right half for fwd, left half for bwd
-  const flipperOnRight = flipPhase !== "bwd";
-
-  // CSS angle: fwd goes 0→-180 (around left/spine edge), bwd goes 0→+180 (around right/spine edge)
-  const [flipAngle, setFlipAngle] = useState(0);
-
-  // ── Window resize detection ──────────────────────────────────────────────
+  // Window resize
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ── Load PDF ─────────────────────────────────────────────────────────────
+  // Load PDF
   useEffect(() => {
     setLoading(true);
-    renderPdfToImages(pkg.pdfUrl, (done, total) => {
-      setProgress(done); setTotal(total);
-    })
-      .then(imgs => { setPages(imgs); setLoading(false); })
+    setSpread(0);
+    flipRef.current = null;
+    renderPdfToImagesWithSize(pkg.pdfUrl, (d, t) => { setProgress(d); setTotal(t); })
+      .then(({ images, width, height }) => {
+        setPages(images);
+        setImgW(width);
+        setImgH(height);
+        setLoading(false);
+      })
       .catch(err => {
         console.error(err);
         toast.error("ไม่สามารถโหลด PDF ได้");
         setLoading(false);
       });
-    return () => { flipTimeoutRef.current && clearTimeout(flipTimeoutRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      flipRef.current = null;
+    };
   }, [pkg.pdfUrl]);
 
-  // ── Navigation (desktop book spread) ────────────────────────────────────
+  // RAF flip animation
+  function startFlip(dir: 'right' | 'left', frontImg: string | null, backImg: string | null) {
+    if (flipRef.current) return;
+    const startSpr = spread;
+    flipRef.current = { progress: 0, direction: dir, frontImg, backImg, t0: performance.now(), startSpread: startSpr };
+    const tick = (now: number) => {
+      const fl = flipRef.current;
+      if (!fl) return;
+      fl.progress = easeInOut(Math.min((now - fl.t0) / FLIP_MS, 1));
+      forceUpdate(c => c + 1);
+      if (now - fl.t0 < FLIP_MS) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        const nextSpr = dir === 'right' ? startSpr + 1 : startSpr - 1;
+        flipRef.current = null;
+        setSpread(nextSpr);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
   function goNext() {
-    if (isMobile) {
-      setMobilePageIdx(i => Math.min(i + 1, pages.length - 1));
-      return;
-    }
-    if (isAnimating || spread >= totalSpreads - 1) return;
-    setFlipPhase("fwd");
-    setFlipAngle(0);
-    setAnimating(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setFlipAngle(-180));
-    });
-    flipTimeoutRef.current = setTimeout(() => {
-      setSpread(s => s + 1);
-      setFlipPhase("idle");
-      setFlipAngle(0);
-      setAnimating(false);
-    }, 620);
+    if (isMobile) { setMobilePageIdx(i => Math.min(i + 1, pages.length - 1)); return; }
+    if (flipRef.current || spread >= totalSpreads - 1) return;
+    startFlip('right', pg(rIdx(spread)), pg(lIdx(spread + 1)));
   }
 
   function goPrev() {
-    if (isMobile) {
-      setMobilePageIdx(i => Math.max(i - 1, 0));
-      return;
-    }
-    if (isAnimating || spread <= 0) return;
-    setFlipPhase("bwd");
-    setFlipAngle(0);
-    setAnimating(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setFlipAngle(180));
-    });
-    flipTimeoutRef.current = setTimeout(() => {
-      setSpread(s => s - 1);
-      setFlipPhase("idle");
-      setFlipAngle(0);
-      setAnimating(false);
-    }, 620);
+    if (isMobile) { setMobilePageIdx(i => Math.max(i - 1, 0)); return; }
+    if (flipRef.current || spread <= 0) return;
+    startFlip('left', pg(lIdx(spread)), pg(rIdx(spread - 1)));
   }
 
-  // Touch
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
   function onTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
-    if (dx < -50) goNext();
-    else if (dx > 50) goPrev();
+    if (dx < -50) goNext(); else if (dx > 50) goPrev();
   }
 
-  // Keyboard
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowRight" || e.key === "PageDown") goNext();
-      else if (e.key === "ArrowLeft" || e.key === "PageUp") goPrev();
+      if      (e.key === "ArrowRight" || e.key === "PageDown") goNext();
+      else if (e.key === "ArrowLeft"  || e.key === "PageUp")   goPrev();
       else if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [spread, isAnimating, isMobile, mobilePageIdx, pages.length]);
+  }, [spread, isMobile, mobilePageIdx, pages.length, totalSpreads]);
 
   const canPrev = isMobile ? mobilePageIdx > 0 : spread > 0;
   const canNext = isMobile ? mobilePageIdx < pages.length - 1 : spread < totalSpreads - 1;
 
-  // ── Page thumbnail strip ─────────────────────────────────────────────────
-  function goToSpread(i: number) {
-    if (!isAnimating) { setSpread(i); setFlipPhase("idle"); }
+  // Polygon data for this render
+  const fl         = flipRef.current;
+  const dispSpread = fl ? fl.startSpread : spread;
+
+  let staticL = pg(lIdx(dispSpread));
+  let staticR = pg(rIdx(dispSpread));
+  if (fl) {
+    if (fl.direction === 'right') staticR = pg(rIdx(dispSpread + 1));
+    else                          staticL = pg(lIdx(dispSpread - 1));
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col" style={{ fontFamily: "inherit" }}>
+  const polyBase = fl && pageW > 0 ? {
+    viewW: bookW, pageWidth: pageW, pageHeight: pageH,
+    xMargin: 0, yMargin: 0,
+    nPolygons: N_POLY, perspective: PERSP, ambient: AMBIENT, gloss: GLOSS,
+    progress: fl.progress, direction: fl.direction,
+  } : null;
 
-      {/* ── Header ── */}
+  const allPolygons = polyBase
+    ? [
+        ...makePolygons({ ...polyBase, face: 'front', image: fl!.frontImg }),
+        ...makePolygons({ ...polyBase, face: 'back',  image: fl!.backImg  }),
+      ].sort((a, b) => a.z - b.z)   // lower z first → higher DOM = higher z-index wins
+    : [];
+
+  function goToSpread(i: number) { if (!flipRef.current) setSpread(i); }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col">
+
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-b from-black/80 to-transparent shrink-0 border-b border-white/10">
         <BookOpen className="w-5 h-5 text-violet-400 shrink-0" />
         <div className="flex-1 min-w-0">
@@ -311,40 +504,30 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             </p>
           )}
         </div>
-
-        {/* Zoom (desktop only) */}
         {!isMobile && (
           <div className="flex items-center gap-1 bg-white/10 rounded-lg px-2 py-1">
-            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="text-white/70 hover:text-white">
+            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} className="text-white/70 hover:text-white p-0.5">
               <ZoomOut className="w-4 h-4" />
             </button>
             <span className="text-white text-xs font-medium w-12 text-center">{(zoom * 100).toFixed(0)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="text-white/70 hover:text-white">
+            <button onClick={() => setZoom(z => Math.min(2, z + 0.25))} className="text-white/70 hover:text-white p-0.5">
               <ZoomIn className="w-4 h-4" />
             </button>
           </div>
         )}
-
-        <a
-          href={pkg.pdfUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="hidden sm:flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all"
-        >
+        <a href={pkg.pdfUrl} target="_blank" rel="noreferrer"
+          className="hidden sm:flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all">
           <FileText className="w-3.5 h-3.5" /> PDF
         </a>
-
-        <button
-          onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all"
-        >
+        <button onClick={onClose}
+          className="w-8 h-8 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      {/* ── Book viewer ── */}
+      {/* Viewer */}
       <div
-        className="flex-1 min-h-0 flex items-center justify-center relative overflow-hidden"
+        className="flex-1 min-h-0 flex items-center justify-center relative"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
@@ -357,10 +540,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
                 <>
                   <p className="text-white/60 text-sm mt-1">{loadProgress} / {loadTotal} หน้า</p>
                   <div className="w-48 h-1.5 bg-white/20 rounded-full mt-2 mx-auto overflow-hidden">
-                    <div
-                      className="h-full bg-violet-500 rounded-full transition-all"
-                      style={{ width: `${(loadProgress / loadTotal) * 100}%` }}
-                    />
+                    <div className="h-full bg-violet-500 rounded-full transition-all"
+                      style={{ width: `${(loadProgress / loadTotal) * 100}%` }} />
                   </div>
                 </>
               )}
@@ -373,172 +554,111 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             <FileText className="w-16 h-16 mx-auto opacity-30" />
             <p>ไม่สามารถโหลดหน้า PDF ได้</p>
             <a href={pkg.pdfUrl} target="_blank" rel="noreferrer">
-              <Button variant="outline" size="sm" className="text-white border-white/30 hover:bg-white/10 mt-2">
-                เปิดในแท็บใหม่
-              </Button>
+              <Button variant="outline" size="sm" className="text-white border-white/30 hover:bg-white/10 mt-2">เปิดในแท็บใหม่</Button>
             </a>
           </div>
         )}
 
         {!loading && pages.length > 0 && (
-          <div className="flex items-center gap-3 sm:gap-6 h-full py-4 px-2 sm:px-6">
+          <div className="flex items-center gap-3 sm:gap-4 h-full py-2 px-2 sm:px-4">
 
-            {/* Prev button */}
-            <button
-              onClick={goPrev}
-              disabled={!canPrev || isAnimating}
-              className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10"
-            >
+            {/* Prev */}
+            <button onClick={goPrev} disabled={!canPrev || !!flipRef.current}
+              className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronLeft className="w-6 h-6" />
             </button>
 
-            {/* ── Book spread ── */}
-            <div
-              className="flex-1 flex items-center justify-center overflow-hidden"
-              style={{ perspective: "2400px" }}
-            >
-              <div
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "center center",
-                  transition: "transform 0.2s",
-                }}
-              >
+            {/* Book */}
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
+              <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
+
                 {/* MOBILE: single page */}
                 {isMobile && (
-                  <div className="relative shadow-2xl rounded-sm overflow-hidden"
-                    style={{ filter: "drop-shadow(0 20px 50px rgba(0,0,0,0.8))" }}>
-                    <img
-                      src={pages[mobilePageIdx]}
-                      alt={`หน้า ${mobilePageIdx + 1}`}
-                      className="max-h-[70vh] max-w-[90vw] object-contain select-none"
-                      draggable={false}
-                    />
+                  <div style={{ filter: "drop-shadow(0 20px 50px rgba(0,0,0,0.8))" }}>
+                    <img src={pages[mobilePageIdx]} alt={`หน้า ${mobilePageIdx + 1}`}
+                      className="max-h-[70vh] max-w-[90vw] object-contain select-none" draggable={false} />
                   </div>
                 )}
 
-                {/* DESKTOP: two-page spread with real book flip */}
-                {!isMobile && (
-                  <div
-                    className="relative flex items-stretch"
-                    style={{
-                      filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.85))",
-                      transformStyle: "preserve-3d",
-                    }}
-                  >
-                    {/* Left page */}
+                {/* DESKTOP: polygon flipbook */}
+                {!isMobile && pageW > 0 && (
+                  <div style={{ filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.85))" }}>
                     <div
-                      className="relative overflow-hidden"
-                      style={{
-                        background: "#f8f7f2",
-                        boxShadow: "inset -8px 0 20px rgba(0,0,0,0.15), inset 4px 0 8px rgba(255,255,255,0.9)",
-                      }}
+                      className="relative select-none"
+                      style={{ width: bookW, height: pageH, background: "#e8e4da", overflow: "visible" }}
                     >
-                      {staticLeft ? (
-                        <img
-                          src={staticLeft}
-                          alt="left page"
-                          className="block max-h-[74vh] w-auto select-none"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div
-                          className="flex items-center justify-center max-h-[74vh]"
-                          style={{ width: "clamp(200px, 30vw, 480px)", height: "clamp(280px, 42vw, 680px)", background: "#f0ede4" }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Book spine */}
-                    <div
-                      className="shrink-0 w-[6px] sm:w-[10px] z-10"
-                      style={{
-                        background: "linear-gradient(to right, rgba(0,0,0,0.25), rgba(255,255,255,0.3), rgba(0,0,0,0.25))",
-                        boxShadow: "0 0 8px rgba(0,0,0,0.4)",
-                      }}
-                    />
-
-                    {/* Right page container (position relative for flipper) */}
-                    <div className="relative" style={{ transformStyle: "preserve-3d" }}>
-                      {/* Static right background (revealed after flip) */}
+                      {/* Left static page */}
                       <div
-                        className="overflow-hidden"
+                        className="absolute left-0 top-0 overflow-hidden"
                         style={{
-                          background: "#f8f7f2",
+                          width: pageW, height: pageH, background: "#f8f7f2",
+                          boxShadow: "inset -8px 0 20px rgba(0,0,0,0.15), inset 4px 0 8px rgba(255,255,255,0.9)",
+                        }}
+                      >
+                        {staticL
+                          ? <img src={staticL} alt="L" className="w-full h-full object-cover" draggable={false} />
+                          : <div className="w-full h-full" style={{ background: "#f2efe6" }} />}
+                      </div>
+
+                      {/* Right static page */}
+                      <div
+                        className="absolute top-0 overflow-hidden"
+                        style={{
+                          left: pageW, width: pageW, height: pageH, background: "#f8f7f2",
                           boxShadow: "inset 8px 0 20px rgba(0,0,0,0.12)",
                         }}
                       >
-                        {staticRight ? (
-                          <img
-                            src={staticRight}
-                            alt="right page"
-                            className="block max-h-[74vh] w-auto select-none"
-                            draggable={false}
-                          />
-                        ) : (
-                          <div
-                            style={{ background: "#f0ede4" }}
-                            className="max-h-[74vh]"
-                          />
-                        )}
+                        {staticR
+                          ? <img src={staticR} alt="R" className="w-full h-full object-cover" draggable={false} />
+                          : <div className="w-full h-full" style={{ background: "#f2efe6" }} />}
                       </div>
 
-                      {/* Flipper (the page being turned) — only visible during animation */}
-                      {flipPhase !== "idle" && (
+                      {/* Spine (idle only) */}
+                      {!fl && (
+                        <div
+                          className="absolute top-0 z-10 pointer-events-none"
+                          style={{
+                            left: pageW - 5, width: 10, height: pageH,
+                            background: "linear-gradient(to right, rgba(0,0,0,0.22), rgba(255,255,255,0.28), rgba(0,0,0,0.22))",
+                            boxShadow: "0 0 6px rgba(0,0,0,0.35)",
+                          }}
+                        />
+                      )}
+
+                      {/* Polygon flip strips */}
+                      {fl && pageW > 0 && (
                         <div
                           className="absolute inset-0"
-                          style={{
-                            transformStyle: "preserve-3d",
-                            transformOrigin: flipperOnRight ? "left center" : "right center",
-                            transform: `rotateY(${flipAngle}deg)`,
-                            transition: isAnimating ? "transform 0.62s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
-                            zIndex: 20,
-                          }}
+                          style={{ transformStyle: "preserve-3d", overflow: "visible" }}
                         >
-                          {/* Front face */}
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              backfaceVisibility: "hidden",
-                              background: "#f8f7f2",
-                              overflow: "hidden",
-                              boxShadow: flipperOnRight
-                                ? "8px 0 24px rgba(0,0,0,0.2)"
-                                : "-8px 0 24px rgba(0,0,0,0.2)",
-                            }}
-                          >
-                            {flipFrontSrc && (
-                              <img
-                                src={flipFrontSrc}
-                                alt="flip front"
-                                className="block max-h-[74vh] w-auto select-none"
-                                draggable={false}
-                              />
-                            )}
-                          </div>
-
-                          {/* Back face */}
-                          <div
-                            className="absolute inset-0"
-                            style={{
-                              backfaceVisibility: "hidden",
-                              transform: "rotateY(180deg)",
-                              background: "#f8f7f2",
-                              overflow: "hidden",
-                              boxShadow: flipperOnRight
-                                ? "-8px 0 24px rgba(0,0,0,0.2)"
-                                : "8px 0 24px rgba(0,0,0,0.2)",
-                            }}
-                          >
-                            {flipBackSrc && (
-                              <img
-                                src={flipBackSrc}
-                                alt="flip back"
-                                className="block max-h-[74vh] w-auto select-none"
-                                draggable={false}
-                              />
-                            )}
-                          </div>
+                          {allPolygons.map(poly => (
+                            <div
+                              key={poly.key}
+                              style={{
+                                position: "absolute",
+                                top: 0, left: 0,
+                                width:  pageW / N_POLY,
+                                height: pageH,
+                                backgroundImage:    poly.image ? `url("${poly.image}")` : "none",
+                                backgroundSize:     `${pageW}px ${pageH}px`,
+                                backgroundPosition: poly.bgPos,
+                                backgroundRepeat:   "no-repeat",
+                                transform:          poly.transform,
+                                transformOrigin:    "0 0",
+                                backfaceVisibility: "hidden",
+                                WebkitBackfaceVisibility: "hidden" as "hidden",
+                                zIndex: poly.z,
+                              }}
+                            >
+                              {poly.lighting && (
+                                <div style={{
+                                  position: "absolute", inset: 0,
+                                  backgroundImage: poly.lighting,
+                                  pointerEvents: "none",
+                                }} />
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -547,31 +667,25 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
               </div>
             </div>
 
-            {/* Next button */}
-            <button
-              onClick={goNext}
-              disabled={!canNext || isAnimating}
-              className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10"
-            >
+            {/* Next */}
+            <button onClick={goNext} disabled={!canNext || !!flipRef.current}
+              className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronRight className="w-6 h-6" />
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Thumbnail strip / progress ── */}
+      {/* Thumbnail strip */}
       {!loading && pages.length > 0 && (
         <div className="shrink-0 bg-black/70 border-t border-white/10 py-2 px-4 flex items-center gap-2 overflow-x-auto">
           {!isMobile && totalSpreads <= 15 ? (
             Array.from({ length: totalSpreads }).map((_, si) => (
-              <button
-                key={si}
-                onClick={() => goToSpread(si)}
+              <button key={si} onClick={() => goToSpread(si)}
                 className={`shrink-0 relative flex gap-0.5 overflow-hidden rounded transition-all border-2 ${
                   si === spread ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
                 }`}
-                style={{ height: 48 }}
-              >
+                style={{ height: 48 }}>
                 {pg(lIdx(si)) && <img src={pg(lIdx(si))!} alt="" className="h-full w-auto object-cover" />}
                 {pg(rIdx(si)) && <img src={pg(rIdx(si))!} alt="" className="h-full w-auto object-cover" />}
                 {!pg(lIdx(si)) && !pg(rIdx(si)) && <div className="h-full w-8 bg-white/10" />}
@@ -582,17 +696,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
               <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-violet-500 rounded-full transition-all"
-                  style={{
-                    width: `${isMobile
-                      ? ((mobilePageIdx + 1) / pages.length) * 100
-                      : ((spread + 1) / totalSpreads) * 100}%`
-                  }}
+                  style={{ width: `${isMobile ? ((mobilePageIdx + 1) / pages.length) * 100 : ((spread + 1) / totalSpreads) * 100}%` }}
                 />
               </div>
               <span className="text-white/60 text-xs whitespace-nowrap">
-                {isMobile
-                  ? `${mobilePageIdx + 1} / ${pages.length}`
-                  : `${spread + 1} / ${totalSpreads}`}
+                {isMobile ? `${mobilePageIdx + 1} / ${pages.length}` : `${spread + 1} / ${totalSpreads}`}
               </span>
             </div>
           )}
