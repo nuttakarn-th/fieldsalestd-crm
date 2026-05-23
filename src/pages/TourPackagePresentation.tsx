@@ -770,7 +770,8 @@ function BannerSlider({ banners, canEdit, onManage }: {
     if (!canEdit) return null;
     return (
       <div
-        className="relative w-full flex items-center justify-center bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/30 dark:to-indigo-950/30 border-b border-border/40 h-44 sm:h-64 md:h-80 lg:h-[400px]"
+        className="relative w-full flex items-center justify-center bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/30 dark:to-indigo-950/30 border-b border-border/40"
+        style={{ aspectRatio: "1920/700" }}
       >
         <div className="text-center space-y-3">
           <ImagePlus className="w-12 h-12 mx-auto text-violet-400" />
@@ -787,7 +788,8 @@ function BannerSlider({ banners, canEdit, onManage }: {
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-gray-900 h-52 sm:h-64 md:h-80 lg:h-[420px]"
+      className="relative w-full overflow-hidden bg-gray-900"
+      style={{ aspectRatio: "1920/700" }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
