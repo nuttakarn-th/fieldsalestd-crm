@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon } from "lucide-react";
+import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown } from "lucide-react";
+import { fmtDateTime } from "@/lib/dateUtils";
+import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -40,6 +42,96 @@ export default function SalesFollower() {
 
   if (currentRep !== "All") return <Navigate to="/app" replace />;
 
+  /* ── Export PDF (print window) ── */
+  const exportPDF = useCallback(() => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const rangeLabel = range.label;
+    const rows = stats.map((s) => `
+      <tr>
+        <td>${s.rep}</td>
+        <td>${s.routes}</td>
+        <td>${s.planned}</td>
+        <td class="green">${s.completed}</td>
+        <td>${s.skipped}</td>
+        <td>${s.totalMin}</td>
+        <td>${s.avgMin} m</td>
+        <td class="bold">${s.completionRate}%</td>
+      </tr>`).join("");
+    const totalRows = stats.reduce((a, s) => ({
+      routes: a.routes + s.routes, planned: a.planned + s.planned,
+      completed: a.completed + s.completed, skipped: a.skipped + s.skipped,
+      totalMin: a.totalMin + s.totalMin,
+    }), { routes: 0, planned: 0, completed: 0, skipped: 0, totalMin: 0 });
+    const overallRateCalc = totalRows.planned ? Math.round((totalRows.completed / totalRows.planned) * 100) : 0;
+    const completedRows = completedItems.map((s) => {
+      const dt = s.completed_at ? new Date(s.completed_at) : null;
+      const dd = dt ? String(dt.getDate()).padStart(2,"0") : "";
+      const mm = dt ? String(dt.getMonth()+1).padStart(2,"0") : "";
+      const yy = dt ? String(dt.getFullYear()).slice(2) : "";
+      const hh = dt ? String(dt.getHours()).padStart(2,"0") : "";
+      const mi = dt ? String(dt.getMinutes()).padStart(2,"0") : "";
+      return `<tr>
+        <td>${s.rep}</td>
+        <td>${s.place_name || "-"}</td>
+        <td>${s.purpose || "-"}</td>
+        <td>${dd && mm && yy ? `${dd}/${mm}/${yy} ${hh}:${mi}` : "-"}</td>
+        <td>${s.duration_min ?? 0} นาที</td>
+        <td>${s.note ? `"${s.note}"` : "-"}</td>
+      </tr>`;
+    }).join("");
+    win.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <title>Sales Mission Report — ${rangeLabel}</title>
+      <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #1e293b; margin: 0; padding: 24px; }
+        h1 { font-size: 18pt; margin: 0 0 4px; }
+        .sub { color: #64748b; font-size: 10pt; margin-bottom: 20px; }
+        .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+        .stat { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; min-width: 90px; }
+        .stat-val { font-size: 22pt; font-weight: 800; }
+        .stat-lbl { font-size: 8pt; color: #64748b; }
+        table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+        th { background: #f1f5f9; padding: 6px 10px; text-align: left; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; }
+        .green { color: #16a34a; font-weight: 700; }
+        .bold { font-weight: 800; }
+        .tfoot td { background: #f8fafc; font-weight: 700; }
+        h2 { font-size: 13pt; margin: 24px 0 8px; }
+        @media print { body { padding: 10px; } }
+      </style>
+    </head><body>
+      <h1>Sales Mission Report</h1>
+      <div class="sub">ช่วงเวลา: ${rangeLabel} · ส่งออกเมื่อ ${new Date().toLocaleDateString("th-TH")}</div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val">${totalRows.routes}</div><div class="stat-lbl">Routes</div></div>
+        <div class="stat"><div class="stat-val">${totalRows.planned}</div><div class="stat-lbl">วางแผน</div></div>
+        <div class="stat" style="color:#16a34a"><div class="stat-val">${totalRows.completed}</div><div class="stat-lbl">Complete</div></div>
+        <div class="stat"><div class="stat-val">${overallRateCalc}%</div><div class="stat-lbl">อัตราเสร็จ</div></div>
+      </div>
+      <h2>ตารางสรุปรายคน</h2>
+      <table>
+        <thead><tr>
+          <th>Sales</th><th>Routes</th><th>วางแผน</th><th>Complete</th><th>Skipped</th><th>เวลารวม (นาที)</th><th>เฉลี่ย/จุด</th><th>% เสร็จ</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>รวม</td><td>${totalRows.routes}</td><td>${totalRows.planned}</td>
+          <td class="green">${totalRows.completed}</td><td>${totalRows.skipped}</td>
+          <td>${totalRows.totalMin}</td><td>-</td><td class="bold">${overallRateCalc}%</td>
+        </tr></tfoot>
+      </table>
+      ${completedItems.length > 0 ? `
+      <h2>รายการ Mission Complete (${completedItems.length} รายการ)</h2>
+      <table>
+        <thead><tr><th>Sales</th><th>สถานที่</th><th>ประเภท</th><th>วันเวลา</th><th>เวลา</th><th>หมายเหตุ</th></tr></thead>
+        <tbody>${completedRows}</tbody>
+      </table>` : ""}
+    </body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+  }, [stats, completedItems, range]);
+
   const totals = stats.reduce(
     (a, s) => ({
       planned: a.planned + s.planned,
@@ -75,11 +167,19 @@ export default function SalesFollower() {
             <Users2 className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Sales Mission</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-bold">Sales Mission</h1>
+              <PageHelp pageKey="sales-mission" defaultText="ติดตาม Mission Sales ทั้งทีม — ดูสถิติ Route ที่ Complete, กรองตามช่วงเวลา และ Export PDF รายงาน" />
+            </div>
             <p className="text-sm text-muted-foreground">ติดตามภารกิจ Mission Complete ของ Sales ทุกคน</p>
           </div>
         </div>
-        <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); }} />
+        <div className="flex items-center gap-2">
+          <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); }} />
+          <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1 shrink-0">
+            <FileDown className="w-4 h-4" /> Export PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -250,7 +350,7 @@ export default function SalesFollower() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{s.place_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {s.routeDate} · {s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-"} · {s.duration_min ?? 0} นาที
+                      {s.routeDate} · {s.completed_at ? fmtDateTime(s.completed_at).split(" ")[1] : "-"} · {s.duration_min ?? 0} นาที
                     </p>
                     {s.note && <p className="text-xs italic text-muted-foreground mt-0.5">"{s.note}"</p>}
                   </div>
@@ -285,7 +385,7 @@ export default function SalesFollower() {
                   <Badge variant="outline">{s.purpose}</Badge>
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.completed_at ? new Date(s.completed_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", hour12: false }) : "-"}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtDateTime(s.completed_at)}</span>
                   <span>· {s.duration_min ?? 0} นาที</span>
                 </div>
                 {s.note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">"{s.note}"</p>}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { fmtDateStr } from "@/lib/dateUtils";
 import { Phone, MessageCircle, Calendar as CalendarIcon, AlertCircle, Clock, Pencil, RefreshCw, ClipboardCheck, ChevronDown, ChevronUp, History } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +108,7 @@ export default function FollowUp() {
             </div>
             <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lead.program}</p>
             <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {lead.next_followup_date}</span>
+              <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {fmtDateStr(lead.next_followup_date)}</span>
               <span>👤 {lead.assigned_to}</span>
               <span>📌 {lead.status}</span>
               {lastLog && (
@@ -166,7 +167,7 @@ export default function FollowUp() {
                         <span>{log.date}</span>
                         <span>โดย {log.logged_by}</span>
                         {log.next_followup_date && (
-                          <span className="text-primary">→ นัด {log.next_followup_date}</span>
+                          <span className="text-primary">→ นัด {fmtDateStr(log.next_followup_date)}</span>
                         )}
                       </div>
                     </div>

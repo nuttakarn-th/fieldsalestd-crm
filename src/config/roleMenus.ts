@@ -19,6 +19,7 @@ import {
   RefreshCcw,
   Diamond,
   Tag,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -127,7 +128,10 @@ const salesMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
+      items: [
+        { title: "Leads/Customers", url: "/app/customers", icon: Users },
+        { title: "Marketing Leads", url: "/marketing-leads", icon: UserPlus },
+      ],
     },
     {
       category: "SALES MANAGEMENT",
@@ -159,7 +163,10 @@ const marketingMenu: RoleMenu = {
     },
     {
       category: "CUSTOMER",
-      items: [{ title: "Leads/Customers", url: "/marketing-customers", icon: Users }],
+      items: [
+        { title: "Leads/Customers", url: "/marketing-customers", icon: Users },
+        { title: "Marketing Leads", url: "/marketing-leads", icon: UserPlus },
+      ],
     },
     {
       category: "MARKETING",

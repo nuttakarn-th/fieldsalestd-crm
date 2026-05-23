@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus } from "lucide-react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
@@ -92,6 +92,13 @@ const marketingTiles = [
     gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
   },
   {
+    title: "Marketing Leads",
+    description: "รายชื่อ Prospect ที่ Marketing ลงไว้ — Sales กดรับ Lead ไปติดตามได้เลย",
+    icon: UserPlus,
+    to: "/marketing-leads",
+    gradient: "from-teal-500 via-emerald-500 to-cyan-500",
+  },
+  {
     title: "Marketing Report",
     description: "รายงานผลแคมเปญ, ยอดขาย และวิเคราะห์ข้อมูลการตลาด",
     icon: BarChart3,
@@ -116,12 +123,12 @@ const adminUserTile = {
   gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
 
-const loginBannerTile = {
-  title: "Login Banner",
-  description: "จัดการ Slide ภาพและข้อความที่แสดงบนหน้าเข้าสู่ระบบ",
-  icon: Image,
-  to: "/login-banner",
-  gradient: "from-violet-500 via-purple-600 to-indigo-700",
+const webSettingTile = {
+  title: "Web Setting",
+  description: "ตั้งค่าคำอธิบายหน้า (?), Bot Chat และ Login Banner ของระบบ",
+  icon: Settings2,
+  to: "/web-setting",
+  gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
 
 function StaleLeadBtn() {
@@ -193,7 +200,7 @@ export default function Hub() {
   const tiles = [
     ...(isMarketing ? marketingTiles : []),
     ...sharedTiles,
-    ...(effectiveRole === "Admin" ? [adminUserTile, loginBannerTile] : []),
+    ...(effectiveRole === "Admin" ? [adminUserTile, webSettingTile] : []),
     profileTile,
   ];
   const isSales = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";

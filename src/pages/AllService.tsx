@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus } from "lucide-react";
+import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,7 @@ import { ImportExportMenu } from "@/components/ImportExportMenu";
 import type { ExcelField } from "@/lib/excelUtils";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
-const SEAT_MATS: SeatMaterial[] = ["หนัง", "ผ้า", "กำมะหยี่"];
+const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
 // ── Quota Progress Bar (เฉพาะ Tour) ──
@@ -103,7 +104,10 @@ export default function AllService() {
           <PackageSearch className="w-5 h-5 text-primary-foreground" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">All Service</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-2xl font-bold">All Service</h1>
+            <PageHelp pageKey="service-stock" defaultText="คลังข้อมูลบริการ — ทัวร์, รถเช่า, ตั๋ว, โรงแรม, วีซ่า, ประกัน · เพิ่ม/แก้ไขได้ตามสิทธิ์ Role" />
+          </div>
           <p className="text-sm text-muted-foreground">
             คลังข้อมูลบริการของบริษัท · {canEdit ? "คุณมีสิทธิ์เพิ่ม/แก้ไขข้อมูล" : "คุณดูได้อย่างเดียว"}
           </p>
@@ -415,9 +419,9 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า" as SeatMaterial, note: "" });
+  const [form, setForm] = useState({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
 
-  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ผ้า", note: "" }); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ", note: "" }); setOpen(true); };
   const openEdit = (id: string) => {
     const c = cars.find((x) => x.id === id); if (!c) return;
     setEditId(id);

@@ -19,7 +19,7 @@ export interface TourItem {
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
-export type SeatMaterial = "หนัง" | "ผ้า" | "กำมะหยี่";
+export type SeatMaterial = "หนัง" | "ผ้า" | "กำมะหยี่" | "ไม่ระบุ";
 export interface CarItem {
   id: string;
   name: string;

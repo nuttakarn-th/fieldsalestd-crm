@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { fmtDate } from "@/lib/dateUtils";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -429,7 +430,7 @@ export default function Customers() {
                     )}
                     {c.last_contacted_at && (
                       <div className="mt-0.5 text-[10px] text-muted-foreground">
-                        ติดต่อล่าสุด {new Date(c.last_contacted_at).toLocaleDateString("th-TH", { dateStyle: "short" })}
+                        ติดต่อล่าสุด {fmtDate(c.last_contacted_at)}
                       </div>
                     )}
                     {c.note && (
