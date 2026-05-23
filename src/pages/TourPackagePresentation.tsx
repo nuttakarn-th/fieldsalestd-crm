@@ -754,7 +754,7 @@ function BannerSlider({ banners, canEdit, onManage }: {
     return (
       <div
         className="relative w-full flex items-center justify-center bg-gradient-to-br from-violet-100 to-indigo-100 dark:from-violet-950/30 dark:to-indigo-950/30 border-b border-border/40"
-        style={{ aspectRatio: "1920/700", maxHeight: "60vh" }}
+        style={{ aspectRatio: "16/7", maxHeight: "55vh", minHeight: "160px" }}
       >
         <div className="text-center space-y-3">
           <ImagePlus className="w-12 h-12 mx-auto text-violet-400" />
@@ -772,7 +772,7 @@ function BannerSlider({ banners, canEdit, onManage }: {
   return (
     <div
       className="relative w-full overflow-hidden bg-gray-900"
-      style={{ aspectRatio: "1920/700", maxHeight: "60vh" }}
+      style={{ aspectRatio: "16/7", maxHeight: "55vh", minHeight: "160px" }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -1045,20 +1045,20 @@ function FilterSidebar({
 
   return (
     <>
-      {/* Mobile filter toggle */}
-      <div className="lg:hidden mb-4">
+      {/* Mobile / Tablet filter toggle (below lg) */}
+      <div className="lg:hidden w-full mb-3">
         <button
           onClick={() => setMobileOpen(o => !o)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border bg-card shadow-sm text-sm font-medium"
+          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-card shadow-sm text-sm font-medium"
         >
-          <Filter className="w-4 h-4 text-violet-500" />
-          กรองโปรแกรม
+          <Filter className="w-4 h-4 text-violet-500 shrink-0" />
+          <span className="flex-1 text-left">กรองโปรแกรม</span>
           {hasActive && (
-            <span className="ml-1 w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
               {activeContinents.size + activeTourTypes.size}
             </span>
           )}
-          {mobileOpen ? <ChevronUp className="w-4 h-4 ml-auto" /> : <ChevronDown className="w-4 h-4 ml-auto" />}
+          {mobileOpen ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
         </button>
         {mobileOpen && (
           <div className="mt-2 p-4 rounded-xl border bg-card shadow-md">
@@ -1068,7 +1068,7 @@ function FilterSidebar({
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-56 xl:w-64 shrink-0 self-start sticky top-4">
+      <aside className="hidden lg:block w-56 xl:w-64 shrink-0 self-start sticky top-20">
         <div className="rounded-2xl border bg-card shadow-sm p-4">
           {sidebarContent}
         </div>
@@ -1169,56 +1169,59 @@ function PackageCard({
       </div>
 
       {/* Content */}
-      <div className="p-3 sm:p-4 flex-1 flex flex-col gap-1.5">
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <MapPin className="w-3 h-3 shrink-0 text-violet-400" />
+      <div className="p-2.5 sm:p-3 flex-1 flex flex-col gap-1">
+        <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-muted-foreground">
+          <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0 text-violet-400" />
           <span className="truncate">{[pkg.country, pkg.city].filter(Boolean).join(" · ") || "—"}</span>
         </div>
 
-        <h3 className="font-bold text-sm leading-snug line-clamp-2 flex-1">{pkg.title}</h3>
+        <h3 className="font-bold text-xs sm:text-sm leading-snug line-clamp-2 flex-1">{pkg.title}</h3>
 
         {pkg.duration && (
-          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-muted-foreground">
+            <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-500 shrink-0" />
             <span>{pkg.duration}</span>
           </div>
         )}
 
         {pkg.tourTypes.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-0.5">
-            {pkg.tourTypes.slice(0, 3).map(tag => (
-              <span key={tag} className="text-[10px] font-medium px-1.5 py-0.5 bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 rounded-full border border-violet-100 dark:border-violet-800">
+            {pkg.tourTypes.slice(0, 2).map(tag => (
+              <span key={tag} className="text-[9px] sm:text-[10px] font-medium px-1.5 py-0.5 bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-400 rounded-full border border-violet-100 dark:border-violet-800">
                 {tag}
               </span>
             ))}
-            {pkg.tourTypes.length > 3 && (
-              <span className="text-[10px] text-muted-foreground">+{pkg.tourTypes.length - 3}</span>
+            {pkg.tourTypes.length > 2 && (
+              <span className="text-[9px] sm:text-[10px] text-muted-foreground">+{pkg.tourTypes.length - 2}</span>
             )}
           </div>
         )}
 
-        <div className="mt-auto pt-2 flex gap-1.5">
+        {/* Action buttons — flex-wrap เพื่อรองรับหน้าจอเล็ก */}
+        <div className="mt-auto pt-2 flex flex-wrap gap-1">
           <Button
             onClick={onOpen}
             size="sm"
-            className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 gap-1 h-8 text-xs"
+            className="flex-1 min-w-[70px] bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 gap-1 h-7 sm:h-8 text-[11px] sm:text-xs px-2"
           >
-            <BookOpen className="w-3.5 h-3.5" /> เปิดอ่าน
+            <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden xs:inline sm:inline">เปิดอ่าน</span>
+            <span className="xs:hidden sm:hidden">อ่าน</span>
           </Button>
           <button
             onClick={handleShare}
-            className="w-8 h-8 rounded-lg border bg-background hover:bg-muted flex items-center justify-center transition-colors shrink-0"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border bg-background hover:bg-muted flex items-center justify-center transition-colors shrink-0"
             title="แชร์"
           >
-            <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <Share2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
           </button>
           {canEdit && (
             <>
-              <button onClick={onEdit} className="w-8 h-8 rounded-lg border bg-background hover:bg-muted flex items-center justify-center transition-colors shrink-0" title="แก้ไข">
-                <Edit3 className="w-3.5 h-3.5 text-muted-foreground" />
+              <button onClick={onEdit} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border bg-background hover:bg-muted flex items-center justify-center transition-colors shrink-0" title="แก้ไข">
+                <Edit3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
               </button>
-              <button onClick={onDelete} className="w-8 h-8 rounded-lg border bg-background hover:bg-destructive/10 flex items-center justify-center transition-colors shrink-0" title="ลบ">
-                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              <button onClick={onDelete} className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border bg-background hover:bg-destructive/10 flex items-center justify-center transition-colors shrink-0" title="ลบ">
+                <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-destructive" />
               </button>
             </>
           )}
@@ -1251,15 +1254,15 @@ function CategorySection({
   const coverRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   return (
-    <section className="mb-10">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xl">{emoji}</span>
-        <h2 className="text-lg font-black tracking-tight">{title}</h2>
-        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
+    <section className="mb-8 sm:mb-10">
+      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+        <span className="text-lg sm:text-xl">{emoji}</span>
+        <h2 className="text-base sm:text-lg font-black tracking-tight">{title}</h2>
+        <span className="text-[10px] sm:text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
           {packages.length} โปรแกรม
         </span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
         {shown.map(pkg => (
           <div key={pkg.id}>
             <input
@@ -1665,7 +1668,7 @@ export default function TourPackagePresentation() {
 
       {/* ── Staff upload button ── */}
       {canEdit && (
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 pt-5 flex flex-wrap items-center gap-3">
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-8 pt-5 flex flex-wrap items-center gap-3">
           <Button
             onClick={() => pdfRef.current?.click()}
             disabled={uploadingPdf}
@@ -1685,7 +1688,7 @@ export default function TourPackagePresentation() {
       )}
 
       {/* ── Main layout: sidebar + content ── */}
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 pt-6 pb-16 flex gap-6 lg:gap-8 items-start">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-8 pt-5 pb-20 flex flex-col lg:flex-row gap-0 lg:gap-8 items-start">
 
         {/* Left sidebar */}
         {packages.length > 0 && (
@@ -1702,10 +1705,10 @@ export default function TourPackagePresentation() {
         )}
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 w-full">
 
           {packages.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed p-16 text-center bg-card/50">
+            <div className="rounded-2xl border-2 border-dashed p-8 sm:p-16 text-center bg-card/50">
               <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/40 mb-4" />
               <p className="font-semibold text-lg">ยังไม่มีโปรแกรมทัวร์</p>
               <p className="text-sm text-muted-foreground mt-1">
@@ -1724,15 +1727,15 @@ export default function TourPackagePresentation() {
             <>
               {/* ── Highlight section ── */}
               {highlightPkgs.length > 0 && (
-                <section className="mb-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl">🔥</span>
-                    <h2 className="text-lg font-black tracking-tight">Highlight Program</h2>
-                    <span className="text-xs text-muted-foreground bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+                <section className="mb-8 sm:mb-10">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                    <span className="text-xl sm:text-2xl">🔥</span>
+                    <h2 className="text-base sm:text-lg font-black tracking-tight">Highlight Program</h2>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
                       {highlightPkgs.length} โปรแกรม
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                     {highlightPkgs.map(pkg => (
                       <div key={pkg.id}>
                         <input
