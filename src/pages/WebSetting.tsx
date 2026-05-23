@@ -6,9 +6,10 @@ import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import {
   Settings2, HelpCircle, Bot, Image as ImageIcon,
-  Save, RotateCcw, ChevronRight, Check,
+  Save, RotateCcw, ChevronLeft, Check,
   ToggleLeft, ToggleRight, Info,
 } from "lucide-react";
+import { NavActions } from "@/components/NavActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -221,22 +222,35 @@ export default function WebSetting() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-background border-b px-4 sm:px-8 py-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shrink-0">
-          <Settings2 className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold leading-tight">Web Setting</h1>
-          <p className="text-xs text-muted-foreground">ตั้งค่าระบบ — เฉพาะ Admin</p>
-        </div>
-        <Link to="/" className="ml-auto text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-          กลับหน้าหลัก <ChevronRight className="w-3 h-3" />
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b px-4 sm:px-6 h-14 flex items-center gap-3">
+        {/* Logo + back */}
+        <Link to="/" className="flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
+          <div className="w-8 h-8 rounded-full overflow-hidden group-hover:scale-105 transition shrink-0">
+            <img src="/logo-icon.png" alt="Standard Tour" className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
+          </div>
         </Link>
-      </div>
+        <Link to="/" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" /> Hub
+        </Link>
+        <span className="text-muted-foreground/40 text-xs">/</span>
+        {/* Title */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shrink-0">
+            <Settings2 className="w-4 h-4 text-white" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-sm leading-tight">Web Setting</p>
+            <p className="text-[10px] text-muted-foreground leading-tight hidden sm:block">ตั้งค่าระบบ — เฉพาะ Admin</p>
+          </div>
+        </div>
+        <div className="flex-1" />
+        <NavActions />
+      </header>
 
       <div className="flex max-w-5xl mx-auto">
         {/* Sidebar */}
-        <aside className="w-52 shrink-0 sticky top-[57px] self-start h-[calc(100vh-57px)] overflow-y-auto border-r p-3 space-y-1">
+        <aside className="w-52 shrink-0 sticky top-14 self-start h-[calc(100vh-56px)] overflow-y-auto border-r p-3 space-y-1">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -254,7 +268,7 @@ export default function WebSetting() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 p-4 sm:p-6 min-h-[calc(100vh-57px)]">
+        <main className="flex-1 p-4 sm:p-6 min-h-[calc(100vh-56px)]">
           {tab === "help"   && <HelpTextSection />}
           {tab === "bot"    && <BotSection />}
           {tab === "banner" && (

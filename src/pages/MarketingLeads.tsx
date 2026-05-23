@@ -7,10 +7,11 @@
 import { useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
-  Users, Plus, Phone, ChevronRight, Search,
+  Users, Plus, Phone, ChevronLeft, Search,
   CheckCircle2, Clock, Trash2, Megaphone, X, Filter,
   FileDown, Upload, FileSpreadsheet, AlertCircle,
 } from "lucide-react";
+import { NavActions } from "@/components/NavActions";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -469,69 +470,50 @@ export default function MarketingLeads() {
       />
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-30 bg-background border-b px-4 sm:px-8 py-3 flex items-center gap-2 flex-wrap">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0">
-          <Users className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold leading-tight">Marketing Leads</h1>
-          <PageHelp
-            pageKey="marketing-leads"
-            defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้"
-          />
-        </div>
-
-        <div className="flex-1" />
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Download Template — Marketing/Admin */}
-          {isMarketing && (
-            <Button
-              size="sm" variant="outline"
-              onClick={downloadTemplate}
-              className="gap-1 text-xs"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Download Template
-            </Button>
-          )}
-
-          {/* Import — Marketing/Admin */}
-          {isMarketing && (
-            <Button
-              size="sm" variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="gap-1 text-xs"
-            >
-              <Upload className="w-3.5 h-3.5" /> Import
-            </Button>
-          )}
-
-          {/* Export — all roles */}
-          <Button
-            size="sm" variant="outline"
-            onClick={() => exportLeads(filtered)}
-            className="gap-1 text-xs"
-          >
-            <FileDown className="w-3.5 h-3.5" /> Export
-          </Button>
-
-          {/* Add Lead — Marketing/Admin */}
-          {isMarketing && (
-            <Button
-              size="sm"
-              onClick={() => setShowForm(true)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-1"
-            >
-              <Plus className="w-4 h-4" /> เพิ่ม Lead
-            </Button>
-          )}
-        </div>
-
-        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-          กลับหน้าหลัก <ChevronRight className="w-3 h-3" />
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b px-4 sm:px-6 h-14 flex items-center gap-2">
+        {/* Logo + back */}
+        <Link to="/" className="flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
+          <div className="w-8 h-8 rounded-full overflow-hidden group-hover:scale-105 transition shrink-0">
+            <img src="/logo-icon.png" alt="Standard Tour" className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
+          </div>
         </Link>
-      </div>
+        <Link to="/" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" /> Hub
+        </Link>
+        <span className="text-muted-foreground/40 text-xs">/</span>
+        {/* Title */}
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-sm truncate">Marketing Leads</span>
+          <PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" />
+        </div>
+        <div className="flex-1" />
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isMarketing && (
+            <Button size="sm" variant="outline" onClick={downloadTemplate} className="gap-1 text-xs hidden sm:flex">
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Template
+            </Button>
+          )}
+          {isMarketing && (
+            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-1 text-xs">
+              <Upload className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Import</span>
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => exportLeads(filtered)} className="gap-1 text-xs">
+            <FileDown className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
+          </Button>
+          {isMarketing && (
+            <Button size="sm" onClick={() => setShowForm(true)} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-1">
+              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">เพิ่ม Lead</span>
+            </Button>
+          )}
+        </div>
+        <NavActions />
+      </header>
 
       {/* ── Body ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-2">
