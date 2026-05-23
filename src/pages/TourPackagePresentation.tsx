@@ -487,8 +487,14 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     ? [
         ...makePolygons({ ...polyBase, face: 'front', image: fl!.frontImg }),
         ...makePolygons({ ...polyBase, face: 'back',  image: fl!.backImg  }),
-      ].sort((a, b) => a.z - b.z)   // lower z first → higher DOM = higher z-index wins
+      ].sort((a, b) => a.z - b.z)
     : [];
+
+  // Single-page (cover) vs dual-page layout
+  // spread=0 idle → single page; animating or spread>0 → dual page
+  const isDouble  = !!fl || spread > 0;
+  const displayW  = isDouble ? bookW : pageW;
+  const rightLeft = isDouble ? pageW : 0;   // x-position of right/cover page
 
   function goToSpread(i: number) { if (!flipRef.current) setSpread(i); }
 
@@ -587,29 +593,38 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
                 {/* DESKTOP: polygon flipbook */}
                 {!isMobile && pageW > 0 && (
                   <div style={{ filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.85))" }}>
+                    {/*
+                      displayW = pageW  → spread 0 idle (cover only, no blank page)
+                      displayW = bookW  → spread 1+ or animating (dual-page spread)
+                    */}
                     <div
                       className="relative select-none"
-                      style={{ width: bookW, height: pageH, background: "#e8e4da", overflow: "visible" }}
+                      style={{ width: displayW, height: pageH, background: "transparent", overflow: "visible" }}
                     >
-                      {/* Left static page */}
-                      <div
-                        className="absolute left-0 top-0 overflow-hidden"
-                        style={{
-                          width: pageW, height: pageH, background: "#f8f7f2",
-                          boxShadow: "inset -8px 0 20px rgba(0,0,0,0.15), inset 4px 0 8px rgba(255,255,255,0.9)",
-                        }}
-                      >
-                        {staticL
-                          ? <img src={staticL} alt="L" className="w-full h-full object-cover" draggable={false} />
-                          : <div className="w-full h-full" style={{ background: "#f2efe6" }} />}
-                      </div>
+                      {/* Left page — only in dual-page mode */}
+                      {isDouble && (
+                        <div
+                          className="absolute left-0 top-0 overflow-hidden"
+                          style={{
+                            width: pageW, height: pageH,
+                            background: staticL ? "#f8f7f2" : "transparent",
+                            boxShadow: staticL
+                              ? "inset -8px 0 20px rgba(0,0,0,0.15), inset 4px 0 8px rgba(255,255,255,0.9)"
+                              : "none",
+                          }}
+                        >
+                          {staticL && (
+                            <img src={staticL} alt="L" className="w-full h-full object-cover" draggable={false} />
+                          )}
+                        </div>
+                      )}
 
-                      {/* Right static page */}
+                      {/* Right / cover page */}
                       <div
                         className="absolute top-0 overflow-hidden"
                         style={{
-                          left: pageW, width: pageW, height: pageH, background: "#f8f7f2",
-                          boxShadow: "inset 8px 0 20px rgba(0,0,0,0.12)",
+                          left: rightLeft, width: pageW, height: pageH, background: "#f8f7f2",
+                          boxShadow: isDouble ? "inset 8px 0 20px rgba(0,0,0,0.12)" : "none",
                         }}
                       >
                         {staticR
@@ -617,8 +632,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
                           : <div className="w-full h-full" style={{ background: "#f2efe6" }} />}
                       </div>
 
-                      {/* Spine (idle only) */}
-                      {!fl && (
+                      {/* Spine — idle dual-page with both pages present */}
+                      {!fl && isDouble && staticL && (
                         <div
                           className="absolute top-0 z-10 pointer-events-none"
                           style={{
@@ -629,11 +644,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
                         />
                       )}
 
-                      {/* Polygon flip strips */}
+                      {/* Polygon flip strips — container always bookW so matrix positions are correct */}
                       {fl && pageW > 0 && (
                         <div
-                          className="absolute inset-0"
-                          style={{ transformStyle: "preserve-3d", overflow: "visible" }}
+                          className="absolute top-0 left-0"
+                          style={{ width: bookW, height: pageH, transformStyle: "preserve-3d", overflow: "visible" }}
                         >
                           {allPolygons.map(poly => (
                             <div
