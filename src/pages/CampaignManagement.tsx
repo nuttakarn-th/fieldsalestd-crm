@@ -11,7 +11,7 @@ const sampleCampaigns = [
 export default function CampaignManagement() {
   return (
     <div className="p-4 sm:p-6 space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-pink flex items-center justify-center shadow-glow">
             <Megaphone className="w-5 h-5 text-accent-foreground" />
@@ -21,7 +21,9 @@ export default function CampaignManagement() {
             <p className="text-sm text-muted-foreground">จัดการแคมเปญการตลาดทั้งหมด</p>
           </div>
         </div>
-        <Button className="bg-gradient-primary text-primary-foreground"><Plus className="w-4 h-4 mr-1" /> สร้าง Campaign</Button>
+        <Button className="bg-gradient-primary text-primary-foreground w-full sm:w-auto">
+          <Plus className="w-4 h-4 mr-1" /> สร้าง Campaign
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

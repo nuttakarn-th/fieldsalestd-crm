@@ -11,7 +11,7 @@ const sample = [
 export default function PaymentInvoice() {
   return (
     <div className="p-4 sm:p-6 space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
             <Wallet className="w-5 h-5 text-primary-foreground" />
@@ -21,7 +21,9 @@ export default function PaymentInvoice() {
             <p className="text-sm text-muted-foreground">จัดการใบแจ้งหนี้และการชำระเงิน</p>
           </div>
         </div>
-        <Button className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> สร้าง Invoice</Button>
+        <Button className="bg-gradient-pink text-accent-foreground w-full sm:w-auto">
+          <Plus className="w-4 h-4 mr-1" /> สร้าง Invoice
+        </Button>
       </div>
       <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">

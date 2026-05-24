@@ -121,8 +121,9 @@ export default function Mission() {
             <p className="text-xs text-muted-foreground">{route.date} · {route.rep} · {sortedStops.length} จุด · เสร็จ {completed}</p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setNewCustOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-2" /> เพิ่มลูกค้าใหม่
+        <Button variant="outline" onClick={() => setNewCustOpen(true)} title="เพิ่มลูกค้าใหม่">
+          <UserPlus className="w-4 h-4" />
+          <span className="hidden sm:inline ml-2">เพิ่มลูกค้าใหม่</span>
         </Button>
       </div>
 
