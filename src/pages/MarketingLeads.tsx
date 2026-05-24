@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 import {
   Users, Plus, Phone, ChevronLeft, Search,
   CheckCircle2, Clock, Trash2, Megaphone, X, Filter,
-  FileDown, Upload, FileSpreadsheet, AlertCircle, MoreHorizontal,
+  FileDown, Upload, FileSpreadsheet, AlertCircle,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import * as XLSX from "xlsx";
@@ -368,7 +368,6 @@ export default function MarketingLeads() {
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState<"all" | "available" | "claimed">("all");
   const [filterSource, setFilterSource]   = useState<"all" | LeadSource>("all");
-  const [showMoreMenu, setShowMoreMenu]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
@@ -472,28 +471,32 @@ export default function MarketingLeads() {
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b px-4 sm:px-6 h-14 flex items-center gap-2">
-        {/* Logo + back */}
+        {/* Logo — always visible */}
         <Link to="/" className="flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
           <div className="w-8 h-8 rounded-full overflow-hidden group-hover:scale-105 transition shrink-0">
             <img src="/logo-icon.png" alt="Standard Tour" className="w-full h-full object-cover"
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
           </div>
         </Link>
-        <Link to="/" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+
+        {/* Breadcrumb — desktop only */}
+        <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ChevronLeft className="w-3.5 h-3.5" /> Hub
         </Link>
-        <span className="text-muted-foreground/40 text-xs">/</span>
-        {/* Title */}
-        <div className="flex items-center gap-2 min-w-0">
+        <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>
+
+        {/* Title — flex-1 on mobile so NavActions stays right */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-none">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0">
             <Users className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-sm truncate">Marketing Leads</span>
-          <PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" />
+          <span className="shrink-0"><PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" /></span>
         </div>
-        <div className="flex-1" />
 
-        {/* ── Desktop action buttons ── */}
+        <div className="flex-1 hidden md:block" />
+
+        {/* ── Desktop action buttons (hidden on mobile) ── */}
         <div className="hidden sm:flex items-center gap-1.5 shrink-0">
           {isMarketing && (
             <Button size="sm" variant="outline" onClick={downloadTemplate} className="gap-1 text-xs">
@@ -515,62 +518,50 @@ export default function MarketingLeads() {
           )}
         </div>
 
-        {/* ── Mobile action buttons ── */}
-        <div className="flex sm:hidden items-center gap-1.5 shrink-0">
-          {isMarketing && (
-            <Button
-              size="sm"
-              onClick={() => setShowForm(true)}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white h-8 w-8 p-0"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
-          )}
-          {/* ⋮ More dropdown */}
-          <div className="relative">
-            <button
-              onPointerDown={() => setShowMoreMenu(v => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border bg-card hover:bg-muted transition-colors"
-            >
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-            {showMoreMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onPointerDown={() => setShowMoreMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 bg-popover border rounded-xl shadow-xl p-1 z-50 min-w-[170px] text-sm">
-                  {isMarketing && (
-                    <button
-                      onPointerDown={() => { downloadTemplate(); setShowMoreMenu(false); }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> ดาวน์โหลด Template
-                    </button>
-                  )}
-                  {isMarketing && (
-                    <button
-                      onPointerDown={() => { fileInputRef.current?.click(); setShowMoreMenu(false); }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
-                    >
-                      <Upload className="w-4 h-4 text-muted-foreground" /> Import XLSX
-                    </button>
-                  )}
-                  <button
-                    onPointerDown={() => { exportLeads(filtered); setShowMoreMenu(false); }}
-                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
-                  >
-                    <FileDown className="w-4 h-4 text-muted-foreground" /> Export XLSX
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
         <NavActions />
       </header>
 
       {/* ── Body ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-2">
+
+        {/* ── Mobile action bar (แสดงเฉพาะ mobile) ── */}
+        <div className="flex sm:hidden flex-col gap-2 mb-5">
+          {isMarketing && (
+            <Button
+              onClick={() => setShowForm(true)}
+              className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-2 rounded-xl"
+            >
+              <Plus className="w-4 h-4" /> เพิ่ม Lead ใหม่
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => exportLeads(filtered)}
+              className="flex-1 h-10 gap-2 text-sm rounded-xl"
+            >
+              <FileDown className="w-4 h-4" /> Export
+            </Button>
+            {isMarketing && (
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-1 h-10 gap-2 text-sm rounded-xl"
+              >
+                <Upload className="w-4 h-4" /> Import
+              </Button>
+            )}
+            {isMarketing && (
+              <Button
+                variant="outline"
+                onClick={downloadTemplate}
+                className="flex-1 h-10 gap-2 text-sm rounded-xl"
+              >
+                <FileSpreadsheet className="w-4 h-4" /> Template
+              </Button>
+            )}
+          </div>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-5">

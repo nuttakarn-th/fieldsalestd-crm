@@ -230,12 +230,13 @@ export default function WebSetting() {
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
           </div>
         </Link>
-        <Link to="/" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+        {/* Breadcrumb — desktop only */}
+        <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ChevronLeft className="w-3.5 h-3.5" /> Hub
         </Link>
-        <span className="text-muted-foreground/40 text-xs">/</span>
-        {/* Title */}
-        <div className="flex items-center gap-2 min-w-0">
+        <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>
+        {/* Title — flex-1 on mobile */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-none">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-600 to-zinc-700 flex items-center justify-center shrink-0">
             <Settings2 className="w-4 h-4 text-white" />
           </div>
@@ -244,13 +245,31 @@ export default function WebSetting() {
             <p className="text-[10px] text-muted-foreground leading-tight hidden sm:block">ตั้งค่าระบบ — เฉพาะ Admin</p>
           </div>
         </div>
-        <div className="flex-1" />
+        <div className="flex-1 hidden md:block" />
         <NavActions />
       </header>
 
+      {/* Mobile tab bar */}
+      <div className="md:hidden flex border-b overflow-x-auto">
+        {tabs.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all shrink-0 ${
+              tab === key
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Icon className="w-4 h-4 shrink-0" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex max-w-5xl mx-auto">
-        {/* Sidebar */}
-        <aside className="w-52 shrink-0 sticky top-14 self-start h-[calc(100vh-56px)] overflow-y-auto border-r p-3 space-y-1">
+        {/* Sidebar — desktop only */}
+        <aside className="hidden md:block w-52 shrink-0 sticky top-14 self-start h-[calc(100vh-56px)] overflow-y-auto border-r p-3 space-y-1">
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
