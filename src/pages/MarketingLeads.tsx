@@ -9,7 +9,7 @@ import { Link } from "react-router-dom";
 import {
   Users, Plus, Phone, ChevronLeft, Search,
   CheckCircle2, Clock, Trash2, Megaphone, X, Filter,
-  FileDown, Upload, FileSpreadsheet, AlertCircle,
+  FileDown, Upload, FileSpreadsheet, AlertCircle, MoreHorizontal,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import * as XLSX from "xlsx";
@@ -368,6 +368,7 @@ export default function MarketingLeads() {
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState<"all" | "available" | "claimed">("all");
   const [filterSource, setFilterSource]   = useState<"all" | LeadSource>("all");
+  const [showMoreMenu, setShowMoreMenu]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
@@ -491,27 +492,80 @@ export default function MarketingLeads() {
           <PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" />
         </div>
         <div className="flex-1" />
-        {/* Action buttons */}
-        <div className="flex items-center gap-1.5 shrink-0">
+
+        {/* ── Desktop action buttons ── */}
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
           {isMarketing && (
-            <Button size="sm" variant="outline" onClick={downloadTemplate} className="gap-1 text-xs hidden sm:flex">
+            <Button size="sm" variant="outline" onClick={downloadTemplate} className="gap-1 text-xs">
               <FileSpreadsheet className="w-3.5 h-3.5" /> Template
             </Button>
           )}
           {isMarketing && (
             <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-1 text-xs">
-              <Upload className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Import</span>
+              <Upload className="w-3.5 h-3.5" /> Import
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => exportLeads(filtered)} className="gap-1 text-xs">
-            <FileDown className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export</span>
+            <FileDown className="w-3.5 h-3.5" /> Export
           </Button>
           {isMarketing && (
             <Button size="sm" onClick={() => setShowForm(true)} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-1">
-              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">เพิ่ม Lead</span>
+              <Plus className="w-4 h-4" /> เพิ่ม Lead
             </Button>
           )}
         </div>
+
+        {/* ── Mobile action buttons ── */}
+        <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+          {isMarketing && (
+            <Button
+              size="sm"
+              onClick={() => setShowForm(true)}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white h-8 w-8 p-0"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
+          {/* ⋮ More dropdown */}
+          <div className="relative">
+            <button
+              onPointerDown={() => setShowMoreMenu(v => !v)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border bg-card hover:bg-muted transition-colors"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onPointerDown={() => setShowMoreMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 bg-popover border rounded-xl shadow-xl p-1 z-50 min-w-[170px] text-sm">
+                  {isMarketing && (
+                    <button
+                      onPointerDown={() => { downloadTemplate(); setShowMoreMenu(false); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-muted-foreground" /> ดาวน์โหลด Template
+                    </button>
+                  )}
+                  {isMarketing && (
+                    <button
+                      onPointerDown={() => { fileInputRef.current?.click(); setShowMoreMenu(false); }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
+                    >
+                      <Upload className="w-4 h-4 text-muted-foreground" /> Import XLSX
+                    </button>
+                  )}
+                  <button
+                    onPointerDown={() => { exportLeads(filtered); setShowMoreMenu(false); }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted flex items-center gap-2.5 touch-manipulation"
+                  >
+                    <FileDown className="w-4 h-4 text-muted-foreground" /> Export XLSX
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         <NavActions />
       </header>
 
