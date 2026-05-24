@@ -13,7 +13,7 @@ import {
   Layers, Upload, Trash2, Download, Plus, Check, ImageIcon, X,
   Folder, FolderOpen, ChevronRight, ChevronDown, ChevronUp,
   Maximize2, AlignCenter, Info, Pencil, RotateCcw,
-  FlipHorizontal, FlipVertical, SlidersHorizontal,
+  FlipHorizontal, FlipVertical, SlidersHorizontal, CopyCheck,
 } from "lucide-react";
 import { useCRM, type ContentTemplate } from "@/store/crmStore";
 import { toast } from "sonner";
@@ -583,6 +583,13 @@ export default function ContentPhotoFrame() {
   function handleFitFull() {
     if (!photoImgRef.current || !selectedTemplate) return;
     setPos(fitFullPos(photoImgRef.current, selectedTemplate));
+  }
+
+  function handleApplyToAll() {
+    const pos = photoPositions[activeIdx];
+    if (!pos || photoFiles.length < 2) return;
+    setPhotoPositions(prev => prev.map((_, i) => i === activeIdx ? prev[i] : { ...pos }));
+    toast.success(`ใช้ตำแหน่งนี้กับทุกภาพ (${photoFiles.length} ภาพ) ✅`);
   }
 
   function handleCenter() {
@@ -1162,6 +1169,21 @@ export default function ContentPhotoFrame() {
                 <AlignCenter className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">กลาง</span>
               </button>
+
+              {/* Apply to all photos */}
+              {photoFiles.length > 1 && (
+                <>
+                  <div className="w-px h-5 bg-border shrink-0" />
+                  <button
+                    onClick={handleApplyToAll}
+                    title="ใช้ตำแหน่ง + ขนาดนี้กับทุกภาพ"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 active:bg-indigo-200 transition-all shrink-0 touch-manipulation"
+                  >
+                    <CopyCheck className="w-3.5 h-3.5" />
+                    <span>ใช้กับทุกภาพ</span>
+                  </button>
+                </>
+              )}
 
               {/* Position info */}
               <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums hidden lg:inline">
