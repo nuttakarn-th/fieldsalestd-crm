@@ -518,7 +518,7 @@ export default function MarketingLeads() {
           )}
         </div>
 
-        <NavActions />
+        <NavActions hideChat />
       </header>
 
       {/* ── Body ── */}
