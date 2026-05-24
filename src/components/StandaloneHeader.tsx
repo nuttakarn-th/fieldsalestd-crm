@@ -41,14 +41,17 @@ interface StandaloneHeaderProps {
   backTo?: string;
   /** เนื้อหาพิเศษระหว่างโลโก้กับ icons ด้านขวา (เช่น action buttons ของ admin) */
   extra?: React.ReactNode;
+  /** ซ่อนปุ่ม Chat และ ChatWidget popup (เช่น หน้าที่แสดงต่อลูกค้า) */
+  hideChat?: boolean;
 }
 
 /**
  * Header มาตรฐานสำหรับ standalone pages (ไม่อยู่ใน AppLayout)
  * แสดง: ← logo "Standard Tour" | spacer | Chat Bell User
  * รวม <ChatWidget /> ไว้ด้วยแล้ว — ไม่ต้องใส่ซ้ำในหน้า
+ * @param hideChat  — true เพื่อซ่อนปุ่ม Chat และ ChatWidget popup
  */
-export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps) {
+export function StandaloneHeader({ backTo = "/", extra, hideChat = false }: StandaloneHeaderProps) {
   return (
     <>
       <header className="px-3 sm:px-8 py-3 sm:py-5 max-w-7xl mx-auto flex items-center gap-2 sm:gap-3 min-w-0">
@@ -71,12 +74,12 @@ export function StandaloneHeader({ backTo = "/", extra }: StandaloneHeaderProps)
         <div className="flex items-center gap-1 shrink-0">
           <SwitchRoleBtn />
           <StandyBtn />
-          <ChatHeaderBtn />
+          {!hideChat && <ChatHeaderBtn />}
           <TeamNotifications />
           <UserMenu />
         </div>
       </header>
-      <ChatWidget />
+      {!hideChat && <ChatWidget />}
       <StandyWidget />
     </>
   );

@@ -1672,7 +1672,7 @@ export default function TourPackagePresentation() {
 
       {/* ── Header ── */}
       {user ? (
-        <StandaloneHeader backTo="/tour-presentation" />
+        <StandaloneHeader backTo="/tour-presentation" hideChat />
       ) : (
         <PublicHeader lineUrl={settings.lineUrl} />
       )}
