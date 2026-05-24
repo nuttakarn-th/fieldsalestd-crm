@@ -44,18 +44,19 @@ function ChatBtn() {
 /**
  * ใส่ไว้ใน header ของทุกหน้า
  * จะ render ChatWidget + StandyWidget (overlay) โดยอัตโนมัติ
+ * @param hideChat  — true เพื่อซ่อนปุ่ม Chat และ ChatWidget popup (เช่น หน้าที่มี sub-layout ของตัวเอง)
  */
-export function NavActions() {
+export function NavActions({ hideChat = false }: { hideChat?: boolean }) {
   return (
     <>
       <div className="flex items-center gap-1 shrink-0">
         <SwitchRoleBtn />
         <StandyBtn />
-        <ChatBtn />
+        {!hideChat && <ChatBtn />}
         <TeamNotifications />
         <UserMenu />
       </div>
-      <ChatWidget />
+      {!hideChat && <ChatWidget />}
       <StandyWidget />
     </>
   );

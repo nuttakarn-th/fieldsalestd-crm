@@ -68,26 +68,17 @@ export default function ContentManagementLayout() {
     <div className="min-h-screen bg-background flex flex-col">
 
       {/* ── Top bar ── */}
-      <header className="h-14 border-b bg-card/80 backdrop-blur-xl flex items-center px-4 gap-3 shrink-0 sticky top-0 z-40 shadow-soft">
+      <header className="h-14 border-b bg-card/80 backdrop-blur-xl flex items-center px-4 gap-2 shrink-0 sticky top-0 z-40 shadow-soft">
 
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setShowSidebar(true)}
-          className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors shrink-0"
-          title="เมนู"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
-        {/* Logo + back */}
-        <Link to="/" className="hidden md:flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
+        {/* Logo — link to Hub (always visible, ทั้ง mobile และ desktop) */}
+        <Link to="/" className="flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
           <div className="w-8 h-8 rounded-full overflow-hidden group-hover:scale-105 transition shrink-0">
             <img src="/logo-icon.png" alt="Standard Tour" className="w-full h-full object-cover"
               onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
           </div>
         </Link>
 
-        {/* Breadcrumb — desktop */}
+        {/* Breadcrumb — desktop only */}
         <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ChevronLeft className="w-3.5 h-3.5" /> Hub
         </Link>
@@ -109,8 +100,18 @@ export default function ContentManagementLayout() {
           </div>
         </div>
 
-        <div className="flex-1" />
-        <NavActions />
+        {/* Mobile hamburger — opens sidebar */}
+        <button
+          onClick={() => setShowSidebar(true)}
+          className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors shrink-0"
+          title="เมนูเครื่องมือ"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex-1 hidden md:block" />
+        {/* hideChat: ไม่ให้ chat popup ลอยทับ layout ที่มี sub-page */}
+        <NavActions hideChat />
       </header>
 
       {/* Mobile backdrop */}
