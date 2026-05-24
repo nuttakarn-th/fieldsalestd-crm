@@ -201,12 +201,12 @@ function TemplateMiniCard({
       <div className="px-1.5 py-1 flex items-center gap-1">
         <p className="text-[10px] font-semibold flex-1 truncate leading-tight">{template.name}</p>
 
-        {/* Folder assign menu */}
+        {/* Folder assign menu — always visible */}
         <div className="relative z-20">
           <button
-            onClick={(e) => { e.stopPropagation(); setShowMenu(v => !v); }}
+            onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); setShowMenu(v => !v); }}
             title="ย้ายโฟล์เดอร์"
-            className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:text-amber-600 text-muted-foreground transition-all"
+            className="w-5 h-5 flex items-center justify-center rounded hover:bg-amber-100 hover:text-amber-600 active:bg-amber-100 active:text-amber-600 text-muted-foreground/60 transition-all touch-manipulation"
           >
             <Folder className="w-3 h-3" />
           </button>
@@ -260,8 +260,9 @@ function TemplateMiniCard({
         </div>
 
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:text-red-500 text-muted-foreground transition-all"
+          onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(); }}
+          title="ลบ Template"
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-red-100 hover:text-red-500 active:bg-red-100 active:text-red-500 text-muted-foreground/60 transition-all touch-manipulation"
         >
           <Trash2 className="w-3 h-3" />
         </button>
@@ -366,8 +367,12 @@ export default function ContentPhotoFrame() {
   const [photoPositions,  setPhotoPositions]  = useState<(TmplPos | undefined)[]>([]);
   const [openFolders,     setOpenFolders]     = useState<Set<string>>(new Set(["__none__"]));
   const [drawTick,        setDrawTick]        = useState(0);
-  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
-  const [showToolbar,       setShowToolbar]       = useState(true);
+  const [showTemplatePanel,   setShowTemplatePanel]   = useState(false);
+  const [showToolbar,         setShowToolbar]         = useState(true);
+  const [showUploadMenu,      setShowUploadMenu]      = useState(false);
+  const [uploadCreatingFolder, setUploadCreatingFolder] = useState(false);
+  const [uploadNewFolderName,  setUploadNewFolderName]  = useState("");
+  const uploadFolderRef = useRef<string | undefined>(undefined);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const editorRef        = useRef<HTMLCanvasElement>(null);
@@ -725,19 +730,34 @@ export default function ContentPhotoFrame() {
   async function onTemplateUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
+    const folder = uploadFolderRef.current; // folder chosen before file picker opened
     for (const file of files) {
       if (file.size > 8 * 1024 * 1024) { toast.error(`"${file.name}" ใหญ่เกิน 8MB`); continue; }
       const dataUrl = await fileToDataUrl(file).catch(() => null);
       if (!dataUrl) continue;
       const img = await loadImg(dataUrl).catch(() => null);
       addContentTemplate({
-        name: file.name.replace(/\.[^.]+$/, ""),
+        name:   file.name.replace(/\.[^.]+$/, ""),
         dataUrl,
         width:  img?.naturalWidth  ?? 1080,
         height: img?.naturalHeight ?? 1080,
+        folder,
       });
-      toast.success(`เพิ่ม "${file.name.replace(/\.[^.]+$/, "")}" แล้ว ✅`);
+      toast.success(`เพิ่ม "${file.name.replace(/\.[^.]+$/, "")}"${folder ? ` → 📁 ${folder}` : ""} ✅`);
     }
+    // Auto-open the target folder so user can see the new templates
+    if (folder) {
+      setOpenFolders(prev => new Set([...prev, folder]));
+    }
+  }
+
+  // ── Trigger upload after folder is chosen ─────────────────────────────────
+  function triggerUpload(folder: string | undefined) {
+    uploadFolderRef.current = folder;
+    setShowUploadMenu(false);
+    setUploadCreatingFolder(false);
+    setUploadNewFolderName("");
+    templateInputRef.current?.click();
   }
 
   // ── Upload: Photos (inherits current position) ─────────────────────────────
@@ -870,12 +890,80 @@ export default function ContentPhotoFrame() {
             Templates ({contentTemplates.length})
           </p>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => templateInputRef.current?.click()}
-              className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all"
-            >
-              <Plus className="w-3 h-3" /> เพิ่ม
-            </button>
+
+            {/* ── Upload + folder picker ── */}
+            <div className="relative">
+              <button
+                onPointerDown={e => { e.preventDefault(); setShowUploadMenu(v => !v); setUploadCreatingFolder(false); setUploadNewFolderName(""); }}
+                className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-600 transition-all touch-manipulation"
+              >
+                <Plus className="w-3 h-3" /> เพิ่ม
+              </button>
+
+              {showUploadMenu && (
+                <>
+                  {/* backdrop to close */}
+                  <div className="fixed inset-0 z-40" onPointerDown={() => { setShowUploadMenu(false); setUploadCreatingFolder(false); }} />
+                  <div className="absolute right-0 top-full mt-1 bg-popover border rounded-xl shadow-xl p-1.5 z-50 min-w-[190px] text-xs">
+                    <p className="px-2 py-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">เลือกโฟล์เดอร์</p>
+
+                    {/* No folder */}
+                    <button
+                      onPointerDown={e => { e.stopPropagation(); triggerUpload(undefined); }}
+                      className="w-full text-left px-2 py-2 rounded-lg hover:bg-muted active:bg-muted flex items-center gap-2 touch-manipulation"
+                    >
+                      <Folder className="w-3.5 h-3.5 text-muted-foreground/60" />
+                      <span>ไม่มีโฟล์เดอร์</span>
+                    </button>
+
+                    {/* Existing folders */}
+                    {folders.map(f => (
+                      <button
+                        key={f}
+                        onPointerDown={e => { e.stopPropagation(); triggerUpload(f); }}
+                        className="w-full text-left px-2 py-2 rounded-lg hover:bg-amber-50 active:bg-amber-50 hover:text-amber-700 flex items-center gap-2 touch-manipulation"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span className="flex-1 truncate">{f}</span>
+                      </button>
+                    ))}
+
+                    {/* Create new folder */}
+                    <div className="border-t my-1" />
+                    {!uploadCreatingFolder ? (
+                      <button
+                        onPointerDown={e => { e.stopPropagation(); setUploadCreatingFolder(true); }}
+                        className="w-full text-left px-2 py-2 rounded-lg hover:bg-muted active:bg-muted flex items-center gap-2 text-muted-foreground touch-manipulation"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> สร้างโฟล์เดอร์ใหม่...
+                      </button>
+                    ) : (
+                      <div className="px-1 flex gap-1 items-center">
+                        <input
+                          autoFocus
+                          value={uploadNewFolderName}
+                          onChange={e => setUploadNewFolderName(e.target.value)}
+                          onKeyDown={e => {
+                            e.stopPropagation();
+                            if (e.key === "Enter" && uploadNewFolderName.trim()) triggerUpload(uploadNewFolderName.trim());
+                            if (e.key === "Escape") { setUploadCreatingFolder(false); setUploadNewFolderName(""); }
+                          }}
+                          className="flex-1 text-[11px] border border-amber-400 rounded-lg px-2 py-1 bg-background outline-none"
+                          placeholder="ชื่อโฟล์เดอร์"
+                        />
+                        <button
+                          onPointerDown={e => { e.stopPropagation(); if (uploadNewFolderName.trim()) triggerUpload(uploadNewFolderName.trim()); }}
+                          className="w-6 h-6 flex items-center justify-center rounded-lg bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-600 touch-manipulation"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               onClick={() => setShowTemplatePanel(false)}
               className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted transition-all text-muted-foreground"
@@ -898,7 +986,7 @@ export default function ContentPhotoFrame() {
         <div className="flex-1 overflow-y-auto p-2 space-y-2">
           {contentTemplates.length === 0 ? (
             <button
-              onClick={() => templateInputRef.current?.click()}
+              onClick={() => triggerUpload(undefined)}
               className="w-full border-2 border-dashed border-amber-200 rounded-xl p-5 flex flex-col items-center gap-2 text-muted-foreground hover:border-amber-400 transition-colors"
             >
               <Upload className="w-7 h-7 text-amber-300" />
