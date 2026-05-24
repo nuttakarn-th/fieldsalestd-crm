@@ -907,15 +907,6 @@ export default function ContentPhotoFrame() {
                   <div className="absolute right-0 top-full mt-1 bg-popover border rounded-xl shadow-xl p-1.5 z-50 min-w-[190px] text-xs">
                     <p className="px-2 py-1 text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">เลือกโฟล์เดอร์</p>
 
-                    {/* No folder */}
-                    <button
-                      onPointerDown={e => { e.stopPropagation(); triggerUpload(undefined); }}
-                      className="w-full text-left px-2 py-2 rounded-lg hover:bg-muted active:bg-muted flex items-center gap-2 touch-manipulation"
-                    >
-                      <Folder className="w-3.5 h-3.5 text-muted-foreground/60" />
-                      <span>ไม่มีโฟล์เดอร์</span>
-                    </button>
-
                     {/* Existing folders */}
                     {folders.map(f => (
                       <button
