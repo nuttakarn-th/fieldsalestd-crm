@@ -494,73 +494,55 @@ export default function MarketingLeads() {
           <span className="shrink-0"><PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" /></span>
         </div>
 
-        <div className="flex-1 hidden md:block" />
-
-        {/* ── Desktop action buttons (hidden on mobile) ── */}
-        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-          {isMarketing && (
-            <Button size="sm" variant="outline" onClick={downloadTemplate} className="gap-1 text-xs">
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Template
-            </Button>
-          )}
-          {isMarketing && (
-            <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-1 text-xs">
-              <Upload className="w-3.5 h-3.5" /> Import
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => exportLeads(filtered)} className="gap-1 text-xs">
-            <FileDown className="w-3.5 h-3.5" /> Export
-          </Button>
-          {isMarketing && (
-            <Button size="sm" onClick={() => setShowForm(true)} className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-1">
-              <Plus className="w-4 h-4" /> เพิ่ม Lead
-            </Button>
-          )}
-        </div>
-
+        <div className="flex-1" />
         <NavActions hideChat />
       </header>
 
       {/* ── Body ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-2">
 
-        {/* ── Mobile action bar (แสดงเฉพาะ mobile) ── */}
-        <div className="flex sm:hidden flex-col gap-2 mb-5">
-          {isMarketing && (
-            <Button
-              onClick={() => setShowForm(true)}
-              className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-2 rounded-xl"
-            >
-              <Plus className="w-4 h-4" /> เพิ่ม Lead ใหม่
-            </Button>
-          )}
-          <div className="flex gap-2">
+        {/* ── Action bar — ทุก responsive ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+          {/* Secondary buttons — Export / Import / Template */}
+          <div className="flex gap-2 order-2 sm:order-1">
             <Button
               variant="outline"
               onClick={() => exportLeads(filtered)}
-              className="flex-1 h-10 gap-2 text-sm rounded-xl"
+              className="flex-1 sm:flex-none h-10 gap-1.5 rounded-xl"
             >
-              <FileDown className="w-4 h-4" /> Export
+              <FileDown className="w-4 h-4" />
+              <span>Export</span>
             </Button>
             {isMarketing && (
               <Button
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex-1 h-10 gap-2 text-sm rounded-xl"
+                className="flex-1 sm:flex-none h-10 gap-1.5 rounded-xl"
               >
-                <Upload className="w-4 h-4" /> Import
+                <Upload className="w-4 h-4" />
+                <span>Import</span>
               </Button>
             )}
             {isMarketing && (
               <Button
                 variant="outline"
                 onClick={downloadTemplate}
-                className="flex-1 h-10 gap-2 text-sm rounded-xl"
+                className="flex-1 sm:flex-none h-10 gap-1.5 rounded-xl"
               >
-                <FileSpreadsheet className="w-4 h-4" /> Template
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Template</span>
               </Button>
             )}
           </div>
+          {/* Primary button — เพิ่ม Lead */}
+          {isMarketing && (
+            <Button
+              onClick={() => setShowForm(true)}
+              className="w-full sm:w-auto h-11 sm:h-10 text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-2 rounded-xl order-1 sm:order-2"
+            >
+              <Plus className="w-4 h-4" /> เพิ่ม Lead
+            </Button>
+          )}
         </div>
 
         {/* Stats */}
