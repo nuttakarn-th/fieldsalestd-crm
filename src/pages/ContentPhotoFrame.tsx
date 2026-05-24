@@ -585,11 +585,56 @@ export default function ContentPhotoFrame() {
     setPos(fitFullPos(photoImgRef.current, selectedTemplate));
   }
 
-  function handleApplyToAll() {
-    const pos = photoPositions[activeIdx];
-    if (!pos || photoFiles.length < 2) return;
-    setPhotoPositions(prev => prev.map((_, i) => i === activeIdx ? prev[i] : { ...pos }));
-    toast.success(`ใช้ตำแหน่งนี้กับทุกภาพ (${photoFiles.length} ภาพ) ✅`);
+  async function handleApplyToAll() {
+    const pos         = photoPositions[activeIdx];
+    const currentPhoto = photoImgRef.current;
+    if (!pos || !currentPhoto || !selectedTemplate || photoFiles.length < 2) return;
+
+    const { cx, cy, scale, rotation, flipH, flipV } = pos;
+    const srcW = currentPhoto.naturalWidth;
+    const srcH = currentPhoto.naturalHeight;
+
+    // ── Normalize to relative coordinates (0..1 of source photo) ──
+    // normCx / normCy : template center as fraction of photo dimensions
+    // normScale       : template width as fraction of photo width
+    const normCx    = cx / srcW;
+    const normCy    = cy / srcH;
+    const normScale = (scale * selectedTemplate.width) / srcW;
+
+    toast.info("กำลังปรับตำแหน่งทุกภาพ...");
+
+    const newPositions = [...photoPositions];
+
+    for (let i = 0; i < photoFiles.length; i++) {
+      if (i === activeIdx) continue;
+
+      // Load each photo to get its real dimensions
+      const url = URL.createObjectURL(photoFiles[i]);
+      const img = await loadImg(url).catch(() => null);
+      URL.revokeObjectURL(url);
+
+      if (!img) {
+        // Fallback: raw copy if load fails
+        newPositions[i] = { ...pos };
+        continue;
+      }
+
+      const dstW = img.naturalWidth;
+      const dstH = img.naturalHeight;
+
+      // ── Scale back proportionally to destination photo ──
+      newPositions[i] = {
+        cx:       normCx    * dstW,
+        cy:       normCy    * dstH,
+        scale:    (normScale * dstW) / selectedTemplate.width,
+        rotation,
+        flipH,
+        flipV,
+      };
+    }
+
+    setPhotoPositions(newPositions);
+    toast.success(`ปรับตำแหน่งครบ ${photoFiles.length} ภาพ ✅`);
   }
 
   function handleCenter() {
