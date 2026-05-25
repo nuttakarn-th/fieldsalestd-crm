@@ -1354,6 +1354,221 @@ function CategorySection({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// World countries data — Asia first, auto-maps to continent
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WORLD_COUNTRIES: { name: string; continent: string; zone: string }[] = [
+  // ── เอเชียตะวันออก ──────────────────────────────────────────────
+  { name: "ญี่ปุ่น",            continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  { name: "เกาหลีใต้",          continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  { name: "จีน",                continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  { name: "ฮ่องกง",             continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  { name: "ไต้หวัน",            continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  { name: "มองโกเลีย",          continent: "เอเชีย", zone: "เอเชียตะวันออก" },
+  // ── เอเชียตะวันออกเฉียงใต้ ─────────────────────────────────────
+  { name: "สิงคโปร์",           continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "มาเลเซีย",           continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "เวียดนาม",           continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "อินโดนีเซีย",        continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "บาหลี",              continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "ฟิลิปปินส์",         continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "กัมพูชา",            continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "ลาว",                continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "เมียนมาร์",          continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  { name: "บรูไน",              continent: "เอเชีย", zone: "เอเชียตะวันออกเฉียงใต้" },
+  // ── เอเชียใต้ ───────────────────────────────────────────────────
+  { name: "อินเดีย",            continent: "เอเชีย", zone: "เอเชียใต้" },
+  { name: "เนปาล",              continent: "เอเชีย", zone: "เอเชียใต้" },
+  { name: "ศรีลังกา",           continent: "เอเชีย", zone: "เอเชียใต้" },
+  { name: "มัลดีฟส์",           continent: "เอเชีย", zone: "เอเชียใต้" },
+  { name: "ภูฏาน",              continent: "เอเชีย", zone: "เอเชียใต้" },
+  { name: "บังกลาเทศ",          continent: "เอเชีย", zone: "เอเชียใต้" },
+  // ── ตะวันออกกลาง ────────────────────────────────────────────────
+  { name: "ดูไบ / UAE",         continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "กาตาร์",             continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "ซาอุดีอาระเบีย",     continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "อิสราเอล",           continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "จอร์แดน",            continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "ตุรกี",              continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "อิหร่าน",            continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "โอมาน",              continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  { name: "คูเวต",              continent: "ตะวันออกกลาง", zone: "ตะวันออกกลาง" },
+  // ── ยุโรปตะวันตก ────────────────────────────────────────────────
+  { name: "ฝรั่งเศส",           continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "อิตาลี",             continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "สวิตเซอร์แลนด์",     continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "เยอรมนี",            continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "อังกฤษ",             continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "สเปน",               continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "ออสเตรีย",           continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "เนเธอร์แลนด์",       continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "เบลเยียม",           continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "โปรตุเกส",           continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "ลักเซมเบิร์ก",       continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  { name: "ไอร์แลนด์",          continent: "ยุโรป", zone: "ยุโรปตะวันตก" },
+  // ── ยุโรปเหนือ ──────────────────────────────────────────────────
+  { name: "นอร์เวย์",           continent: "ยุโรป", zone: "ยุโรปเหนือ" },
+  { name: "สวีเดน",             continent: "ยุโรป", zone: "ยุโรปเหนือ" },
+  { name: "ฟินแลนด์",           continent: "ยุโรป", zone: "ยุโรปเหนือ" },
+  { name: "เดนมาร์ก",           continent: "ยุโรป", zone: "ยุโรปเหนือ" },
+  { name: "ไอซ์แลนด์",          continent: "ยุโรป", zone: "ยุโรปเหนือ" },
+  // ── ยุโรปใต้ / ตะวันออก ─────────────────────────────────────────
+  { name: "กรีซ",               continent: "ยุโรป", zone: "ยุโรปใต้" },
+  { name: "โครเอเชีย",          continent: "ยุโรป", zone: "ยุโรปใต้" },
+  { name: "มอนเตเนโกร",         continent: "ยุโรป", zone: "ยุโรปใต้" },
+  { name: "สาธารณรัฐเช็ก",      continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  { name: "โปแลนด์",            continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  { name: "ฮังการี",            continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  { name: "รัสเซีย",            continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  { name: "โรมาเนีย",           continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  { name: "บัลแกเรีย",          continent: "ยุโรป", zone: "ยุโรปตะวันออก" },
+  // ── อเมริกา ─────────────────────────────────────────────────────
+  { name: "สหรัฐอเมริกา",       continent: "อเมริกา", zone: "อเมริกาเหนือ" },
+  { name: "แคนาดา",             continent: "อเมริกา", zone: "อเมริกาเหนือ" },
+  { name: "เม็กซิโก",           continent: "อเมริกา", zone: "อเมริกาเหนือ" },
+  { name: "บราซิล",             continent: "อเมริกา", zone: "อเมริกาใต้" },
+  { name: "เปรู",               continent: "อเมริกา", zone: "อเมริกาใต้" },
+  { name: "อาร์เจนตินา",        continent: "อเมริกา", zone: "อเมริกาใต้" },
+  { name: "คิวบา",              continent: "อเมริกา", zone: "อเมริกาใต้" },
+  // ── โอเชียเนีย ──────────────────────────────────────────────────
+  { name: "ออสเตรเลีย",         continent: "โอเชียเนีย", zone: "โอเชียเนีย" },
+  { name: "นิวซีแลนด์",         continent: "โอเชียเนีย", zone: "โอเชียเนีย" },
+  { name: "มอริเชียส",          continent: "โอเชียเนีย", zone: "โอเชียเนีย" },
+  { name: "ฟิจิ",               continent: "โอเชียเนีย", zone: "โอเชียเนีย" },
+  // ── แอฟริกา ─────────────────────────────────────────────────────
+  { name: "อียิปต์",            continent: "แอฟริกา", zone: "แอฟริกา" },
+  { name: "แอฟริกาใต้",         continent: "แอฟริกา", zone: "แอฟริกา" },
+  { name: "โมร็อกโก",           continent: "แอฟริกา", zone: "แอฟริกา" },
+  { name: "เคนยา",              continent: "แอฟริกา", zone: "แอฟริกา" },
+  { name: "แทนซาเนีย",          continent: "แอฟริกา", zone: "แอฟริกา" },
+  { name: "มาดากัสการ์",        continent: "แอฟริกา", zone: "แอฟริกา" },
+];
+
+const THAI_PROVINCES = [
+  "กรุงเทพมหานคร","กระบี่","กาญจนบุรี","กาฬสินธุ์","กำแพงเพชร",
+  "ขอนแก่น","จันทบุรี","ฉะเชิงเทรา","ชลบุรี","ชัยนาท","ชัยภูมิ",
+  "ชุมพร","เชียงราย","เชียงใหม่","ตรัง","ตราด","ตาก","นครนายก",
+  "นครปฐม","นครพนม","นครราชสีมา","นครศรีธรรมราช","นครสวรรค์",
+  "นนทบุรี","นราธิวาส","น่าน","บึงกาฬ","บุรีรัมย์","ปทุมธานี",
+  "ประจวบคีรีขันธ์","ปราจีนบุรี","ปัตตานี","พระนครศรีอยุธยา","พะเยา",
+  "พังงา","พัทลุง","พิจิตร","พิษณุโลก","เพชรบุรี","เพชรบูรณ์","แพร่",
+  "ภูเก็ต","มหาสารคาม","มุกดาหาร","แม่ฮ่องสอน","ยโสธร","ยะลา",
+  "ร้อยเอ็ด","ระนอง","ระยอง","ราชบุรี","ลพบุรี","ลำปาง","ลำพูน",
+  "เลย","ศรีสะเกษ","สกลนคร","สงขลา","สตูล","สมุทรปราการ",
+  "สมุทรสงคราม","สมุทรสาคร","สระแก้ว","สระบุรี","สิงห์บุรี",
+  "สุโขทัย","สุพรรณบุรี","สุราษฎร์ธานี","สุรินทร์","หนองคาย",
+  "หนองบัวลำภู","อ่างทอง","อำนาจเจริญ","อุดรธานี","อุตรดิตถ์",
+  "อุทัยธานี","อุบลราชธานี",
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CountryCombobox — searchable dropdown (abroad = world countries, inland = provinces)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CountryCombobox({
+  value, onChange, isInland,
+}: {
+  value: string;
+  onChange: (country: string, continent: string) => void;
+  isInland: boolean;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen]   = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  // ── Inland: flat province list ──────────────────────────────────
+  const filteredProvinces = query
+    ? THAI_PROVINCES.filter(p => p.includes(query))
+    : THAI_PROVINCES;
+
+  // ── Abroad: group by zone, Asia zones first ─────────────────────
+  const filteredAbroad = query
+    ? WORLD_COUNTRIES.filter(c => c.name.includes(query) || c.zone.includes(query) || c.continent.includes(query))
+    : WORLD_COUNTRIES;
+
+  const abroadGroups = (() => {
+    const map: Record<string, typeof WORLD_COUNTRIES> = {};
+    for (const c of filteredAbroad) {
+      if (!map[c.zone]) map[c.zone] = [];
+      map[c.zone].push(c);
+    }
+    return map;
+  })();
+
+  const clear = () => { setQuery(""); onChange("", ""); };
+
+  return (
+    <div ref={wrapRef} className="relative mt-1">
+      <div className="relative">
+        <Input
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange("", ""); }}
+          onFocus={() => setOpen(true)}
+          placeholder={isInland ? "ค้นหาจังหวัด..." : "ค้นหาประเทศ..."}
+          className="pr-7"
+        />
+        {value && (
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); clear(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-[999] top-full mt-1 left-0 right-0 max-h-56 overflow-auto rounded-xl border bg-popover shadow-xl">
+          {isInland ? (
+            filteredProvinces.length === 0
+              ? <p className="text-xs text-muted-foreground p-3 text-center">ไม่พบจังหวัด</p>
+              : filteredProvinces.map(p => (
+                  <button
+                    key={p} type="button"
+                    onMouseDown={e => { e.preventDefault(); onChange(p, "ในประเทศ"); setQuery(p); setOpen(false); }}
+                    className={`w-full text-left px-3 py-1.5 text-sm transition-colors hover:bg-muted ${value === p ? "bg-violet-50 dark:bg-violet-950/40 text-violet-700 font-semibold" : ""}`}
+                  >
+                    {p}
+                  </button>
+                ))
+          ) : (
+            Object.keys(abroadGroups).length === 0
+              ? <p className="text-xs text-muted-foreground p-3 text-center">ไม่พบประเทศ</p>
+              : Object.entries(abroadGroups).map(([zone, countries]) => (
+                  <div key={zone}>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 pt-2 pb-0.5 bg-muted/60 sticky top-0">
+                      {zone}
+                    </p>
+                    {countries.map(c => (
+                      <button
+                        key={c.name} type="button"
+                        onMouseDown={e => { e.preventDefault(); onChange(c.name, c.continent); setQuery(c.name); setOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 text-sm transition-colors hover:bg-muted flex items-center justify-between gap-2 ${value === c.name ? "bg-violet-50 dark:bg-violet-950/40 text-violet-700 font-semibold" : ""}`}
+                      >
+                        <span>{c.name}</span>
+                        {value !== c.name && <span className="text-[10px] text-muted-foreground shrink-0">{c.continent}</span>}
+                        {value === c.name && <Check className="w-3.5 h-3.5 text-violet-600 shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AddEditDialog
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1386,6 +1601,14 @@ function AddEditDialog({
     setTypeInput("");
   }, [editItem, open]);
 
+  const isInland = form.continent === "ในประเทศ";
+
+  function toggleInland(inland: boolean) {
+    setForm(f => ({ ...f, continent: inland ? "ในประเทศ" : "", country: "", city: "" }));
+  }
+  function handleCountryChange(country: string, continent: string) {
+    setForm(f => ({ ...f, country, continent: isInland ? "ในประเทศ" : continent }));
+  }
   function addType(t: string) {
     const v = t.trim();
     if (!v || form.tourTypes.includes(v)) return;
@@ -1404,34 +1627,77 @@ function AddEditDialog({
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-3">
+            {/* ── ชื่อโปรแกรม ── */}
             <div className="col-span-2">
               <Label>ชื่อโปรแกรมทัวร์ *</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="เช่น ยุโรป 6 ประเทศ สวิส ฝรั่งเศส" />
+              <Input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="เช่น ยุโรป 6 ประเทศ สวิส ฝรั่งเศส"
+              />
             </div>
+
+            {/* ── ระยะเวลา ── */}
             <div>
               <Label>ระยะเวลา</Label>
-              <Input value={form.duration} onChange={e => setForm(f => ({ ...f, duration: e.target.value }))} placeholder="6 วัน 4 คืน" />
+              <Input
+                value={form.duration}
+                onChange={e => setForm(f => ({ ...f, duration: e.target.value }))}
+                placeholder="6 วัน 4 คืน"
+              />
             </div>
+
+            {/* ── ประเภทการเดินทาง toggle ── */}
             <div>
-              <Label>ทวีป *</Label>
-              <select
-                value={form.continent}
-                onChange={e => setForm(f => ({ ...f, continent: e.target.value }))}
-                className="w-full h-9 rounded-md border bg-background px-3 text-sm"
-              >
-                <option value="">-- เลือกทวีป --</option>
-                {PRESET_CONTINENTS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Label>ประเภทการเดินทาง *</Label>
+              <div className="flex mt-1 rounded-lg overflow-hidden border divide-x">
+                <button
+                  type="button"
+                  onClick={() => toggleInland(false)}
+                  className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${!isInland ? "bg-violet-600 text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                >
+                  ✈️ ต่างประเทศ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleInland(true)}
+                  className={`flex-1 py-1.5 text-xs font-semibold transition-colors ${isInland ? "bg-violet-600 text-white" : "bg-background text-muted-foreground hover:bg-muted"}`}
+                >
+                  🇹🇭 ภายในประเทศ
+                </button>
+              </div>
             </div>
-            <div>
-              <Label>ประเทศ</Label>
-              <Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} placeholder="ญี่ปุ่น, สวิตเซอร์แลนด์..." />
+
+            {/* ── ประเทศ / จังหวัด (searchable combobox) ── */}
+            <div className="col-span-2 sm:col-span-1">
+              <Label>{isInland ? "จังหวัด" : "ประเทศ"}</Label>
+              <CountryCombobox
+                value={form.country}
+                onChange={handleCountryChange}
+                isInland={isInland}
+              />
+              {/* Auto-detected continent badge */}
+              {!isInland && form.continent && (
+                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                  <Globe2 className="w-3 h-3" />
+                  ทวีป: <span className="font-semibold text-foreground">{form.continent}</span>
+                </p>
+              )}
             </div>
-            <div>
-              <Label>เมือง / จุดเด่น</Label>
-              <Input value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="โตเกียว, เซอร์แมท..." />
+
+            {/* ── เมือง / จุดเด่น ── */}
+            <div className="col-span-2 sm:col-span-1">
+              <Label>{isInland ? "เมือง / อำเภอ" : "เมือง / จุดเด่น"}</Label>
+              <Input
+                className="mt-1"
+                value={form.city}
+                onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                placeholder={isInland ? "เช่น อำเภอเมือง, หัวหิน..." : "โตเกียว, เซอร์แมท..."}
+              />
             </div>
           </div>
+
+          {/* ── ประเภททัวร์ ── */}
           <div>
             <Label>ประเภททัวร์</Label>
             <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -1471,6 +1737,8 @@ function AddEditDialog({
               </div>
             )}
           </div>
+
+          {/* ── คำอธิบาย ── */}
           <div>
             <Label>คำอธิบายเพิ่มเติม</Label>
             <textarea
