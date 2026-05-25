@@ -1014,53 +1014,103 @@ function FilterSidebar({
       {allContinents.length > 0 && (
         <div>
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-            <Globe2 className="w-3 h-3" /> ทวีป
+            <Globe2 className="w-3 h-3" /> ทวีป / ภูมิภาค
           </p>
           <div className="flex flex-col gap-1">
             {allContinents.map(c => {
-              const clr = CONTINENT_COLORS[c];
-              const active = activeContinents.has(c);
-              const subItems = allCountriesByContinent[c] ?? [];
-              const isInland = c === "ในประเทศ";
+              const clr        = CONTINENT_COLORS[c];
+              const active     = activeContinents.has(c);
+              const subItems   = allCountriesByContinent[c] ?? [];
+              const hasSubItems = subItems.length > 0;
+              const isInland   = c === "ในประเทศ";
+              const activeSubCount = subItems.filter(s => activeCountries.has(s)).length;
+
               return (
                 <div key={c}>
+                  {/* ── Continent row ── */}
                   <button
                     onClick={() => onToggleContinent(c)}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left group ${
                       active
                         ? "bg-violet-600 text-white shadow-sm"
-                        : "hover:bg-muted text-foreground"
+                        : "hover:bg-muted/80 text-foreground border border-transparent hover:border-border"
                     }`}
                   >
-                    <span>{clr?.emoji ?? "🌍"}</span>
+                    {/* Emoji */}
+                    <span className="shrink-0 text-base leading-none">{clr?.emoji ?? "🌍"}</span>
+
+                    {/* Label */}
                     <span className="flex-1 truncate">{c}</span>
-                    {active && <X className="w-3 h-3 shrink-0 opacity-70" />}
+
+                    {/* Count badge — show total sub-items when not active */}
+                    {!active && hasSubItems && (
+                      <span className="shrink-0 text-[10px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
+                        {subItems.length}
+                      </span>
+                    )}
+
+                    {/* Active sub-count badge */}
+                    {active && activeSubCount > 0 && (
+                      <span className="shrink-0 text-[10px] font-bold bg-white/30 text-white px-1.5 py-0.5 rounded-full leading-none">
+                        {activeSubCount}/{subItems.length}
+                      </span>
+                    )}
+
+                    {/* Chevron — rotates when expanded */}
+                    {hasSubItems ? (
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                          active ? "rotate-180 opacity-80" : "opacity-30 group-hover:opacity-60"
+                        }`}
+                      />
+                    ) : (
+                      active && <Check className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                    )}
                   </button>
 
-                  {/* Sub-filter: countries / provinces */}
-                  {active && subItems.length > 0 && (
-                    <div className="ml-4 mt-1 mb-1 border-l-2 border-violet-200 pl-3 flex flex-col gap-0.5">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                        {isInland ? "จังหวัด" : "ประเทศ"}
-                      </p>
-                      {subItems.map(country => {
-                        const countryActive = activeCountries.has(country);
-                        return (
+                  {/* ── Sub-filter: countries / provinces (expands when active) ── */}
+                  {active && hasSubItems && (
+                    <div className="mt-1 mb-1.5 ml-2 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 overflow-hidden">
+                      {/* Sub-header */}
+                      <div className="flex items-center justify-between px-3 py-1.5 border-b border-violet-200/60 dark:border-violet-800/60">
+                        <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
+                          {isInland ? "🗺️ เลือกจังหวัด" : "🌐 เลือกประเทศ"}
+                        </span>
+                        {activeSubCount > 0 && (
                           <button
-                            key={country}
-                            onClick={() => onToggleCountry(country)}
-                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-left ${
-                              countryActive
-                                ? "bg-violet-100 text-violet-700 font-semibold"
-                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                            }`}
+                            onClick={e => { e.stopPropagation(); subItems.forEach(s => activeCountries.has(s) && onToggleCountry(s)); }}
+                            className="text-[10px] text-violet-500 hover:text-violet-700 hover:underline"
                           >
-                            {countryActive && <Check className="w-3 h-3 shrink-0 text-violet-600" />}
-                            {!countryActive && <span className="w-3 shrink-0" />}
-                            <span className="truncate">{country}</span>
+                            ล้าง ({activeSubCount})
                           </button>
-                        );
-                      })}
+                        )}
+                      </div>
+                      {/* Items */}
+                      <div className="p-1.5 flex flex-col gap-0.5 max-h-40 overflow-y-auto">
+                        {subItems.map(country => {
+                          const countryActive = activeCountries.has(country);
+                          return (
+                            <button
+                              key={country}
+                              onClick={() => onToggleCountry(country)}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all text-left ${
+                                countryActive
+                                  ? "bg-violet-600 text-white shadow-sm"
+                                  : "hover:bg-violet-100 dark:hover:bg-violet-900/40 text-foreground"
+                              }`}
+                            >
+                              <span className={`w-3.5 h-3.5 rounded-sm border shrink-0 flex items-center justify-center transition-colors ${
+                                countryActive
+                                  ? "bg-white/30 border-white/50"
+                                  : "border-border"
+                              }`}>
+                                {countryActive && <Check className="w-2.5 h-2.5" />}
+                              </span>
+                              <span className="truncate flex-1">{country}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
