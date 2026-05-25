@@ -22,7 +22,7 @@ import {
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
   MessageCircle, LogIn, Star, StarOff,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2,
-  SlidersHorizontal,
+  SlidersHorizontal, Check,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
@@ -977,20 +977,25 @@ function BannerManageDialog({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function FilterSidebar({
-  allContinents, allTourTypes,
-  activeContinents, activeTourTypes,
-  onToggleContinent, onToggleTourType, onClear, hasActive,
+  allContinents, allTourTypes, allCountriesByContinent,
+  activeContinents, activeTourTypes, activeCountries,
+  onToggleContinent, onToggleTourType, onToggleCountry, onClear, hasActive,
 }: {
   allContinents: string[];
   allTourTypes: string[];
+  allCountriesByContinent: Record<string, string[]>;
   activeContinents: Set<string>;
   activeTourTypes: Set<string>;
+  activeCountries: Set<string>;
   onToggleContinent: (v: string) => void;
   onToggleTourType: (v: string) => void;
+  onToggleCountry: (v: string) => void;
   onClear: () => void;
   hasActive: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const totalActive = activeContinents.size + activeTourTypes.size + activeCountries.size;
 
   const sidebarContent = (
     <div className="space-y-5">
@@ -1011,24 +1016,54 @@ function FilterSidebar({
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
             <Globe2 className="w-3 h-3" /> ทวีป
           </p>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1">
             {allContinents.map(c => {
               const clr = CONTINENT_COLORS[c];
               const active = activeContinents.has(c);
+              const subItems = allCountriesByContinent[c] ?? [];
+              const isInland = c === "ในประเทศ";
               return (
-                <button
-                  key={c}
-                  onClick={() => onToggleContinent(c)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
-                    active
-                      ? "bg-violet-600 text-white shadow-sm"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                >
-                  <span>{clr?.emoji ?? "🌍"}</span>
-                  <span className="flex-1 truncate">{c}</span>
-                  {active && <X className="w-3 h-3 shrink-0 opacity-70" />}
-                </button>
+                <div key={c}>
+                  <button
+                    onClick={() => onToggleContinent(c)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
+                      active
+                        ? "bg-violet-600 text-white shadow-sm"
+                        : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <span>{clr?.emoji ?? "🌍"}</span>
+                    <span className="flex-1 truncate">{c}</span>
+                    {active && <X className="w-3 h-3 shrink-0 opacity-70" />}
+                  </button>
+
+                  {/* Sub-filter: countries / provinces */}
+                  {active && subItems.length > 0 && (
+                    <div className="ml-4 mt-1 mb-1 border-l-2 border-violet-200 pl-3 flex flex-col gap-0.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                        {isInland ? "จังหวัด" : "ประเทศ"}
+                      </p>
+                      {subItems.map(country => {
+                        const countryActive = activeCountries.has(country);
+                        return (
+                          <button
+                            key={country}
+                            onClick={() => onToggleCountry(country)}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all text-left ${
+                              countryActive
+                                ? "bg-violet-100 text-violet-700 font-semibold"
+                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {countryActive && <Check className="w-3 h-3 shrink-0 text-violet-600" />}
+                            {!countryActive && <span className="w-3 shrink-0" />}
+                            <span className="truncate">{country}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1072,7 +1107,7 @@ function FilterSidebar({
           <span className="flex-1 text-left">กรองโปรแกรม</span>
           {hasActive && (
             <span className="w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-              {activeContinents.size + activeTourTypes.size}
+              {totalActive}
             </span>
           )}
           {mobileOpen ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
@@ -1524,6 +1559,7 @@ export default function TourPackagePresentation() {
   // Filters
   const [activeContinents, setActiveContinents] = useState<Set<string>>(new Set());
   const [activeTourTypes,  setActiveTourTypes]  = useState<Set<string>>(new Set());
+  const [activeCountries,  setActiveCountries]  = useState<Set<string>>(new Set());
 
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
@@ -1533,14 +1569,31 @@ export default function TourPackagePresentation() {
   const allContinents = useMemo(() => [...new Set(packages.map(p => p.continent).filter(Boolean))].sort(), [packages]);
   const allTourTypes  = useMemo(() => [...new Set(packages.flatMap(p => p.tourTypes))].sort(), [packages]);
 
+  // countries grouped by continent (only for active continents, or all if none active)
+  const allCountriesByContinent = useMemo(() => {
+    const relevant = activeContinents.size > 0
+      ? packages.filter(p => activeContinents.has(p.continent))
+      : packages;
+    const map: Record<string, string[]> = {};
+    for (const p of relevant) {
+      if (!p.continent || !p.country) continue;
+      if (!map[p.continent]) map[p.continent] = [];
+      if (!map[p.continent].includes(p.country)) map[p.continent].push(p.country);
+    }
+    // sort each list
+    for (const k of Object.keys(map)) map[k].sort();
+    return map;
+  }, [packages, activeContinents]);
+
   // ── Filtered packages ──────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return packages.filter(pkg => {
       if (activeContinents.size > 0 && !activeContinents.has(pkg.continent)) return false;
+      if (activeCountries.size  > 0 && !activeCountries.has(pkg.country))    return false;
       if (activeTourTypes.size  > 0 && !pkg.tourTypes.some(t => activeTourTypes.has(t))) return false;
       return true;
     });
-  }, [packages, activeContinents, activeTourTypes]);
+  }, [packages, activeContinents, activeCountries, activeTourTypes]);
 
   // ── Highlight packages ─────────────────────────────────────────────────────
   const highlightPkgs = useMemo(() => filtered.filter(p => p.isHighlight), [filtered]);
@@ -1555,16 +1608,36 @@ export default function TourPackagePresentation() {
     return map;
   }, [filtered]);
 
-  const hasActiveFilter = activeContinents.size + activeTourTypes.size > 0;
+  const hasActiveFilter = activeContinents.size + activeTourTypes.size + activeCountries.size > 0;
 
   function toggleContinent(v: string) {
-    setActiveContinents(prev => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n; });
+    setActiveContinents(prev => {
+      const n = new Set(prev);
+      if (n.has(v)) {
+        n.delete(v);
+        // clear countries that belong to this continent
+        const countriesOfContinent = allCountriesByContinent[v] ?? [];
+        if (countriesOfContinent.length > 0) {
+          setActiveCountries(pc => {
+            const nc = new Set(pc);
+            countriesOfContinent.forEach(c => nc.delete(c));
+            return nc;
+          });
+        }
+      } else {
+        n.add(v);
+      }
+      return n;
+    });
+  }
+  function toggleCountry(v: string) {
+    setActiveCountries(prev => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n; });
   }
   function toggleTourType(v: string) {
     setActiveTourTypes(prev => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n; });
   }
   function clearAllFilters() {
-    setActiveContinents(new Set()); setActiveTourTypes(new Set());
+    setActiveContinents(new Set()); setActiveTourTypes(new Set()); setActiveCountries(new Set());
   }
 
   // ── Upload PDF ─────────────────────────────────────────────────────────────
@@ -1713,10 +1786,13 @@ export default function TourPackagePresentation() {
           <FilterSidebar
             allContinents={allContinents}
             allTourTypes={allTourTypes}
+            allCountriesByContinent={allCountriesByContinent}
             activeContinents={activeContinents}
             activeTourTypes={activeTourTypes}
+            activeCountries={activeCountries}
             onToggleContinent={toggleContinent}
             onToggleTourType={toggleTourType}
+            onToggleCountry={toggleCountry}
             onClear={clearAllFilters}
             hasActive={hasActiveFilter}
           />
