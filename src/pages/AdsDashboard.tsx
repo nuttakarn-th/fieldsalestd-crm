@@ -10,7 +10,7 @@ import {
   Eye, MousePointerClick, Users, Flame, ChevronDown, ChevronUp,
   FileSpreadsheet, X, RefreshCw, Lightbulb, AlertCircle,
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
-  Download,
+  ImagePlus, Images, Loader2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -20,8 +20,9 @@ import {
 } from "recharts";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useCurrentUser } from "@/store/authStore";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { compressImage } from "@/lib/imageCompression";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -254,6 +255,95 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
+// ─── Creative Card ────────────────────────────────────────────────────────────
+function CreativeCard({ row, imageUrl, onUpload, uploading }: {
+  row: AdRow;
+  imageUrl?: string;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+      {/* Image area */}
+      <div
+        className="relative aspect-square bg-muted/40 cursor-pointer overflow-hidden"
+        onClick={() => fileRef.current?.click()}
+      >
+        <input
+          ref={fileRef} type="file" accept="image/*" hidden
+          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
+        />
+        {imageUrl ? (
+          <>
+            <img src={imageUrl} alt={row.adSet} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            {/* Metrics overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-1">
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-[10px] font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">฿{row.spend.toLocaleString()}</span>
+                <span className="text-[10px] font-bold bg-blue-600/90 text-white px-2 py-0.5 rounded-full">{fmt(row.reach)} Reach</span>
+                {row.ctr > 0 && <span className="text-[10px] font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">CTR {row.ctr.toFixed(1)}%</span>}
+              </div>
+            </div>
+            {/* Change image button */}
+            <button
+              onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-violet-600"
+              title="เปลี่ยนรูป"
+            >
+              <ImagePlus className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-violet-500 transition-colors">
+            {uploading ? (
+              <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+            ) : (
+              <>
+                <ImagePlus className="w-8 h-8" />
+                <span className="text-xs font-medium">เพิ่มรูป Creative</span>
+              </>
+            )}
+          </div>
+        )}
+        {/* Status badge */}
+        <div className="absolute top-2 left-2">
+          {(() => {
+            const st = STATUS_LABEL[row.status];
+            return st ? (
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${st.color}`}>{st.label}</span>
+            ) : null;
+          })()}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-3 space-y-2">
+        <p className="font-semibold text-xs leading-tight line-clamp-2">{row.adSet}</p>
+        <p className="text-[10px] text-muted-foreground line-clamp-1">{row.campaign}</p>
+        {/* Key metrics row */}
+        <div className="grid grid-cols-3 gap-1 pt-1 border-t">
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">งบ</p>
+            <p className="text-xs font-bold text-violet-700">฿{row.spend >= 1000 ? `${(row.spend/1000).toFixed(1)}K` : row.spend.toFixed(0)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">CTR</p>
+            <p className={`text-xs font-bold ${row.ctr >= 2 ? "text-emerald-600" : row.ctr >= 1 ? "text-amber-600" : "text-red-500"}`}>
+              {row.ctr > 0 ? `${row.ctr.toFixed(1)}%` : "—"}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">Engage</p>
+            <p className="text-xs font-bold text-orange-600">{fmt(row.engagement)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdsDashboard() {
   const user     = useNavigate();
@@ -262,12 +352,46 @@ export default function AdsDashboard() {
 
   const [rows,      setRows]      = useState<AdRow[]>([]);
   const [fileName,  setFileName]  = useState<string>("");
-  const [view,      setView]      = useState<"dashboard" | "list">("dashboard");
+  const [view,      setView]      = useState<"dashboard" | "list" | "creatives">("dashboard");
   const [sortKey,   setSortKey]   = useState<keyof AdRow>("spend");
   const [sortDir,   setSortDir]   = useState<"asc" | "desc">("desc");
   const [analysisOpen, setAnalysisOpen] = useState(true);
 
+  // ── Ad Creative Images: adSet name → image URL ──────────────────────────────
+  const [adImages,     setAdImages]     = useState<Record<string, string>>({});
+  const [uploadingId,  setUploadingId]  = useState<string | null>(null);
+
   if (!currentUser) { navigate("/login"); return null; }
+
+  // ── Upload Creative Image ───────────────────────────────────────────────────
+  const handleCreativeUpload = useCallback(async (adSetName: string, file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("เลือกไฟล์รูปภาพเท่านั้น"); return; }
+    setUploadingId(adSetName);
+    try {
+      if (SUPABASE_ENABLED && supabase) {
+        // Compress + upload to Supabase Storage
+        const compressed = await compressImage(file, { maxWidth: 1200, maxSizeKB: 400 });
+        const blob = await fetch(compressed.dataUrl).then(r => r.blob());
+        const slug = adSetName.replace(/[^\w฀-๿]/g, "_").slice(0, 40);
+        const path = `ad-creatives/${Date.now()}-${slug}.jpg`;
+        const { data, error } = await supabase.storage
+          .from("presentations")
+          .upload(path, new File([blob], `${slug}.jpg`, { type: "image/jpeg" }), { upsert: false });
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from("presentations").getPublicUrl(data.path);
+        setAdImages(prev => ({ ...prev, [adSetName]: urlData.publicUrl }));
+      } else {
+        // Fallback: store as base64 data URL in state only
+        const compressed = await compressImage(file, { maxWidth: 800, maxSizeKB: 200 });
+        setAdImages(prev => ({ ...prev, [adSetName]: compressed.dataUrl }));
+      }
+      toast.success("อัปโหลดรูป Creative สำเร็จ ✅");
+    } catch (e: any) {
+      toast.error(`อัปโหลดล้มเหลว: ${e?.message ?? ""}`);
+    } finally {
+      setUploadingId(null);
+    }
+  }, []);
 
   // ── Load File ───────────────────────────────────────────────────────────────
   const handleFile = useCallback((buf: ArrayBuffer, name: string) => {
@@ -401,6 +525,14 @@ export default function AdsDashboard() {
               <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "dashboard" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
                 <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
               </button>
+              <button onClick={() => setView("creatives")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "creatives" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
+                <Images className="w-3.5 h-3.5" /> Creatives
+                {Object.keys(adImages).length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-orange-500 text-white text-[9px] flex items-center justify-center font-bold">
+                    {Object.keys(adImages).length}
+                  </span>
+                )}
+              </button>
               <button onClick={() => setView("list")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "list" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
                 <List className="w-3.5 h-3.5" /> รายการ
               </button>
@@ -530,6 +662,29 @@ export default function AdsDashboard() {
               </div>
             )}
           </>
+        ) : view === "creatives" ? (
+          /* ── Creatives View ── */
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700/40 px-4 py-3 flex items-start gap-3">
+              <ImagePlus className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <span className="font-semibold text-amber-800 dark:text-amber-400">เพิ่มรูป Ad Creative</span>
+                <span className="text-amber-700 dark:text-amber-500 ml-1">คลิกที่การ์ดเพื่ออัปโหลดรูปภาพโฆษณาของแต่ละ Ad Set — hover เพื่อดู metrics</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {[...rows].sort((a, b) => b.spend - a.spend).map((row, i) => (
+                <CreativeCard
+                  key={i}
+                  row={row}
+                  imageUrl={adImages[row.adSet]}
+                  uploading={uploadingId === row.adSet}
+                  onUpload={file => handleCreativeUpload(row.adSet, file)}
+                />
+              ))}
+            </div>
+          </div>
+
         ) : (
           /* ── List View ── */
           <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
@@ -538,7 +693,7 @@ export default function AdsDashboard() {
                 <thead>
                   <tr className="bg-muted/60 border-b">
                     {([
-                      ["adSet",        "Ad Set"],
+                      ["adSet",        "Ad Set / รูป"],
                       ["status",       "สถานะ"],
                       ["spend",        "งบ (฿)"],
                       ["reach",        "Reach"],
@@ -559,9 +714,35 @@ export default function AdsDashboard() {
                     const st = STATUS_LABEL[r.status] ?? { label: r.status, color: "bg-muted text-muted-foreground border-border" };
                     return (
                       <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-3 py-2.5 max-w-[180px]">
-                          <p className="font-semibold truncate">{shortLabel(r.adSet, 22)}</p>
-                          <p className="text-muted-foreground text-[10px] truncate">{shortLabel(r.campaign, 20)}</p>
+                        <td className="px-3 py-2.5 max-w-[220px]">
+                          <div className="flex items-center gap-2">
+                            {/* Thumbnail */}
+                            <div
+                              className="w-10 h-10 rounded-lg bg-muted shrink-0 overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity relative group/thumb"
+                              onClick={() => { const inp = document.getElementById(`thumb-upload-${i}`) as HTMLInputElement; inp?.click(); }}
+                              title="คลิกเพื่ออัปโหลดรูป"
+                            >
+                              <input
+                                id={`thumb-upload-${i}`} type="file" accept="image/*" hidden
+                                onChange={e => { const f = e.target.files?.[0]; if (f) handleCreativeUpload(r.adSet, f); e.target.value = ""; }}
+                              />
+                              {adImages[r.adSet] ? (
+                                <img src={adImages[r.adSet]} alt="" className="w-full h-full object-cover" />
+                              ) : uploadingId === r.adSet ? (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                                </div>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover/thumb:text-violet-500 transition-colors">
+                                  <ImagePlus className="w-4 h-4" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{shortLabel(r.adSet, 20)}</p>
+                              <p className="text-muted-foreground text-[10px] truncate">{shortLabel(r.campaign, 18)}</p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${st.color}`}>{st.label}</span>
