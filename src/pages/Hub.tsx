@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp } from "lucide-react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
@@ -104,6 +104,13 @@ const marketingTiles = [
     icon: BarChart3,
     to: "/marketing-report",
     gradient: "from-amber-400 via-orange-500 to-rose-500",
+  },
+  {
+    title: "Ads Dashboard",
+    description: "วิเคราะห์ผล Meta Ads — อัปโหลด Excel แล้วดูกราฟ + AI วิเคราะห์แนวทางปรับปรุง",
+    icon: TrendingUp,
+    to: "/ads-dashboard",
+    gradient: "from-violet-600 via-fuchsia-600 to-pink-600",
   },
 ];
 

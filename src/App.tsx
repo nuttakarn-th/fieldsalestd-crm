@@ -67,6 +67,7 @@ import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
 import WebSetting from "./pages/WebSetting.tsx";
 import MarketingLeads from "./pages/MarketingLeads.tsx";
+import AdsDashboard from "./pages/AdsDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,7 @@ const App = () => (
           <Route path="/login-banner" element={<LoginBannerPage />} />
           <Route path="/web-setting" element={<WebSetting />} />
           <Route path="/marketing-leads" element={<MarketingLeads />} />
+          <Route path="/ads-dashboard" element={<AdsDashboard />} />
           <Route path="/service-stock" element={<AllServicePage />} />
           <Route path="/marketing-dashboard" element={<MarketingDashboardPage />} />
           <Route path="/marketing-customers" element={<CustomersPage />} />
