@@ -5,11 +5,13 @@ export interface GalleryAlbum {
   id: string;
   name: string;
   description?: string;
+  country?: string;
   cover_url?: string;
   created_by: string;
   created_by_name: string;
   created_at: string;
   photo_count?: number;
+  is_highlight?: boolean;
 }
 
 export interface GalleryPhoto {
@@ -27,8 +29,9 @@ interface GalleryStore {
 
   loadAlbums: () => Promise<void>;
   loadPhotos: (albumId: string) => Promise<void>;
-  createAlbum: (name: string, description: string, userId: string, userName: string) => Promise<GalleryAlbum | null>;
-  renameAlbum: (id: string, name: string, description?: string) => Promise<void>;
+  createAlbum: (name: string, description: string, country: string, userId: string, userName: string) => Promise<GalleryAlbum | null>;
+  renameAlbum: (id: string, name: string, description?: string, country?: string) => Promise<void>;
+  toggleHighlight: (id: string) => Promise<void>;
   deleteAlbum: (id: string) => Promise<void>;
   addPhotos: (albumId: string, items: Array<{ url: string; caption?: string; uploaded_by: string }>) => Promise<void>;
   deletePhoto: (id: string, albumId: string) => Promise<void>;
@@ -42,7 +45,6 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
   loadAlbums: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
-      // Fetch albums + photo count in one shot
       const { data, error } = await supabase
         .from("gallery_albums")
         .select("*, gallery_photos(count)")
@@ -52,11 +54,13 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
         id: a.id,
         name: a.name,
         description: a.description,
+        country: a.country,
         cover_url: a.cover_url,
         created_by: a.created_by,
         created_by_name: a.created_by_name,
         created_at: a.created_at,
         photo_count: a.gallery_photos?.[0]?.count ?? 0,
+        is_highlight: a.is_highlight ?? false,
       }));
       set({ albums });
     } catch (e) {
@@ -79,24 +83,28 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
     }
   },
 
-  createAlbum: async (name, description, userId, userName) => {
+  createAlbum: async (name, description, country, userId, userName) => {
     const album: GalleryAlbum = {
       id: `alb-${Date.now()}`,
       name,
       description: description || undefined,
+      country: country || undefined,
       created_by: userId,
       created_by_name: userName,
       created_at: new Date().toISOString(),
       photo_count: 0,
+      is_highlight: false,
     };
     if (SUPABASE_ENABLED && supabase) {
       const { error } = await supabase.from("gallery_albums").insert({
         id: album.id,
         name: album.name,
         description: album.description,
+        country: album.country,
         created_by: album.created_by,
         created_by_name: album.created_by_name,
         created_at: album.created_at,
+        is_highlight: false,
       });
       if (error) { console.error("[gallery] createAlbum:", error); return null; }
     }
@@ -104,11 +112,28 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
     return album;
   },
 
-  renameAlbum: async (id, name, description) => {
+  renameAlbum: async (id, name, description, country) => {
     if (SUPABASE_ENABLED && supabase) {
-      await supabase.from("gallery_albums").update({ name, description: description ?? null }).eq("id", id);
+      await supabase.from("gallery_albums").update({
+        name,
+        description: description ?? null,
+        country: country ?? null,
+      }).eq("id", id);
     }
-    set({ albums: get().albums.map((a) => a.id === id ? { ...a, name, description } : a) });
+    set({ albums: get().albums.map((a) => a.id === id ? { ...a, name, description, country } : a) });
+  },
+
+  toggleHighlight: async (id) => {
+    const album = get().albums.find((a) => a.id === id);
+    if (!album) return;
+    const highlighted = get().albums.filter((a) => a.is_highlight);
+    // Allow max 3 highlights; if adding and already at 3, reject
+    if (!album.is_highlight && highlighted.length >= 3) return;
+    const next = !album.is_highlight;
+    if (SUPABASE_ENABLED && supabase) {
+      await supabase.from("gallery_albums").update({ is_highlight: next }).eq("id", id);
+    }
+    set({ albums: get().albums.map((a) => a.id === id ? { ...a, is_highlight: next } : a) });
   },
 
   deleteAlbum: async (id) => {
@@ -135,13 +160,11 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
     }
     const existing = get().photos[albumId] ?? [];
     set({ photos: { ...get().photos, [albumId]: [...existing, ...rows] } });
-    // Update photo count in local albums state
     set({
       albums: get().albums.map((a) =>
         a.id === albumId ? { ...a, photo_count: (a.photo_count ?? 0) + rows.length } : a
       ),
     });
-    // Auto-set cover to first photo uploaded if no cover yet
     const album = get().albums.find((a) => a.id === albumId);
     if (album && !album.cover_url && rows[0]) {
       get().setCover(albumId, rows[0].url);
