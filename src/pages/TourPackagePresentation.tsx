@@ -20,7 +20,7 @@ import {
   BookOpen, Upload, Trash2, Edit3, Save, X, Plus, Tag,
   Globe2, MapPin, Clock, ChevronLeft, ChevronRight, Loader2,
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
-  MessageCircle, LogIn, Star, StarOff,
+  MessageCircle, LogIn, Flame,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2,
   SlidersHorizontal, Check,
 } from "lucide-react";
@@ -1235,10 +1235,10 @@ function PackageCard({
           {clr.emoji} {pkg.continent}
         </div>
 
-        {/* Highlight badge */}
+        {/* Highlight badge — always visible on highlighted cards */}
         {pkg.isHighlight && (
-          <div className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 border border-amber-300">
-            🔥 Highlight
+          <div className="absolute top-2 right-2 flex items-center gap-1 bg-orange-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <Flame className="w-3 h-3 fill-current" /> แนะนำ
           </div>
         )}
 
@@ -1262,10 +1262,12 @@ function PackageCard({
               onClick={e => { e.stopPropagation(); onToggleHighlight(); }}
               title={pkg.isHighlight ? "ยกเลิก Highlight" : "ตั้งเป็น Highlight"}
               className={`w-8 h-8 rounded-full flex items-center justify-center shadow transition-all ${
-                pkg.isHighlight ? "bg-amber-400 text-amber-900" : "bg-white/90 text-amber-500 hover:bg-white"
+                pkg.isHighlight
+                  ? "bg-orange-500 text-white"
+                  : "bg-black/50 text-white hover:bg-orange-500"
               }`}
             >
-              {pkg.isHighlight ? <StarOff className="w-3.5 h-3.5" /> : <Star className="w-3.5 h-3.5" />}
+              <Flame className={`w-3.5 h-3.5 ${pkg.isHighlight ? "fill-current" : ""}`} />
             </button>
           </div>
         )}
