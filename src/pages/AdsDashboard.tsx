@@ -11,7 +11,7 @@ import {
   FileSpreadsheet, X, RefreshCw, Lightbulb, AlertCircle,
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
   ImagePlus, Images, Loader2, Key, Zap, CheckCircle2, Info,
-  Settings2,
+  Settings2, Users,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
