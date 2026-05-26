@@ -196,9 +196,16 @@ function parseExcel(buffer: ArrayBuffer): AdRow[] {
 
     const levelVal = C.level >= 0 ? String(r[C.level] ?? "").toLowerCase().trim() : "";
 
-    // Skip campaign-level summary rows (level = "campaign") — use adset or ad level
-    // But keep adset rows if no ad-level rows exist for that adset
-    if (levelVal === "campaign") continue;
+    // Use ONLY adset-level rows as the single source of truth.
+    // - "campaign" rows = grand total per campaign → skip (inflates totals)
+    // - "ad" rows = individual ad within adset → skip (duplicates adset data)
+    // - "adset" rows = one row per ad set → correct granularity for this dashboard
+    // If no level column detected (old format), include everything (fallback).
+    if (C.level >= 0) {
+      if (levelVal === "campaign" || levelVal === "ad") continue;
+      // If level column exists but row has no level value → likely a sub-total row, skip
+      if (levelVal === "" || levelVal === "all") continue;
+    }
 
     // Extract raw Ad ID — only valid if it's a real number (not "All")
     const rawAdId = C.adId >= 0 ? r[C.adId] : undefined;
