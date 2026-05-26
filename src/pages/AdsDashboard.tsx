@@ -3,14 +3,15 @@
  * Marketing → วิเคราะห์ Ads จาก Meta Business Suite Excel Export
  * รองรับ Role: Marketing, Admin, Sales Manager
  */
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Upload, BarChart2, TrendingUp, Target, DollarSign,
-  Eye, MousePointerClick, Users, Flame, ChevronDown, ChevronUp,
+  BarChart2, TrendingUp, Target, DollarSign,
+  Eye, MousePointerClick, Flame, ChevronDown, ChevronUp,
   FileSpreadsheet, X, RefreshCw, Lightbulb, AlertCircle,
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
-  ImagePlus, Images, Loader2,
+  ImagePlus, Images, Loader2, Key, Zap, CheckCircle2, Info,
+  Settings2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -41,6 +42,48 @@ interface AdRow {
   ctr: number;
   engagement: number;
   likes: number;
+  // IDs (optional — present when user exports with ID columns)
+  adId?: string;
+  adSetId?: string;
+  campaignId?: string;
+}
+
+// ─── Meta Graph API ───────────────────────────────────────────────────────────
+const META_API = "https://graph.facebook.com/v19.0";
+
+// ID column name patterns (Thai + English)
+const AD_ID_PATTERNS     = ["รหัสโฆษณา","ad id","รหัส ad","id โฆษณา"];
+const ADSET_ID_PATTERNS  = ["รหัสชุดโฆษณา","ad set id","adset id","id ชุดโฆษณา"];
+const CAMPAIGN_ID_PATTERNS = ["รหัสแคมเปญ","campaign id","id แคมเปญ"];
+
+function findColIdx(headers: string[], patterns: string[]): number {
+  return headers.findIndex(h =>
+    patterns.some(p => String(h ?? "").toLowerCase().trim() === p.toLowerCase())
+  );
+}
+
+async function fetchAdThumbnail(id: string, token: string, isAdSet = false): Promise<string | null> {
+  try {
+    let url: string;
+    if (isAdSet) {
+      // Ad Set → get first ad's creative
+      url = `${META_API}/${id}/ads?fields=creative%7Bthumbnail_url%2Cimage_url%7D&limit=1&access_token=${token}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) return null;
+      const ad = data?.data?.[0];
+      return ad?.creative?.image_url || ad?.creative?.thumbnail_url || null;
+    } else {
+      // Ad → get creative directly
+      url = `${META_API}/${id}?fields=creative%7Bthumbnail_url%2Cimage_url%7D&access_token=${token}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.error) return null;
+      return data?.creative?.image_url || data?.creative?.thumbnail_url || null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,26 +122,57 @@ function parseExcel(buffer: ArrayBuffer): AdRow[] {
   const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
   if (!raw || raw.length < 2) return [];
 
-  // Skip row[0] = header, row[1] = totals (empty campaign name) → start from row[2]
+  const headers = (raw[0] as string[]).map(h => String(h ?? ""));
+
+  // Fixed column indices (Meta standard export)
+  const COL = {
+    campaign:      0,
+    adSet:         1,
+    status:        2,
+    reach:         4,
+    impressions:   5,
+    spend:         6,
+    resultType:    7,
+    costPerResult: 8,
+    startDate:     9,
+    endDate:       10,
+    cpm:           11,
+    ctr:           12,
+    engagement:    13,
+    likes:         14,
+  };
+
+  // Auto-detect ID columns (present only when user exports with IDs)
+  const adIdCol      = findColIdx(headers, AD_ID_PATTERNS);
+  const adSetIdCol   = findColIdx(headers, ADSET_ID_PATTERNS);
+  const campaignIdCol = findColIdx(headers, CAMPAIGN_ID_PATTERNS);
+
+  // Row 1 is the totals summary (empty campaign name) → skip it, start from row 2
   const rows: AdRow[] = [];
-  for (let i = 2; i < raw.length; i++) {
+  for (let i = 1; i < raw.length; i++) {
     const r = raw[i];
-    if (!r || !r[0]) continue; // skip if no campaign name
+    if (!r) continue;
+    const campaign = String(r[COL.campaign] ?? "").trim();
+    if (!campaign) continue; // skip totals / empty rows
     rows.push({
-      campaign:      String(r[0] ?? ""),
-      adSet:         String(r[1] ?? ""),
-      status:        String(r[2] ?? ""),
-      reach:         Number(r[4] ?? 0),
-      impressions:   Number(r[5] ?? 0),
-      spend:         Number(r[6] ?? 0),
-      resultType:    String(r[7] ?? ""),
-      costPerResult: Number(r[8] ?? 0),
-      startDate:     String(r[9] ?? ""),
-      endDate:       String(r[10] ?? ""),
-      cpm:           Number(r[11] ?? 0),
-      ctr:           Number(r[12] ?? 0),
-      engagement:    Number(r[13] ?? 0),
-      likes:         Number(r[14] ?? 0),
+      campaign,
+      adSet:         String(r[COL.adSet]         ?? ""),
+      status:        String(r[COL.status]         ?? ""),
+      reach:         Number(r[COL.reach]          ?? 0),
+      impressions:   Number(r[COL.impressions]    ?? 0),
+      spend:         Number(r[COL.spend]          ?? 0),
+      resultType:    String(r[COL.resultType]     ?? ""),
+      costPerResult: Number(r[COL.costPerResult]  ?? 0),
+      startDate:     String(r[COL.startDate]      ?? ""),
+      endDate:       String(r[COL.endDate]        ?? ""),
+      cpm:           Number(r[COL.cpm]            ?? 0),
+      ctr:           Number(r[COL.ctr]            ?? 0),
+      engagement:    Number(r[COL.engagement]     ?? 0),
+      likes:         Number(r[COL.likes]          ?? 0),
+      // IDs — only populated when export includes ID columns
+      adId:       adIdCol      >= 0 ? String(r[adIdCol]      ?? "").trim() || undefined : undefined,
+      adSetId:    adSetIdCol   >= 0 ? String(r[adSetIdCol]   ?? "").trim() || undefined : undefined,
+      campaignId: campaignIdCol >= 0 ? String(r[campaignIdCol] ?? "").trim() || undefined : undefined,
     });
   }
   return rows;
@@ -355,11 +429,72 @@ export default function AdsDashboard() {
   const [view,      setView]      = useState<"dashboard" | "list" | "creatives">("dashboard");
   const [sortKey,   setSortKey]   = useState<keyof AdRow>("spend");
   const [sortDir,   setSortDir]   = useState<"asc" | "desc">("desc");
-  const [analysisOpen, setAnalysisOpen] = useState(true);
+  const [analysisOpen,  setAnalysisOpen]  = useState(true);
+  const [settingsOpen,  setSettingsOpen]  = useState(false);
 
   // ── Ad Creative Images: adSet name → image URL ──────────────────────────────
   const [adImages,     setAdImages]     = useState<Record<string, string>>({});
   const [uploadingId,  setUploadingId]  = useState<string | null>(null);
+
+  // ── Meta API Settings (persisted in localStorage) ───────────────────────────
+  const [accessToken,  setAccessToken]  = useState<string>(() => localStorage.getItem("meta-access-token") ?? "");
+  const [tokenInput,   setTokenInput]   = useState<string>("");
+  const [fetchingMeta, setFetchingMeta] = useState(false);
+  const [metaFetchDone, setMetaFetchDone] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("meta-access-token");
+    if (saved) { setAccessToken(saved); setTokenInput(saved); }
+  }, []);
+
+  const saveToken = useCallback(() => {
+    const t = tokenInput.trim();
+    localStorage.setItem("meta-access-token", t);
+    setAccessToken(t);
+    toast.success(t ? "บันทึก Access Token แล้ว ✅" : "ล้าง Token แล้ว");
+    setSettingsOpen(false);
+  }, [tokenInput]);
+
+  // Check if any row has IDs
+  const hasIds = useMemo(() =>
+    rows.some(r => r.adId || r.adSetId), [rows]);
+
+  // Auto-fetch after Excel upload if token + IDs available
+  useEffect(() => {
+    if (rows.length > 0 && hasIds && accessToken && !metaFetchDone) {
+      fetchMetaImages();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, hasIds, accessToken]);
+
+  // ── Fetch thumbnails from Meta API ──────────────────────────────────────────
+  const fetchMetaImages = useCallback(async () => {
+    if (!accessToken) { toast.error("กรุณาตั้งค่า Access Token ก่อน"); setSettingsOpen(true); return; }
+    if (!hasIds) { toast.error("ไม่พบ Ad ID / Ad Set ID ในไฟล์ — Export Excel ใหม่พร้อมคอลัมน์ ID"); return; }
+
+    setFetchingMeta(true);
+    setMetaFetchDone(false);
+    let fetched = 0;
+    let failed  = 0;
+    const images: Record<string, string> = {};
+
+    for (const row of rows) {
+      const id = row.adId || row.adSetId;
+      if (!id) continue;
+      const isAdSet = !row.adId && !!row.adSetId;
+      const url = await fetchAdThumbnail(id, accessToken, isAdSet);
+      if (url) { images[row.adSet] = url; fetched++; }
+      else failed++;
+    }
+
+    setAdImages(prev => ({ ...prev, ...images }));
+    setFetchingMeta(false);
+    setMetaFetchDone(true);
+
+    if (fetched > 0) toast.success(`ดึงรูป Creative สำเร็จ ${fetched} รายการ 🎉`);
+    if (failed > 0 && fetched === 0) toast.error("ดึงรูปไม่สำเร็จ — ตรวจสอบ Access Token และสิทธิ์ ads_read");
+    else if (failed > 0) toast.warning(`ดึงไม่ได้ ${failed} รายการ (อาจหมดอายุหรือสิทธิ์ไม่ครบ)`);
+  }, [rows, accessToken, hasIds]);
 
   if (!currentUser) { navigate("/login"); return null; }
 
@@ -518,9 +653,31 @@ export default function AdsDashboard() {
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
               <FileSpreadsheet className="w-3.5 h-3.5" />
               {fileName} — {rows.length} Ad Sets
+              {hasIds && <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> มี Ad ID</span>}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {/* Auto-fetch button */}
+            {hasIds && (
+              <Button
+                size="sm"
+                onClick={fetchMetaImages}
+                disabled={fetchingMeta}
+                className="gap-1.5 bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0"
+              >
+                {fetchingMeta
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังดึงรูป...</>
+                  : metaFetchDone
+                  ? <><CheckCircle2 className="w-3.5 h-3.5" /> ดึงรูปแล้ว</>
+                  : <><Zap className="w-3.5 h-3.5" /> ดึงรูปอัตโนมัติ</>
+                }
+              </Button>
+            )}
+            {/* Settings button */}
+            <Button size="sm" variant="outline" onClick={() => setSettingsOpen(o => !o)} className={`gap-1.5 ${accessToken ? "border-emerald-400 text-emerald-700" : "border-amber-400 text-amber-700"}`}>
+              <Key className="w-3.5 h-3.5" />
+              {accessToken ? "Token ✓" : "ตั้งค่า Token"}
+            </Button>
             <div className="flex rounded-xl border overflow-hidden">
               <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "dashboard" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
                 <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
@@ -537,11 +694,94 @@ export default function AdsDashboard() {
                 <List className="w-3.5 h-3.5" /> รายการ
               </button>
             </div>
-            <Button size="sm" variant="outline" onClick={() => { setRows([]); setFileName(""); }} className="gap-1.5">
+            <Button size="sm" variant="outline" onClick={() => { setRows([]); setFileName(""); setMetaFetchDone(false); }} className="gap-1.5">
               <RefreshCw className="w-3.5 h-3.5" /> โหลดใหม่
             </Button>
           </div>
         </div>
+
+        {/* ── Meta API Settings Panel ── */}
+        {settingsOpen && (
+          <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-violet-500" /> Meta API Settings
+              </h3>
+              <button onClick={() => setSettingsOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* How to get token */}
+            <div className="rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-700/40 p-4 space-y-2">
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5" /> วิธีรับ Access Token
+              </p>
+              <ol className="text-xs text-blue-800 dark:text-blue-300 space-y-1.5 list-decimal list-inside">
+                <li>เปิด <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer" className="underline font-semibold">Meta Business Suite → Settings → System Users</a></li>
+                <li>สร้าง System User → คลิก <strong>Generate New Token</strong></li>
+                <li>เลือก App ของคุณ → เปิดสิทธิ์ <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ads_read</code> และ <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">ads_management</code></li>
+                <li>Copy Token มาวางด้านล่าง</li>
+              </ol>
+              <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+                💡 แนะนำ System User Token เพราะไม่หมดอายุ (ต่างจาก User Token ที่หมดใน 60 วัน)
+              </p>
+            </div>
+
+            {/* How to export Excel with IDs */}
+            <div className="rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-700/40 p-4 space-y-2">
+              <p className="text-xs font-bold text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Export Excel พร้อม Ad ID
+              </p>
+              <ol className="text-xs text-violet-800 dark:text-violet-300 space-y-1.5 list-decimal list-inside">
+                <li>เปิด Meta Ads Manager → เลือก Campaign / Ad Set ที่ต้องการ</li>
+                <li>คลิก <strong>Columns → Customize Columns</strong></li>
+                <li>ค้นหา <strong>"รหัสชุดโฆษณา"</strong> (Ad Set ID) และ <strong>"รหัสโฆษณา"</strong> (Ad ID) → เพิ่มเข้า</li>
+                <li>คลิก <strong>Export → Excel (.xlsx)</strong></li>
+                <li>อัปโหลดไฟล์ใหม่ → ระบบจะดึงรูปให้อัตโนมัติ</li>
+              </ol>
+            </div>
+
+            {/* Token input */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground">Facebook Access Token</label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={tokenInput}
+                  onChange={e => setTokenInput(e.target.value)}
+                  placeholder="EAAxxxxxxxxxxxxxxx..."
+                  className="flex-1 rounded-lg border bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-violet-400"
+                />
+                <Button size="sm" onClick={saveToken} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+                  <Key className="w-3.5 h-3.5" /> บันทึก
+                </Button>
+                {accessToken && (
+                  <Button size="sm" variant="outline" onClick={() => { setTokenInput(""); localStorage.removeItem("meta-access-token"); setAccessToken(""); toast.success("ล้าง Token แล้ว"); }}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+              {accessToken && (
+                <p className="text-[11px] text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Token บันทึกแล้ว — {accessToken.slice(0,8)}...
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── No-ID Warning (when token set but file has no IDs) ── */}
+        {accessToken && rows.length > 0 && !hasIds && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <span className="font-semibold text-amber-800 dark:text-amber-400">ไม่พบ Ad ID ในไฟล์นี้</span>
+              <span className="text-amber-700 dark:text-amber-500 ml-1">Export Excel ใหม่โดยเพิ่มคอลัมน์ "รหัสชุดโฆษณา" หรือ "รหัสโฆษณา" — ดูคำแนะนำใน Settings</span>
+              <button onClick={() => setSettingsOpen(true)} className="ml-2 text-xs font-semibold text-amber-700 underline">ดูวิธี →</button>
+            </div>
+          </div>
+        )}
 
         {/* ── Metric cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
