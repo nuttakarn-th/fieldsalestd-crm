@@ -10,8 +10,8 @@ import {
   Eye, MousePointerClick, Flame, ChevronDown, ChevronUp,
   FileSpreadsheet, X, RefreshCw, Lightbulb, AlertCircle,
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
-  ImagePlus, Images, Loader2, Key, Zap, CheckCircle2, Info,
-  Settings2, Users,
+  Images, Loader2, Key, Zap, CheckCircle2, Info,
+  Settings2, Users, ImageOff,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -21,8 +21,6 @@ import {
 } from "recharts";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useCurrentUser } from "@/store/authStore";
-import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { compressImage } from "@/lib/imageCompression";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -387,29 +385,19 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 // ─── Creative Card ────────────────────────────────────────────────────────────
-function CreativeCard({ row, imageUrl, onUpload, uploading }: {
+function CreativeCard({ row, imageUrl, fetching }: {
   row: AdRow;
   imageUrl?: string;
-  onUpload: (file: File) => void;
-  uploading: boolean;
+  fetching?: boolean;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-
   return (
     <div className="rounded-2xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
       {/* Image area */}
-      <div
-        className="relative aspect-square bg-muted/40 cursor-pointer overflow-hidden"
-        onClick={() => fileRef.current?.click()}
-      >
-        <input
-          ref={fileRef} type="file" accept="image/*" hidden
-          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
-        />
+      <div className="relative aspect-square bg-muted/40 overflow-hidden">
         {imageUrl ? (
           <>
             <img src={imageUrl} alt={row.adSet} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            {/* Metrics overlay */}
+            {/* Metrics overlay on hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 gap-1">
               <div className="flex gap-2 flex-wrap">
                 <span className="text-[10px] font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">฿{row.spend.toLocaleString()}</span>
@@ -417,24 +405,13 @@ function CreativeCard({ row, imageUrl, onUpload, uploading }: {
                 {row.ctr > 0 && <span className="text-[10px] font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">CTR {row.ctr.toFixed(1)}%</span>}
               </div>
             </div>
-            {/* Change image button */}
-            <button
-              onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-violet-600"
-              title="เปลี่ยนรูป"
-            >
-              <ImagePlus className="w-3.5 h-3.5" />
-            </button>
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-violet-500 transition-colors">
-            {uploading ? (
-              <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
+            {fetching ? (
+              <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
             ) : (
-              <>
-                <ImagePlus className="w-8 h-8" />
-                <span className="text-xs font-medium">เพิ่มรูป Creative</span>
-              </>
+              <ImageOff className="w-8 h-8" />
             )}
           </div>
         )}
@@ -489,9 +466,8 @@ export default function AdsDashboard() {
   const [analysisOpen,  setAnalysisOpen]  = useState(true);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
 
-  // ── Ad Creative Images: adSet name → image URL ──────────────────────────────
+  // ── Ad Creative Images: adSet name → image URL (from Meta API) ──────────────
   const [adImages,     setAdImages]     = useState<Record<string, string>>({});
-  const [uploadingId,  setUploadingId]  = useState<string | null>(null);
 
   // ── Meta API Settings (persisted in localStorage) ───────────────────────────
   const [accessToken,  setAccessToken]  = useState<string>(() => localStorage.getItem("meta-access-token") ?? "");
@@ -554,36 +530,6 @@ export default function AdsDashboard() {
   }, [rows, accessToken, hasIds]);
 
   if (!currentUser) { navigate("/login"); return null; }
-
-  // ── Upload Creative Image ───────────────────────────────────────────────────
-  const handleCreativeUpload = useCallback(async (adSetName: string, file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("เลือกไฟล์รูปภาพเท่านั้น"); return; }
-    setUploadingId(adSetName);
-    try {
-      if (SUPABASE_ENABLED && supabase) {
-        // Compress + upload to Supabase Storage
-        const compressed = await compressImage(file, { maxWidth: 1200, maxSizeKB: 400 });
-        const blob = await fetch(compressed.dataUrl).then(r => r.blob());
-        const slug = adSetName.replace(/[^\w฀-๿]/g, "_").slice(0, 40);
-        const path = `ad-creatives/${Date.now()}-${slug}.jpg`;
-        const { data, error } = await supabase.storage
-          .from("presentations")
-          .upload(path, new File([blob], `${slug}.jpg`, { type: "image/jpeg" }), { upsert: false });
-        if (error) throw error;
-        const { data: urlData } = supabase.storage.from("presentations").getPublicUrl(data.path);
-        setAdImages(prev => ({ ...prev, [adSetName]: urlData.publicUrl }));
-      } else {
-        // Fallback: store as base64 data URL in state only
-        const compressed = await compressImage(file, { maxWidth: 800, maxSizeKB: 200 });
-        setAdImages(prev => ({ ...prev, [adSetName]: compressed.dataUrl }));
-      }
-      toast.success("อัปโหลดรูป Creative สำเร็จ ✅");
-    } catch (e: any) {
-      toast.error(`อัปโหลดล้มเหลว: ${e?.message ?? ""}`);
-    } finally {
-      setUploadingId(null);
-    }
-  }, []);
 
   // ── Load File ───────────────────────────────────────────────────────────────
   const handleFile = useCallback((buf: ArrayBuffer, name: string) => {
@@ -1020,21 +966,34 @@ export default function AdsDashboard() {
         ) : view === "creatives" ? (
           /* ── Creatives View ── */
           <div className="space-y-4">
-            <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-700/40 px-4 py-3 flex items-start gap-3">
-              <ImagePlus className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-semibold text-amber-800 dark:text-amber-400">เพิ่มรูป Ad Creative</span>
-                <span className="text-amber-700 dark:text-amber-500 ml-1">คลิกที่การ์ดเพื่ออัปโหลดรูปภาพโฆษณาของแต่ละ Ad Set — hover เพื่อดู metrics</span>
+            {/* Info bar */}
+            {!metaFetchDone && !fetchingMeta && hasIds && (
+              <div className="rounded-xl border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-700/40 px-4 py-3 flex items-center gap-3">
+                <Zap className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-sm text-blue-700 dark:text-blue-400">กดปุ่ม <strong>"ดึงรูปอัตโนมัติ"</strong> ในแถบด้านบน เพื่อดึงรูป Creative จาก Meta API</span>
               </div>
-            </div>
+            )}
+            {fetchingMeta && (
+              <div className="rounded-xl border bg-violet-50 dark:bg-violet-950/20 border-violet-200 dark:border-violet-700/40 px-4 py-3 flex items-center gap-3">
+                <Loader2 className="w-4 h-4 text-violet-600 animate-spin shrink-0" />
+                <span className="text-sm text-violet-700 dark:text-violet-400">กำลังดึงรูป Creative จาก Meta API...</span>
+              </div>
+            )}
+            {metaFetchDone && (
+              <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-700/40 px-4 py-3 flex items-center gap-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-sm text-emerald-700 dark:text-emerald-400">
+                  ดึงรูปสำเร็จ {Object.keys(adImages).length} รายการ — hover ที่การ์ดเพื่อดู metrics
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {[...rows].sort((a, b) => b.spend - a.spend).map((row, i) => (
                 <CreativeCard
                   key={i}
                   row={row}
                   imageUrl={adImages[row.adSet]}
-                  uploading={uploadingId === row.adSet}
-                  onUpload={file => handleCreativeUpload(row.adSet, file)}
+                  fetching={fetchingMeta}
                 />
               ))}
             </div>
@@ -1071,25 +1030,17 @@ export default function AdsDashboard() {
                       <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                         <td className="px-3 py-2.5 max-w-[220px]">
                           <div className="flex items-center gap-2">
-                            {/* Thumbnail */}
-                            <div
-                              className="w-10 h-10 rounded-lg bg-muted shrink-0 overflow-hidden border cursor-pointer hover:opacity-80 transition-opacity relative group/thumb"
-                              onClick={() => { const inp = document.getElementById(`thumb-upload-${i}`) as HTMLInputElement; inp?.click(); }}
-                              title="คลิกเพื่ออัปโหลดรูป"
-                            >
-                              <input
-                                id={`thumb-upload-${i}`} type="file" accept="image/*" hidden
-                                onChange={e => { const f = e.target.files?.[0]; if (f) handleCreativeUpload(r.adSet, f); e.target.value = ""; }}
-                              />
+                            {/* Thumbnail from Meta API */}
+                            <div className="w-10 h-10 rounded-lg bg-muted shrink-0 overflow-hidden border">
                               {adImages[r.adSet] ? (
                                 <img src={adImages[r.adSet]} alt="" className="w-full h-full object-cover" />
-                              ) : uploadingId === r.adSet ? (
+                              ) : fetchingMeta ? (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                                  <Loader2 className="w-4 h-4 animate-spin text-violet-400" />
                                 </div>
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-muted-foreground group-hover/thumb:text-violet-500 transition-colors">
-                                  <ImagePlus className="w-4 h-4" />
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                                  <ImageOff className="w-4 h-4" />
                                 </div>
                               )}
                             </div>
