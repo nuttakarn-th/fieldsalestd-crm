@@ -322,7 +322,7 @@ export default function Gallery() {
         }
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-16 space-y-6 pt-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-16 pt-4 space-y-4">
 
         {/* ── Create Album form ── */}
         {creating && (
@@ -343,44 +343,7 @@ export default function Gallery() {
           </div>
         )}
 
-        {/* ── Highlight section ── */}
-        {highlightAlbums.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-3">
-              <Flame className="w-5 h-5 text-orange-500 fill-current" />
-              <h2 className="font-bold text-base">อัลบั้มแนะนำ</h2>
-              <span className="text-xs text-muted-foreground">({highlightAlbums.length}/3)</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {highlightAlbums.map((album, i) => (
-                <HighlightCard
-                  key={album.id}
-                  album={album}
-                  idx={i}
-                  canEdit={canEditAlbum(album)}
-                  onToggleHighlight={e => handleToggleHighlight(e, album)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Filter (mobile toggle) ── */}
-        {allCountries.length > 0 && (
-          <button
-            onClick={() => setFilterOpen(o => !o)}
-            className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-card shadow-sm text-sm font-medium w-full"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-violet-500 shrink-0" />
-            <span className="flex-1 text-left">กรองตามประเทศ</span>
-            {activeCountry && (
-              <span className="w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
-            )}
-            {filterOpen ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
-          </button>
-        )}
-
-        {/* ── Main layout: sidebar + grid ── */}
+        {/* ── Empty state ── */}
         {albums.length === 0 ? (
           <div className="text-center py-28 text-muted-foreground">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-400 flex items-center justify-center mx-auto mb-5 opacity-30">
@@ -390,11 +353,28 @@ export default function Gallery() {
             <p className="text-sm mt-1">กด "สร้าง Album" เพื่อเริ่มเพิ่มรูปภาพ</p>
           </div>
         ) : (
-          <div className="flex gap-6 items-start">
 
-            {/* ── Filter Sidebar ── */}
-            {allCountries.length > 0 && (
-              <aside className={`shrink-0 w-52 ${filterOpen ? "block" : "hidden"} lg:block`}>
+        /* ── Main layout: LEFT=Filter | RIGHT=(Highlight + Grid) ── */
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+          {/* ══ LEFT: Filter Sidebar ══ */}
+          {allCountries.length > 0 && (
+            <>
+              {/* Mobile toggle button */}
+              <button
+                onClick={() => setFilterOpen(o => !o)}
+                className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-card shadow-sm text-sm font-medium w-full"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-violet-500 shrink-0" />
+                <span className="flex-1 text-left">กรองตามประเทศ</span>
+                {activeCountry && (
+                  <span className="w-5 h-5 rounded-full bg-violet-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">1</span>
+                )}
+                {filterOpen ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+              </button>
+
+              {/* Sidebar panel */}
+              <aside className={`w-full lg:w-52 shrink-0 ${filterOpen ? "block" : "hidden"} lg:block`}>
                 <div className="rounded-2xl border bg-card shadow-sm p-4 sticky top-20">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -407,16 +387,10 @@ export default function Gallery() {
                       </button>
                     )}
                   </div>
-
                   <div className="flex flex-col gap-1">
-                    {/* ทั้งหมด */}
                     <button
                       onClick={() => setActiveCountry(null)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
-                        activeCountry === null
-                          ? "bg-violet-600 text-white shadow-sm"
-                          : "hover:bg-muted text-foreground"
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${activeCountry === null ? "bg-violet-600 text-white shadow-sm" : "hover:bg-muted text-foreground"}`}
                     >
                       <span>🌐</span>
                       <span className="flex-1">ทั้งหมด</span>
@@ -424,7 +398,6 @@ export default function Gallery() {
                         {albums.length}
                       </span>
                     </button>
-
                     {allCountries.map(country => {
                       const count = albums.filter(a => a.country === country).length;
                       const active = activeCountry === country;
@@ -432,11 +405,7 @@ export default function Gallery() {
                         <button
                           key={country}
                           onClick={() => setActiveCountry(active ? null : country)}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
-                            active
-                              ? "bg-violet-600 text-white shadow-sm"
-                              : "hover:bg-muted text-foreground"
-                          }`}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${active ? "bg-violet-600 text-white shadow-sm" : "hover:bg-muted text-foreground"}`}
                         >
                           <span className="shrink-0">📍</span>
                           <span className="flex-1 truncate">{country}</span>
@@ -449,47 +418,70 @@ export default function Gallery() {
                   </div>
                 </div>
               </aside>
-            )}
+            </>
+          )}
 
-            {/* ── Album grid ── */}
-            <div className="flex-1 min-w-0">
-              {filteredAlbums.length === 0 ? (
-                <div className="rounded-2xl border p-12 text-center bg-card/50">
-                  <Globe2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-                  <p className="font-medium">ไม่มีอัลบั้มในประเทศที่เลือก</p>
-                  <button onClick={() => setActiveCountry(null)} className="text-violet-600 text-sm mt-2 hover:underline">
-                    ดูทั้งหมด
-                  </button>
+          {/* ══ RIGHT: Highlight section + Album grid ══ */}
+          <div className="flex-1 min-w-0 space-y-5">
+
+            {/* Highlight featured albums */}
+            {highlightAlbums.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <Flame className="w-5 h-5 text-orange-500 fill-current" />
+                  <h2 className="font-bold text-base">อัลบั้มแนะนำ</h2>
+                  <span className="text-xs text-muted-foreground">({highlightAlbums.length}/3)</span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredAlbums.map((album, i) => (
-                    <AlbumCard
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {highlightAlbums.map((album, i) => (
+                    <HighlightCard
                       key={album.id}
                       album={album}
                       idx={i}
                       canEdit={canEditAlbum(album)}
-                      isEditing={editingId === album.id}
-                      editName={editName}
-                      editDesc={editDesc}
-                      editCountry={editCountry}
-                      editNameRef={editNameRef}
-                      renameSaving={renameSaving}
-                      onOpenRename={e => openRename(e, album)}
-                      onCancelRename={cancelRename}
-                      onSaveRename={e => handleRename(e, album.id)}
-                      onDelete={e => handleDelete(e, album)}
                       onToggleHighlight={e => handleToggleHighlight(e, album)}
-                      setEditName={setEditName}
-                      setEditDesc={setEditDesc}
-                      setEditCountry={setEditCountry}
                     />
                   ))}
                 </div>
-              )}
-            </div>
+              </section>
+            )}
 
+            {/* Album grid */}
+            {filteredAlbums.length === 0 ? (
+              <div className="rounded-2xl border p-12 text-center bg-card/50">
+                <Globe2 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="font-medium">ไม่มีอัลบั้มในประเทศที่เลือก</p>
+                <button onClick={() => setActiveCountry(null)} className="text-violet-600 text-sm mt-2 hover:underline">ดูทั้งหมด</button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredAlbums.map((album, i) => (
+                  <AlbumCard
+                    key={album.id}
+                    album={album}
+                    idx={i}
+                    canEdit={canEditAlbum(album)}
+                    isEditing={editingId === album.id}
+                    editName={editName}
+                    editDesc={editDesc}
+                    editCountry={editCountry}
+                    editNameRef={editNameRef}
+                    renameSaving={renameSaving}
+                    onOpenRename={e => openRename(e, album)}
+                    onCancelRename={cancelRename}
+                    onSaveRename={e => handleRename(e, album.id)}
+                    onDelete={e => handleDelete(e, album)}
+                    onToggleHighlight={e => handleToggleHighlight(e, album)}
+                    setEditName={setEditName}
+                    setEditDesc={setEditDesc}
+                    setEditCountry={setEditCountry}
+                  />
+                ))}
+              </div>
+            )}
           </div>
+
+        </div>
         )}
       </main>
     </div>
