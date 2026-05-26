@@ -670,14 +670,72 @@ export default function AdsDashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-violet-50/30 to-background dark:via-violet-950/10">
         <StandaloneHeader backTo="/" />
-        <main className="max-w-2xl mx-auto px-4 py-16">
-          <div className="text-center mb-10">
+        <main className="max-w-2xl mx-auto px-4 py-10">
+          <div className="text-center mb-8">
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-5 shadow-xl">
               <BarChart2 className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-2xl font-black">Ads Dashboard</h1>
             <p className="text-muted-foreground mt-2 text-sm">วิเคราะห์ผล Meta Ads จากไฟล์ Excel Export — กราฟ + AI วิเคราะห์</p>
+
+            {/* Token button — visible before upload */}
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSettingsOpen(o => !o)}
+                className={`gap-1.5 ${accessToken ? "border-emerald-400 text-emerald-600" : "border-amber-400 text-amber-600"}`}
+              >
+                <Key className="w-3.5 h-3.5" />
+                {accessToken ? "Token ✓ (บันทึกแล้ว)" : "ตั้งค่า Meta Access Token"}
+              </Button>
+            </div>
           </div>
+
+          {/* Settings panel — shown when settingsOpen */}
+          {settingsOpen && (
+            <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-4 mb-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Settings2 className="w-4 h-4 text-violet-500" /> Meta API Settings
+                </h3>
+                <button onClick={() => setSettingsOpen(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground block mb-1">Facebook Access Token</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="EAA..."
+                      value={tokenInput}
+                      onChange={e => setTokenInput(e.target.value)}
+                      className="flex-1 h-9 rounded-lg border bg-background px-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                    <Button size="sm" onClick={saveToken} disabled={!tokenInput.trim()} className="bg-violet-600 text-white border-0">บันทึก</Button>
+                    {accessToken && (
+                      <Button size="sm" variant="outline" onClick={() => { setTokenInput(""); localStorage.removeItem("meta-access-token"); setAccessToken(""); toast.success("ล้าง Token แล้ว"); }} className="text-rose-600 border-rose-300">ลบ</Button>
+                    )}
+                  </div>
+                  {accessToken && (
+                    <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Token บันทึกแล้ว — {accessToken.slice(0,8)}...
+                    </p>
+                  )}
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3 text-xs space-y-1.5 text-muted-foreground">
+                  <p className="font-semibold text-foreground flex items-center gap-1"><Info className="w-3.5 h-3.5 text-blue-500" /> วิธีดึง Access Token</p>
+                  <p>1. ไปที่ <strong>developers.facebook.com/tools/explorer</strong></p>
+                  <p>2. เลือก App ของคุณ → กด <strong>Generate Access Token</strong></p>
+                  <p>3. เลือก Permission: <strong>ads_read</strong></p>
+                  <p>4. Copy token แล้ววางในช่องด้านบน</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DropZone onFile={handleFile} />
           <div className="mt-8 rounded-2xl border bg-card p-5">
             <p className="font-bold text-sm mb-3 flex items-center gap-2">
