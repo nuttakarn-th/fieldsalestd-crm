@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Plus, Images, Trash2, X, Check, Camera } from "lucide-react";
+import { Plus, Images, Trash2, X, Check, Pencil } from "lucide-react";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useGallery } from "@/store/galleryStore";
 import { useCurrentUser } from "@/store/authStore";
@@ -21,12 +21,19 @@ const ALBUM_GRADIENTS = [
 export default function Gallery() {
   const user = useCurrentUser();
   const navigate = useNavigate();
-  const { albums, loadAlbums, createAlbum, deleteAlbum } = useGallery();
+  const { albums, loadAlbums, createAlbum, renameAlbum, deleteAlbum } = useGallery();
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Inline rename state
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [editName, setEditName]       = useState("");
+  const [editDesc, setEditDesc]       = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const editNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
@@ -48,6 +55,29 @@ export default function Gallery() {
     } else {
       toast.error("สร้างไม่สำเร็จ — ลอง push SQL migration ก่อน");
     }
+  };
+
+  const openRename = (e: React.MouseEvent, album: typeof albums[number]) => {
+    e.preventDefault(); e.stopPropagation();
+    setEditingId(album.id);
+    setEditName(album.name);
+    setEditDesc(album.description ?? "");
+    setTimeout(() => editNameRef.current?.focus(), 50);
+  };
+
+  const cancelRename = (e?: React.MouseEvent) => {
+    e?.preventDefault(); e?.stopPropagation();
+    setEditingId(null); setEditName(""); setEditDesc("");
+  };
+
+  const handleRename = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!editName.trim()) { toast.error("กรอกชื่ออัลบั้มก่อน"); return; }
+    setRenameSaving(true);
+    await renameAlbum(id, editName.trim(), editDesc.trim() || undefined);
+    setRenameSaving(false);
+    toast.success("แก้ไขชื่ออัลบั้มแล้ว ✅");
+    cancelRename();
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string, createdBy: string) => {
@@ -124,53 +154,128 @@ export default function Gallery() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {albums.map((album, i) => (
-              <Link key={album.id} to={`/gallery/${album.id}`} className="group block">
-                <article className="rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant transition-all duration-200 hover:-translate-y-1 bg-card border">
-                  {/* Cover image area */}
-                  <div className={`relative aspect-square bg-gradient-to-br ${ALBUM_GRADIENTS[i % ALBUM_GRADIENTS.length]} overflow-hidden`}>
-                    {album.cover_url ? (
-                      <img
-                        src={album.cover_url}
-                        alt={album.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Images className="w-10 h-10 text-white/40" />
+            {albums.map((album, i) => {
+              const canEdit = user.role === "Admin" || album.created_by === user.user_id;
+              const isEditing = editingId === album.id;
+
+              return (
+                <div key={album.id} className="group block">
+                  <article className={`rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant transition-all duration-200 hover:-translate-y-1 bg-card border ${isEditing ? "ring-2 ring-violet-400" : ""}`}>
+                    {/* Cover image area — click navigates unless editing */}
+                    <Link to={isEditing ? "#" : `/gallery/${album.id}`} onClick={isEditing ? e => e.preventDefault() : undefined}>
+                      <div className={`relative aspect-square bg-gradient-to-br ${ALBUM_GRADIENTS[i % ALBUM_GRADIENTS.length]} overflow-hidden`}>
+                        {album.cover_url ? (
+                          <img
+                            src={album.cover_url}
+                            alt={album.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Images className="w-10 h-10 text-white/40" />
+                          </div>
+                        )}
+
+                        {/* Photo count badge */}
+                        <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                          {album.photo_count ?? 0} รูป
+                        </div>
+
+                        {/* Action buttons — visible on hover */}
+                        {canEdit && !isEditing && (
+                          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            {/* Edit / Rename */}
+                            <button
+                              onClick={(e) => openRename(e, album)}
+                              className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-violet-600/90 transition-all shadow-lg"
+                              title="แก้ไขชื่ออัลบั้ม"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            {/* Delete */}
+                            <button
+                              onClick={(e) => handleDelete(e, album.id, album.created_by)}
+                              className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-red-600/90 transition-all shadow-lg"
+                              title="ลบอัลบั้ม"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </Link>
 
-                    {/* Photo count badge */}
-                    <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-full">
-                      {album.photo_count ?? 0} รูป
+                    {/* Info / Inline rename */}
+                    <div className="px-3 py-2.5">
+                      {isEditing ? (
+                        /* ── Inline rename form ── */
+                        <div className="space-y-1.5" onClick={e => e.preventDefault()}>
+                          <Input
+                            ref={editNameRef}
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") handleRename(e as any, album.id);
+                              if (e.key === "Escape") cancelRename();
+                            }}
+                            placeholder="ชื่ออัลบั้ม"
+                            className="h-7 text-xs px-2"
+                          />
+                          <Input
+                            value={editDesc}
+                            onChange={e => setEditDesc(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Escape") cancelRename(); }}
+                            placeholder="คำอธิบาย (ไม่บังคับ)"
+                            className="h-7 text-xs px-2"
+                          />
+                          <div className="flex gap-1 pt-0.5">
+                            <button
+                              onClick={e => handleRename(e, album.id)}
+                              disabled={renameSaving}
+                              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold transition-colors disabled:opacity-60"
+                            >
+                              <Check className="w-3 h-3" />
+                              {renameSaving ? "..." : "บันทึก"}
+                            </button>
+                            <button
+                              onClick={cancelRename}
+                              className="flex-1 flex items-center justify-center gap-1 h-7 rounded-md border hover:bg-muted text-[11px] font-medium transition-colors"
+                            >
+                              <X className="w-3 h-3" /> ยกเลิก
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* ── Normal info display ── */
+                        <Link to={`/gallery/${album.id}`}>
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-sm leading-tight line-clamp-1">{album.name}</h3>
+                              {album.description && (
+                                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{album.description}</p>
+                              )}
+                              <p className="text-[11px] text-muted-foreground mt-1 opacity-70">
+                                โดย {album.created_by_name}
+                              </p>
+                            </div>
+                            {/* Edit pencil icon — always visible in info section for canEdit */}
+                            {canEdit && (
+                              <button
+                                onClick={(e) => openRename(e, album)}
+                                className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors opacity-0 group-hover:opacity-100"
+                                title="แก้ไขชื่ออัลบั้ม"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </Link>
+                      )}
                     </div>
-
-                    {/* Delete button — visible on hover */}
-                    {(user.role === "Admin" || album.created_by === user.user_id) && (
-                      <button
-                        onClick={(e) => handleDelete(e, album.id, album.created_by)}
-                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600/90 transition-all shadow-lg"
-                        title="ลบอัลบั้ม"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="px-3 py-2.5">
-                    <h3 className="font-semibold text-sm leading-tight line-clamp-1">{album.name}</h3>
-                    {album.description && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{album.description}</p>
-                    )}
-                    <p className="text-[11px] text-muted-foreground mt-1 opacity-70">
-                      โดย {album.created_by_name}
-                    </p>
-                  </div>
-                </article>
-              </Link>
-            ))}
+                  </article>
+                </div>
+              );
+            })}
           </div>
         )}
       </main>

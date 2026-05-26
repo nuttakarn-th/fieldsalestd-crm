@@ -28,6 +28,7 @@ interface GalleryStore {
   loadAlbums: () => Promise<void>;
   loadPhotos: (albumId: string) => Promise<void>;
   createAlbum: (name: string, description: string, userId: string, userName: string) => Promise<GalleryAlbum | null>;
+  renameAlbum: (id: string, name: string, description?: string) => Promise<void>;
   deleteAlbum: (id: string) => Promise<void>;
   addPhotos: (albumId: string, items: Array<{ url: string; caption?: string; uploaded_by: string }>) => Promise<void>;
   deletePhoto: (id: string, albumId: string) => Promise<void>;
@@ -101,6 +102,13 @@ export const useGallery = create<GalleryStore>()((set, get) => ({
     }
     set({ albums: [album, ...get().albums] });
     return album;
+  },
+
+  renameAlbum: async (id, name, description) => {
+    if (SUPABASE_ENABLED && supabase) {
+      await supabase.from("gallery_albums").update({ name, description: description ?? null }).eq("id", id);
+    }
+    set({ albums: get().albums.map((a) => a.id === id ? { ...a, name, description } : a) });
   },
 
   deleteAlbum: async (id) => {
