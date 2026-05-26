@@ -16,8 +16,7 @@ import {
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, Legend, RadarChart, PolarGrid,
-  PolarAngleAxis, Radar, Cell, PieChart, Pie,
+  CartesianGrid, Legend, Cell, PieChart, Pie, LabelList,
 } from "recharts";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useCurrentUser } from "@/store/authStore";
@@ -238,10 +237,12 @@ function generateAnalysis(rows: AdRow[], totals: ReturnType<typeof calcTotals>):
   summary: string;
   best: string;
   worst: string;
+  bestRow: AdRow | null;
+  worstRow: AdRow | null;
   insights: string[];
   goals: string[];
 } {
-  if (!rows.length) return { summary: "", best: "", worst: "", insights: [], goals: [] };
+  if (!rows.length) return { summary: "", best: "", worst: "", bestRow: null, worstRow: null, insights: [], goals: [] };
 
   const sorted = [...rows].sort((a, b) => b.spend - a.spend);
   const bestCTR = [...rows].sort((a, b) => b.ctr - a.ctr)[0];
@@ -301,6 +302,8 @@ function generateAnalysis(rows: AdRow[], totals: ReturnType<typeof calcTotals>):
     summary: `จากข้อมูล ${rows.length} Ad Sets ในงบประมาณรวม ฿${fmtTHB(totals.totalSpend)} เข้าถึงผู้ชม ${fmt(totals.totalReach)} คน (${fmt(totals.totalImpressions)} Impressions) ต้นทุนต่อ 1,000 Impressions เฉลี่ย ฿${totals.avgCPM.toFixed(2)} และ CTR รวม ${fmtPct(totals.avgCTR)}`,
     best: `"${shortLabel(bestEngage.adSet, 30)}" — มีส่วนร่วมสูงสุด ${fmt(bestEngage.engagement)} interactions`,
     worst: lowestCTR ? `"${shortLabel(lowestCTR.adSet, 30)}" — CTR ต่ำสุดเพียง ${fmtPct(lowestCTR.ctr)}` : "",
+    bestRow: bestEngage ?? null,
+    worstRow: lowestCTR ?? null,
     insights,
     goals,
   };
@@ -588,19 +591,20 @@ export default function AdsDashboard() {
     })).sort((a, b) => b.value - a.value);
   }, [rows]);
 
-  // Radar data
-  const radarData = useMemo(() => {
+  // Performance comparison — Top 5 by spend, normalized 0–100
+  const perfCompareData = useMemo(() => {
     if (!rows.length) return [];
-    const maxSpend = Math.max(...rows.map(r => r.spend));
-    const maxReach = Math.max(...rows.map(r => r.reach));
-    const maxCTR   = Math.max(...rows.map(r => r.ctr));
-    const maxEngage = Math.max(...rows.map(r => r.engagement));
-    return rows.slice(0, 5).map(r => ({
-      subject: shortLabel(r.adSet, 12),
-      "งบที่ใช้":    maxSpend  ? +(r.spend      / maxSpend  * 100).toFixed(0) : 0,
-      "Reach":       maxReach  ? +(r.reach      / maxReach  * 100).toFixed(0) : 0,
-      "CTR":         maxCTR    ? +(r.ctr        / maxCTR    * 100).toFixed(0) : 0,
-      "Engagement":  maxEngage ? +(r.engagement / maxEngage * 100).toFixed(0) : 0,
+    const top5 = [...rows].sort((a, b) => b.spend - a.spend).slice(0, 5);
+    const maxSpend  = Math.max(...top5.map(r => r.spend));
+    const maxReach  = Math.max(...top5.map(r => r.reach));
+    const maxCTR    = Math.max(...top5.map(r => r.ctr));
+    const maxEngage = Math.max(...top5.map(r => r.engagement));
+    return top5.map(r => ({
+      name:          shortLabel(r.adSet, 14),
+      "งบที่ใช้":   maxSpend  ? Math.round(r.spend      / maxSpend  * 100) : 0,
+      "Reach":       maxReach  ? Math.round(r.reach      / maxReach  * 100) : 0,
+      "CTR":         maxCTR    ? Math.round(r.ctr        / maxCTR    * 100) : 0,
+      "Engagement":  maxEngage ? Math.round(r.engagement / maxEngage * 100) : 0,
     }));
   }, [rows]);
 
@@ -846,12 +850,12 @@ export default function AdsDashboard() {
 
         {/* ── Metric cards ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricCard icon={DollarSign}       label="งบที่ใช้ทั้งหมด"   value={`฿${fmtTHB(totals.totalSpend)}`}              sub="THB"                      color="bg-violet-100 text-violet-700" />
-          <MetricCard icon={Users}            label="Reach รวม"         value={fmt(totals.totalReach)}                        sub="คนที่เห็นโฆษณา"            color="bg-blue-100 text-blue-700" />
-          <MetricCard icon={Eye}              label="Impressions รวม"   value={fmt(totals.totalImpressions)}                  sub="ครั้งที่แสดง"              color="bg-sky-100 text-sky-700" />
-          <MetricCard icon={MousePointerClick} label="CTR เฉลี่ย"       value={fmtPct(totals.avgCTR)}                         sub="Click-Through Rate"        color="bg-emerald-100 text-emerald-700" />
-          <MetricCard icon={TrendingUp}       label="CPM เฉลี่ย"        value={`฿${totals.avgCPM.toFixed(2)}`}                sub="ต่อ 1,000 Impressions"     color="bg-amber-100 text-amber-700" />
-          <MetricCard icon={Flame}            label="Engagement รวม"    value={fmt(totals.totalEngagement)}                   sub="Interactions"              color="bg-orange-100 text-orange-700" />
+          <MetricCard icon={DollarSign}        label="งบที่ใช้ทั้งหมด"  value={`฿${fmtTHB(totals.totalSpend)}`}       sub="THB"                    color="bg-violet-500/10 text-violet-600 ring-1 ring-violet-200" />
+          <MetricCard icon={Users}             label="Reach รวม"        value={fmt(totals.totalReach)}                 sub="คนที่เห็นโฆษณา"          color="bg-blue-500/10 text-blue-600 ring-1 ring-blue-200" />
+          <MetricCard icon={Eye}               label="Impressions"      value={fmt(totals.totalImpressions)}           sub="ครั้งที่แสดง"            color="bg-sky-500/10 text-sky-600 ring-1 ring-sky-200" />
+          <MetricCard icon={MousePointerClick} label="CTR เฉลี่ย"       value={fmtPct(totals.avgCTR)}                  sub="Click-Through Rate"     color="bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-200" />
+          <MetricCard icon={TrendingUp}        label="CPM เฉลี่ย"       value={`฿${totals.avgCPM.toFixed(2)}`}         sub="ต่อ 1,000 Impressions"  color="bg-amber-500/10 text-amber-600 ring-1 ring-amber-200" />
+          <MetricCard icon={Flame}             label="Engagement รวม"   value={fmt(totals.totalEngagement)}            sub="Interactions"           color="bg-orange-500/10 text-orange-600 ring-1 ring-orange-200" />
         </div>
 
         {view === "dashboard" ? (
@@ -861,36 +865,38 @@ export default function AdsDashboard() {
 
               {/* Spend + Reach bar */}
               <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-violet-500" /> งบที่ใช้ vs Reach (K)
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-violet-500" /> งบที่ใช้ vs Reach
                 </h3>
+                <p className="text-xs text-muted-foreground mb-4">เปรียบเทียบงบ (฿) และ Reach (พัน) ต่อ Ad Set</p>
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={spendData} margin={{ bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fontSize: 10 }} />
+                  <BarChart data={spendData} margin={{ bottom: 40, left: 4, right: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} angle={-30} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                    <Bar dataKey="งบที่ใช้" fill="#7c3aed" radius={[4,4,0,0]} />
-                    <Bar dataKey="Reach" fill="#a78bfa" radius={[4,4,0,0]} />
+                    <Bar dataKey="งบที่ใช้" fill="#7c3aed" radius={[4,4,0,0]} maxBarSize={32} />
+                    <Bar dataKey="Reach"    fill="#38bdf8" radius={[4,4,0,0]} maxBarSize={32} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               {/* CTR + CPM bar */}
               <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
                   <MousePointerClick className="w-4 h-4 text-emerald-500" /> CTR (%) vs CPM (฿)
                 </h3>
+                <p className="text-xs text-muted-foreground mb-4">ประสิทธิภาพ Click-Through Rate และต้นทุนต่อพัน Impression</p>
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={ctrData} margin={{ bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fontSize: 10 }} />
+                  <BarChart data={ctrData} margin={{ bottom: 40, left: 4, right: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} angle={-30} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 10, fill: "#64748b" }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                    <Bar dataKey="CTR (%)" fill="#10b981" radius={[4,4,0,0]} />
-                    <Bar dataKey="CPM" fill="#f59e0b" radius={[4,4,0,0]} />
+                    <Bar dataKey="CTR (%)" fill="#10b981" radius={[4,4,0,0]} maxBarSize={32} />
+                    <Bar dataKey="CPM"     fill="#f59e0b" radius={[4,4,0,0]} maxBarSize={32} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -899,19 +905,22 @@ export default function AdsDashboard() {
             {/* ── Charts row 2 ── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-              {/* Engagement bar */}
+              {/* Engagement horizontal bar */}
               <div className="rounded-2xl border bg-card p-5 shadow-sm lg:col-span-2">
-                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
                   <Flame className="w-4 h-4 text-orange-500" /> Engagement per Ad Set
                 </h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={engageData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis type="number" tick={{ fontSize: 10 }} />
-                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={110} />
+                <p className="text-xs text-muted-foreground mb-4">Interactions รวมของแต่ละ Ad Set</p>
+                <ResponsiveContainer width="100%" height={Math.max(220, engageData.length * 28)}>
+                  <BarChart data={engageData} layout="vertical" margin={{ left: 8, right: 48, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "#64748b" }} />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#64748b" }} width={120} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="Engagement" radius={[0,4,4,0]}>
+                    <Bar dataKey="Engagement" radius={[0,4,4,0]} maxBarSize={22}>
                       {engageData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      <LabelList dataKey="Engagement" position="right" style={{ fontSize: 10, fill: "#64748b" }}
+                        formatter={(v: number) => fmt(v)} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -919,21 +928,23 @@ export default function AdsDashboard() {
 
               {/* Campaign budget pie */}
               <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-pink-500" /> สัดส่วนงบตามแคมเปญ
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-pink-500" /> สัดส่วนงบ
                 </h3>
-                <ResponsiveContainer width="100%" height={220}>
+                <p className="text-xs text-muted-foreground mb-3">งบรวมจำแนกตามแคมเปญ</p>
+                <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
-                    <Pie data={campaignData} cx="50%" cy="45%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                    <Pie data={campaignData} cx="50%" cy="50%" outerRadius={72} innerRadius={32} dataKey="value"
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
                       {campaignData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: number) => `฿${fmtTHB(v)}`} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="mt-1 space-y-1">
-                  {campaignData.slice(0, 4).map((d, i) => (
+                <div className="mt-2 space-y-1.5">
+                  {campaignData.slice(0, 5).map((d, i) => (
                     <div key={i} className="flex items-center gap-2 text-[11px]">
-                      <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
                       <span className="flex-1 truncate text-muted-foreground">{d.name}</span>
                       <span className="font-semibold shrink-0">฿{d.value.toLocaleString()}</span>
                     </div>
@@ -942,23 +953,25 @@ export default function AdsDashboard() {
               </div>
             </div>
 
-            {/* Radar chart — top 5 Ad Sets */}
-            {radarData.length >= 3 && (
+            {/* ── Performance Comparison — Grouped Bar ── */}
+            {perfCompareData.length >= 2 && (
               <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-indigo-500" /> เปรียบเทียบ Performance (Top 5 Ad Sets — normalized)
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-indigo-500" /> เปรียบเทียบ Performance — Top 5 Ad Sets
                 </h3>
+                <p className="text-xs text-muted-foreground mb-4">คะแนนเต็ม 100 (normalized เทียบ Ad Set ที่ดีที่สุดในแต่ละตัวชี้วัด)</p>
                 <ResponsiveContainer width="100%" height={280}>
-                  <RadarChart data={radarData} cx="50%" cy="50%">
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
-                    <Radar name="งบที่ใช้"   dataKey="งบที่ใช้"   stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} />
-                    <Radar name="Reach"       dataKey="Reach"       stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.15} />
-                    <Radar name="CTR"         dataKey="CTR"         stroke="#10b981" fill="#10b981" fillOpacity={0.15} />
-                    <Radar name="Engagement"  dataKey="Engagement"  stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.15} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Tooltip />
-                  </RadarChart>
+                  <BarChart data={perfCompareData} margin={{ bottom: 40, left: 4, right: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#64748b" }} angle={-25} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 10, fill: "#64748b" }} domain={[0, 100]} unit="%" />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                    <Bar dataKey="งบที่ใช้"  fill="#7c3aed" radius={[3,3,0,0]} maxBarSize={18} />
+                    <Bar dataKey="Reach"      fill="#0ea5e9" radius={[3,3,0,0]} maxBarSize={18} />
+                    <Bar dataKey="CTR"        fill="#10b981" radius={[3,3,0,0]} maxBarSize={18} />
+                    <Bar dataKey="Engagement" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={18} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -1074,74 +1087,134 @@ export default function AdsDashboard() {
         )}
 
         {/* ── AI Analysis ── */}
-        <div className="rounded-2xl border bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-sm overflow-hidden">
+        <div className="rounded-2xl border bg-gradient-to-br from-violet-50/80 to-indigo-50/60 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-sm overflow-hidden">
+          {/* Header toggle */}
           <button
             onClick={() => setAnalysisOpen(o => !o)}
-            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-white/40 dark:hover:bg-white/5 transition-colors"
+            className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-white/50 dark:hover:bg-white/5 transition-colors"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
-              <Lightbulb className="w-4.5 h-4.5 text-white w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-md">
+              <Lightbulb className="w-5 h-5 text-white" />
             </div>
-            <div className="flex-1">
-              <p className="font-bold text-sm">AI วิเคราะห์ผลโฆษณา & แนวทางปรับปรุง</p>
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{analysis.summary}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm">AI วิเคราะห์ผลโฆษณา & แนวทางปรับปรุง</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">{analysis.summary}</p>
             </div>
-            {analysisOpen ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
+            {analysisOpen ? <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />}
           </button>
 
           {analysisOpen && (
-            <div className="px-5 pb-5 space-y-5 border-t border-violet-200/50 dark:border-violet-700/30 pt-4">
-              {/* Summary */}
-              <div className="rounded-xl bg-white/60 dark:bg-white/5 border border-violet-200/60 dark:border-violet-700/40 p-4">
-                <p className="text-xs font-bold text-violet-700 dark:text-violet-400 mb-1.5">📊 สรุปภาพรวม</p>
-                <p className="text-sm leading-relaxed">{analysis.summary}</p>
-              </div>
+            <div className="border-t border-violet-200/50 dark:border-violet-700/30">
 
-              {/* Best / Worst */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-700/40 p-4">
-                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1 flex items-center gap-1">
-                    <ArrowUpRight className="w-3.5 h-3.5" /> Ad Set ที่ดีที่สุด
-                  </p>
-                  <p className="text-sm">{analysis.best}</p>
+              {/* ── Section 1: Overview ── */}
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-5 rounded-full bg-violet-500 block" />
+                  <p className="font-bold text-sm text-violet-700 dark:text-violet-400">📊 สรุปภาพรวม</p>
                 </div>
-                {analysis.worst && (
-                  <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-700/40 p-4">
-                    <p className="text-xs font-bold text-red-700 dark:text-red-400 mb-1 flex items-center gap-1">
-                      <ArrowDownRight className="w-3.5 h-3.5" /> ต้องปรับปรุง
-                    </p>
-                    <p className="text-sm">{analysis.worst}</p>
-                  </div>
-                )}
+                <p className="text-sm leading-relaxed text-foreground/85 bg-white/60 dark:bg-white/5 rounded-xl px-4 py-3 border border-violet-200/50 dark:border-violet-700/30">
+                  {analysis.summary}
+                </p>
               </div>
 
-              {/* Insights */}
-              <div>
-                <p className="text-xs font-bold text-violet-700 dark:text-violet-400 mb-2 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> Insights จากข้อมูล
-                </p>
+              <div className="h-px bg-violet-200/40 dark:bg-violet-700/20 mx-5" />
+
+              {/* ── Section 2: Best / Worst with Creative Image ── */}
+              <div className="px-5 pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-5 rounded-full bg-emerald-500 block" />
+                  <p className="font-bold text-sm text-emerald-700 dark:text-emerald-400">🏆 Ad Set ที่โดดเด่น vs ต้องปรับปรุง</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Best */}
+                  {analysis.bestRow && (
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-700/40 p-4 flex gap-3">
+                      {adImages[analysis.bestRow.adSet] && (
+                        <img
+                          src={adImages[analysis.bestRow.adSet]}
+                          alt="Creative"
+                          className="w-14 h-14 rounded-lg object-cover shrink-0 ring-2 ring-emerald-300"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1 mb-1">
+                          <ArrowUpRight className="w-3 h-3" /> ดีที่สุด
+                        </p>
+                        <p className="text-sm font-semibold leading-snug">{analysis.best}</p>
+                        <div className="flex gap-3 mt-1.5">
+                          <span className="text-[10px] text-emerald-700 font-medium">฿{analysis.bestRow.spend.toLocaleString()}</span>
+                          <span className="text-[10px] text-blue-600 font-medium">{fmt(analysis.bestRow.reach)} Reach</span>
+                          {analysis.bestRow.ctr > 0 && <span className="text-[10px] text-violet-600 font-medium">CTR {fmtPct(analysis.bestRow.ctr)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Worst */}
+                  {analysis.worstRow && analysis.worst && (
+                    <div className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-700/40 p-4 flex gap-3">
+                      {adImages[analysis.worstRow.adSet] && (
+                        <img
+                          src={adImages[analysis.worstRow.adSet]}
+                          alt="Creative"
+                          className="w-14 h-14 rounded-lg object-cover shrink-0 ring-2 ring-red-300"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-red-700 dark:text-red-400 flex items-center gap-1 mb-1">
+                          <ArrowDownRight className="w-3 h-3" /> ต้องปรับปรุง
+                        </p>
+                        <p className="text-sm font-semibold leading-snug">{analysis.worst}</p>
+                        <div className="flex gap-3 mt-1.5">
+                          <span className="text-[10px] text-red-700 font-medium">฿{analysis.worstRow.spend.toLocaleString()}</span>
+                          <span className="text-[10px] text-blue-600 font-medium">{fmt(analysis.worstRow.reach)} Reach</span>
+                          {analysis.worstRow.ctr > 0 && <span className="text-[10px] text-orange-600 font-medium">CTR {fmtPct(analysis.worstRow.ctr)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-violet-200/40 dark:bg-violet-700/20 mx-5" />
+
+              {/* ── Section 3: Insights ── */}
+              <div className="px-5 pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-5 rounded-full bg-amber-500 block" />
+                  <p className="font-bold text-sm text-amber-700 dark:text-amber-400">💡 Insights จากข้อมูล</p>
+                </div>
                 <div className="space-y-2">
                   {analysis.insights.map((ins, i) => (
-                    <div key={i} className="rounded-lg bg-white/60 dark:bg-white/5 border border-violet-100 dark:border-violet-800/40 px-4 py-2.5 text-sm leading-relaxed">
-                      {ins}
+                    <div key={i} className="flex gap-3 rounded-xl bg-white/70 dark:bg-white/5 border border-amber-100 dark:border-amber-800/30 px-4 py-3">
+                      <span className="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-sm leading-relaxed">{ins}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Goals */}
-              <div>
-                <p className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5" /> เป้าหมายและแนวทางต่อไป
-                </p>
-                <div className="space-y-2">
+              <div className="h-px bg-violet-200/40 dark:bg-violet-700/20 mx-5" />
+
+              {/* ── Section 4: Goals ── */}
+              <div className="px-5 pt-4 pb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-5 rounded-full bg-indigo-500 block" />
+                  <p className="font-bold text-sm text-indigo-700 dark:text-indigo-400">🎯 เป้าหมายและแนวทางต่อไป</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {analysis.goals.map((g, i) => (
-                    <div key={i} className="rounded-lg bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-800/40 px-4 py-2.5 text-sm leading-relaxed">
-                      {g}
+                    <div key={i} className="flex gap-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-800/30 px-4 py-3">
+                      <span className="w-5 h-5 rounded-full bg-indigo-200 dark:bg-indigo-800/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <p className="text-sm leading-relaxed">{g}</p>
                     </div>
                   ))}
                 </div>
               </div>
+
             </div>
           )}
         </div>
