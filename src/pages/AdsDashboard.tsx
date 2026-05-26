@@ -51,15 +51,41 @@ interface AdRow {
 // ─── Meta Graph API ───────────────────────────────────────────────────────────
 const META_API = "https://graph.facebook.com/v19.0";
 
-// ID column name patterns (Thai + English)
-const AD_ID_PATTERNS     = ["รหัสโฆษณา","ad id","รหัส ad","id โฆษณา"];
-const ADSET_ID_PATTERNS  = ["รหัสชุดโฆษณา","ad set id","adset id","id ชุดโฆษณา"];
-const CAMPAIGN_ID_PATTERNS = ["รหัสแคมเปญ","campaign id","id แคมเปญ"];
+// ID column name patterns (Thai + English — covers both export styles)
+const AD_ID_PATTERNS     = ["รหัสโฆษณา","ad id","รหัส ad","id โฆษณา","id_ad","ad_id"];
+const ADSET_ID_PATTERNS  = ["รหัสชุดโฆษณา","ad set id","adset id","id ชุดโฆษณา","id_adset","adset_id"];
+const CAMPAIGN_ID_PATTERNS = ["รหัสแคมเปญ","campaign id","id แคมเปญ","campaign_id"];
 
 function findColIdx(headers: string[], patterns: string[]): number {
   return headers.findIndex(h =>
     patterns.some(p => String(h ?? "").toLowerCase().trim() === p.toLowerCase())
   );
+}
+
+// Detect which row contains the actual column headers
+// Meta exports often have 1–2 title/blank rows before the real header row
+function findHeaderRow(raw: any[][]): number {
+  for (let i = 0; i < Math.min(raw.length, 6); i++) {
+    const row = raw[i];
+    if (!row) continue;
+    const text = row.map(c => String(c ?? "").trim()).join(" ").toLowerCase();
+    // Real header rows always contain both campaign name + status columns
+    if ((text.includes("ชื่อแคมเปญ") || text.includes("campaign")) &&
+        (text.includes("สถานะ") || text.includes("status") || text.includes("reach") || text.includes("เข้าถึง"))) {
+      return i;
+    }
+  }
+  return 0; // fallback
+}
+
+// Detect which column index data actually starts at (some exports have empty col A)
+function findDataStartCol(headerRow: any[]): number {
+  // First non-empty cell that looks like a column header
+  for (let i = 0; i < headerRow.length; i++) {
+    const v = String(headerRow[i] ?? "").trim();
+    if (v.length > 1) return i;
+  }
+  return 0;
 }
 
 async function fetchAdThumbnail(id: string, token: string, isAdSet = false): Promise<string | null> {
@@ -118,61 +144,92 @@ function shortLabel(s: string, max = 16): string {
 // ─── Parse Excel ──────────────────────────────────────────────────────────────
 function parseExcel(buffer: ArrayBuffer): AdRow[] {
   const wb = XLSX.read(buffer, { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
+
+  // Prefer "Raw Data Report" sheet if available (cleaner than "Formatted Report")
+  const sheetName = wb.SheetNames.find(n =>
+    n.toLowerCase().includes("raw") || n.toLowerCase().includes("data")
+  ) ?? wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
   const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
   if (!raw || raw.length < 2) return [];
 
-  const headers = (raw[0] as string[]).map(h => String(h ?? ""));
+  // Auto-detect header row + data start column
+  const headerRowIdx = findHeaderRow(raw);
+  const headers      = raw[headerRowIdx] ?? [];
+  const startCol     = findDataStartCol(headers);
 
-  // Fixed column indices (Meta standard export)
-  const COL = {
-    campaign:      0,
-    adSet:         1,
-    status:        2,
-    reach:         4,
-    impressions:   5,
-    spend:         6,
-    resultType:    7,
-    costPerResult: 8,
-    startDate:     9,
-    endDate:       10,
-    cpm:           11,
-    ctr:           12,
-    engagement:    13,
-    likes:         14,
+  // Build column index map by name (relative to startCol)
+  const hNorm = headers.map(h => String(h ?? "").toLowerCase().trim());
+  const col = (patterns: string[]) => {
+    const idx = hNorm.findIndex(h => patterns.some(p => h === p.toLowerCase()));
+    return idx >= 0 ? idx : -1;
   };
 
-  // Auto-detect ID columns (present only when user exports with IDs)
-  const adIdCol      = findColIdx(headers, AD_ID_PATTERNS);
-  const adSetIdCol   = findColIdx(headers, ADSET_ID_PATTERNS);
-  const campaignIdCol = findColIdx(headers, CAMPAIGN_ID_PATTERNS);
+  const C = {
+    campaign:      col(["ชื่อแคมเปญ","campaign name","campaign"]),
+    adSet:         col(["ชื่อชุดโฆษณา","ad set name","adset name"]),
+    adId:          col(AD_ID_PATTERNS),
+    status:        col(["สถานะการแสดงโฆษณา","delivery status","status"]),
+    level:         col(["ระดับการแสดงโฆษณา","reporting level","level"]),
+    reach:         col(["การเข้าถึง","reach"]),
+    impressions:   col(["อิมเพรสชัน","impressions"]),
+    spend:         col(["จำนวนเงินที่ใช้จ่ายไป (thb)","amount spent (thb)","spend","จำนวนเงินที่ใช้จ่ายไป"]),
+    resultType:    col(["ประเภทผลลัพธ์","result indicator","objective"]),
+    costPerResult: col(["ต้นทุนต่อผลลัพธ์","cost per result"]),
+    startDate:     col(["เริ่ม","starts","start date","start"]),
+    endDate:       col(["สิ้นสุด","ends","end date","end"]),
+    cpm:           col(["cpm (ต้นทุนต่ออิมเพรสชั่น 1,000 ครั้ง)","cpm"]),
+    ctr:           col(["ctr (ทั้งหมด)","ctr (all)","ctr"]),
+    engagement:    col(["การมีส่วนร่วมกับเพจ","page engagement","engagements"]),
+    likes:         col(["การกดถูกใจบน facebook","facebook likes","likes"]),
+    adSetId:       col(ADSET_ID_PATTERNS),
+    campaignId:    col(CAMPAIGN_ID_PATTERNS),
+  };
 
-  // Row 1 is the totals summary (empty campaign name) → skip it, start from row 2
+  // For "ID โฆษณา" — real numeric IDs appear only on "ad" level rows
+  // "All" string in that column = campaign/adset summary row, not a real ID
+
   const rows: AdRow[] = [];
-  for (let i = 1; i < raw.length; i++) {
+  for (let i = headerRowIdx + 1; i < raw.length; i++) {
     const r = raw[i];
     if (!r) continue;
-    const campaign = String(r[COL.campaign] ?? "").trim();
+
+    const campaign = String(r[C.campaign] ?? "").trim();
     if (!campaign) continue; // skip totals / empty rows
+
+    const levelVal = C.level >= 0 ? String(r[C.level] ?? "").toLowerCase().trim() : "";
+
+    // Skip campaign-level summary rows (level = "campaign") — use adset or ad level
+    // But keep adset rows if no ad-level rows exist for that adset
+    if (levelVal === "campaign") continue;
+
+    // Extract raw Ad ID — only valid if it's a real number (not "All")
+    const rawAdId = C.adId >= 0 ? r[C.adId] : undefined;
+    const adIdStr = rawAdId !== undefined && rawAdId !== "All" && rawAdId !== null && rawAdId !== ""
+      ? String(Math.round(Number(rawAdId)))
+      : undefined;
+    const isValidId = adIdStr && !isNaN(Number(adIdStr)) && adIdStr.length > 5;
+
     rows.push({
       campaign,
-      adSet:         String(r[COL.adSet]         ?? ""),
-      status:        String(r[COL.status]         ?? ""),
-      reach:         Number(r[COL.reach]          ?? 0),
-      impressions:   Number(r[COL.impressions]    ?? 0),
-      spend:         Number(r[COL.spend]          ?? 0),
-      resultType:    String(r[COL.resultType]     ?? ""),
-      costPerResult: Number(r[COL.costPerResult]  ?? 0),
-      startDate:     String(r[COL.startDate]      ?? ""),
-      endDate:       String(r[COL.endDate]        ?? ""),
-      cpm:           Number(r[COL.cpm]            ?? 0),
-      ctr:           Number(r[COL.ctr]            ?? 0),
-      engagement:    Number(r[COL.engagement]     ?? 0),
-      likes:         Number(r[COL.likes]          ?? 0),
-      // IDs — only populated when export includes ID columns
-      adId:       adIdCol      >= 0 ? String(r[adIdCol]      ?? "").trim() || undefined : undefined,
-      adSetId:    adSetIdCol   >= 0 ? String(r[adSetIdCol]   ?? "").trim() || undefined : undefined,
-      campaignId: campaignIdCol >= 0 ? String(r[campaignIdCol] ?? "").trim() || undefined : undefined,
+      adSet:         String(r[C.adSet]         ?? "").trim(),
+      status:        String(r[C.status]         ?? ""),
+      reach:         Number(r[C.reach]          ?? 0),
+      impressions:   Number(r[C.impressions]    ?? 0),
+      spend:         Number(r[C.spend]          ?? 0),
+      resultType:    String(r[C.resultType]     ?? ""),
+      costPerResult: Number(r[C.costPerResult]  ?? 0),
+      startDate:     String(r[C.startDate]      ?? ""),
+      endDate:       String(r[C.endDate]        ?? ""),
+      cpm:           Number(r[C.cpm]            ?? 0),
+      ctr:           Number(r[C.ctr]            ?? 0),
+      engagement:    Number(r[C.engagement]     ?? 0),
+      likes:         Number(r[C.likes]          ?? 0),
+      adId:          isValidId ? adIdStr : undefined,
+      adSetId:       C.adSetId >= 0 && r[C.adSetId] && r[C.adSetId] !== "All"
+                       ? String(Math.round(Number(r[C.adSetId]))) : undefined,
+      campaignId:    C.campaignId >= 0 && r[C.campaignId] && r[C.campaignId] !== "All"
+                       ? String(Math.round(Number(r[C.campaignId]))) : undefined,
     });
   }
   return rows;
