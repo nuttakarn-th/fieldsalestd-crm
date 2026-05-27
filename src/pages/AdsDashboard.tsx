@@ -12,11 +12,13 @@ import {
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
   Images, Loader2, Key, Zap, CheckCircle2, Info,
   Settings2, Users, ImageOff, Clock, Trash2, Database,
+  ExternalLink, Star, FileText,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, Legend, Cell, PieChart, Pie, LabelList,
+  LineChart, Line,
 } from "recharts";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useCurrentUser } from "@/store/authStore";
@@ -44,6 +46,24 @@ interface AdRow {
   adId?: string;
   adSetId?: string;
   campaignId?: string;
+}
+
+// ─── Content Row (Facebook Page Insights CSV) ────────────────────────────────
+interface ContentRow {
+  postId:         string;
+  title:          string;
+  publishTime:    string;
+  publishDate:    Date;
+  postType:       string;
+  permalink:      string;
+  views:          number;
+  reach:          number;
+  rcs:            number;  // Reactions + Comments + Shares
+  reactions:      number;
+  comments:       number;
+  shares:         number;
+  clicks:         number;
+  engagementRate: number;  // rcs/reach×100
 }
 
 // ─── Meta Graph API ───────────────────────────────────────────────────────────
@@ -240,6 +260,153 @@ function parseExcel(buffer: ArrayBuffer): AdRow[] {
   return rows;
 }
 
+// ─── Parse Facebook Page Insights CSV ────────────────────────────────────────
+function parseContentCSV(buffer: ArrayBuffer): ContentRow[] {
+  const wb  = XLSX.read(buffer, { type: "array" });
+  const ws  = wb.Sheets[wb.SheetNames[0]];
+  const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+  if (!raw || raw.length < 2) return [];
+
+  // Find header row (contains both "reach" and "views")
+  let hIdx = 0;
+  for (let i = 0; i < Math.min(6, raw.length); i++) {
+    const j = raw[i].map((c: any) => String(c ?? "").toLowerCase()).join(" ");
+    if (j.includes("reach") && j.includes("views")) { hIdx = i; break; }
+  }
+
+  // Normalize header names (strip BOM, quotes, lower, trim)
+  const headers = raw[hIdx].map((h: any) =>
+    String(h ?? "").replace(/^﻿/, "").replace(/^"|"$/g, "").toLowerCase().trim()
+  );
+  const exact = (name: string) => headers.findIndex(h => h === name);
+  const fuzzy = (needles: string[]) =>
+    headers.findIndex(h => needles.some(n => h.includes(n.toLowerCase())));
+
+  const C = {
+    postId:    fuzzy(["post id"]),
+    title:     exact("title"),
+    time:      fuzzy(["publish time"]),
+    type:      fuzzy(["post type"]),
+    permalink: exact("permalink"),
+    views:     exact("views"),
+    reach:     exact("reach"),
+    rcs:       fuzzy(["reactions, comments and shares", "reactions, comments"]),
+    reactions: exact("reactions"),
+    comments:  exact("comments"),
+    shares:    exact("shares"),
+    clicks:    fuzzy(["total clicks"]),
+  };
+
+  const rows: ContentRow[] = [];
+  for (let i = hIdx + 1; i < raw.length; i++) {
+    const r = raw[i];
+    if (!r || r.length < 3) continue;
+    const reach = Number(r[C.reach] ?? 0);
+    const views = Number(r[C.views] ?? 0);
+    if (reach === 0 && views === 0) continue;
+
+    const rcs = C.rcs >= 0 ? Number(r[C.rcs] ?? 0) : 0;
+    const er  = reach > 0 ? (rcs / reach) * 100 : 0;
+
+    const timeStr = C.time >= 0 ? String(r[C.time] ?? "") : "";
+    let dt = new Date();
+    const m = timeStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{2}:\d{2})/);
+    if (m) dt = new Date(`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}T${m[4]}:00`);
+
+    rows.push({
+      postId:        C.postId    >= 0 ? String(r[C.postId]    ?? "") : "",
+      title:         C.title     >= 0 ? String(r[C.title]     ?? "").replace(/[\r\n]+/g," ").trim() : "",
+      publishTime:   timeStr,
+      publishDate:   dt,
+      postType:      C.type      >= 0 ? String(r[C.type]      ?? "") : "Photos",
+      permalink:     C.permalink >= 0 ? String(r[C.permalink] ?? "") : "",
+      views,
+      reach,
+      rcs,
+      reactions:     C.reactions >= 0 ? Number(r[C.reactions] ?? 0) : 0,
+      comments:      C.comments  >= 0 ? Number(r[C.comments]  ?? 0) : 0,
+      shares:        C.shares    >= 0 ? Number(r[C.shares]    ?? 0) : 0,
+      clicks:        C.clicks    >= 0 ? Number(r[C.clicks]    ?? 0) : 0,
+      engagementRate: +er.toFixed(2),
+    });
+  }
+  return rows;
+}
+
+// ─── Calc Content Totals ──────────────────────────────────────────────────────
+function calcContentTotals(rows: ContentRow[]) {
+  const n = rows.length || 1;
+  const totalReach     = rows.reduce((s, r) => s + r.reach, 0);
+  const totalViews     = rows.reduce((s, r) => s + r.views, 0);
+  const totalRCS       = rows.reduce((s, r) => s + r.rcs, 0);
+  const totalReactions = rows.reduce((s, r) => s + r.reactions, 0);
+  const totalComments  = rows.reduce((s, r) => s + r.comments, 0);
+  const totalShares    = rows.reduce((s, r) => s + r.shares, 0);
+  const totalClicks    = rows.reduce((s, r) => s + r.clicks, 0);
+  const avgER          = rows.reduce((s, r) => s + r.engagementRate, 0) / n;
+  const avgReach       = totalReach / n;
+  const avgViews       = totalViews / n;
+  const avgClicks      = totalClicks / n;
+  return { totalReach, totalViews, totalRCS, totalReactions, totalComments, totalShares, totalClicks, avgER, avgReach, avgViews, avgClicks };
+}
+
+// ─── Generate Content Analysis ────────────────────────────────────────────────
+type ContentTotals = ReturnType<typeof calcContentTotals>;
+function generateContentAnalysis(rows: ContentRow[], totals: ContentTotals) {
+  if (!rows.length) return { summary: "", insights: [] as string[], goals: [] as string[], topPosts: [] as ContentRow[] };
+  const { avgReach, avgViews, avgER, avgClicks, totalReach, totalViews, totalRCS } = totals;
+
+  // Score: 1 pt each for above-avg Reach, Views, ER, Clicks
+  const scored = rows.map(r => ({
+    ...r,
+    score: (r.reach > avgReach ? 1 : 0) +
+           (r.views > avgViews ? 1 : 0) +
+           (r.engagementRate > avgER ? 1 : 0) +
+           (r.clicks > avgClicks ? 1 : 0),
+  })).sort((a, b) => b.score - a.score || b.reach - a.reach);
+
+  const topPosts = scored.filter(r => r.score >= 2).slice(0, 6) as ContentRow[];
+  const bestReach = [...rows].sort((a, b) => b.reach - a.reach)[0];
+  const bestER    = [...rows].sort((a, b) => b.engagementRate - a.engagementRate)[0];
+  const videoRows = rows.filter(r => r.postType.toLowerCase().includes("video"));
+  const photoRows = rows.filter(r => !r.postType.toLowerCase().includes("video"));
+
+  const insights: string[] = [];
+  insights.push(`🏆 โพสต์ที่ Reach สูงสุด: "${shortLabel(bestReach.title, 35)}" — Reach ${fmt(bestReach.reach)} ซึ่ง ${(bestReach.reach / Math.max(avgReach, 1)).toFixed(1)}× ค่าเฉลี่ย ควรนำ Content Style นี้ทำซ้ำ`);
+  if (bestER.engagementRate > 5) {
+    insights.push(`💬 โพสต์ "${shortLabel(bestER.title, 30)}" มี ER ${bestER.engagementRate.toFixed(1)}% — สูงมาก เนื้อหาสร้าง Interaction ได้ดี ลองทำ Series เดิมต่อ`);
+  } else {
+    insights.push(`📊 Engagement Rate เฉลี่ย ${avgER.toFixed(1)}% — เพิ่ม CTA เช่น "คอมเมนต์ว่าอยากไปที่ไหน" หรือ "Tag เพื่อนที่อยากพาไป" ในทุกโพสต์`);
+  }
+  const postDays = new Set(rows.map(r => r.publishDate.toDateString())).size;
+  const ppd = rows.length / Math.max(postDays, 1);
+  insights.push(`📅 ${rows.length} โพสต์ใน ${postDays} วัน (เฉลี่ย ${ppd.toFixed(1)} โพสต์/วัน) — ${ppd >= 1 ? "✅ ความถี่ดี" : "⚠️ ควรเพิ่มความถี่เป็น 1 โพสต์/วัน"}`);
+  if (videoRows.length > 0 && photoRows.length > 0) {
+    const avgVR = videoRows.reduce((s, r) => s + r.reach, 0) / videoRows.length;
+    const avgPR = photoRows.reduce((s, r) => s + r.reach, 0) / photoRows.length;
+    insights.push(avgVR > avgPR * 1.2
+      ? `🎬 Video มี Reach เฉลี่ย ${fmt(avgVR)} สูงกว่า Photo (${fmt(avgPR)}) — เพิ่มสัดส่วน Video/Reel ให้มากขึ้นเดือนหน้า`
+      : `📸 Photo Content มี Performance ดีเทียบเท่า Video — รักษา Visual Quality ไว้`);
+  }
+  const avgCTR = rows.filter(r => r.reach > 0).reduce((s, r) => s + r.clicks / r.reach * 100, 0) / (rows.filter(r => r.reach > 0).length || 1);
+  insights.push(`🖱️ CTR Organic เฉลี่ย ${avgCTR.toFixed(2)}% — ${avgCTR > 1 ? "ดี เนื้อหาสร้าง Intent ได้" : "ลอง Link + CTA ที่ชัดเจนขึ้น"}`);
+
+  const goals: string[] = [
+    `🎯 เป้าหมาย Reach รวม ${fmt(Math.round(totalReach * 1.2))} คน (+20%) โดยเพิ่มโพสต์แนว "${shortLabel(bestReach.title, 20)}"`,
+    `📈 เพิ่ม Engagement Rate จาก ${avgER.toFixed(1)}% → ${Math.min(avgER * 1.3, 10).toFixed(1)}% ด้วย Interactive Content และ CTA ทุกโพสต์`,
+    `🎬 เพิ่มสัดส่วน Video/Reel เป็นอย่างน้อย ${Math.max(videoRows.length + 2, 4)} คลิป/เดือน เพื่อ Algorithm Boost`,
+    `⏰ วางแผนโพสต์ช่วง 19:00–22:00 น. สม่ำเสมอ เพื่อให้ Algorithm เรียนรู้ Pattern ของ Page`,
+    `📌 สร้าง Content Series ต่อเนื่อง (เช่น รีวิวทริป / Tips เที่ยว) เพื่อ Build ฐานผู้ติดตามที่ Engage`,
+  ];
+
+  return {
+    summary: `เดือนนี้มีโพสต์ ${rows.length} รายการ เข้าถึง ${fmt(totalReach)} คน · ${fmt(totalViews)} Views · มีส่วนร่วมรวม ${fmt(totalRCS)} ครั้ง · ER เฉลี่ย ${avgER.toFixed(2)}%`,
+    insights,
+    goals,
+    topPosts,
+  };
+}
+
 // ─── AI Analysis ──────────────────────────────────────────────────────────────
 function generateAnalysis(rows: AdRow[], totals: ReturnType<typeof calcTotals>): {
   summary: string;
@@ -348,12 +515,32 @@ function MetricCard({ icon: Icon, label, value, sub, color }: {
 }
 
 // ─── Drop Zone ────────────────────────────────────────────────────────────────
-function DropZone({ onFile }: { onFile: (buf: ArrayBuffer, name: string) => void }) {
+function DropZone({
+  onFile,
+  accept     = ".xlsx,.xls",
+  mimeCheck  = /\.xlsx?$/i,
+  labelText  = "ลาก Excel มาวางที่นี่",
+  sublabel   = "หรือคลิกเพื่อเลือกไฟล์ (.xlsx / .xls)",
+  hint       = "รองรับ Meta Business Suite → Ads Reporting Export",
+  accentFrom = "from-violet-500",
+  accentTo   = "to-indigo-600",
+  Icon       = FileSpreadsheet,
+}: {
+  onFile:      (buf: ArrayBuffer, name: string) => void;
+  accept?:     string;
+  mimeCheck?:  RegExp;
+  labelText?:  string;
+  sublabel?:   string;
+  hint?:       string;
+  accentFrom?: string;
+  accentTo?:   string;
+  Icon?:       React.ElementType;
+}) {
   const [drag, setDrag] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
-    if (!file.name.match(/\.xlsx?$/i)) { toast.error("รองรับเฉพาะไฟล์ .xlsx / .xls เท่านั้น"); return; }
+    if (!file.name.match(mimeCheck)) { toast.error(`รองรับเฉพาะไฟล์ ${accept} เท่านั้น`); return; }
     const reader = new FileReader();
     reader.onload = e => e.target?.result && onFile(e.target.result as ArrayBuffer, file.name);
     reader.readAsArrayBuffer(file);
@@ -369,13 +556,13 @@ function DropZone({ onFile }: { onFile: (buf: ArrayBuffer, name: string) => void
         drag ? "border-violet-500 bg-violet-50 dark:bg-violet-950/20 scale-[1.01]" : "border-border hover:border-violet-400 hover:bg-muted/40"
       }`}
     >
-      <input ref={ref} type="file" accept=".xlsx,.xls" hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-        <FileSpreadsheet className="w-8 h-8 text-white" />
+      <input ref={ref} type="file" accept={accept} hidden onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${accentFrom} ${accentTo} flex items-center justify-center mx-auto mb-4 shadow-lg`}>
+        <Icon className="w-8 h-8 text-white" />
       </div>
-      <p className="font-bold text-lg">ลาก Excel มาวางที่นี่</p>
-      <p className="text-sm text-muted-foreground mt-1">หรือคลิกเพื่อเลือกไฟล์ (.xlsx / .xls)</p>
-      <p className="text-xs text-muted-foreground mt-3 opacity-70">รองรับ Meta Business Suite → Ads Reporting Export</p>
+      <p className="font-bold text-lg">{labelText}</p>
+      <p className="text-sm text-muted-foreground mt-1">{sublabel}</p>
+      <p className="text-xs text-muted-foreground mt-3 opacity-70">{hint}</p>
     </div>
   );
 }
@@ -471,11 +658,18 @@ export default function AdsDashboard() {
 
   const [rows,      setRows]      = useState<AdRow[]>([]);
   const [fileName,  setFileName]  = useState<string>("");
-  const [view,      setView]      = useState<"dashboard" | "list" | "creatives">("dashboard");
+  const [view,      setView]      = useState<"dashboard" | "list" | "creatives" | "content">("dashboard");
   const [sortKey,   setSortKey]   = useState<keyof AdRow>("spend");
   const [sortDir,   setSortDir]   = useState<"asc" | "desc">("desc");
   const [analysisOpen,  setAnalysisOpen]  = useState(true);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
+
+  // ── Content Report state ──────────────────────────────────────────────────
+  const [contentRows,      setContentRows]      = useState<ContentRow[]>([]);
+  const [contentFileName,  setContentFileName]  = useState("");
+  const [contentAnalysisOpen, setContentAnalysisOpen] = useState(true);
+  const [contentSortKey,   setContentSortKey]   = useState<keyof ContentRow>("reach");
+  const [contentSortDir,   setContentSortDir]   = useState<"asc" | "desc">("desc");
 
   // ── Ad Creative Images: adSet name → image URL (from Meta API) ──────────────
   const [adImages,     setAdImages]     = useState<Record<string, string>>({});
@@ -661,6 +855,19 @@ export default function AdsDashboard() {
     }
   }, [currentUser]);
 
+  // ── Load Content CSV ─────────────────────────────────────────────────────────
+  const handleContentFile = useCallback((buf: ArrayBuffer, name: string) => {
+    try {
+      const parsed = parseContentCSV(buf);
+      if (!parsed.length) { toast.error("ไม่พบข้อมูลโพสต์ — ตรวจสอบ format CSV"); return; }
+      setContentRows(parsed);
+      setContentFileName(name);
+      toast.success(`โหลดข้อมูล ${parsed.length} โพสต์สำเร็จ 🎉`);
+    } catch {
+      toast.error("อ่านไฟล์ไม่ได้ — ลองส่งออกใหม่จาก Meta Business Suite");
+    }
+  }, []);
+
   // ── Derived ─────────────────────────────────────────────────────────────────
   const totals   = useMemo(() => calcTotals(rows), [rows]);
   const analysis = useMemo(() => generateAnalysis(rows, totals), [rows, totals]);
@@ -722,6 +929,55 @@ export default function AdsDashboard() {
     }));
   }, [rows]);
 
+  // ── Content derived ──────────────────────────────────────────────────────────
+  const contentTotals   = useMemo(() => calcContentTotals(contentRows), [contentRows]);
+  const contentAnalysis = useMemo(() => generateContentAnalysis(contentRows, contentTotals), [contentRows, contentTotals]);
+
+  const contentDailyData = useMemo(() => {
+    if (!contentRows.length) return [];
+    const map: Record<string, { reach: number; engagement: number; date: Date }> = {};
+    contentRows.forEach(r => {
+      const key = `${r.publishDate.getMonth()+1}/${r.publishDate.getDate()}`;
+      if (!map[key]) map[key] = { reach: 0, engagement: 0, date: r.publishDate };
+      map[key].reach      += r.reach;
+      map[key].engagement += r.rcs;
+    });
+    return Object.entries(map)
+      .sort(([,a],[,b]) => a.date.getTime() - b.date.getTime())
+      .map(([date, v]) => ({ date, "Reach": v.reach, "Engagement": v.engagement }));
+  }, [contentRows]);
+
+  const contentTopReachData = useMemo(() =>
+    [...contentRows].sort((a, b) => b.reach - a.reach).slice(0, 8).map(r => ({
+      name: shortLabel(r.title, 20),
+      "Reach": r.reach,
+    })),
+    [contentRows]);
+
+  const contentEngBreakdown = useMemo(() => [
+    { name: "Reactions", value: contentTotals.totalReactions },
+    { name: "Comments",  value: contentTotals.totalComments },
+    { name: "Shares",    value: contentTotals.totalShares },
+  ].filter(d => d.value > 0), [contentTotals]);
+
+  const contentSortedRows = useMemo(() => {
+    return [...contentRows].sort((a, b) => {
+      const av = a[contentSortKey], bv = b[contentSortKey];
+      if (typeof av === "number" && typeof bv === "number")
+        return contentSortDir === "desc" ? bv - av : av - bv;
+      return contentSortDir === "desc"
+        ? String(bv).localeCompare(String(av))
+        : String(av).localeCompare(String(bv));
+    });
+  }, [contentRows, contentSortKey, contentSortDir]);
+
+  const toggleContentSort = (k: keyof ContentRow) => {
+    if (contentSortKey === k) setContentSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setContentSortKey(k); setContentSortDir("desc"); }
+  };
+  const CSortIcon = ({ k }: { k: keyof ContentRow }) =>
+    contentSortKey === k ? (contentSortDir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />) : <Minus className="w-3 h-3 opacity-30" />;
+
   const toggleSort = (k: keyof AdRow) => {
     if (sortKey === k) setSortDir(d => d === "desc" ? "asc" : "desc");
     else { setSortKey(k); setSortDir("desc"); }
@@ -730,7 +986,7 @@ export default function AdsDashboard() {
     sortKey === k ? (sortDir === "desc" ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />) : <Minus className="w-3 h-3 opacity-30" />;
 
   // ── Empty state ─────────────────────────────────────────────────────────────
-  if (!rows.length) {
+  if (!rows.length && view !== "content") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-violet-50/30 to-background dark:via-violet-950/10">
         <StandaloneHeader backTo="/" />
@@ -844,6 +1100,22 @@ export default function AdsDashboard() {
             </div>
           )}
 
+          {/* ── Content Report shortcut ── */}
+          <div className="mt-5 rounded-2xl border bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/20 dark:to-cyan-950/20 border-teal-200 dark:border-teal-700/40 p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shrink-0 shadow">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-teal-800 dark:text-teal-300">Content Report</p>
+                <p className="text-xs text-teal-600 dark:text-teal-400">วิเคราะห์ผลโพสต์จาก Facebook Page Insights CSV</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => setView("content")} className="bg-teal-600 hover:bg-teal-700 text-white border-0 gap-1.5 shrink-0">
+              <BarChart2 className="w-3.5 h-3.5" /> เปิด
+            </Button>
+          </div>
+
           <DropZone onFile={handleFile} />
           <div className="mt-8 rounded-2xl border bg-card p-5">
             <p className="font-bold text-sm mb-3 flex items-center gap-2">
@@ -916,6 +1188,14 @@ export default function AdsDashboard() {
               </button>
               <button onClick={() => setView("list")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "list" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
                 <List className="w-3.5 h-3.5" /> รายการ
+              </button>
+              <button onClick={() => setView("content")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "content" ? "bg-teal-600 text-white" : "hover:bg-muted"}`}>
+                <FileText className="w-3.5 h-3.5" /> Content
+                {contentRows.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-teal-500 text-white text-[9px] flex items-center justify-center font-bold">
+                    {contentRows.length}
+                  </span>
+                )}
               </button>
             </div>
             <Button size="sm" variant="outline" onClick={() => { setRows([]); setFileName(""); setMetaFetchDone(false); }} className="gap-1.5">
@@ -1007,17 +1287,347 @@ export default function AdsDashboard() {
           </div>
         )}
 
-        {/* ── Metric cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* ── Content Report Tab ─────────────────────────────────────────────── */}
+        {view === "content" && (
+          contentRows.length === 0 ? (
+            /* Upload state */
+            <div className="max-w-2xl mx-auto py-6 space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-xl font-black">Content Report</h2>
+                <p className="text-sm text-muted-foreground mt-1">วิเคราะห์ผลโพสต์รายเดือนจาก Facebook Page Insights</p>
+              </div>
+              <DropZone
+                onFile={handleContentFile}
+                accept=".csv"
+                mimeCheck={/\.csv$/i}
+                labelText="ลาก CSV มาวางที่นี่"
+                sublabel="หรือคลิกเพื่อเลือกไฟล์ (.csv)"
+                hint="รองรับ Meta Business Suite → Content → Export CSV"
+                accentFrom="from-teal-500"
+                accentTo="to-cyan-600"
+                Icon={FileText}
+              />
+              <div className="rounded-2xl border bg-card p-5">
+                <p className="font-bold text-sm mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-500" /> วิธี Export Page Insights CSV
+                </p>
+                <ol className="space-y-2 text-sm text-muted-foreground">
+                  <li>1. เข้า <strong>Meta Business Suite</strong> → <strong>Insights</strong></li>
+                  <li>2. คลิก <strong>Content</strong> (แถบบน) → เลือกช่วงเวลา (เช่น เดือนที่ต้องการ)</li>
+                  <li>3. กด <strong>Export</strong> → เลือก <strong>Export to CSV</strong></li>
+                  <li>4. ลากไฟล์ .csv มาวางในกล่องด้านบน</li>
+                </ol>
+              </div>
+            </div>
+          ) : (
+            /* Content Dashboard */
+            <div className="space-y-6">
+              {/* Content top bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-black flex items-center gap-2 text-teal-700 dark:text-teal-400">
+                    <FileText className="w-4 h-4" /> Content Report
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    {contentFileName} — {contentRows.length} โพสต์
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => { setContentRows([]); setContentFileName(""); }} className="gap-1.5 text-rose-600 border-rose-200">
+                  <RefreshCw className="w-3.5 h-3.5" /> โหลดไฟล์ใหม่
+                </Button>
+              </div>
+
+              {/* Content KPI Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <MetricCard icon={FileText}          label="โพสต์ทั้งหมด"   value={String(contentRows.length)}                    sub="รายการ"                 color="bg-teal-500/10 text-teal-600 ring-1 ring-teal-200" />
+                <MetricCard icon={Users}             label="Reach รวม"       value={fmt(contentTotals.totalReach)}                  sub="คนที่เห็นโพสต์"          color="bg-blue-500/10 text-blue-600 ring-1 ring-blue-200" />
+                <MetricCard icon={Eye}               label="Views รวม"       value={fmt(contentTotals.totalViews)}                  sub="ครั้งที่ดู"              color="bg-sky-500/10 text-sky-600 ring-1 ring-sky-200" />
+                <MetricCard icon={TrendingUp}        label="Avg ER"           value={`${contentTotals.avgER.toFixed(2)}%`}            sub="Engagement Rate"        color="bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-200" />
+                <MetricCard icon={Flame}             label="RCS รวม"         value={fmt(contentTotals.totalRCS)}                    sub="React+Comment+Share"    color="bg-orange-500/10 text-orange-600 ring-1 ring-orange-200" />
+                <MetricCard icon={MousePointerClick} label="Clicks รวม"      value={fmt(contentTotals.totalClicks)}                 sub="Total Clicks"           color="bg-violet-500/10 text-violet-600 ring-1 ring-violet-200" />
+              </div>
+
+              {/* Charts row 1: Daily trend + Engagement breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="rounded-2xl border bg-card p-5 shadow-sm lg:col-span-2">
+                  <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-teal-500" /> Reach & Engagement รายวัน
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-4">Reach และ RCS รวมของโพสต์แต่ละวัน</p>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={contentDailyData} margin={{ bottom: 20, left: 0, right: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#64748b" }} angle={-30} textAnchor="end" interval={1} />
+                      <YAxis yAxisId="left"  tick={{ fontSize: 10, fill: "#64748b" }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: "#64748b" }} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                      <Line yAxisId="left"  type="monotone" dataKey="Reach"      stroke="#0d9488" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="Engagement" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                  <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-orange-500" /> สัดส่วน Engagement
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">Reactions / Comments / Shares</p>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={contentEngBreakdown} cx="50%" cy="50%" outerRadius={62} innerRadius={28} dataKey="value"
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                        {contentEngBreakdown.map((_, i) => <Cell key={i} fill={["#f97316","#3b82f6","#a78bfa"][i % 3]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => v.toLocaleString()} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="mt-2 space-y-1.5">
+                    {contentEngBreakdown.map((d, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: ["#f97316","#3b82f6","#a78bfa"][i % 3] }} />
+                        <span className="flex-1 text-muted-foreground">{d.name}</span>
+                        <span className="font-semibold">{d.value.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart row 2: Top posts by Reach */}
+              <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-blue-500" /> Top 8 โพสต์ตาม Reach
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">โพสต์ที่เข้าถึงผู้ชมมากที่สุดในเดือนนี้</p>
+                <ResponsiveContainer width="100%" height={Math.max(220, contentTopReachData.length * 32)}>
+                  <BarChart data={contentTopReachData} layout="vertical" margin={{ left: 8, right: 60, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: "#64748b" }} />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#64748b" }} width={130} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="Reach" radius={[0,4,4,0]} maxBarSize={22}>
+                      {contentTopReachData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      <LabelList dataKey="Reach" position="right" style={{ fontSize: 10, fill: "#64748b" }} formatter={(v: number) => fmt(v)} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Top Performers */}
+              {contentAnalysis.topPosts.length > 0 && (
+                <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                  <div className="px-5 pt-5 pb-3 border-b flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-sm flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500" /> โพสต์ที่ดีที่สุดประจำเดือน
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">โพสต์ที่ผ่านเกณฑ์ ≥ 2 ใน 4 (Reach, Views, ER, Clicks สูงกว่าค่าเฉลี่ย)</p>
+                    </div>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {contentAnalysis.topPosts.map((post, i) => {
+                      const scored = post as ContentRow & { score?: number };
+                      const score  = scored.score ?? 0;
+                      return (
+                        <div key={i} className="rounded-xl border bg-gradient-to-br from-teal-50/50 to-cyan-50/30 dark:from-teal-950/20 dark:to-cyan-950/10 border-teal-100 dark:border-teal-800/30 p-4 space-y-2 hover:shadow-md transition-shadow">
+                          {/* Score stars */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4].map(s => (
+                                <Star key={s} className={`w-3.5 h-3.5 ${s <= score ? "text-amber-400 fill-amber-400" : "text-muted-foreground/20"}`} />
+                              ))}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{post.postType}</span>
+                          </div>
+                          {/* Title */}
+                          <p className="text-xs font-semibold leading-snug line-clamp-3">{post.title || "(ไม่มี caption)"}</p>
+                          {/* Metrics */}
+                          <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-teal-100 dark:border-teal-800/30">
+                            <div>
+                              <p className="text-[9px] text-muted-foreground">Reach</p>
+                              <p className="text-xs font-black text-blue-600">{fmt(post.reach)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-muted-foreground">Views</p>
+                              <p className="text-xs font-black text-sky-600">{fmt(post.views)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-muted-foreground">ER</p>
+                              <p className={`text-xs font-black ${post.engagementRate >= 5 ? "text-emerald-600" : post.engagementRate >= 2 ? "text-amber-600" : "text-muted-foreground"}`}>
+                                {post.engagementRate.toFixed(1)}%
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-muted-foreground">Clicks</p>
+                              <p className="text-xs font-black text-violet-600">{fmt(post.clicks)}</p>
+                            </div>
+                          </div>
+                          {/* Date + link */}
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[9px] text-muted-foreground">{post.publishTime.split(" ")[0]}</span>
+                            {post.permalink && (
+                              <a href={post.permalink} target="_blank" rel="noreferrer"
+                                className="text-[10px] text-teal-600 hover:text-teal-800 flex items-center gap-0.5 font-semibold">
+                                ดูโพสต์ <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Analysis */}
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setContentAnalysisOpen(o => !o)}
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                >
+                  <span className="font-bold text-sm flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-teal-500" /> AI วิเคราะห์ Content Performance
+                  </span>
+                  {contentAnalysisOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                </button>
+
+                {contentAnalysisOpen && (
+                  <div className="space-y-0 divide-y">
+                    {/* Summary */}
+                    <div className="px-5 py-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-1 h-5 rounded-full bg-teal-500 block" />
+                        <p className="font-bold text-sm text-teal-700 dark:text-teal-400">📊 สรุปภาพรวมประจำเดือน</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed pl-3">{contentAnalysis.summary}</p>
+                    </div>
+
+                    <div className="h-px bg-teal-200/40 dark:bg-teal-700/20 mx-5" />
+
+                    {/* Insights */}
+                    <div className="px-5 pt-4 pb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="w-1 h-5 rounded-full bg-amber-500 block" />
+                        <p className="font-bold text-sm text-amber-700 dark:text-amber-400">💡 Insights จากข้อมูล</p>
+                      </div>
+                      <div className="space-y-2">
+                        {contentAnalysis.insights.map((ins, i) => (
+                          <div key={i} className="flex gap-3 rounded-xl bg-white/70 dark:bg-white/5 border border-amber-100 dark:border-amber-800/30 px-4 py-3">
+                            <span className="w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <p className="text-sm leading-relaxed">{ins}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-teal-200/40 dark:bg-teal-700/20 mx-5" />
+
+                    {/* Goals */}
+                    <div className="px-5 pt-4 pb-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="w-1 h-5 rounded-full bg-teal-600 block" />
+                        <p className="font-bold text-sm text-teal-700 dark:text-teal-400">🎯 เป้าหมายและแผนเดือนถัดไป</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {contentAnalysis.goals.map((g, i) => (
+                          <div key={i} className="flex gap-3 rounded-xl bg-teal-50/80 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-800/30 px-4 py-3">
+                            <span className="w-5 h-5 rounded-full bg-teal-200 dark:bg-teal-800/60 text-teal-700 dark:text-teal-300 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <p className="text-sm leading-relaxed">{g}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Full posts list */}
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b flex items-center gap-2">
+                  <List className="w-4 h-4 text-teal-500" />
+                  <span className="font-bold text-sm">รายการโพสต์ทั้งหมด ({contentRows.length})</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/60 border-b">
+                        {([
+                          ["publishTime",    "วันที่"],
+                          ["title",          "โพสต์"],
+                          ["postType",       "ประเภท"],
+                          ["reach",          "Reach"],
+                          ["views",          "Views"],
+                          ["engagementRate", "ER %"],
+                          ["rcs",            "RCS"],
+                          ["clicks",         "Clicks"],
+                        ] as [keyof ContentRow, string][]).map(([k, label]) => (
+                          <th key={k} className="px-3 py-2.5 text-left font-semibold text-muted-foreground cursor-pointer hover:text-foreground select-none whitespace-nowrap" onClick={() => toggleContentSort(k)}>
+                            <span className="flex items-center gap-1">{label} <CSortIcon k={k} /></span>
+                          </th>
+                        ))}
+                        <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">ลิงก์</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contentSortedRows.map((r, i) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
+                            {r.publishTime.split(" ")[0]}
+                          </td>
+                          <td className="px-3 py-2.5 max-w-[260px]">
+                            <p className="font-semibold truncate">{shortLabel(r.title, 40)}</p>
+                          </td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted border text-muted-foreground">{r.postType}</span>
+                          </td>
+                          <td className="px-3 py-2.5 font-semibold text-blue-600 whitespace-nowrap">{fmt(r.reach)}</td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">{fmt(r.views)}</td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span className={`font-bold ${r.engagementRate >= 5 ? "text-emerald-600" : r.engagementRate >= 2 ? "text-amber-600" : "text-muted-foreground"}`}>
+                              {r.engagementRate.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">{fmt(r.rcs)}</td>
+                          <td className="px-3 py-2.5 whitespace-nowrap">{fmt(r.clicks)}</td>
+                          <td className="px-3 py-2.5">
+                            {r.permalink ? (
+                              <a href={r.permalink} target="_blank" rel="noreferrer"
+                                className="text-teal-600 hover:text-teal-800 flex items-center gap-0.5">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            ) : <span className="text-muted-foreground/30">—</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )
+        )}
+
+        {/* ── Metric cards (Ads views only) ── */}
+        {view !== "content" && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <MetricCard icon={DollarSign}        label="งบที่ใช้ทั้งหมด"  value={`฿${fmtTHB(totals.totalSpend)}`}       sub="THB"                    color="bg-violet-500/10 text-violet-600 ring-1 ring-violet-200" />
           <MetricCard icon={Users}             label="Reach รวม"        value={fmt(totals.totalReach)}                 sub="คนที่เห็นโฆษณา"          color="bg-blue-500/10 text-blue-600 ring-1 ring-blue-200" />
           <MetricCard icon={Eye}               label="Impressions"      value={fmt(totals.totalImpressions)}           sub="ครั้งที่แสดง"            color="bg-sky-500/10 text-sky-600 ring-1 ring-sky-200" />
           <MetricCard icon={MousePointerClick} label="CTR เฉลี่ย"       value={fmtPct(totals.avgCTR)}                  sub="Click-Through Rate"     color="bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-200" />
           <MetricCard icon={TrendingUp}        label="CPM เฉลี่ย"       value={`฿${totals.avgCPM.toFixed(2)}`}         sub="ต่อ 1,000 Impressions"  color="bg-amber-500/10 text-amber-600 ring-1 ring-amber-200" />
           <MetricCard icon={Flame}             label="Engagement รวม"   value={fmt(totals.totalEngagement)}            sub="Interactions"           color="bg-orange-500/10 text-orange-600 ring-1 ring-orange-200" />
-        </div>
+        </div>}
 
-        {view === "dashboard" ? (
+        {view !== "content" && (view === "dashboard" ? (
           <>
             {/* ── Charts row 1 ── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -1243,9 +1853,10 @@ export default function AdsDashboard() {
               </table>
             </div>
           </div>
-        )}
+        ))}
 
-        {/* ── AI Analysis ── */}
+        {/* ── AI Analysis + Upload (Ads views only) ── */}
+        {view !== "content" && <>
         <div className="rounded-2xl border bg-gradient-to-br from-violet-50/80 to-indigo-50/60 dark:from-violet-950/30 dark:to-indigo-950/20 shadow-sm overflow-hidden">
           {/* Header toggle */}
           <button
@@ -1382,6 +1993,7 @@ export default function AdsDashboard() {
         <div className="rounded-2xl border bg-card p-4">
           <DropZone onFile={handleFile} />
         </div>
+        </>}
 
       </main>
     </div>
