@@ -11,7 +11,7 @@ import {
   FileSpreadsheet, X, RefreshCw, Lightbulb, AlertCircle,
   ArrowUpRight, ArrowDownRight, Minus, List, LayoutDashboard,
   Images, Loader2, Key, Zap, CheckCircle2, Info,
-  Settings2, Users, ImageOff,
+  Settings2, Users, ImageOff, Clock, Trash2, Database,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -22,6 +22,7 @@ import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useCurrentUser } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AdRow {
@@ -485,18 +486,104 @@ export default function AdsDashboard() {
   const [fetchingMeta, setFetchingMeta] = useState(false);
   const [metaFetchDone, setMetaFetchDone] = useState(false);
 
+  // ── Cross-device persistence state ──────────────────────────────────────────
+  const [savedReports,   setSavedReports]   = useState<{ id: string; fileName: string; uploadedAt: string }[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [savingReport,   setSavingReport]   = useState(false);
+
+  // ── Load Token + saved reports on mount (Supabase → localStorage fallback) ──
   useEffect(() => {
+    // 1. Instant local fallback
     const saved = localStorage.getItem("meta-access-token");
     if (saved) { setAccessToken(saved); setTokenInput(saved); }
+
+    if (SUPABASE_ENABLED && supabase) {
+      // 2. Authoritative token from Supabase (overrides local if present)
+      supabase
+        .from("site_settings")
+        .select("payload")
+        .eq("id", "marketing")
+        .single()
+        .then(({ data }) => {
+          const t = data?.payload?.meta_access_token as string | undefined;
+          if (t) {
+            setAccessToken(t);
+            setTokenInput(t);
+            localStorage.setItem("meta-access-token", t);
+          }
+        });
+
+      // 3. Load saved reports list
+      setLoadingReports(true);
+      supabase
+        .from("ads_reports")
+        .select("id, file_name, uploaded_at")
+        .order("uploaded_at", { ascending: false })
+        .limit(10)
+        .then(({ data }) => {
+          if (data) setSavedReports(data.map(r => ({ id: r.id, fileName: r.file_name, uploadedAt: r.uploaded_at })));
+          setLoadingReports(false);
+        });
+    }
   }, []);
 
-  const saveToken = useCallback(() => {
+  // ── Clear token from everywhere ─────────────────────────────────────────────
+  const clearToken = useCallback(async () => {
+    setTokenInput("");
+    localStorage.removeItem("meta-access-token");
+    setAccessToken("");
+    if (SUPABASE_ENABLED && supabase) {
+      await supabase
+        .from("site_settings")
+        .upsert(
+          { id: "marketing", payload: { meta_access_token: "" }, updated_at: new Date().toISOString() },
+          { onConflict: "id" }
+        );
+    }
+    toast.success("ล้าง Token แล้ว");
+  }, []);
+
+  // ── Save token to Supabase + localStorage ────────────────────────────────────
+  const saveToken = useCallback(async () => {
     const t = tokenInput.trim();
     localStorage.setItem("meta-access-token", t);
     setAccessToken(t);
-    toast.success(t ? "บันทึก Access Token แล้ว ✅" : "ล้าง Token แล้ว");
+    if (SUPABASE_ENABLED && supabase) {
+      await supabase
+        .from("site_settings")
+        .upsert(
+          { id: "marketing", payload: { meta_access_token: t }, updated_at: new Date().toISOString() },
+          { onConflict: "id" }
+        );
+    }
+    toast.success(t ? "บันทึก Access Token แล้ว ✅ (ทุกเครื่อง)" : "ล้าง Token แล้ว");
     setSettingsOpen(false);
   }, [tokenInput]);
+
+  // ── Load a saved report from Supabase ────────────────────────────────────────
+  const loadReport = useCallback(async (reportId: string, name: string) => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const { data, error } = await supabase
+      .from("ads_reports")
+      .select("rows_json")
+      .eq("id", reportId)
+      .single();
+    if (error || !data) { toast.error("โหลดรายงานไม่สำเร็จ"); return; }
+    setRows(data.rows_json as AdRow[]);
+    setFileName(name);
+    setMetaFetchDone(false);
+    toast.success(`โหลด "${name}" สำเร็จ ✅`);
+  }, []);
+
+  // ── Delete a saved report ────────────────────────────────────────────────────
+  const deleteReport = useCallback(async (reportId: string) => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const { error } = await supabase.from("ads_reports").delete().eq("id", reportId);
+    if (!error) {
+      setSavedReports(prev => prev.filter(r => r.id !== reportId));
+      toast.success("ลบรายงานแล้ว");
+    }
+  }, []);
 
   // Check if any row has IDs
   const hasIds = useMemo(() =>
@@ -541,18 +628,38 @@ export default function AdsDashboard() {
 
   if (!currentUser) { navigate("/login"); return null; }
 
-  // ── Load File ───────────────────────────────────────────────────────────────
-  const handleFile = useCallback((buf: ArrayBuffer, name: string) => {
+  // ── Load File (+ save to Supabase for cross-device access) ─────────────────
+  const handleFile = useCallback(async (buf: ArrayBuffer, name: string) => {
     try {
       const parsed = parseExcel(buf);
       if (!parsed.length) { toast.error("ไม่พบข้อมูล Ad Sets — ตรวจสอบ format ไฟล์"); return; }
       setRows(parsed);
       setFileName(name);
       toast.success(`โหลดข้อมูล ${parsed.length} Ad Sets สำเร็จ`);
+
+      if (SUPABASE_ENABLED && supabase) {
+        setSavingReport(true);
+        const { data: inserted, error } = await supabase
+          .from("ads_reports")
+          .insert({
+            file_name:   name,
+            uploaded_by: currentUser?.email ?? "unknown",
+            rows_json:   parsed,
+          })
+          .select("id, file_name, uploaded_at")
+          .single();
+        setSavingReport(false);
+        if (!error && inserted) {
+          toast.success("บันทึกรายงานไปยัง Cloud แล้ว ☁️");
+          setSavedReports(prev =>
+            [{ id: inserted.id, fileName: inserted.file_name, uploadedAt: inserted.uploaded_at }, ...prev].slice(0, 10)
+          );
+        }
+      }
     } catch (e) {
       toast.error("อ่านไฟล์ไม่ได้ — ลองส่งออกใหม่จาก Meta Business Suite");
     }
-  }, []);
+  }, [currentUser]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const totals   = useMemo(() => calcTotals(rows), [rows]);
@@ -673,7 +780,7 @@ export default function AdsDashboard() {
                     />
                     <Button size="sm" onClick={saveToken} disabled={!tokenInput.trim()} className="bg-violet-600 text-white border-0">บันทึก</Button>
                     {accessToken && (
-                      <Button size="sm" variant="outline" onClick={() => { setTokenInput(""); localStorage.removeItem("meta-access-token"); setAccessToken(""); toast.success("ล้าง Token แล้ว"); }} className="text-rose-600 border-rose-300">ลบ</Button>
+                      <Button size="sm" variant="outline" onClick={clearToken} className="text-rose-600 border-rose-300">ลบ</Button>
                     )}
                   </div>
                   {accessToken && (
@@ -689,6 +796,50 @@ export default function AdsDashboard() {
                   <p>3. เลือก Permission: <strong>ads_read</strong></p>
                   <p>4. Copy token แล้ววางในช่องด้านบน</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Saved Reports from Cloud ── */}
+          {SUPABASE_ENABLED && (loadingReports || savedReports.length > 0) && (
+            <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-3 mb-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm flex items-center gap-2">
+                  <Database className="w-4 h-4 text-violet-500" /> รายงานที่บันทึกไว้ (ทุกเครื่อง)
+                </h3>
+                {loadingReports && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+              </div>
+              {savedReports.length === 0 && !loadingReports && (
+                <p className="text-xs text-muted-foreground">ยังไม่มีรายงานที่บันทึก</p>
+              )}
+              <div className="space-y-2">
+                {savedReports.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 rounded-xl border bg-muted/30 px-3 py-2.5 hover:bg-muted/50 transition-colors group">
+                    <FileSpreadsheet className="w-4 h-4 text-violet-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{r.fileName}</p>
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadReport(r.id, r.fileName)}
+                      className="text-xs gap-1.5 text-violet-700 border-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30 shrink-0"
+                    >
+                      <Database className="w-3 h-3" /> โหลด
+                    </Button>
+                    <button
+                      onClick={() => deleteReport(r.id)}
+                      className="text-rose-300 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0 opacity-0 group-hover:opacity-100"
+                      title="ลบรายงาน"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -726,6 +877,7 @@ export default function AdsDashboard() {
               <FileSpreadsheet className="w-3.5 h-3.5" />
               {fileName} — {rows.length} Ad Sets
               {hasIds && <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> มี Ad ID</span>}
+              {savingReport && <span className="text-violet-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> กำลังบันทึก...</span>}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -829,7 +981,7 @@ export default function AdsDashboard() {
                   <Key className="w-3.5 h-3.5" /> บันทึก
                 </Button>
                 {accessToken && (
-                  <Button size="sm" variant="outline" onClick={() => { setTokenInput(""); localStorage.removeItem("meta-access-token"); setAccessToken(""); toast.success("ล้าง Token แล้ว"); }}>
+                  <Button size="sm" variant="outline" onClick={clearToken}>
                     <X className="w-3.5 h-3.5" />
                   </Button>
                 )}
