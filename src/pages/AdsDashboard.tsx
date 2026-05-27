@@ -333,6 +333,11 @@ function parseContentCSV(buffer: ArrayBuffer): ContentRow[] {
   return rows;
 }
 
+// Re-hydrate rows loaded from JSON (publishDate stored as string → back to Date)
+function hydrateContentRows(rows: any[]): ContentRow[] {
+  return rows.map(r => ({ ...r, publishDate: new Date(r.publishDate) }));
+}
+
 // ─── Calc Content Totals ──────────────────────────────────────────────────────
 function calcContentTotals(rows: ContentRow[]) {
   const n = rows.length || 1;
@@ -670,6 +675,9 @@ export default function AdsDashboard() {
   const [contentAnalysisOpen, setContentAnalysisOpen] = useState(true);
   const [contentSortKey,   setContentSortKey]   = useState<keyof ContentRow>("reach");
   const [contentSortDir,   setContentSortDir]   = useState<"asc" | "desc">("desc");
+  const [savedContentReports,   setSavedContentReports]   = useState<{ id: string; fileName: string; uploadedAt: string }[]>([]);
+  const [loadingContentReports, setLoadingContentReports] = useState(false);
+  const [savingContentReport,   setSavingContentReport]   = useState(false);
 
   // ── Ad Creative Images: adSet name → image URL (from Meta API) ──────────────
   const [adImages,     setAdImages]     = useState<Record<string, string>>({});
@@ -707,7 +715,7 @@ export default function AdsDashboard() {
           }
         });
 
-      // 3. Load saved reports list
+      // 3. Load saved ads reports list
       setLoadingReports(true);
       supabase
         .from("ads_reports")
@@ -717,6 +725,27 @@ export default function AdsDashboard() {
         .then(({ data }) => {
           if (data) setSavedReports(data.map(r => ({ id: r.id, fileName: r.file_name, uploadedAt: r.uploaded_at })));
           setLoadingReports(false);
+        });
+
+      // 4. Auto-load latest content report (so data survives refresh)
+      setLoadingContentReports(true);
+      supabase
+        .from("content_reports")
+        .select("id, file_name, uploaded_at, rows_json")
+        .order("uploaded_at", { ascending: false })
+        .limit(10)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            // Populate the saved-reports list
+            setSavedContentReports(data.map(r => ({ id: r.id, fileName: r.file_name, uploadedAt: r.uploaded_at })));
+            // Auto-load the most recent one
+            const latest = data[0];
+            if (latest.rows_json && (latest.rows_json as any[]).length > 0) {
+              setContentRows(hydrateContentRows(latest.rows_json as any[]));
+              setContentFileName(latest.file_name);
+            }
+          }
+          setLoadingContentReports(false);
         });
     }
   }, []);
@@ -775,6 +804,30 @@ export default function AdsDashboard() {
     const { error } = await supabase.from("ads_reports").delete().eq("id", reportId);
     if (!error) {
       setSavedReports(prev => prev.filter(r => r.id !== reportId));
+      toast.success("ลบรายงานแล้ว");
+    }
+  }, []);
+
+  // ── Load a saved Content Report ──────────────────────────────────────────────
+  const loadContentReport = useCallback(async (reportId: string, name: string) => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const { data, error } = await supabase
+      .from("content_reports")
+      .select("rows_json")
+      .eq("id", reportId)
+      .single();
+    if (error || !data) { toast.error("โหลดรายงานไม่สำเร็จ"); return; }
+    setContentRows(hydrateContentRows(data.rows_json as any[]));
+    setContentFileName(name);
+    toast.success(`โหลด "${name}" สำเร็จ ✅`);
+  }, []);
+
+  // ── Delete a saved Content Report ───────────────────────────────────────────
+  const deleteContentReport = useCallback(async (reportId: string) => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const { error } = await supabase.from("content_reports").delete().eq("id", reportId);
+    if (!error) {
+      setSavedContentReports(prev => prev.filter(r => r.id !== reportId));
       toast.success("ลบรายงานแล้ว");
     }
   }, []);
@@ -855,18 +908,38 @@ export default function AdsDashboard() {
     }
   }, [currentUser]);
 
-  // ── Load Content CSV ─────────────────────────────────────────────────────────
-  const handleContentFile = useCallback((buf: ArrayBuffer, name: string) => {
+  // ── Load Content CSV (+ save to Supabase for cross-device access) ────────────
+  const handleContentFile = useCallback(async (buf: ArrayBuffer, name: string) => {
     try {
       const parsed = parseContentCSV(buf);
       if (!parsed.length) { toast.error("ไม่พบข้อมูลโพสต์ — ตรวจสอบ format CSV"); return; }
       setContentRows(parsed);
       setContentFileName(name);
       toast.success(`โหลดข้อมูล ${parsed.length} โพสต์สำเร็จ 🎉`);
+
+      if (SUPABASE_ENABLED && supabase) {
+        setSavingContentReport(true);
+        const { data: inserted, error } = await supabase
+          .from("content_reports")
+          .insert({
+            file_name:   name,
+            uploaded_by: currentUser?.email ?? "unknown",
+            rows_json:   parsed,
+          })
+          .select("id, file_name, uploaded_at")
+          .single();
+        setSavingContentReport(false);
+        if (!error && inserted) {
+          toast.success("บันทึกรายงานไปยัง Cloud แล้ว ☁️");
+          setSavedContentReports(prev =>
+            [{ id: inserted.id, fileName: inserted.file_name, uploadedAt: inserted.uploaded_at }, ...prev].slice(0, 10)
+          );
+        }
+      }
     } catch {
       toast.error("อ่านไฟล์ไม่ได้ — ลองส่งออกใหม่จาก Meta Business Suite");
     }
-  }, []);
+  }, [currentUser]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const totals   = useMemo(() => calcTotals(rows), [rows]);
@@ -1310,6 +1383,48 @@ export default function AdsDashboard() {
                 accentTo="to-cyan-600"
                 Icon={FileText}
               />
+
+              {/* Saved Content Reports list */}
+              {SUPABASE_ENABLED && (
+                <div className="rounded-2xl border bg-card p-5 shadow-sm">
+                  <p className="font-bold text-sm mb-3 flex items-center gap-2">
+                    <Database className="w-4 h-4 text-teal-500" /> รายงานที่บันทึกไว้ (Cloud)
+                  </p>
+                  {loadingContentReports ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลด...
+                    </div>
+                  ) : savedContentReports.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">ยังไม่มีรายงานที่บันทึกไว้ — อัปโหลด CSV เพื่อเริ่มต้น</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {savedContentReports.map(r => (
+                        <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 text-teal-500 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{r.fileName}</p>
+                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(r.uploadedAt).toLocaleString("th-TH", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" onClick={() => loadContentReport(r.id, r.fileName)}>
+                              <Database className="w-3 h-3" /> โหลด
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => deleteContentReport(r.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="rounded-2xl border bg-card p-5">
                 <p className="font-bold text-sm mb-3 flex items-center gap-2">
                   <Lightbulb className="w-4 h-4 text-amber-500" /> วิธี Export Page Insights CSV
@@ -1336,9 +1451,16 @@ export default function AdsDashboard() {
                     {contentFileName} — {contentRows.length} โพสต์
                   </p>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => { setContentRows([]); setContentFileName(""); }} className="gap-1.5 text-rose-600 border-rose-200">
-                  <RefreshCw className="w-3.5 h-3.5" /> โหลดไฟล์ใหม่
-                </Button>
+                <div className="flex items-center gap-2">
+                  {savingContentReport && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-500" /> กำลังบันทึก...
+                    </span>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setContentRows([]); setContentFileName(""); }} className="gap-1.5 text-rose-600 border-rose-200">
+                    <RefreshCw className="w-3.5 h-3.5" /> โหลดไฟล์ใหม่
+                  </Button>
+                </div>
               </div>
 
               {/* Content KPI Cards */}
