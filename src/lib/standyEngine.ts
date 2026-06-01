@@ -72,11 +72,11 @@ export function detectIntent(text: string): Intent {
   if (/บริการ|service|ขายอะไร|มีอะไรให้|จำหน่าย|แพคเกจ|package|ให้บริการอะไร/.test(t)) return "service_overview";
   if (/ทำอะไร|ช่วยอะไร|ถามอะไร|help|ความสามารถ|มีอะไรบ้าง/.test(t)) return "help";
   if (/ที่นั่ง|ว่างเหลือ|โควต้า|quota|เหลือกี่|ที่นั่งว่าง|จำนวนที่นั่ง|seat/.test(t)) return "tour_quota";
-  if (/ราคา|ค่าใช้จ่าย|เท่าไร|เท่าไหร่|ค่าทัวร์|price|บาท/.test(t) && /ทัวร์|tour/.test(t)) return "tour_price";
+  if (/ราคา|ค่าใช้จ่าย|เท่าไร|เท่าไหร่|ค่าทัวร์|price|บาท/.test(t) && /ทัวร์|tour|เที่ยว/.test(t)) return "tour_price";
   if (detectCountry(t)) return "tour_search";
-  if (/ต่างประเทศ|international|inter/.test(t) && /ทัวร์|tour/.test(t)) return "tour_international";
-  if (/ภายในประเทศ|domestic|ในประเทศ/.test(t) && /ทัวร์|tour/.test(t)) return "tour_domestic";
-  if (/ทัวร์|โปรแกรม|destination|tour/.test(t)) return "tour_list";
+  if (/ต่างประเทศ|international|inter|abroad/.test(t)) return "tour_international";
+  if (/ภายในประเทศ|domestic|ในประเทศ/.test(t)) return "tour_domestic";
+  if (/ทัวร์|โปรแกรม|destination|tour|เที่ยว|ท่องเที่ยว|ไปเที่ยว|แพ็กเกจ|package|มีที่ไหน|ไปไหน|พาไป|จัดทริป|ทริป/.test(t)) return "tour_list";
   if (/เช่ารถ|รถเช่า|รถตู้|รถบัส|รถ\b|van\b|bus\b|car\b/.test(t)) return "car_list";
   if (/ตั๋วเครื่องบิน|ตั๋ว|บิน|สายการบิน|flight|airline/.test(t)) return "flight_list";
   if (/โรงแรม|ที่พัก|hotel/.test(t)) return "hotel_list";
@@ -304,12 +304,31 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
     // ── Tour list (ไม่ระบุประเทศ) ──
     case "tour_list": {
       const { tours } = ctx;
-      if (!tours.length) return { text: "ยังไม่มีโปรแกรมทัวร์ในระบบครับ", smartCards: sc };
-      const intl = tours.filter(t => t.category === "International Tour").length;
-      const dom  = tours.filter(t => t.category === "Domestic").length;
+      if (!tours.length) return { text: "ขณะนี้ยังไม่มีโปรแกรมทัวร์เปิดรับจองครับ กลับมาเช็กใหม่เร็วๆ นี้นะครับ 🙏", smartCards: sc };
+      const intl  = tours.filter(t => t.category === "International Tour");
+      const dom   = tours.filter(t => t.category === "Domestic");
       const avail = tours.filter(t => t.quota > 0).length;
+      const intlCountries = [...new Set(intl.map(t => t.country))].slice(0, 4).join(", ");
+
+      // ทัวร์ที่ใกล้ออกเดินทางที่สุด
+      const upcoming = tours
+        .map(t => ({ ...t, _date: parsePeriodDate(t.period) }))
+        .filter(t => t._date >= now && t.quota > 0)
+        .sort((a, b) => a._date.getTime() - b._date.getTime());
+      const next = upcoming[0];
+
+      let text = `อยากไปเที่ยวแบบไหนดีครับ? 😊 เรามีให้เลือก **${tours.length} โปรแกรม**\n`;
+      text += `• 🌏 ต่างประเทศ ${intl.length} โปรแกรม (${intlCountries})\n`;
+      if (dom.length) text += `• 🇹🇭 ในประเทศ ${dom.length} โปรแกรม\n`;
+      text += `• ✅ มีที่นั่งว่างทันที ${avail} โปรแกรม\n`;
+
+      if (next) {
+        text += `\n⚡ **ใกล้ออกเดินทาง:** ${next.code} ${next.city} (${next.period}) เหลือ ${next.quota} ที่`;
+      }
+
+      text += `\n\nบอกได้เลยครับ สนใจประเทศไหน หรืองบประมาณเท่าไร? จะช่วยหาให้ตรงๆ 😊`;
       return {
-        text: `ตอนนี้มีทัวร์ทั้งหมด **${tours.length} โปรแกรม**\n• 🌏 ต่างประเทศ ${intl} โปรแกรม\n• 🇹🇭 ในประเทศ ${dom} โปรแกรม\n• ✅ มีที่นั่งว่าง ${avail} โปรแกรม\n\nสนใจทัวร์ประเทศไหนครับ? หรือจะดูเฉพาะที่มีที่นั่งว่างก็ได้ครับ 😊`,
+        text,
         smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ทัวร์ยุโรป", "ที่นั่งว่าง"] : [],
       };
     }
