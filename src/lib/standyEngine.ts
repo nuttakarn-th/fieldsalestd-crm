@@ -23,7 +23,7 @@ export interface StandyContext {
   customers?: Customer[];
   leads?: Lead[];
   settings?: BotSettings;
-  userRole?: string; // "Admin" | "Manager" | "Sales" etc.
+  userRole?: string;
 }
 
 // ── Response shape ─────────────────────────────────────────────────────────
@@ -31,7 +31,6 @@ export interface StandyResponse {
   text: string;
   requiresSensitiveApproval?: boolean;
   pendingData?: Customer[];
-  /** Follow-up suggestion chips (shown when smartSuggest=true) */
   smartCards?: string[];
 }
 
@@ -48,7 +47,6 @@ type Intent =
 // ── Intent detection ───────────────────────────────────────────────────────
 export function detectIntent(text: string): Intent {
   const t = text.toLowerCase();
-
   if (/สวัสดี|หวัดดี|hello|^hi\b|ดีครับ|ดีค่ะ|ดีจ้า/.test(t)) return "greeting";
   if (/ทำอะไร|ช่วยอะไร|ถามอะไร|help|ความสามารถ|มีอะไรบ้าง/.test(t)) return "help";
   if (/ที่นั่ง|ว่างเหลือ|โควต้า|quota|เหลือกี่|ที่นั่งว่าง|จำนวนที่นั่ง|seat/.test(t)) return "tour_quota";
@@ -64,7 +62,6 @@ export function detectIntent(text: string): Intent {
   if (/ชื่อลูกค้า|เบอร์ลูกค้า|เบอร์โทร|รายชื่อ|contact|ติดต่อลูกค้า/.test(t)) return "customer_detail";
   if (/ลูกค้า|customer|จำนวนลูกค้า/.test(t)) return "customer_count";
   if (/ยอดขาย|pipeline|deal|ปิดการขาย|lead|ขาย/.test(t)) return "lead_stats";
-
   return "unknown";
 }
 
@@ -131,7 +128,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
   const detailed = isDetailed(ctx);
   const low = text.toLowerCase();
 
-  // Stock query permission check
   const stockIntents: Intent[] = [
     "tour_list","tour_price","tour_quota","tour_international","tour_domestic",
     "car_list","flight_list","hotel_list","visa_list","insurance_list",
@@ -144,7 +140,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
 
   switch (intent) {
 
-    /* ── Greeting ── */
     case "greeting":
       return {
         text: concise
@@ -153,7 +148,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         smartCards: sc,
       };
 
-    /* ── Help ── */
     case "help":
       return {
         text: concise
@@ -162,7 +156,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         smartCards: sc,
       };
 
-    /* ── Tour list ── */
     case "tour_list": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีโปรแกรมทัวร์ในระบบครับ", smartCards: sc };
@@ -170,16 +163,14 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       const dom  = tours.filter(t => t.category === "Domestic");
       const limit = concise ? 5 : (detailed ? 999 : 8);
       const ts = concise ? "" : tsLabel();
-
       if (concise) {
         const lines = [`**ทัวร์ ${tours.length} โปรแกรม** (แสดงท็อป ${Math.min(limit, tours.length)})\n`];
         tours.slice(0, limit).forEach(t =>
           lines.push(`• ${t.code} ${t.city} — ฿${fmt(t.price_per_seat)} | ว่าง ${t.quota} ที่`)
         );
-        if (tours.length > limit) lines.push(`…อีก ${tours.length - limit} โปรแกรม (ถามเพิ่มเติมได้)`);
+        if (tours.length > limit) lines.push(`…อีก ${tours.length - limit} โปรแกรม`);
         return { text: lines.join("\n"), smartCards: sc };
       }
-
       const lines: string[] = [`**โปรแกรมทัวร์ ${tours.length} โปรแกรม**${ts}\n`];
       if (intl.length) {
         lines.push(`🌏 **International (${intl.length})**`);
@@ -198,13 +189,11 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── International tours ── */
     case "tour_international": {
       const intl = ctx.tours.filter(t => t.category === "International Tour");
       if (!intl.length) return { text: "ยังไม่มีทัวร์ต่างประเทศในระบบครับ", smartCards: sc };
       const limit = concise ? 5 : (detailed ? 999 : 10);
       const ts = concise ? "" : tsLabel();
-
       if (concise) {
         const lines = [`**ทัวร์ต่างประเทศ ${intl.length} โปรแกรม**\n`];
         intl.slice(0, limit).forEach(t =>
@@ -213,7 +202,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         if (intl.length > limit) lines.push(`…อีก ${intl.length - limit} โปรแกรม`);
         return { text: lines.join("\n"), smartCards: sc };
       }
-
       const lines = [`**ทัวร์ต่างประเทศ ${intl.length} โปรแกรม**${ts}\n`];
       intl.slice(0, limit).forEach(t =>
         lines.push(
@@ -225,13 +213,11 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Domestic tours ── */
     case "tour_domestic": {
       const dom = ctx.tours.filter(t => t.category === "Domestic");
       if (!dom.length) return { text: "ยังไม่มีทัวร์ในประเทศในระบบครับ", smartCards: sc };
       const limit = concise ? 5 : (detailed ? 999 : 10);
       const ts = concise ? "" : tsLabel();
-
       if (concise) {
         const lines = [`**ทัวร์ในประเทศ ${dom.length} โปรแกรม**\n`];
         dom.slice(0, limit).forEach(t =>
@@ -240,7 +226,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         if (dom.length > limit) lines.push(`…อีก ${dom.length - limit} โปรแกรม`);
         return { text: lines.join("\n"), smartCards: sc };
       }
-
       const lines = [`**ทัวร์ในประเทศ ${dom.length} โปรแกรม**${ts}\n`];
       dom.slice(0, limit).forEach(t =>
         lines.push(
@@ -252,7 +237,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Tour price ── */
     case "tour_price": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีข้อมูลราคาทัวร์ในระบบครับ", smartCards: sc };
@@ -265,7 +249,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       const limit = concise ? 6 : (detailed ? 999 : 12);
       const label = matched.length ? "ราคาทัวร์ที่ค้นพบ" : "ราคาทัวร์ (ถูก→แพง)";
       const ts = concise ? "" : tsLabel();
-
       const lines = [`**${label}**${ts}\n`];
       list.slice(0, limit).forEach(t =>
         lines.push(concise
@@ -277,7 +260,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Tour quota ── */
     case "tour_quota": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีข้อมูลที่นั่งในระบบครับ", smartCards: sc };
@@ -285,7 +267,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       const full = tours.filter(t => t.quota === 0);
       const ts = concise ? "" : tsLabel();
       const limit = concise ? 6 : 999;
-
       if (concise) {
         const lines = [`**ที่นั่งว่าง ${available.length}/${tours.length} โปรแกรม**\n`];
         available.slice(0, limit).forEach(t =>
@@ -295,7 +276,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         if (full.length) lines.push(`\n❌ เต็มแล้ว: ${full.map(t => t.code).slice(0, 5).join(", ")}${full.length > 5 ? "…" : ""}`);
         return { text: lines.join("\n"), smartCards: sc };
       }
-
       const lines = [`**สถานะที่นั่งทัวร์**${ts}\n`];
       if (available.length) {
         lines.push(`✅ **มีที่นั่งว่าง (${available.length} โปรแกรม)**`);
@@ -310,7 +290,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Cars ── */
     case "car_list": {
       const { cars } = ctx;
       if (!cars.length) return { text: "ยังไม่มีข้อมูลรถเช่าในระบบครับ", smartCards: sc };
@@ -325,7 +304,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Flights ── */
     case "flight_list": {
       const { flights } = ctx;
       if (!flights.length) return { text: "ยังไม่มีข้อมูลสายการบินในระบบครับ", smartCards: sc };
@@ -337,7 +315,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Hotels ── */
     case "hotel_list": {
       const { hotels } = ctx;
       if (!hotels.length) return { text: "ยังไม่มีข้อมูลโรงแรมในระบบครับ", smartCards: sc };
@@ -349,7 +326,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Visas ── */
     case "visa_list": {
       const { visas } = ctx;
       if (!visas.length) return { text: "ยังไม่มีข้อมูลวีซ่าในระบบครับ", smartCards: sc };
@@ -361,7 +337,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Insurance ── */
     case "insurance_list": {
       const { insurances } = ctx;
       if (!insurances.length) return { text: "ยังไม่มีข้อมูลประกันในระบบครับ", smartCards: sc };
@@ -376,18 +351,15 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       return { text: lines.join("\n"), smartCards: sc };
     }
 
-    /* ── Customer count ── */
     case "customer_count": {
       if (!ctx.customers) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูลลูกค้าครับ" };
       if (ctx.settings && !ctx.settings.allowMyCustomers) return blocked("ข้อมูลลูกค้า");
       const total = ctx.customers.length;
       const tiers: Record<string, number> = {};
       ctx.customers.forEach(c => { tiers[c.customer_tier] = (tiers[c.customer_tier] || 0) + 1; });
-
       const summary = concise
         ? `**ลูกค้า ${fmt(total)} ราย** — VIP: ${tiers["VIP"] || 0} | Regular: ${tiers["Regular"] || 0} | New: ${tiers["New"] || 0}`
         : `**จำนวนลูกค้า**${tsLabel()}\n\nทั้งหมด **${fmt(total)}** ราย\n• 👑 VIP: ${tiers["VIP"] || 0} ราย\n• 🔄 Regular: ${tiers["Regular"] || 0} ราย\n• 🆕 New: ${tiers["New"] || 0} ราย`;
-
       return {
         text: summary + "\n\nต้องการดูรายชื่อหรือไม่? *(พิมพ์ 'ใช่' เพื่อแสดง)*",
         requiresSensitiveApproval: true,
@@ -396,7 +368,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       };
     }
 
-    /* ── Customer detail ── */
     case "customer_detail": {
       if (!ctx.customers) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูลลูกค้าครับ" };
       if (ctx.settings && !ctx.settings.allowMyCustomers) return blocked("ข้อมูลลูกค้า");
@@ -411,7 +382,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       };
     }
 
-    /* ── Lead / Pipeline ── */
     case "lead_stats": {
       if (!ctx.leads) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูล Pipeline ครับ" };
       const total = ctx.leads.length;
@@ -420,15 +390,12 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       const active = ctx.leads.filter(l => !["Closed Won","Closed Lost"].includes(l.status));
       const wonValue    = won.reduce((s, l) => s + l.quoted_price, 0);
       const activeValue = active.reduce((s, l) => s + l.quoted_price, 0);
-
       const text = concise
         ? `**Pipeline ${fmt(total)} deals** — Won: ${won.length} (฿${fmt(wonValue)}) | Active: ${active.length} (฿${fmt(activeValue)}) | Lost: ${lost.length}`
         : `**สรุป Sales Pipeline**${tsLabel()}\n\nทั้งหมด **${fmt(total)}** deals\n• ✅ Closed Won: ${won.length} deals — ฿${fmt(wonValue)}\n• ❌ Closed Lost: ${lost.length} deals\n• 🔄 Active: ${active.length} deals — ฿${fmt(activeValue)}`;
-
       return { text, smartCards: sc };
     }
 
-    /* ── Unknown ── */
     default:
       return {
         text: concise
@@ -439,7 +406,6 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
   }
 }
 
-/** Resolve pending sensitive approval — called when user types "ใช่" */
 export function resolveCustomerDetail(customers: Customer[], concise = false): string {
   if (!customers.length) return "ไม่มีข้อมูลลูกค้าในระบบครับ";
   const ts = concise ? "" : tsLabel();

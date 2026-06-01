@@ -46,7 +46,6 @@ function mkId() { return `smsg-${++msgSeq}`; }
 
 // ── Markdown-like renderer (bold ** and italic *( )* ) ───────────────────
 function renderInline(line: string): React.ReactNode[] {
-  // Split on **bold** and *(italic)* patterns
   const parts = line.split(/(\*\*[^*]+\*\*|\*\([^)]+\)\*)/g);
   return parts.map((p, i) => {
     if (p.startsWith("**") && p.endsWith("**"))
@@ -96,6 +95,7 @@ export function StandyBtn({ className }: { className?: string }) {
 export function StandyWidget() {
   const open = useStandyUI((s) => s.open);
   const close = useStandyUI((s) => s.close);
+  const toggle = useStandyUI((s) => s.toggle);
 
   // Store data
   const tours      = useServices((s) => s.tours);
