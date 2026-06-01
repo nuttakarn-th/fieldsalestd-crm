@@ -678,6 +678,8 @@ export default function AdsDashboard() {
   const [savedContentReports,   setSavedContentReports]   = useState<{ id: string; fileName: string; uploadedAt: string }[]>([]);
   const [loadingContentReports, setLoadingContentReports] = useState(false);
   const [savingContentReport,   setSavingContentReport]   = useState(false);
+  const [reportDropdownOpen,    setReportDropdownOpen]    = useState(false);
+  const [contentReportDropOpen, setContentReportDropOpen] = useState(false);
 
   // ── Ad Creative Images: adSet name → image URL (from Meta API) ──────────────
   const [adImages,     setAdImages]     = useState<Record<string, string>>({});
@@ -1063,19 +1065,18 @@ export default function AdsDashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-violet-50/30 to-background dark:via-violet-950/10">
         <StandaloneHeader backTo="/" />
-        <main className="max-w-2xl mx-auto px-4 py-10">
+        <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
+
+          {/* ── Header ── */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-5 shadow-xl">
-              <BarChart2 className="w-10 h-10 text-white" />
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-xl">
+              <BarChart2 className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-black">Ads Dashboard</h1>
-            <p className="text-muted-foreground mt-2 text-sm">วิเคราะห์ผล Meta Ads จากไฟล์ Excel Export — กราฟ + AI วิเคราะห์</p>
-
-            {/* Token button — visible before upload */}
-            <div className="mt-4 flex justify-center">
+            <p className="text-muted-foreground mt-1.5 text-sm">วิเคราะห์ผล Meta Ads จากไฟล์ Excel Export — กราฟ + AI วิเคราะห์</p>
+            <div className="mt-3 flex justify-center">
               <Button
-                size="sm"
-                variant="outline"
+                size="sm" variant="outline"
                 onClick={() => setSettingsOpen(o => !o)}
                 className={`gap-1.5 ${accessToken ? "border-emerald-400 text-emerald-600" : "border-amber-400 text-amber-600"}`}
               >
@@ -1085,9 +1086,9 @@ export default function AdsDashboard() {
             </div>
           </div>
 
-          {/* Settings panel — shown when settingsOpen */}
+          {/* Settings panel */}
           {settingsOpen && (
-            <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-4 mb-6">
+            <div className="max-w-2xl mx-auto rounded-2xl border bg-card shadow-sm p-5 space-y-4 mb-6">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-sm flex items-center gap-2">
                   <Settings2 className="w-4 h-4 text-violet-500" /> Meta API Settings
@@ -1129,78 +1130,95 @@ export default function AdsDashboard() {
             </div>
           )}
 
-          {/* ── Saved Reports from Cloud ── */}
-          {SUPABASE_ENABLED && (loadingReports || savedReports.length > 0) && (
-            <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-3 mb-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <Database className="w-4 h-4 text-violet-500" /> รายงานที่บันทึกไว้ (ทุกเครื่อง)
-                </h3>
-                {loadingReports && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          {/* ── 2-column: DropZone (left) + Saved Reports + Content shortcut (right) ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+
+            {/* Left: Upload */}
+            <div className="lg:col-span-3 space-y-4">
+              <DropZone onFile={handleFile} />
+              <div className="rounded-2xl border bg-card p-4">
+                <p className="font-bold text-sm mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-500" /> วิธีส่งออกข้อมูลจาก Meta Business Suite
+                </p>
+                <ol className="space-y-1.5 text-sm text-muted-foreground">
+                  <li>1. เข้า Meta Business Suite → Ads Manager</li>
+                  <li>2. เลือก Ad Sets ที่ต้องการ → กด <strong>Export</strong></li>
+                  <li>3. เลือก Format: <strong>Excel (.xlsx)</strong></li>
+                  <li>4. ดาวน์โหลดแล้วลากมาวางในกล่องด้านบน</li>
+                </ol>
               </div>
-              {savedReports.length === 0 && !loadingReports && (
-                <p className="text-xs text-muted-foreground">ยังไม่มีรายงานที่บันทึก</p>
-              )}
-              <div className="space-y-2">
-                {savedReports.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-xl border bg-muted/30 px-3 py-2.5 hover:bg-muted/50 transition-colors group">
-                    <FileSpreadsheet className="w-4 h-4 text-violet-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{r.fileName}</p>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => loadReport(r.id, r.fileName)}
-                      className="text-xs gap-1.5 text-violet-700 border-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30 shrink-0"
-                    >
-                      <Database className="w-3 h-3" /> โหลด
-                    </Button>
-                    <button
-                      onClick={() => deleteReport(r.id)}
-                      className="text-rose-300 hover:text-rose-600 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0 opacity-0 group-hover:opacity-100"
-                      title="ลบรายงาน"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+            </div>
+
+            {/* Right: Saved Reports + Content shortcut */}
+            <div className="lg:col-span-2 space-y-4">
+
+              {/* Saved Reports */}
+              {SUPABASE_ENABLED && (
+                <div className="rounded-2xl border bg-card shadow-sm p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm flex items-center gap-2">
+                      <Database className="w-4 h-4 text-violet-500" /> รายงานที่บันทึกไว้
+                    </h3>
+                    {loadingReports && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  {!loadingReports && savedReports.length === 0 && (
+                    <p className="text-xs text-muted-foreground py-1">ยังไม่มีรายงาน — อัปโหลด Excel เพื่อเริ่มต้น</p>
+                  )}
+                  <div className="space-y-2">
+                    {savedReports.map(r => (
+                      <div key={r.id} className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2.5 hover:bg-muted/50 transition-colors group">
+                        <FileSpreadsheet className="w-4 h-4 text-violet-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{r.fileName}</p>
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" />
+                            {new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm" variant="outline"
+                          onClick={() => loadReport(r.id, r.fileName)}
+                          className="text-xs gap-1 h-7 px-2 text-violet-700 border-violet-300 shrink-0"
+                        >
+                          <Database className="w-3 h-3" /> โหลด
+                        </Button>
+                        <button
+                          onClick={() => deleteReport(r.id)}
+                          className="text-rose-300 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          {/* ── Content Report shortcut ── */}
-          <div className="mt-5 rounded-2xl border bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/20 dark:to-cyan-950/20 border-teal-200 dark:border-teal-700/40 p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shrink-0 shadow">
-                <FileText className="w-5 h-5 text-white" />
+              {/* Content Report shortcut */}
+              <div className="rounded-2xl border bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-950/20 dark:to-cyan-950/20 border-teal-200 dark:border-teal-700/40 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shrink-0 shadow">
+                    <FileText className="w-4.5 h-4.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-teal-800 dark:text-teal-300">Content Report</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-400">Facebook Page Insights CSV</p>
+                  </div>
+                </div>
+                {contentRows.length > 0 ? (
+                  <Button size="sm" onClick={() => setView("content")} className="w-full bg-teal-600 hover:bg-teal-700 text-white border-0 gap-1.5">
+                    <BarChart2 className="w-3.5 h-3.5" /> ดูรายงาน ({contentRows.length} โพสต์)
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setView("content")} className="w-full gap-1.5 text-teal-700 border-teal-300">
+                    <FileText className="w-3.5 h-3.5" /> อัปโหลด CSV
+                  </Button>
+                )}
               </div>
-              <div>
-                <p className="font-bold text-sm text-teal-800 dark:text-teal-300">Content Report</p>
-                <p className="text-xs text-teal-600 dark:text-teal-400">วิเคราะห์ผลโพสต์จาก Facebook Page Insights CSV</p>
-              </div>
-            </div>
-            <Button size="sm" onClick={() => setView("content")} className="bg-teal-600 hover:bg-teal-700 text-white border-0 gap-1.5 shrink-0">
-              <BarChart2 className="w-3.5 h-3.5" /> เปิด
-            </Button>
-          </div>
 
-          <DropZone onFile={handleFile} />
-          <div className="mt-8 rounded-2xl border bg-card p-5">
-            <p className="font-bold text-sm mb-3 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-amber-500" /> วิธีส่งออกข้อมูลจาก Meta Business Suite
-            </p>
-            <ol className="space-y-2 text-sm text-muted-foreground">
-              <li>1. เข้า Meta Business Suite → Ads Manager</li>
-              <li>2. เลือก Ad Sets ที่ต้องการ → กด <strong>Export</strong></li>
-              <li>3. เลือก Format: <strong>Excel (.xlsx)</strong></li>
-              <li>4. ดาวน์โหลดแล้วลากมาวางในกล่องด้านบน</li>
-            </ol>
-          </div>
+            </div>{/* end right col */}
+          </div>{/* end grid */}
+
         </main>
       </div>
     );
@@ -1214,39 +1232,26 @@ export default function AdsDashboard() {
 
         {/* ── Top bar ── */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+
+          {/* Left: Title + file info */}
+          <div className="min-w-0">
             <h1 className="text-xl font-black flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-violet-600" /> Ads Dashboard
+              <BarChart2 className="w-5 h-5 text-violet-600 shrink-0" /> Ads Dashboard
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              {fileName} — {rows.length} Ad Sets
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate max-w-[180px]">{fileName}</span>
+              <span className="text-muted-foreground/60">—</span>
+              <span>{rows.length} Ad Sets</span>
               {hasIds && <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> มี Ad ID</span>}
               {savingReport && <span className="text-violet-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> กำลังบันทึก...</span>}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {/* Auto-fetch button */}
-            {hasIds && (
-              <Button
-                size="sm"
-                onClick={fetchMetaImages}
-                disabled={fetchingMeta}
-                className="gap-1.5 bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0"
-              >
-                {fetchingMeta
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังดึงรูป...</>
-                  : metaFetchDone
-                  ? <><CheckCircle2 className="w-3.5 h-3.5" /> ดึงรูปแล้ว</>
-                  : <><Zap className="w-3.5 h-3.5" /> ดึงรูปอัตโนมัติ</>
-                }
-              </Button>
-            )}
-            {/* Settings button */}
-            <Button size="sm" variant="outline" onClick={() => setSettingsOpen(o => !o)} className={`gap-1.5 ${accessToken ? "border-emerald-400 text-emerald-700" : "border-amber-400 text-amber-700"}`}>
-              <Key className="w-3.5 h-3.5" />
-              {accessToken ? "Token ✓" : "ตั้งค่า Token"}
-            </Button>
+
+          {/* Right: Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+
+            {/* Tabs */}
             <div className="flex rounded-xl border overflow-hidden">
               <button onClick={() => setView("dashboard")} className={`px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors ${view === "dashboard" ? "bg-violet-600 text-white" : "hover:bg-muted"}`}>
                 <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
@@ -1271,9 +1276,86 @@ export default function AdsDashboard() {
                 )}
               </button>
             </div>
-            <Button size="sm" variant="outline" onClick={() => { setRows([]); setFileName(""); setMetaFetchDone(false); }} className="gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" /> โหลดใหม่
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-border hidden sm:block" />
+
+            {/* Switch saved report dropdown */}
+            {SUPABASE_ENABLED && savedReports.length > 0 && (
+              <div className="relative">
+                <Button
+                  size="sm" variant="outline"
+                  onClick={() => setReportDropdownOpen(o => !o)}
+                  className="gap-1.5 text-violet-700 border-violet-300"
+                >
+                  <Database className="w-3.5 h-3.5" /> เปลี่ยนรายงาน
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+                {reportDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-72 rounded-2xl border bg-popover shadow-xl z-50 overflow-hidden">
+                    <div className="px-3 py-2 border-b flex items-center justify-between">
+                      <p className="text-xs font-bold text-muted-foreground">รายงานที่บันทึกไว้</p>
+                      <button onClick={() => setReportDropdownOpen(false)}><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto py-1.5">
+                      {savedReports.map(r => (
+                        <button
+                          key={r.id}
+                          onClick={() => { loadReport(r.id, r.fileName); setReportDropdownOpen(false); }}
+                          className={`w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-start gap-2.5 ${r.fileName === fileName ? "bg-violet-50 dark:bg-violet-950/20" : ""}`}
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold truncate">{r.fileName}</p>
+                            <p className="text-[10px] text-muted-foreground">{new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</p>
+                          </div>
+                          {r.fileName === fileName && <CheckCircle2 className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="px-3 py-2 border-t">
+                      <button
+                        onClick={() => { setRows([]); setFileName(""); setMetaFetchDone(false); setReportDropdownOpen(false); }}
+                        className="w-full text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1.5 py-1"
+                      >
+                        <RefreshCw className="w-3 h-3" /> อัปโหลดไฟล์ใหม่
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Auto-fetch button */}
+            {hasIds && (
+              <Button
+                size="sm"
+                onClick={fetchMetaImages}
+                disabled={fetchingMeta}
+                className="gap-1.5 bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0"
+              >
+                {fetchingMeta
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> กำลังดึงรูป...</>
+                  : metaFetchDone
+                  ? <><CheckCircle2 className="w-3.5 h-3.5" /> ดึงรูปแล้ว</>
+                  : <><Zap className="w-3.5 h-3.5" /> ดึงรูปอัตโนมัติ</>
+                }
+              </Button>
+            )}
+
+            {/* Token button */}
+            <Button size="sm" variant="outline" onClick={() => setSettingsOpen(o => !o)} className={`gap-1.5 ${accessToken ? "border-emerald-400 text-emerald-700" : "border-amber-400 text-amber-700"}`}>
+              <Key className="w-3.5 h-3.5" />
+              {accessToken ? "Token ✓" : "Token"}
             </Button>
+
+            {/* Reload (no saved reports) */}
+            {(!SUPABASE_ENABLED || savedReports.length === 0) && (
+              <Button size="sm" variant="outline" onClick={() => { setRows([]); setFileName(""); setMetaFetchDone(false); }} className="gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5" /> โหลดใหม่
+              </Button>
+            )}
+
           </div>
         </div>
 
@@ -1363,79 +1445,87 @@ export default function AdsDashboard() {
         {/* ── Content Report Tab ─────────────────────────────────────────────── */}
         {view === "content" && (
           contentRows.length === 0 ? (
-            /* Upload state */
-            <div className="max-w-2xl mx-auto py-6 space-y-6">
+            /* ── Content Upload state ── */
+            <div className="space-y-6 py-2">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <FileText className="w-8 h-8 text-white" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                  <FileText className="w-7 h-7 text-white" />
                 </div>
                 <h2 className="text-xl font-black">Content Report</h2>
                 <p className="text-sm text-muted-foreground mt-1">วิเคราะห์ผลโพสต์รายเดือนจาก Facebook Page Insights</p>
               </div>
-              <DropZone
-                onFile={handleContentFile}
-                accept=".csv"
-                mimeCheck={/\.csv$/i}
-                labelText="ลาก CSV มาวางที่นี่"
-                sublabel="หรือคลิกเพื่อเลือกไฟล์ (.csv)"
-                hint="รองรับ Meta Business Suite → Content → Export CSV"
-                accentFrom="from-teal-500"
-                accentTo="to-cyan-600"
-                Icon={FileText}
-              />
 
-              {/* Saved Content Reports list */}
-              {SUPABASE_ENABLED && (
-                <div className="rounded-2xl border bg-card p-5 shadow-sm">
-                  <p className="font-bold text-sm mb-3 flex items-center gap-2">
-                    <Database className="w-4 h-4 text-teal-500" /> รายงานที่บันทึกไว้ (Cloud)
-                  </p>
-                  {loadingContentReports ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลด...
-                    </div>
-                  ) : savedContentReports.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">ยังไม่มีรายงานที่บันทึกไว้ — อัปโหลด CSV เพื่อเริ่มต้น</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {savedContentReports.map(r => (
-                        <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <FileText className="w-4 h-4 text-teal-500 shrink-0" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold truncate">{r.fileName}</p>
-                              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(r.uploadedAt).toLocaleString("th-TH", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" onClick={() => loadContentReport(r.id, r.fileName)}>
-                              <Database className="w-3 h-3" /> โหลด
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-7 px-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50" onClick={() => deleteContentReport(r.id)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
+              {/* 2-column: DropZone + How-to (left) | Saved Reports (right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+
+                {/* Left: DropZone + how-to */}
+                <div className="lg:col-span-3 space-y-4">
+                  <DropZone
+                    onFile={handleContentFile}
+                    accept=".csv"
+                    mimeCheck={/\.csv$/i}
+                    labelText="ลาก CSV มาวางที่นี่"
+                    sublabel="หรือคลิกเพื่อเลือกไฟล์ (.csv)"
+                    hint="รองรับ Meta Business Suite → Content → Export CSV"
+                    accentFrom="from-teal-500"
+                    accentTo="to-cyan-600"
+                    Icon={FileText}
+                  />
+                  <div className="rounded-2xl border bg-card p-4">
+                    <p className="font-bold text-sm mb-3 flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-amber-500" /> วิธี Export Page Insights CSV
+                    </p>
+                    <ol className="space-y-1.5 text-sm text-muted-foreground">
+                      <li>1. เข้า <strong>Meta Business Suite</strong> → <strong>Insights</strong></li>
+                      <li>2. คลิก <strong>Content</strong> (แถบบน) → เลือกช่วงเวลา</li>
+                      <li>3. กด <strong>Export</strong> → <strong>Export to CSV</strong></li>
+                      <li>4. ลากไฟล์ .csv มาวางในกล่องด้านบน</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Right: Saved Content Reports */}
+                <div className="lg:col-span-2">
+                  {SUPABASE_ENABLED && (
+                    <div className="rounded-2xl border bg-card p-5 shadow-sm h-full">
+                      <p className="font-bold text-sm mb-3 flex items-center gap-2">
+                        <Database className="w-4 h-4 text-teal-500" /> รายงานที่บันทึกไว้
+                        {loadingContentReports && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground ml-1" />}
+                      </p>
+                      {loadingContentReports ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลด...
                         </div>
-                      ))}
+                      ) : savedContentReports.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">ยังไม่มีรายงาน — อัปโหลด CSV เพื่อเริ่มต้น</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {savedContentReports.map(r => (
+                            <div key={r.id} className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2 hover:bg-muted/50 transition-colors group">
+                              <FileText className="w-4 h-4 text-teal-500 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold truncate">{r.fileName}</p>
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1 text-teal-700 border-teal-300" onClick={() => loadContentReport(r.id, r.fileName)}>
+                                  <Database className="w-3 h-3" /> โหลด
+                                </Button>
+                                <button onClick={() => deleteContentReport(r.id)} className="p-1 text-rose-300 hover:text-rose-600 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
-
-              <div className="rounded-2xl border bg-card p-5">
-                <p className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-500" /> วิธี Export Page Insights CSV
-                </p>
-                <ol className="space-y-2 text-sm text-muted-foreground">
-                  <li>1. เข้า <strong>Meta Business Suite</strong> → <strong>Insights</strong></li>
-                  <li>2. คลิก <strong>Content</strong> (แถบบน) → เลือกช่วงเวลา (เช่น เดือนที่ต้องการ)</li>
-                  <li>3. กด <strong>Export</strong> → เลือก <strong>Export to CSV</strong></li>
-                  <li>4. ลากไฟล์ .csv มาวางในกล่องด้านบน</li>
-                </ol>
-              </div>
+                </div>{/* end right col */}
+              </div>{/* end grid */}
             </div>
           ) : (
             /* Content Dashboard */
@@ -1446,19 +1536,68 @@ export default function AdsDashboard() {
                   <h2 className="text-base font-black flex items-center gap-2 text-teal-700 dark:text-teal-400">
                     <FileText className="w-4 h-4" /> Content Report
                   </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                    {contentFileName} — {contentRows.length} โพสต์
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate max-w-[200px]">{contentFileName}</span>
+                    <span className="text-muted-foreground/60">—</span>
+                    <span>{contentRows.length} โพสต์</span>
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {savingContentReport && (
                     <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-500" /> กำลังบันทึก...
                     </span>
                   )}
+
+                  {/* Switch saved content report dropdown */}
+                  {SUPABASE_ENABLED && savedContentReports.length > 0 && (
+                    <div className="relative">
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => setContentReportDropOpen(o => !o)}
+                        className="gap-1.5 text-teal-700 border-teal-300"
+                      >
+                        <Database className="w-3.5 h-3.5" /> เปลี่ยนรายงาน
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                      {contentReportDropOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 w-72 rounded-2xl border bg-popover shadow-xl z-50 overflow-hidden">
+                          <div className="px-3 py-2 border-b flex items-center justify-between">
+                            <p className="text-xs font-bold text-muted-foreground">รายงาน Content ที่บันทึกไว้</p>
+                            <button onClick={() => setContentReportDropOpen(false)}><X className="w-3.5 h-3.5 text-muted-foreground" /></button>
+                          </div>
+                          <div className="max-h-64 overflow-y-auto py-1.5">
+                            {savedContentReports.map(r => (
+                              <button
+                                key={r.id}
+                                onClick={() => { loadContentReport(r.id, r.fileName); setContentReportDropOpen(false); }}
+                                className={`w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-start gap-2.5 ${r.fileName === contentFileName ? "bg-teal-50 dark:bg-teal-950/20" : ""}`}
+                              >
+                                <FileText className="w-4 h-4 text-teal-500 shrink-0 mt-0.5" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold truncate">{r.fileName}</p>
+                                  <p className="text-[10px] text-muted-foreground">{new Date(r.uploadedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</p>
+                                </div>
+                                {r.fileName === contentFileName && <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0 mt-0.5" />}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="px-3 py-2 border-t">
+                            <button
+                              onClick={() => { setContentRows([]); setContentFileName(""); setContentReportDropOpen(false); }}
+                              className="w-full text-xs text-rose-500 hover:text-rose-700 flex items-center gap-1.5 py-1"
+                            >
+                              <RefreshCw className="w-3 h-3" /> อัปโหลด CSV ใหม่
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <Button size="sm" variant="outline" onClick={() => { setContentRows([]); setContentFileName(""); }} className="gap-1.5 text-rose-600 border-rose-200">
-                    <RefreshCw className="w-3.5 h-3.5" /> โหลดไฟล์ใหม่
+                    <RefreshCw className="w-3.5 h-3.5" /> โหลดใหม่
                   </Button>
                 </div>
               </div>
