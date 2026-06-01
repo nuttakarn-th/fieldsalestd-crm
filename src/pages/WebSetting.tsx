@@ -9,6 +9,7 @@ import {
   Save, RotateCcw, ChevronLeft, Check,
   ToggleLeft, ToggleRight, Info,
   Brain, Plus, Trash2, Pencil, X, Tag, ChevronRight as ChevronRightIcon,
+  ChevronRight,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import { Button } from "@/components/ui/button";
@@ -283,7 +284,7 @@ function BotTrainingSection() {
           { label: "ปิดใช้งาน",   value: qaList.filter(q => !q.active).length, color: "text-muted-foreground" },
         ].map(s => (
           <div key={s.label} className="bg-card rounded-xl border p-3 text-center">
-            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className={"text-xl font-bold " + s.color}>{s.value}</p>
             <p className="text-[10px] text-muted-foreground">{s.label}</p>
           </div>
         ))}
@@ -293,11 +294,11 @@ function BotTrainingSection() {
       <div className="flex gap-1.5 flex-wrap">
         {categories.map(c => (
           <button key={c} onClick={() => setFilter(c)}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+            className={"text-[11px] px-2.5 py-1 rounded-full border transition-colors " + (
               filter === c
                 ? "bg-primary text-primary-foreground border-primary"
                 : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-            }`}
+            )}
           >{c}</button>
         ))}
       </div>
@@ -404,7 +405,7 @@ function BotTrainingSection() {
       ) : (
         <div className="space-y-2">
           {filtered.map(qa => (
-            <div key={qa.id} className={`bg-card rounded-xl border p-3 space-y-2 transition-opacity ${!qa.active ? "opacity-50" : ""}`}>
+            <div key={qa.id} className={"bg-card rounded-xl border p-3 space-y-2 transition-opacity " + (!qa.active ? "opacity-50" : "")}>
               {/* Header row */}
               <div className="flex items-start gap-2 justify-between">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -416,11 +417,11 @@ function BotTrainingSection() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => toggleQA(qa.id)}
-                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                    className={"text-[10px] px-2 py-0.5 rounded-full border transition-colors " + (
                       qa.active
                         ? "border-green-300 text-green-600 hover:bg-green-50"
                         : "border-muted text-muted-foreground hover:bg-muted"
-                    }`}
+                    )}
                   >{qa.active ? "เปิด" : "ปิด"}</button>
                   <button onClick={() => openEdit(qa)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
                     <Pencil className="w-3.5 h-3.5" />
@@ -504,11 +505,11 @@ export default function WebSetting() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all shrink-0 ${
+            className={"flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all shrink-0 " + (
               tab === key
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+            )}
           >
             <Icon className="w-4 h-4 shrink-0" />
             {label}
@@ -523,11 +524,11 @@ export default function WebSetting() {
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
+              className={"w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left " + (
                 tab === key
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              )}
             >
               <Icon className="w-4 h-4 shrink-0" />
               {label}

@@ -80,7 +80,6 @@ export default function AppLayout() {
             <GlobalSearch />
             <div className="ml-auto flex items-center gap-1 shrink-0">
               <SwitchRoleBtn />
-              <StandyBtn />
               <ChatHeaderButton />
               <TeamNotifications />
               <UserMenu />
