@@ -1,18 +1,13 @@
 /**
- * standyEngine.ts
- * Rule-based intent detection + response generation for Standy Assistant.
- * Respects BotSettings from webSettingsStore:
- *   - tone: concise | friendly | detailed
- *   - allowStockQuery, allowMyCustomers, allowOtherCustomers, allowGeneral
- *   - smartSuggest: return follow-up card suggestions
- *   - tableResponse: compact format for large lists
+ * standyEngine.ts  — v2
+ * Conversational, question-driven responses.
+ * Philosophy: brief summary → ask back → guide to answer.
  */
 
 import type { TourItem, CarItem, InsuranceItem, FlightItem, HotelItem, VisaItem } from "@/store/serviceStore";
 import type { Customer, Lead } from "@/store/crmStore";
 import type { BotSettings } from "@/store/webSettingsStore";
 
-// ── Context passed in from the widget ──────────────────────────────────────
 export interface StandyContext {
   tours: TourItem[];
   cars: CarItem[];
@@ -26,7 +21,6 @@ export interface StandyContext {
   userRole?: string;
 }
 
-// ── Response shape ─────────────────────────────────────────────────────────
 export interface StandyResponse {
   text: string;
   requiresSensitiveApproval?: boolean;
@@ -34,15 +28,41 @@ export interface StandyResponse {
   smartCards?: string[];
 }
 
-// ── Intents ────────────────────────────────────────────────────────────────
 type Intent =
   | "greeting" | "help"
+  | "tour_search"           // ค้นหาทัวร์จากปลายทาง/ประเทศ
   | "tour_list" | "tour_price" | "tour_quota"
   | "tour_international" | "tour_domestic"
   | "car_list" | "flight_list" | "hotel_list"
   | "visa_list" | "insurance_list"
   | "customer_count" | "customer_detail"
   | "lead_stats" | "unknown";
+
+// ── Country/city keyword map ───────────────────────────────────────────────
+const COUNTRY_KEYWORDS: Record<string, string[]> = {
+  "จีน":        ["จีน","china","chinese","ฉงชิ่ง","chongqing","ปักกิ่ง","beijing","เซี่ยงไฮ้","shanghai","กุ้ยหลิน","guilin","คุนหมิง","kunming","จางเจียเจี้","zhangjiajie","ฮาร์บิน","harbin","ซีอาน","xian","เฉิงตู","chengdu","ซูโจว","suzhou"],
+  "ญี่ปุ่น":    ["ญี่ปุ่น","japan","japanese","โตเกียว","tokyo","โอซาก้า","osaka","เกียวโต","kyoto","ฮอกไกโด","hokkaido","ฟูกูโอกะ","fukuoka","นาโกย่า","nagoya"],
+  "เกาหลี":     ["เกาหลี","korea","korean","โซล","seoul","บูซาน","busan","เชจู","jeju"],
+  "ยุโรป":      ["ยุโรป","europe","paris","ฝรั่งเศส","อิตาลี","italy","สวิส","swiss","เยอรมัน","germany","อังกฤษ","london","สเปน","spain"],
+  "เวียดนาม":   ["เวียดนาม","vietnam","ฮานอย","hanoi","โฮจิมินห์","ho chi minh","ดานัง","danang","ฮาลอง","halong"],
+  "ไต้หวัน":    ["ไต้หวัน","taiwan","ไทเป","taipei"],
+  "สิงคโปร์":   ["สิงคโปร์","singapore"],
+  "มาเลเซีย":   ["มาเลเซีย","malaysia","กัวลาลัมเปอร์","kuala lumpur"],
+  "ฮ่องกง":     ["ฮ่องกง","hong kong","hongkong"],
+  "อินเดีย":    ["อินเดีย","india","มุมไบ","delhi","agra","อักรา"],
+  "ตุรกี":      ["ตุรกี","turkey","istanbul","อิสตันบูล"],
+  "อียิปต์":    ["อียิปต์","egypt","cairo","ไคโร"],
+  "รัสเซีย":    ["รัสเซีย","russia","moscow","มอสโก"],
+  "สแกน":       ["สแกน","scandinavia","นอร์เวย์","norway","สวีเดน","sweden","ฟินแลนด์","finland"],
+};
+
+function detectCountry(text: string): string | null {
+  const t = text.toLowerCase();
+  for (const [country, keywords] of Object.entries(COUNTRY_KEYWORDS)) {
+    if (keywords.some(k => t.includes(k))) return country;
+  }
+  return null;
+}
 
 // ── Intent detection ───────────────────────────────────────────────────────
 export function detectIntent(text: string): Intent {
@@ -51,6 +71,7 @@ export function detectIntent(text: string): Intent {
   if (/ทำอะไร|ช่วยอะไร|ถามอะไร|help|ความสามารถ|มีอะไรบ้าง/.test(t)) return "help";
   if (/ที่นั่ง|ว่างเหลือ|โควต้า|quota|เหลือกี่|ที่นั่งว่าง|จำนวนที่นั่ง|seat/.test(t)) return "tour_quota";
   if (/ราคา|ค่าใช้จ่าย|เท่าไร|เท่าไหร่|ค่าทัวร์|price|บาท/.test(t) && /ทัวร์|tour/.test(t)) return "tour_price";
+  if (detectCountry(t)) return "tour_search";
   if (/ต่างประเทศ|international|inter/.test(t) && /ทัวร์|tour/.test(t)) return "tour_international";
   if (/ภายในประเทศ|domestic|ในประเทศ/.test(t) && /ทัวร์|tour/.test(t)) return "tour_domestic";
   if (/ทัวร์|โปรแกรม|destination|tour/.test(t)) return "tour_list";
@@ -68,68 +89,87 @@ export function detectIntent(text: string): Intent {
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmt(n: number) { return n.toLocaleString("th-TH"); }
 
-function tsLabel(): string {
-  const now = new Date();
-  return ` *(${now.toLocaleDateString("th-TH", { day: "numeric", month: "short" })} ${now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.)*`;
-}
-
-function isConcise(ctx: StandyContext): boolean {
-  return ctx.settings?.tone === "concise";
-}
-
-function isDetailed(ctx: StandyContext): boolean {
-  return ctx.settings?.tone === "detailed";
+/** แปลง period string → Date สำหรับเรียงลำดับ */
+function parsePeriodDate(period: string): Date {
+  try {
+    // รองรับ "06/06/2569" หรือ "6 มิ.ย. 2569" หรือ "06-06-2569"
+    const months: Record<string, number> = {
+      "ม.ค.": 0, "ก.พ.": 1, "มี.ค.": 2, "เม.ย.": 3, "พ.ค.": 4, "มิ.ย.": 5,
+      "ก.ค.": 6, "ส.ค.": 7, "ก.ย.": 8, "ต.ค.": 9, "พ.ย.": 10, "ธ.ค.": 11,
+    };
+    // "6 มิ.ย. 2569"
+    const thaiMatch = period.match(/(\d{1,2})\s+([฀-๿.]+)\s+(\d{4})/);
+    if (thaiMatch) {
+      const day = parseInt(thaiMatch[1]);
+      const mon = months[thaiMatch[2]] ?? 0;
+      const yearBE = parseInt(thaiMatch[3]);
+      const yearCE = yearBE > 2500 ? yearBE - 543 : yearBE;
+      return new Date(yearCE, mon, day);
+    }
+    // "06/06/2569" or "06-06-2569"
+    const numMatch = period.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (numMatch) {
+      const d = parseInt(numMatch[1]), m = parseInt(numMatch[2]) - 1;
+      const y = parseInt(numMatch[3]);
+      const yearCE = y > 2500 ? y - 543 : y;
+      return new Date(yearCE, m, d);
+    }
+  } catch (_) { /* ignore */ }
+  return new Date(9999, 0, 1); // ไม่รู้ date → เรียงไปท้าย
 }
 
 function getSmartCards(intent: Intent, ctx: StandyContext): string[] {
   if (!ctx.settings?.smartSuggest) return [];
   switch (intent) {
-    case "greeting":
-    case "help":
-      return ["ทัวร์ต่างประเทศ", "ที่นั่งว่าง", "ราคาทัวร์", "รถเช่า"];
-    case "tour_list":
-      return ["ที่นั่งว่าง", "ราคาทัวร์", "ทัวร์ต่างประเทศ", "ทัวร์ในประเทศ"];
-    case "tour_international":
-      return ["ที่นั่งว่าง", "ราคาทัวร์ต่างประเทศ", "วีซ่า", "ประกัน"];
-    case "tour_domestic":
-      return ["ที่นั่งว่าง", "รถเช่า", "โรงแรม"];
-    case "tour_quota":
-      return ["ราคาทัวร์", "รถเช่า", "ประกัน"];
-    case "tour_price":
-      return ["ที่นั่งว่าง", "ประกัน", "วีซ่า", "รถเช่า"];
+    case "greeting": case "help":
+      return ["ทัวร์ต่างประเทศ", "ที่นั่งว่าง", "รถเช่า", "ประกัน"];
+    case "tour_search": case "tour_list": case "tour_international": case "tour_domestic":
+      return ["ที่นั่งว่าง", "ราคาทัวร์", "ทัวร์จีน", "ทัวร์ญี่ปุ่น"];
+    case "tour_quota": case "tour_price":
+      return ["จองทัวร์", "รถเช่า", "ประกัน"];
     case "car_list":
-      return ["ทัวร์", "ประกัน", "ตั๋วเครื่องบิน"];
-    case "flight_list":
-      return ["ทัวร์ต่างประเทศ", "โรงแรม", "วีซ่า"];
-    case "hotel_list":
-      return ["ทัวร์", "วีซ่า", "ประกัน"];
-    case "visa_list":
-      return ["ทัวร์ต่างประเทศ", "ประกัน", "ตั๋วเครื่องบิน"];
+      return ["รถตู้ 9 ที่นั่ง", "รถบัส", "ราคารถเช่า"];
     case "insurance_list":
-      return ["ทัวร์", "วีซ่า", "รถเช่า"];
-    case "customer_count":
-      return ["ลูกค้า VIP", "Pipeline", "ยอดขาย"];
-    case "lead_stats":
-      return ["จำนวนลูกค้า", "ทัวร์ยอดนิยม"];
+      return ["วีซ่า", "ทัวร์", "รถเช่า"];
     default:
       return ["ทัวร์", "รถเช่า", "ประกัน", "วีซ่า"];
   }
 }
 
 function blocked(topic: string): StandyResponse {
-  return { text: `ขออภัยครับ ฟีเจอร์ **${topic}** ถูกปิดใช้งานอยู่ในขณะนี้` };
+  return { text: `ขออภัยครับ ฟีเจอร์ **${topic}** ถูกปิดไว้ชั่วคราวครับ` };
+}
+
+// ── Group cars by seat range ───────────────────────────────────────────────
+interface CarGroup { label: string; count: number; priceRange: string; }
+
+function groupCars(cars: CarItem[]): CarGroup[] {
+  const groups: Record<string, CarItem[]> = {};
+  cars.forEach(c => {
+    const seats = c.total_seats;
+    const key = seats <= 9 ? "รถตู้ (7–9 ที่นั่ง)"
+               : seats <= 12 ? "รถตู้ใหญ่ (10–12 ที่นั่ง)"
+               : seats <= 20 ? "มินิบัส (13–20 ที่นั่ง)"
+               : "รถบัส (30+ ที่นั่ง)";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(c);
+  });
+  return Object.entries(groups).map(([label, items]) => {
+    const prices = items.map(i => i.rate_per_day);
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const priceRange = min === max ? `฿${fmt(min)}/วัน` : `฿${fmt(min)}–${fmt(max)}/วัน`;
+    return { label, count: items.length, priceRange };
+  });
 }
 
 // ── Main response function ─────────────────────────────────────────────────
 export function standyRespond(text: string, ctx: StandyContext): StandyResponse {
   const intent = detectIntent(text);
   const sc = getSmartCards(intent, ctx);
-  const concise = isConcise(ctx);
-  const detailed = isDetailed(ctx);
   const low = text.toLowerCase();
 
   const stockIntents: Intent[] = [
-    "tour_list","tour_price","tour_quota","tour_international","tour_domestic",
+    "tour_list","tour_price","tour_quota","tour_international","tour_domestic","tour_search",
     "car_list","flight_list","hotel_list","visa_list","insurance_list",
   ];
   if (stockIntents.includes(intent) && ctx.settings && !ctx.settings.allowStockQuery) {
@@ -137,270 +177,276 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
   }
 
   const isManager = ctx.userRole === "Admin" || ctx.userRole === "Manager";
+  const now = new Date();
 
   switch (intent) {
 
+    // ── Greeting ──
     case "greeting":
       return {
-        text: concise
-          ? "สวัสดีครับ! ถามเรื่อง ทัวร์, ราคา, ที่นั่งว่าง, รถเช่า, ประกัน, วีซ่า หรือลูกค้าได้เลย"
-          : "สวัสดีครับ! 🙂 ผม **Standy** ผู้ช่วยของ Standard Tour\n\nถามได้เรื่อง ทัวร์, ที่นั่งว่าง, ราคา, รถเช่า, ประกัน, วีซ่า, โรงแรม, ตั๋ว และข้อมูลลูกค้า\n\nลองถามได้เลยครับ!",
+        text: "สวัสดีครับ! 🙂 ผม **Standy** ผู้ช่วยของ Standard Tour\n\nถามได้เรย:\n• ทัวร์ ราคา ที่นั่งว่าง\n• รถเช่า ประกัน วีซ่า โรงแรม ตั๋วเครื่องบิน\n• ข้อมูลลูกค้า Pipeline\n\nจะถามเรื่องอะไรดีครับ? 😊",
         smartCards: sc,
       };
 
+    // ── Help ──
     case "help":
       return {
-        text: concise
-          ? "ถามได้เรื่อง: ทัวร์ · ราคา · ที่นั่ง · รถเช่า · ตั๋ว · โรงแรม · วีซ่า · ประกัน · ลูกค้า · Pipeline"
-          : "ผม **Standy** ตอบได้เรื่อง:\n\n**📋 บริการ**\n• ทัวร์ต่างประเทศ/ในประเทศ, ที่นั่งว่าง, ราคา\n• รถเช่า, ตั๋วเครื่องบิน, โรงแรม, วีซ่า, ประกัน\n\n**📊 ข้อมูลระบบ**\n• จำนวนลูกค้า, Pipeline ยอดขาย\n\nถามได้เลยครับ!",
+        text: "ผมช่วยได้เรื่องนี้ครับ:\n\n**🌏 ทัวร์** — ค้นหาตามประเทศ/เมือง, ราคา, ที่นั่งว่าง\n**🚌 รถเช่า** — ดูแบบ จำนวนที่นั่ง ราคา\n**✈️ บริการอื่น** — ตั๋ว, โรงแรม, วีซ่า, ประกัน\n**📊 ข้อมูล** — ลูกค้า, Pipeline (Staff เท่านั้น)\n\nลองถามมาได้เลยครับ เช่น _\"ทัวร์จีนใกล้สุดมีไหม\"_ หรือ _\"รถตู้ 9 ที่นั่งมีไหม\"_",
         smartCards: sc,
       };
 
+    // ── Tour search by country/city ──
+    case "tour_search": {
+      const { tours } = ctx;
+      const country = detectCountry(low) || "";
+      const keywords = COUNTRY_KEYWORDS[country] || [];
+
+      const matched = tours.filter(t => {
+        const haystack = `${t.city} ${t.country} ${t.code}`.toLowerCase();
+        return keywords.some(k => haystack.includes(k));
+      });
+
+      if (!matched.length) {
+        return {
+          text: `ขณะนี้ยังไม่มีโปรแกรม **${country || "ที่ค้นหา"}** ในระบบครับ\n\nต้องการดูโปรแกรมอื่นไหมครับ?`,
+          smartCards: ["ทัวร์ต่างประเทศ", "ที่นั่งว่าง"],
+        };
+      }
+
+      // เรียงตาม departure date ใกล้สุดก่อน กรองเฉพาะที่ยังไม่ผ่าน
+      const upcoming = matched
+        .map(t => ({ ...t, _date: parsePeriodDate(t.period) }))
+        .filter(t => t._date >= now)
+        .sort((a, b) => a._date.getTime() - b._date.getTime());
+
+      const list = upcoming.length ? upcoming : matched.slice(0, 3);
+      const nearest = list[0];
+      const hasSeats = nearest.quota > 0;
+      const urgency = nearest.quota <= 3 ? ` ⚠️ เหลือแค่ **${nearest.quota}** ที่แล้วครับ!` : ` เหลือ **${nearest.quota}** ที่นั่ง`;
+
+      let text = `**ทัวร์${country}** ที่ใกล้สุด:\n\n`;
+      text += `📍 **${nearest.code}** — ${nearest.city}, ${nearest.country}\n`;
+      text += `📅 ออกเดินทาง: ${nearest.period} (${nearest.duration})\n`;
+      text += `💰 ราคา: ฿${fmt(nearest.price_per_seat)}/ท่าน\n`;
+      text += hasSeats ? `✅ ${urgency}` : `❌ เต็มแล้วครับ`;
+
+      if (list.length > 1) {
+        text += `\n\nยังมีอีก **${list.length - 1}** โปรแกรม${country} — ดูเพิ่มเติมได้ไหมครับ?`;
+      } else {
+        text += hasSeats ? `\n\n**สนใจจองไหมครับ?** แจ้ง Staff เพื่อดำเนินการต่อได้เลยครับ 🙏` : `\n\nต้องการดูโปรแกรม${country}รอบถัดไปไหมครับ?`;
+      }
+
+      const cards = list.length > 1
+        ? [`ดูทัวร์${country}ทั้งหมด`, "ราคาทัวร์", "ที่นั่งว่าง"]
+        : ["ราคาทัวร์", "ที่นั่งว่าง", "ประกัน", "วีซ่า"];
+      return { text, smartCards: ctx.settings?.smartSuggest ? cards : [] };
+    }
+
+    // ── Tour list (ไม่ระบุประเทศ) ──
     case "tour_list": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีโปรแกรมทัวร์ในระบบครับ", smartCards: sc };
-      const intl = tours.filter(t => t.category === "International Tour");
-      const dom  = tours.filter(t => t.category === "Domestic");
-      const limit = concise ? 5 : (detailed ? 999 : 8);
-      const ts = concise ? "" : tsLabel();
-      if (concise) {
-        const lines = [`**ทัวร์ ${tours.length} โปรแกรม** (แสดงท็อป ${Math.min(limit, tours.length)})\n`];
-        tours.slice(0, limit).forEach(t =>
-          lines.push(`• ${t.code} ${t.city} — ฿${fmt(t.price_per_seat)} | ว่าง ${t.quota} ที่`)
-        );
-        if (tours.length > limit) lines.push(`…อีก ${tours.length - limit} โปรแกรม`);
-        return { text: lines.join("\n"), smartCards: sc };
-      }
-      const lines: string[] = [`**โปรแกรมทัวร์ ${tours.length} โปรแกรม**${ts}\n`];
-      if (intl.length) {
-        lines.push(`🌏 **International (${intl.length})**`);
-        intl.slice(0, limit).forEach(t =>
-          lines.push(`• ${t.code} — ${t.city}, ${t.country} | ${t.period} | ฿${fmt(t.price_per_seat)}/ที่นั่ง | ว่าง ${t.quota}`)
-        );
-        if (intl.length > limit) lines.push(`  …อีก ${intl.length - limit} โปรแกรม`);
-      }
-      if (dom.length) {
-        lines.push(`\n🇹🇭 **Domestic (${dom.length})**`);
-        dom.slice(0, limit).forEach(t =>
-          lines.push(`• ${t.code} — ${t.city} | ${t.period} | ฿${fmt(t.price_per_seat)}/ที่นั่ง | ว่าง ${t.quota}`)
-        );
-        if (dom.length > limit) lines.push(`  …อีก ${dom.length - limit} โปรแกรม`);
-      }
-      return { text: lines.join("\n"), smartCards: sc };
+      const intl = tours.filter(t => t.category === "International Tour").length;
+      const dom  = tours.filter(t => t.category === "Domestic").length;
+      const avail = tours.filter(t => t.quota > 0).length;
+      return {
+        text: `ตอนนี้มีทัวร์ทั้งหมด **${tours.length} โปรแกรม**\n• 🌏 ต่างประเทศ ${intl} โปรแกรม\n• 🇹🇭 ในประเทศ ${dom} โปรแกรม\n• ✅ มีที่นั่งว่าง ${avail} โปรแกรม\n\nสนใจทัวร์ประเทศไหนครับ? หรือจะดูเฉพาะที่มีที่นั่งว่างก็ได้ครับ 😊`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ทัวร์ยุโรป", "ที่นั่งว่าง"] : [],
+      };
     }
 
+    // ── International ──
     case "tour_international": {
       const intl = ctx.tours.filter(t => t.category === "International Tour");
       if (!intl.length) return { text: "ยังไม่มีทัวร์ต่างประเทศในระบบครับ", smartCards: sc };
-      const limit = concise ? 5 : (detailed ? 999 : 10);
-      const ts = concise ? "" : tsLabel();
-      if (concise) {
-        const lines = [`**ทัวร์ต่างประเทศ ${intl.length} โปรแกรม**\n`];
-        intl.slice(0, limit).forEach(t =>
-          lines.push(`• ${t.code} ${t.city}, ${t.country} — ฿${fmt(t.price_per_seat)} | ว่าง ${t.quota} ที่`)
-        );
-        if (intl.length > limit) lines.push(`…อีก ${intl.length - limit} โปรแกรม`);
-        return { text: lines.join("\n"), smartCards: sc };
-      }
-      const lines = [`**ทัวร์ต่างประเทศ ${intl.length} โปรแกรม**${ts}\n`];
-      intl.slice(0, limit).forEach(t =>
-        lines.push(
-          `• **${t.code}** — ${t.city}, ${t.country}\n` +
-          `  ${t.period} (${t.duration}) | ฿${fmt(t.price_per_seat)}/ที่นั่ง | ว่าง **${t.quota}** ที่นั่ง`
-        )
-      );
-      if (intl.length > limit) lines.push(`…อีก ${intl.length - limit} โปรแกรม`);
-      return { text: lines.join("\n"), smartCards: sc };
+      const avail = intl.filter(t => t.quota > 0).length;
+      const countries = [...new Set(intl.map(t => t.country))].slice(0, 6).join(", ");
+      return {
+        text: `ทัวร์ต่างประเทศตอนนี้มี **${intl.length} โปรแกรม** (มีที่นั่งว่าง ${avail} โปรแกรม)\n\n🌏 ประเทศที่มี: ${countries}\n\nสนใจประเทศไหนครับ? ถามชื่อประเทศได้เลย เช่น _"ทัวร์จีน"_ หรือ _"ทัวร์ญี่ปุ่น"_`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ทัวร์เกาหลี", "ทัวร์ยุโรป"] : [],
+      };
     }
 
+    // ── Domestic ──
     case "tour_domestic": {
       const dom = ctx.tours.filter(t => t.category === "Domestic");
       if (!dom.length) return { text: "ยังไม่มีทัวร์ในประเทศในระบบครับ", smartCards: sc };
-      const limit = concise ? 5 : (detailed ? 999 : 10);
-      const ts = concise ? "" : tsLabel();
-      if (concise) {
-        const lines = [`**ทัวร์ในประเทศ ${dom.length} โปรแกรม**\n`];
-        dom.slice(0, limit).forEach(t =>
-          lines.push(`• ${t.code} ${t.city} — ฿${fmt(t.price_per_seat)} | ว่าง ${t.quota} ที่`)
-        );
-        if (dom.length > limit) lines.push(`…อีก ${dom.length - limit} โปรแกรม`);
-        return { text: lines.join("\n"), smartCards: sc };
-      }
-      const lines = [`**ทัวร์ในประเทศ ${dom.length} โปรแกรม**${ts}\n`];
-      dom.slice(0, limit).forEach(t =>
-        lines.push(
-          `• **${t.code}** — ${t.city}\n` +
-          `  ${t.period} (${t.duration}) | ฿${fmt(t.price_per_seat)}/ที่นั่ง | ว่าง **${t.quota}** ที่นั่ง`
-        )
-      );
-      if (dom.length > limit) lines.push(`…อีก ${dom.length - limit} โปรแกรม`);
-      return { text: lines.join("\n"), smartCards: sc };
+      const avail = dom.filter(t => t.quota > 0).length;
+      const cities = [...new Set(dom.map(t => t.city))].slice(0, 5).join(", ");
+      return {
+        text: `ทัวร์ในประเทศมี **${dom.length} โปรแกรม** (มีที่นั่งว่าง ${avail} โปรแกรม)\n\n🇹🇭 จุดหมาย: ${cities}\n\nสนใจจังหวัดหรือภาคไหนครับ?`,
+        smartCards: ctx.settings?.smartSuggest ? ["ที่นั่งว่าง", "ราคาทัวร์", "รถเช่า"] : [],
+      };
     }
 
+    // ── Tour price ──
     case "tour_price": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีข้อมูลราคาทัวร์ในระบบครับ", smartCards: sc };
-      const matched = tours.filter(t =>
-        low.includes(t.city.toLowerCase()) ||
-        low.includes(t.country.toLowerCase()) ||
-        low.includes(t.code.toLowerCase())
-      );
-      const list = matched.length ? matched : [...tours].sort((a, b) => a.price_per_seat - b.price_per_seat);
-      const limit = concise ? 6 : (detailed ? 999 : 12);
-      const label = matched.length ? "ราคาทัวร์ที่ค้นพบ" : "ราคาทัวร์ (ถูก→แพง)";
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**${label}**${ts}\n`];
-      list.slice(0, limit).forEach(t =>
-        lines.push(concise
-          ? `• ${t.code} ${t.city} — ฿${fmt(t.price_per_seat)} | ว่าง ${t.quota}`
-          : `• **${t.code}** ${t.city}, ${t.country} — ฿${fmt(t.price_per_seat)}/ที่นั่ง | ว่าง ${t.quota}/${t.total_seats}`
-        )
-      );
-      if (list.length > limit) lines.push(`…อีก ${list.length - limit} รายการ`);
-      return { text: lines.join("\n"), smartCards: sc };
+
+      const matched = tours.filter(t => {
+        const h = `${t.city} ${t.country} ${t.code}`.toLowerCase();
+        return Object.values(COUNTRY_KEYWORDS).flat().some(k => low.includes(k) && h.includes(k));
+      });
+
+      if (matched.length) {
+        const t = matched[0];
+        return {
+          text: `**${t.code}** — ${t.city}, ${t.country}\n💰 ฿${fmt(t.price_per_seat)}/ท่าน | ${t.period} (${t.duration})\n✅ ที่นั่งว่าง ${t.quota} ที่\n\nสนใจดูรายละเอียดเพิ่มหรือเปรียบเทียบโปรแกรมอื่นไหมครับ?`,
+          smartCards: ctx.settings?.smartSuggest ? ["ที่นั่งว่าง", "ประกัน", "วีซ่า"] : [],
+        };
+      }
+
+      const sorted = [...tours].sort((a, b) => a.price_per_seat - b.price_per_seat);
+      const min = sorted[0], max = sorted[sorted.length - 1];
+      return {
+        text: `ราคาทัวร์อยู่ที่ **฿${fmt(min.price_per_seat)}** – **฿${fmt(max.price_per_seat)}** ต่อท่าน\n(${sorted.length} โปรแกรม)\n\nสนใจทัวร์ประเทศไหนครับ? บอกได้เลย เช่น _"ราคาทัวร์จีน"_ แล้วผมดูให้เลยครับ 😊`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ทัวร์ยุโรป", "ที่นั่งว่าง"] : [],
+      };
     }
 
+    // ── Tour quota ──
     case "tour_quota": {
       const { tours } = ctx;
       if (!tours.length) return { text: "ยังไม่มีข้อมูลที่นั่งในระบบครับ", smartCards: sc };
-      const available = tours.filter(t => t.quota > 0);
-      const full = tours.filter(t => t.quota === 0);
-      const ts = concise ? "" : tsLabel();
-      const limit = concise ? 6 : 999;
-      if (concise) {
-        const lines = [`**ที่นั่งว่าง ${available.length}/${tours.length} โปรแกรม**\n`];
-        available.slice(0, limit).forEach(t =>
-          lines.push(`✅ ${t.code} ${t.city} — ว่าง **${t.quota}** ที่`)
-        );
-        if (available.length > limit) lines.push(`…อีก ${available.length - limit} โปรแกรม`);
-        if (full.length) lines.push(`\n❌ เต็มแล้ว: ${full.map(t => t.code).slice(0, 5).join(", ")}${full.length > 5 ? "…" : ""}`);
-        return { text: lines.join("\n"), smartCards: sc };
+      const avail = tours.filter(t => t.quota > 0);
+      const full  = tours.filter(t => t.quota === 0);
+
+      if (!avail.length) {
+        return {
+          text: `ขณะนี้ทัวร์ทุกโปรแกรม (${full.length} โปรแกรม) เต็มหมดแล้วครับ 😔\n\nต้องการให้แจ้งเมื่อมีที่ว่างไหมครับ?`,
+          smartCards: sc,
+        };
       }
-      const lines = [`**สถานะที่นั่งทัวร์**${ts}\n`];
-      if (available.length) {
-        lines.push(`✅ **มีที่นั่งว่าง (${available.length} โปรแกรม)**`);
-        available.forEach(t =>
-          lines.push(`• ${t.code} ${t.city} — ว่าง **${t.quota}** จาก ${t.total_seats} ที่นั่ง`)
-        );
-      }
-      if (full.length) {
-        lines.push(`\n❌ **เต็มแล้ว (${full.length} โปรแกรม)**`);
-        full.forEach(t => lines.push(`• ${t.code} ${t.city}`));
-      }
-      return { text: lines.join("\n"), smartCards: sc };
+
+      // เรียงตาม quota น้อยก่อน (urgent ก่อน)
+      const urgent = avail.sort((a, b) => a.quota - b.quota).slice(0, 3);
+      let text = `มีที่นั่งว่าง **${avail.length}/${tours.length} โปรแกรม** ครับ\n\n`;
+      text += `⚡ **ใกล้เต็ม:**\n`;
+      urgent.forEach(t =>
+        text += `• ${t.code} ${t.city} — เหลือ **${t.quota}** ที่ | ฿${fmt(t.price_per_seat)}\n`
+      );
+      if (avail.length > 3) text += `\n…อีก ${avail.length - 3} โปรแกรมที่มีที่ว่าง\n`;
+      text += `\nสนใจโปรแกรมไหนครับ? บอกชื่อประเทศหรือรหัสทัวร์ได้เลย 😊`;
+      return {
+        text,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ราคาทัวร์", "ประกัน"] : [],
+      };
     }
 
+    // ── Car list ──
     case "car_list": {
       const { cars } = ctx;
       if (!cars.length) return { text: "ยังไม่มีข้อมูลรถเช่าในระบบครับ", smartCards: sc };
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**รถเช่า ${cars.length} คัน**${ts}\n`];
-      cars.forEach(c =>
-        lines.push(concise
-          ? `• ${c.name} — ${c.total_seats} ที่นั่ง | ฿${fmt(c.rate_per_day)}/วัน`
-          : `• **${c.name}** (${c.type}) — ${c.total_seats} ที่นั่ง | เบาะ${c.seat_material} | ฿${fmt(c.rate_per_day)}/วัน` + (c.note ? ` | ${c.note}` : "")
-        )
-      );
-      return { text: lines.join("\n"), smartCards: sc };
+
+      const groups = groupCars(cars);
+      let text = `รถเช่ามีทั้งหมด **${cars.length} คัน** แบ่งเป็น ${groups.length} กลุ่มครับ:\n\n`;
+      groups.forEach(g => {
+        text += `**${g.label}** — ${g.count} คัน | ${g.priceRange}\n`;
+      });
+      text += `\nสนใจรถกี่ที่นั่งครับ? หรือบอก Budget ต่อวันมาได้เลย 😊`;
+
+      return {
+        text,
+        smartCards: ctx.settings?.smartSuggest
+          ? ["รถตู้ 9 ที่นั่ง", "รถบัส", "ราคารถเช่า"]
+          : [],
+      };
     }
 
+    // ── Flights ──
     case "flight_list": {
       const { flights } = ctx;
       if (!flights.length) return { text: "ยังไม่มีข้อมูลสายการบินในระบบครับ", smartCards: sc };
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**สายการบิน ${flights.length} รายการ**${ts}\n`];
-      flights.forEach(f =>
-        lines.push(`• **${f.airline}** — ${f.route}` + (f.note && !concise ? ` (${f.note})` : ""))
-      );
-      return { text: lines.join("\n"), smartCards: sc };
+      const airlines = [...new Set(flights.map(f => f.airline))];
+      return {
+        text: `มีสายการบินในระบบ **${airlines.length} สาย** ครับ:\n${airlines.map(a => `• ${a}`).join("\n")}\n\nสนใจเส้นทางไหนครับ?`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์ต่างประเทศ", "โรงแรม", "วีซ่า"] : [],
+      };
     }
 
+    // ── Hotels ──
     case "hotel_list": {
       const { hotels } = ctx;
       if (!hotels.length) return { text: "ยังไม่มีข้อมูลโรงแรมในระบบครับ", smartCards: sc };
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**โรงแรม ${hotels.length} แห่ง**${ts}\n`];
-      hotels.forEach(h =>
-        lines.push(`• **${h.name}** — ${h.city}, ${h.country}` + (h.note && !concise ? ` | ${h.note}` : ""))
-      );
-      return { text: lines.join("\n"), smartCards: sc };
+      const countries = [...new Set(hotels.map(h => h.country))].slice(0, 5);
+      return {
+        text: `มีโรงแรมในระบบ **${hotels.length} แห่ง** ใน ${countries.length} ประเทศครับ\n(${countries.join(", ")})\n\nสนใจโรงแรมในประเทศไหนครับ?`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์", "วีซ่า", "ประกัน"] : [],
+      };
     }
 
+    // ── Visas ──
     case "visa_list": {
       const { visas } = ctx;
       if (!visas.length) return { text: "ยังไม่มีข้อมูลวีซ่าในระบบครับ", smartCards: sc };
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**วีซ่า ${visas.length} รายการ**${ts}\n`];
-      visas.forEach(v =>
-        lines.push(`• **${v.visa_type}** — ${v.country}` + (v.note && !concise ? ` | ${v.note}` : ""))
-      );
-      return { text: lines.join("\n"), smartCards: sc };
+      const countries = [...new Set(visas.map(v => v.country))].slice(0, 6);
+      return {
+        text: `มีบริการวีซ่า **${visas.length} รายการ** (${countries.join(", ")})\n\nสนใจวีซ่าประเทศไหนครับ?`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์ต่างประเทศ", "ประกัน", "ตั๋วเครื่องบิน"] : [],
+      };
     }
 
+    // ── Insurance ──
     case "insurance_list": {
       const { insurances } = ctx;
       if (!insurances.length) return { text: "ยังไม่มีข้อมูลประกันในระบบครับ", smartCards: sc };
-      const ts = concise ? "" : tsLabel();
-      const lines = [`**ประกัน ${insurances.length} แผน**${ts}\n`];
-      insurances.forEach(i =>
-        lines.push(
-          `• **${i.plan_name}** — ฿${fmt(i.price)}` +
-          (!concise ? ` | คุ้มครอง: ${i.coverage}` + (i.note ? ` | ${i.note}` : "") : "")
-        )
-      );
-      return { text: lines.join("\n"), smartCards: sc };
+      const prices = insurances.map(i => i.price);
+      const min = Math.min(...prices), max = Math.max(...prices);
+      return {
+        text: `มีประกัน **${insurances.length} แผน** ราคา ฿${fmt(min)} – ฿${fmt(max)}/ท่าน ครับ\n\nต้องการทราบรายละเอียดแผนไหน? หรือใช้ทัวร์ไหนครับ? จะแนะนำให้ตรงๆ เลย 😊`,
+        smartCards: ctx.settings?.smartSuggest ? ["ทัวร์", "วีซ่า", "รถเช่า"] : [],
+      };
     }
 
+    // ── Customer count ──
     case "customer_count": {
       if (!ctx.customers) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูลลูกค้าครับ" };
       if (ctx.settings && !ctx.settings.allowMyCustomers) return blocked("ข้อมูลลูกค้า");
       const total = ctx.customers.length;
       const tiers: Record<string, number> = {};
       ctx.customers.forEach(c => { tiers[c.customer_tier] = (tiers[c.customer_tier] || 0) + 1; });
-      const summary = concise
-        ? `**ลูกค้า ${fmt(total)} ราย** — VIP: ${tiers["VIP"] || 0} | Regular: ${tiers["Regular"] || 0} | New: ${tiers["New"] || 0}`
-        : `**จำนวนลูกค้า**${tsLabel()}\n\nทั้งหมด **${fmt(total)}** ราย\n• 👑 VIP: ${tiers["VIP"] || 0} ราย\n• 🔄 Regular: ${tiers["Regular"] || 0} ราย\n• 🆕 New: ${tiers["New"] || 0} ราย`;
       return {
-        text: summary + "\n\nต้องการดูรายชื่อหรือไม่? *(พิมพ์ 'ใช่' เพื่อแสดง)*",
+        text: `ลูกค้าทั้งหมด **${fmt(total)} ราย**\n• 👑 VIP: ${tiers["VIP"] || 0} ราย\n• 🔄 Regular: ${tiers["Regular"] || 0} ราย\n• 🆕 New: ${tiers["New"] || 0} ราย\n\nต้องการดูรายชื่อด้วยไหมครับ?`,
         requiresSensitiveApproval: true,
         pendingData: ctx.customers,
         smartCards: sc,
       };
     }
 
+    // ── Customer detail ──
     case "customer_detail": {
       if (!ctx.customers) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูลลูกค้าครับ" };
       if (ctx.settings && !ctx.settings.allowMyCustomers) return blocked("ข้อมูลลูกค้า");
       if (!isManager && ctx.settings && !ctx.settings.allowOtherCustomers) {
-        return { text: "สิทธิ์ดูข้อมูลลูกค้าคนอื่นสำหรับ Manager/Admin เท่านั้นครับ" };
+        return { text: "สิทธิ์นี้สำหรับ Manager/Admin เท่านั้นครับ" };
       }
       return {
-        text: "⚠️ ข้อมูลนี้มีชื่อและเบอร์โทรของลูกค้า\nยืนยันแสดงหรือไม่? *(พิมพ์ 'ใช่' เพื่อแสดง)*",
+        text: "⚠️ ข้อมูลนี้มีชื่อและเบอร์โทรลูกค้า\nยืนยันแสดงไหมครับ? *(พิมพ์ 'ใช่' เพื่อแสดง)*",
         requiresSensitiveApproval: true,
         pendingData: ctx.customers,
         smartCards: sc,
       };
     }
 
+    // ── Lead stats ──
     case "lead_stats": {
       if (!ctx.leads) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูล Pipeline ครับ" };
       const total = ctx.leads.length;
-      const won    = ctx.leads.filter(l => l.status === "Closed Won");
-      const lost   = ctx.leads.filter(l => l.status === "Closed Lost");
-      const active = ctx.leads.filter(l => !["Closed Won","Closed Lost"].includes(l.status));
-      const wonValue    = won.reduce((s, l) => s + l.quoted_price, 0);
-      const activeValue = active.reduce((s, l) => s + l.quoted_price, 0);
-      const text = concise
-        ? `**Pipeline ${fmt(total)} deals** — Won: ${won.length} (฿${fmt(wonValue)}) | Active: ${active.length} (฿${fmt(activeValue)}) | Lost: ${lost.length}`
-        : `**สรุป Sales Pipeline**${tsLabel()}\n\nทั้งหมด **${fmt(total)}** deals\n• ✅ Closed Won: ${won.length} deals — ฿${fmt(wonValue)}\n• ❌ Closed Lost: ${lost.length} deals\n• 🔄 Active: ${active.length} deals — ฿${fmt(activeValue)}`;
-      return { text, smartCards: sc };
+      const won   = ctx.leads.filter(l => l.status === "Closed Won");
+      const lost  = ctx.leads.filter(l => l.status === "Closed Lost");
+      const active= ctx.leads.filter(l => !["Closed Won","Closed Lost"].includes(l.status));
+      const wonVal = won.reduce((s,l) => s + l.quoted_price, 0);
+      return {
+        text: `**Pipeline** รวม ${fmt(total)} deals\n• ✅ Won: ${won.length} deals — ฿${fmt(wonVal)}\n• 🔄 Active: ${active.length} deals\n• ❌ Lost: ${lost.length} deals\n\nต้องการดูรายละเอียด deal ไหนเป็นพิเศษครับ?`,
+        smartCards: ctx.settings?.smartSuggest ? ["จำนวนลูกค้า", "ทัวร์ยอดนิยม"] : [],
+      };
     }
 
+    // ── Unknown ──
     default:
       return {
-        text: concise
-          ? "ไม่เข้าใจคำถามครับ — ลองถามเรื่อง ทัวร์, ราคา, ที่นั่ง, รถเช่า, ประกัน, วีซ่า หรือลูกค้า"
-          : "ขออภัยครับ ผมไม่เข้าใจคำถามนี้ 🙏\n\nลองถามเกี่ยวกับ:\n• **ทัวร์** เช่น \"ทัวร์ต่างประเทศมีอะไรบ้าง\"\n• **ที่นั่ง** เช่น \"ทัวร์ไหนมีที่นั่งว่าง\"\n• **ราคา** เช่น \"ราคาทัวร์ญี่ปุ่น\"\n• **รถเช่า**, **ประกัน**, **วีซ่า**, **โรงแรม**\n• **ลูกค้า** เช่น \"มีลูกค้ากี่คน\"",
+        text: "ขออภัยครับ ผมไม่แน่ใจว่าถามเรื่องอะไร 🙏\n\nลองถามแบบนี้ดูครับ:\n• _\"ทัวร์จีนมีไหม\"_\n• _\"รถตู้ 9 ที่นั่งราคาเท่าไร\"_\n• _\"ที่นั่งว่างโปรแกรมไหนบ้าง\"_",
         smartCards: getSmartCards("unknown", ctx),
       };
   }
@@ -408,19 +454,14 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
 
 export function resolveCustomerDetail(customers: Customer[], concise = false): string {
   if (!customers.length) return "ไม่มีข้อมูลลูกค้าในระบบครับ";
-  const ts = concise ? "" : tsLabel();
   const limit = concise ? 10 : 20;
-  const lines = [`**รายชื่อลูกค้า ${customers.length} ราย**${ts}\n`];
+  const lines = [`**รายชื่อลูกค้า ${customers.length} ราย** (แสดง ${Math.min(limit, customers.length)} รายแรก)\n`];
   customers.slice(0, limit).forEach((c, i) => {
-    if (concise) {
-      lines.push(`${i+1}. ${c.full_name} (${c.customer_tier}) — ${c.phone || "–"}`);
-    } else {
-      lines.push(
-        `${i+1}. **${c.full_name}** (${c.customer_tier})\n` +
-        `   📞 ${c.phone || "–"}  |  ${c.company || "–"}  |  ${c.source}`
-      );
-    }
+    lines.push(concise
+      ? `${i+1}. ${c.full_name} (${c.customer_tier}) — ${c.phone || "–"}`
+      : `${i+1}. **${c.full_name}** (${c.customer_tier}) | 📞 ${c.phone || "–"} | ${c.company || "–"}`
+    );
   });
-  if (customers.length > limit) lines.push(`\n…อีก ${customers.length - limit} ราย (ดูเพิ่มในหน้า Customers)`);
+  if (customers.length > limit) lines.push(`\n…อีก ${customers.length - limit} ราย — ดูเพิ่มในหน้า Customers ครับ`);
   return lines.join("\n");
 }
