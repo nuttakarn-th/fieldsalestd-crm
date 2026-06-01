@@ -35,6 +35,7 @@ type Intent =
   | "tour_international" | "tour_domestic"
   | "car_list" | "flight_list" | "hotel_list"
   | "visa_list" | "insurance_list"
+  | "service_overview"              // บริการมีอะไรบ้าง / ขายอะไร
   | "customer_count" | "customer_detail"
   | "lead_stats" | "unknown";
 
@@ -68,6 +69,7 @@ function detectCountry(text: string): string | null {
 export function detectIntent(text: string): Intent {
   const t = text.toLowerCase();
   if (/สวัสดี|หวัดดี|hello|^hi\b|ดีครับ|ดีค่ะ|ดีจ้า/.test(t)) return "greeting";
+  if (/บริการ|service|ขายอะไร|มีอะไรให้|จำหน่าย|แพคเกจ|package|ให้บริการอะไร/.test(t)) return "service_overview";
   if (/ทำอะไร|ช่วยอะไร|ถามอะไร|help|ความสามารถ|มีอะไรบ้าง/.test(t)) return "help";
   if (/ที่นั่ง|ว่างเหลือ|โควต้า|quota|เหลือกี่|ที่นั่งว่าง|จำนวนที่นั่ง|seat/.test(t)) return "tour_quota";
   if (/ราคา|ค่าใช้จ่าย|เท่าไร|เท่าไหร่|ค่าทัวร์|price|บาท/.test(t) && /ทัวร์|tour/.test(t)) return "tour_price";
@@ -121,7 +123,7 @@ function parsePeriodDate(period: string): Date {
 function getSmartCards(intent: Intent, ctx: StandyContext): string[] {
   if (!ctx.settings?.smartSuggest) return [];
   switch (intent) {
-    case "greeting": case "help":
+    case "greeting": case "help": case "service_overview":
       return ["ทัวร์ต่างประเทศ", "ที่นั่งว่าง", "รถเช่า", "ประกัน"];
     case "tour_search": case "tour_list": case "tour_international": case "tour_domestic":
       return ["ที่นั่งว่าง", "ราคาทัวร์", "ทัวร์จีน", "ทัวร์ญี่ปุ่น"];
@@ -180,6 +182,63 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
   const now = new Date();
 
   switch (intent) {
+
+    // ── Service overview (บริการมีอะไรบ้าง) ──
+    case "service_overview": {
+      const { tours, cars, flights, hotels, visas, insurances } = ctx;
+      const intl  = tours.filter(t => t.category === "International Tour");
+      const dom   = tours.filter(t => t.category === "Domestic");
+      const avail = tours.filter(t => t.quota > 0).length;
+
+      // สรุป car types
+      const carTypes: string[] = [];
+      if (cars.some(c => c.total_seats <= 12)) carTypes.push("รถตู้");
+      if (cars.some(c => c.total_seats > 12 && c.total_seats <= 20)) carTypes.push("มินิบัส");
+      if (cars.some(c => c.total_seats > 20)) carTypes.push("รถโค้ช");
+
+      let text = `**Standard Tour มีบริการครบวงจรครับ** 🙂\n\n`;
+
+      if (tours.length) {
+        text += `**🌏 ทัวร์** (${tours.length} โปรแกรม, มีที่ว่าง ${avail} โปรแกรม)\n`;
+        if (intl.length) {
+          const countries = [...new Set(intl.map(t => t.country))].slice(0, 4).join(", ");
+          text += `• ต่างประเทศ ${intl.length} โปรแกรม — ${countries}\n`;
+        }
+        if (dom.length) text += `• ในประเทศ ${dom.length} โปรแกรม\n`;
+      }
+
+      if (cars.length) {
+        text += `\n**🚌 รถเช่าพร้อมคนขับ** (${cars.length} คัน — ${carTypes.join(", ")})\n`;
+      }
+
+      if (flights.length) {
+        const airlines = [...new Set(flights.map(f => f.airline))].slice(0, 3).join(", ");
+        text += `\n**✈️ จองตั๋วเครื่องบิน** (${airlines})\n`;
+      }
+
+      if (hotels.length) {
+        const hCountries = [...new Set(hotels.map(h => h.country))].slice(0, 3).join(", ");
+        text += `\n**🏨 โรงแรม** (${hotels.length} แห่ง — ${hCountries})\n`;
+      }
+
+      if (visas.length) {
+        const vCountries = [...new Set(visas.map(v => v.country))].slice(0, 3).join(", ");
+        text += `\n**🛂 วีซ่า** (${vCountries})\n`;
+      }
+
+      if (insurances.length) {
+        text += `\n**🛡 ประกันการเดินทาง** (${insurances.length} แผน)\n`;
+      }
+
+      text += `\nสนใจด้านไหนเป็นพิเศษครับ? บอกได้เลย เช่น _"ทัวร์จีนราคาเท่าไร"_ หรือ _"รถเช่ากี่ที่นั่งมีบ้าง"_ 😊`;
+
+      return {
+        text,
+        smartCards: ctx.settings?.smartSuggest
+          ? ["ทัวร์ต่างประเทศ", "รถเช่า", "ที่นั่งว่าง", "ประกัน"]
+          : [],
+      };
+    }
 
     // ── Greeting ──
     case "greeting":
