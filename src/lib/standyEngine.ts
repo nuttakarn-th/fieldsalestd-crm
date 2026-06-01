@@ -7,6 +7,8 @@
 import type { TourItem, CarItem, InsuranceItem, FlightItem, HotelItem, VisaItem } from "@/store/serviceStore";
 import type { Customer, Lead } from "@/store/crmStore";
 import type { BotSettings } from "@/store/webSettingsStore";
+import type { BotQA } from "@/store/botQAStore";
+import { matchQA } from "@/store/botQAStore";
 
 export interface StandyContext {
   tours: TourItem[];
@@ -19,6 +21,7 @@ export interface StandyContext {
   leads?: Lead[];
   settings?: BotSettings;
   userRole?: string;
+  qaList?: BotQA[];   // Q&A ที่ Admin เทรนไว้ — เช็คก่อน rule engine เสมอ
 }
 
 export interface StandyResponse {
@@ -36,6 +39,7 @@ type Intent =
   | "car_list" | "flight_list" | "hotel_list"
   | "visa_list" | "insurance_list"
   | "service_overview"              // บริการมีอะไรบ้าง / ขายอะไร
+  | "budget_search"                 // งบ X บาท / ราคาไม่เกิน X
   | "customer_count" | "customer_detail"
   | "lead_stats" | "unknown";
 
@@ -71,6 +75,7 @@ export function detectIntent(text: string): Intent {
   if (/สวัสดี|หวัดดี|hello|^hi\b|ดีครับ|ดีค่ะ|ดีจ้า/.test(t)) return "greeting";
   if (/บริการ|service|ขายอะไร|มีอะไรให้|จำหน่าย|แพคเกจ|package|ให้บริการอะไร/.test(t)) return "service_overview";
   if (/ทำอะไร|ช่วยอะไร|ถามอะไร|help|ความสามารถ|มีอะไรบ้าง/.test(t)) return "help";
+  if (/งบ\s*\d|ราคาไม่เกิน|budget|ไม่เกิน\s*\d|ประมาณ\s*\d|แค่\s*\d/.test(t)) return "budget_search";
   if (/ที่นั่ง|ว่างเหลือ|โควต้า|quota|เหลือกี่|ที่นั่งว่าง|จำนวนที่นั่ง|seat/.test(t)) return "tour_quota";
   if (/ราคา|ค่าใช้จ่าย|เท่าไร|เท่าไหร่|ค่าทัวร์|price|บาท/.test(t) && /ทัวร์|tour|เที่ยว/.test(t)) return "tour_price";
   if (detectCountry(t)) return "tour_search";
@@ -169,6 +174,12 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
   const intent = detectIntent(text);
   const sc = getSmartCards(intent, ctx);
   const low = text.toLowerCase();
+
+  // ── Q&A Training check (highest priority) ──────────────────────────────
+  if (ctx.qaList?.length) {
+    const qaAnswer = matchQA(text, ctx.qaList);
+    if (qaAnswer) return { text: qaAnswer };
+  }
 
   const stockIntents: Intent[] = [
     "tour_list","tour_price","tour_quota","tour_international","tour_domestic","tour_search",
@@ -299,6 +310,46 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
         ? [`ดูทัวร์${country}ทั้งหมด`, "ราคาทัวร์", "ที่นั่งว่าง"]
         : ["ราคาทัวร์", "ที่นั่งว่าง", "ประกัน", "วีซ่า"];
       return { text, smartCards: ctx.settings?.smartSuggest ? cards : [] };
+    }
+
+    // ── Budget search ──
+    case "budget_search": {
+      const { tours } = ctx;
+      // ดึงตัวเลขจาก text เช่น "งบ 20000", "ไม่เกิน 15,000"
+      const numMatch = low.replace(/,/g, "").match(/\d{4,}/);
+      const budget = numMatch ? parseInt(numMatch[0]) : 0;
+
+      if (!budget) {
+        return {
+          text: "บอกงบประมาณต่อท่านมาได้เลยครับ เช่น _\"งบ 20000\"_ แล้วผมจะหาโปรแกรมที่เหมาะสมให้ครับ 😊",
+          smartCards: ctx.settings?.smartSuggest ? ["ทัวร์จีน", "ทัวร์ญี่ปุ่น", "ที่นั่งว่าง"] : [],
+        };
+      }
+
+      const inBudget = tours
+        .filter(t => t.price_per_seat <= budget && t.quota > 0)
+        .sort((a, b) => b.price_per_seat - a.price_per_seat); // แพงสุดที่อยู่ในงบก่อน
+
+      if (!inBudget.length) {
+        const cheapest = [...tours].sort((a,b) => a.price_per_seat - b.price_per_seat)[0];
+        return {
+          text: `ขณะนี้ยังไม่มีโปรแกรมในงบ ฿${fmt(budget)} ครับ 😔\n\nโปรแกรมที่ราคาใกล้เคียงที่สุด:\n• **${cheapest?.code}** ${cheapest?.city} — ฿${fmt(cheapest?.price_per_seat)}/ท่าน\n\nปรับงบได้ไหมครับ? หรือจะดูโปรแกรมในประเทศซึ่งราคาเริ่มต้นน้อยกว่า?`,
+          smartCards: ctx.settings?.smartSuggest ? ["ทัวร์ในประเทศ", "ที่นั่งว่าง"] : [],
+        };
+      }
+
+      const top = inBudget.slice(0, 3);
+      let text = `งบ ฿${fmt(budget)}/ท่าน — มีโปรแกรมที่เหมาะสม **${inBudget.length} โปรแกรม** ครับ 🎉\n\n`;
+      top.forEach(t =>
+        text += `• **${t.code}** ${t.city}, ${t.country} — ฿${fmt(t.price_per_seat)} | ${t.period} | ว่าง ${t.quota} ที่\n`
+      );
+      if (inBudget.length > 3) text += `…อีก ${inBudget.length - 3} โปรแกรม\n`;
+      text += `\nสนใจโปรแกรมไหนดูรายละเอียดเพิ่มได้เลยครับ 😊`;
+
+      return {
+        text,
+        smartCards: ctx.settings?.smartSuggest ? ["ราคาทัวร์", "ที่นั่งว่าง", "ประกัน"] : [],
+      };
     }
 
     // ── Tour list (ไม่ระบุประเทศ) ──

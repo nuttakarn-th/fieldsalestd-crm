@@ -2,12 +2,13 @@
  * WebSetting.tsx — ตั้งค่าระบบ Web (Admin เท่านั้น)
  * Sidebar: ✎ คำอธิบายหน้า | 🤖 Bot Chat | 🖼️ Login Banner
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate, Link } from "react-router-dom";
 import {
   Settings2, HelpCircle, Bot, Image as ImageIcon,
   Save, RotateCcw, ChevronLeft, Check,
   ToggleLeft, ToggleRight, Info,
+  Brain, Plus, Trash2, Pencil, X, Tag, ChevronRight as ChevronRightIcon,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,10 @@ import {
   useWebSettings, PAGE_HELP_DEFAULTS,
   type BotSettings,
 } from "@/store/webSettingsStore";
+import { useBotQA, type BotQA, type BotQADraft } from "@/store/botQAStore";
 import { toast } from "sonner";
 
-type SidebarTab = "help" | "bot" | "banner";
+type SidebarTab = "help" | "bot" | "training" | "banner";
 
 const PAGE_LABELS: Record<string, string> = {
   "service-stock":        "Service and Stock",
@@ -206,6 +208,252 @@ function BotSection() {
   );
 }
 
+/* ── Bot Training Section ── */
+const CATEGORIES = ["ทั่วไป", "ทัวร์", "รถเช่า", "ราคา", "วีซ่า", "ประกัน", "เงื่อนไข", "ติดต่อ"];
+const EMPTY_DRAFT: BotQADraft = { keywords: [], answer: "", category: "ทั่วไป", active: true, match_mode: "any", priority: 0 };
+
+function BotTrainingSection() {
+  const { qaList, loading, loadQA, addQA, updateQA, deleteQA, toggleQA } = useBotQA();
+  const [showForm, setShowForm]   = useState(false);
+  const [editId,  setEditId]      = useState<string | null>(null);
+  const [draft,   setDraft]       = useState<BotQADraft>(EMPTY_DRAFT);
+  const [kwInput, setKwInput]     = useState("");
+  const [filter,  setFilter]      = useState<string>("ทั้งหมด");
+
+  useEffect(() => { loadQA(); }, [loadQA]);
+
+  const openAdd = () => {
+    setEditId(null);
+    setDraft(EMPTY_DRAFT);
+    setKwInput("");
+    setShowForm(true);
+  };
+
+  const openEdit = (qa: BotQA) => {
+    setEditId(qa.id);
+    setDraft({ keywords: qa.keywords, answer: qa.answer, category: qa.category, active: qa.active, match_mode: qa.match_mode, priority: qa.priority });
+    setKwInput(qa.keywords.join(", "));
+    setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditId(null); };
+
+  const handleKwBlur = () => {
+    const kws = kwInput.split(/[,\n]/).map(k => k.trim().toLowerCase()).filter(Boolean);
+    setDraft(d => ({ ...d, keywords: kws }));
+  };
+
+  const handleSave = async () => {
+    const kws = kwInput.split(/[,\n]/).map(k => k.trim().toLowerCase()).filter(Boolean);
+    if (!kws.length) { toast.error("กรุณาใส่ Keyword อย่างน้อย 1 คำ"); return; }
+    if (!draft.answer.trim()) { toast.error("กรุณาใส่คำตอบ"); return; }
+    const payload = { ...draft, keywords: kws };
+    if (editId) {
+      await updateQA(editId, payload);
+    } else {
+      await addQA(payload);
+    }
+    closeForm();
+  };
+
+  const categories = ["ทั้งหมด", ...CATEGORIES];
+  const filtered = filter === "ทั้งหมด" ? qaList : qaList.filter(q => q.category === filter);
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Brain className="w-5 h-5 text-primary" />
+          <div>
+            <h2 className="font-bold text-base">เทรน Bot</h2>
+            <p className="text-xs text-muted-foreground">เพิ่มคำถาม-คำตอบที่ Bot จะใช้ตอบก่อน rule engine เสมอ</p>
+          </div>
+        </div>
+        <Button size="sm" onClick={openAdd} className="bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white gap-1.5 shrink-0">
+          <Plus className="w-3.5 h-3.5" /> เพิ่ม Q&A
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Q&A ทั้งหมด", value: qaList.length, color: "text-violet-600" },
+          { label: "เปิดใช้งาน",  value: qaList.filter(q => q.active).length, color: "text-green-600" },
+          { label: "ปิดใช้งาน",   value: qaList.filter(q => !q.active).length, color: "text-muted-foreground" },
+        ].map(s => (
+          <div key={s.label} className="bg-card rounded-xl border p-3 text-center">
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[10px] text-muted-foreground">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Category filter */}
+      <div className="flex gap-1.5 flex-wrap">
+        {categories.map(c => (
+          <button key={c} onClick={() => setFilter(c)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+              filter === c
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >{c}</button>
+        ))}
+      </div>
+
+      {/* Q&A Form */}
+      {showForm && (
+        <div className="bg-card rounded-2xl border-2 border-fuchsia-200 dark:border-fuchsia-800 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-sm">{editId ? "✎ แก้ไข Q&A" : "➕ เพิ่ม Q&A ใหม่"}</p>
+            <button onClick={closeForm} className="text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Keywords (คั่นด้วย , หรือ Enter)</label>
+              <Input
+                value={kwInput}
+                onChange={e => setKwInput(e.target.value)}
+                onBlur={handleKwBlur}
+                placeholder="เช่น โปรโมชัน, ส่วนลด, ราคาพิเศษ"
+                className="mt-1 text-sm h-9"
+              />
+              {draft.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {draft.keywords.map(k => (
+                    <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">คำตอบ</label>
+              <Textarea
+                value={draft.answer}
+                onChange={e => setDraft(d => ({ ...d, answer: e.target.value }))}
+                rows={4}
+                placeholder="พิมพ์คำตอบที่ต้องการให้ Bot ตอบ..."
+                className="mt-1 text-sm resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">หมวดหมู่</label>
+                <Select value={draft.category} onValueChange={v => setDraft(d => ({ ...d, category: v }))}>
+                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Match Mode</label>
+                <Select value={draft.match_mode} onValueChange={v => setDraft(d => ({ ...d, match_mode: v as "any"|"all" }))}>
+                  <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">any — ตรงคำใดก็ได้</SelectItem>
+                    <SelectItem value="all">all — ต้องมีทุกคำ</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground">Priority</label>
+                <Input
+                  type="number" min={0} max={100}
+                  value={draft.priority}
+                  onChange={e => setDraft(d => ({ ...d, priority: parseInt(e.target.value) || 0 }))}
+                  className="w-16 h-8 text-xs text-center"
+                />
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-xs font-medium text-muted-foreground">เปิดใช้งาน</label>
+                <ToggleSwitch value={draft.active} onChange={v => setDraft(d => ({ ...d, active: v }))} />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" onClick={handleSave} className="bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white gap-1.5 flex-1">
+              <Save className="w-3.5 h-3.5" /> {editId ? "บันทึกการแก้ไข" : "เพิ่ม Q&A"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={closeForm}>ยกเลิก</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Q&A List */}
+      {loading ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">กำลังโหลด...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 space-y-3">
+          <Brain className="w-10 h-10 mx-auto text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">ยังไม่มี Q&A ในหมวดนี้</p>
+          <Button size="sm" variant="outline" onClick={openAdd} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> เพิ่มคำถามแรก
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(qa => (
+            <div key={qa.id} className={`bg-card rounded-xl border p-3 space-y-2 transition-opacity ${!qa.active ? "opacity-50" : ""}`}>
+              {/* Header row */}
+              <div className="flex items-start gap-2 justify-between">
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <Badge variant="outline" className="text-[10px] shrink-0">{qa.category}</Badge>
+                  {qa.priority > 0 && (
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 shrink-0">P{qa.priority}</Badge>
+                  )}
+                  {!qa.active && <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">ปิด</Badge>}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => toggleQA(qa.id)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      qa.active
+                        ? "border-green-300 text-green-600 hover:bg-green-50"
+                        : "border-muted text-muted-foreground hover:bg-muted"
+                    }`}
+                  >{qa.active ? "เปิด" : "ปิด"}</button>
+                  <button onClick={() => openEdit(qa)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm("ลบ Q&A นี้?")) deleteQA(qa.id); }}
+                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Keywords */}
+              <div className="flex flex-wrap gap-1">
+                {qa.keywords.map(k => (
+                  <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-200 dark:border-fuchsia-800">
+                    {k}
+                  </span>
+                ))}
+                <span className="text-[10px] text-muted-foreground/60 px-1">({qa.match_mode})</span>
+              </div>
+
+              {/* Answer preview */}
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-2.5 py-1.5 whitespace-pre-wrap line-clamp-3">{qa.answer}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main ── */
 export default function WebSetting() {
   const user = useCurrentUser();
@@ -214,9 +462,10 @@ export default function WebSetting() {
   if (!user || user.role !== "Admin") return <Navigate to="/" replace />;
 
   const tabs: { key: SidebarTab; label: string; icon: React.ElementType }[] = [
-    { key: "help",   label: "คำอธิบายหน้า (?)",    icon: HelpCircle },
-    { key: "bot",    label: "ตั้งค่า Chat Bot",      icon: Bot },
-    { key: "banner", label: "Login Banner",           icon: ImageIcon },
+    { key: "help",     label: "คำอธิบายหน้า (?)",  icon: HelpCircle },
+    { key: "bot",      label: "ตั้งค่า Chat Bot",    icon: Bot },
+    { key: "training", label: "เทรน Bot (Q&A)",      icon: Brain },
+    { key: "banner",   label: "Login Banner",         icon: ImageIcon },
   ];
 
   return (
@@ -288,8 +537,9 @@ export default function WebSetting() {
 
         {/* Content */}
         <main className="flex-1 p-4 sm:p-6 min-h-[calc(100vh-56px)]">
-          {tab === "help"   && <HelpTextSection />}
-          {tab === "bot"    && <BotSection />}
+          {tab === "help"     && <HelpTextSection />}
+          {tab === "bot"      && <BotSection />}
+          {tab === "training" && <BotTrainingSection />}
           {tab === "banner" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">

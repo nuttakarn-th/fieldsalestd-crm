@@ -19,6 +19,7 @@ import { useWebSettings } from "@/store/webSettingsStore";
 import { standyRespond, resolveCustomerDetail } from "@/lib/standyEngine";
 import type { StandyContext, StandyResponse } from "@/lib/standyEngine";
 import type { Customer } from "@/store/crmStore";
+import { useBotQA } from "@/store/botQAStore";
 
 // ── Open/close store ──────────────────────────────────────────────────────
 interface StandyUIState {
@@ -108,6 +109,10 @@ export function StandyWidget() {
   const leads      = useCRM((s) => s.leads);
   const user       = useCurrentUser();
   const botSettings = useWebSettings((s) => s.botSettings);
+  const { qaList, loadQA } = useBotQA();
+
+  // โหลด Q&A ครั้งแรกที่ widget mount
+  useEffect(() => { loadQA(); }, [loadQA]);
 
   // Conversation state
   const [msgs, setMsgs] = useState<ChatMsg[]>([
@@ -145,6 +150,7 @@ export function StandyWidget() {
     leads:     user ? leads     : undefined,
     settings:  botSettings,
     userRole:  user?.role,
+    qaList,
   });
 
   const addMsg = (role: "user" | "bot", text: string, smartCards?: string[]) =>
