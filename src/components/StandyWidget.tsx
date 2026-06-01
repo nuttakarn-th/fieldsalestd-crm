@@ -15,6 +15,7 @@ import { Bot, X, Send, Sparkles } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
 import { useCRM } from "@/store/crmStore";
 import { useCurrentUser } from "@/store/authStore";
+import { useWebSettings } from "@/store/webSettingsStore";
 import { standyRespond, resolveCustomerDetail } from "@/lib/standyEngine";
 import type { StandyContext, StandyResponse } from "@/lib/standyEngine";
 import type { Customer } from "@/store/crmStore";
@@ -37,6 +38,7 @@ interface ChatMsg {
   id: string;
   role: "user" | "bot";
   text: string;
+  smartCards?: string[]; // follow-up suggestion chips for this message
 }
 
 let msgSeq = 0;
@@ -105,6 +107,7 @@ export function StandyWidget() {
   const customers  = useCRM((s) => s.customers);
   const leads      = useCRM((s) => s.leads);
   const user       = useCurrentUser();
+  const botSettings = useWebSettings((s) => s.botSettings);
 
   // Conversation state
   const [msgs, setMsgs] = useState<ChatMsg[]>([
@@ -138,13 +141,14 @@ export function StandyWidget() {
     hotels,
     visas,
     insurances,
-    // Only provide customer / lead data if user is logged in (staff)
     customers: user ? customers : undefined,
     leads:     user ? leads     : undefined,
+    settings:  botSettings,
+    userRole:  user?.role,
   });
 
-  const addMsg = (role: "user" | "bot", text: string) =>
-    setMsgs((prev) => [...prev, { id: mkId(), role, text }]);
+  const addMsg = (role: "user" | "bot", text: string, smartCards?: string[]) =>
+    setMsgs((prev) => [...prev, { id: mkId(), role, text, smartCards }]);
 
   const sendText = (q: string) => {
     q = q.trim();
@@ -155,7 +159,8 @@ export function StandyWidget() {
     // Sensitive approval flow
     const approval = /^(ใช่|yes|ยืนยัน|โชว์|แสดง|ตกลง|ok|okay)$/i.test(q);
     if (approval && pending) {
-      addMsg("bot", resolveCustomerDetail(pending.data));
+      const concise = botSettings.tone === "concise";
+      addMsg("bot", resolveCustomerDetail(pending.data, concise));
       setPending(null);
       return;
     }
@@ -175,7 +180,7 @@ export function StandyWidget() {
     } else {
       setPending(null);
     }
-    addMsg("bot", res.text);
+    addMsg("bot", res.text, res.smartCards);
   };
 
   const handleSend = () => sendText(input);
@@ -185,6 +190,18 @@ export function StandyWidget() {
   };
 
   if (!open) return null;
+
+  // Bot disabled by Admin
+  if (!botSettings.enabled) {
+    return (
+      <div className="fixed bottom-4 right-4 z-[9999] w-[320px] rounded-2xl shadow-2xl border border-border bg-background text-foreground overflow-hidden p-6 text-center">
+        <Bot className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
+        <p className="font-bold text-sm">Standy ถูกปิดใช้งาน</p>
+        <p className="text-xs text-muted-foreground mt-1">Admin ปิดฟีเจอร์ Chat Bot ไว้ชั่วคราวครับ</p>
+        <button onClick={close} className="mt-4 text-xs text-muted-foreground underline">ปิด</button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -213,25 +230,39 @@ export function StandyWidget() {
 
       {/* ── Messages ── */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
-        {msgs.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}
-          >
-            {m.role === "bot" && (
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="w-3 h-3 text-white" />
+        {msgs.map((m, idx) => (
+          <div key={m.id}>
+            <div className={`flex ${m.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
+              {m.role === "bot" && (
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-fuchsia-500 to-violet-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <div
+                className={`max-w-[82%] px-3 py-2 rounded-2xl text-[12.5px] ${
+                  m.role === "user"
+                    ? "bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white rounded-tr-sm"
+                    : "bg-muted text-foreground rounded-tl-sm"
+                }`}
+              >
+                <RenderText text={m.text} />
+              </div>
+            </div>
+
+            {/* Smart card chips — only on last bot message */}
+            {m.role === "bot" && m.smartCards && m.smartCards.length > 0 && idx === msgs.length - 1 && (
+              <div className="flex gap-1.5 mt-2 ml-8 flex-wrap">
+                {m.smartCards.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => sendText(s)}
+                    className="text-[10px] px-2.5 py-1 rounded-full border border-fuchsia-200 dark:border-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-700 dark:text-fuchsia-300 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40 transition-colors whitespace-nowrap"
+                  >
+                    {s} →
+                  </button>
+                ))}
               </div>
             )}
-            <div
-              className={`max-w-[82%] px-3 py-2 rounded-2xl text-[12.5px] ${
-                m.role === "user"
-                  ? "bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white rounded-tr-sm"
-                  : "bg-muted text-foreground rounded-tl-sm"
-              }`}
-            >
-              <RenderText text={m.text} />
-            </div>
           </div>
         ))}
 
@@ -250,18 +281,20 @@ export function StandyWidget() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Quick suggestions ── */}
-      <div className="flex gap-1.5 px-3 pb-1 overflow-x-auto no-scrollbar shrink-0">
-        {["ทัวร์ต่างประเทศ", "ที่นั่งว่าง", "รถเช่า", "ประกัน"].map((s) => (
-          <button
-            key={s}
-            onClick={() => sendText(s)}
-            className="shrink-0 text-[10px] px-2 py-1 rounded-full border border-border bg-muted hover:bg-fuchsia-500/10 hover:border-fuchsia-300 hover:text-fuchsia-600 transition-colors whitespace-nowrap"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      {/* ── Quick suggestions (initial state only) ── */}
+      {msgs.length <= 1 && (
+        <div className="flex gap-1.5 px-3 pb-1 overflow-x-auto no-scrollbar shrink-0">
+          {["ทัวร์ต่างประเทศ", "ที่นั่งว่าง", "รถเช่า", "ประกัน"].map((s) => (
+            <button
+              key={s}
+              onClick={() => sendText(s)}
+              className="shrink-0 text-[10px] px-2 py-1 rounded-full border border-border bg-muted hover:bg-fuchsia-500/10 hover:border-fuchsia-300 hover:text-fuchsia-600 transition-colors whitespace-nowrap"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Input bar ── */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-t border-border bg-card shrink-0">
