@@ -189,7 +189,19 @@ export function StandyWidget() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  if (!open) return null;
+  // Floating FAB button (shown when panel is closed)
+  if (!open) {
+    return (
+      <button
+        onClick={toggle}
+        className="fixed bottom-5 right-5 z-[9998] w-14 h-14 rounded-full shadow-2xl bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+        aria-label="Standy Assistant"
+        title="Standy Assistant"
+      >
+        <Bot className="w-6 h-6" />
+      </button>
+    );
+  }
 
   // Bot disabled by Admin
   if (!botSettings.enabled) {
