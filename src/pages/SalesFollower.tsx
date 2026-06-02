@@ -9,7 +9,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
 import { useCRM } from "@/store/crmStore";
-import { useActiveSalesNames } from "@/store/authStore";
+import { useActiveSalesNames, useCurrentUser, useAuth } from "@/store/authStore";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -18,6 +18,9 @@ export default function SalesFollower() {
   const currentRep = useCRM((s) => s.currentRep);
   const routes = useCRM((s) => s.routes);
   const SALES_REPS = useActiveSalesNames();
+  const user = useCurrentUser();
+  const viewAsRole = useAuth((s) => s.viewAsRole);
+  const effectiveRole = user?.role === "Admin" && viewAsRole ? viewAsRole : user?.role;
 
   const [preset, setPreset] = useState<RangePreset>("month");
   const [custom, setCustom] = useState<DateRange | undefined>();
@@ -40,7 +43,8 @@ export default function SalesFollower() {
     });
   }, [routes, range]);
 
-  if (currentRep !== "All") return <Navigate to="/app" replace />;
+  // อนุญาต: Admin (currentRep = "All"), Sales Manager
+  if (currentRep !== "All" && effectiveRole !== "Sales Manager") return <Navigate to="/app" replace />;
 
   /* ── Export PDF (print window) ── */
   const exportPDF = useCallback(() => {

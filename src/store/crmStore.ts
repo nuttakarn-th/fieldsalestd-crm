@@ -1025,7 +1025,15 @@ export const useCRM = create<CRMState>()(
         customers:         state.customers,
         leads:             state.leads,
         targets:           state.targets,
-        routes:            state.routes,
+        // ไม่ persist data URL ของรูปภาพ (หนัก ~500KB/รูป → localStorage เต็ม)
+        // เก็บเฉพาะ URL จริง (http/https) ถ้ามี
+        routes: state.routes.map((r) => ({
+          ...r,
+          stops: r.stops.map((s) => ({
+            ...s,
+            field_photo_url: s.field_photo_url?.startsWith("data:") ? undefined : s.field_photo_url,
+          })),
+        })),
         currentRep:        state.currentRep,
         chatMessages:      state.chatMessages,
         teamNotifications: state.teamNotifications,
