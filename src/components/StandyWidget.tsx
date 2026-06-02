@@ -10,6 +10,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { create } from "zustand";
 import { Bot, X, Send, Sparkles } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
@@ -200,17 +201,18 @@ export function StandyWidget() {
 
   // Bot disabled by Admin
   if (!botSettings.enabled) {
-    return (
+    return createPortal(
       <div className="fixed bottom-4 right-4 z-[9999] w-[320px] rounded-2xl shadow-2xl border border-border bg-background text-foreground overflow-hidden p-6 text-center">
         <Bot className="w-8 h-8 mx-auto mb-3 text-muted-foreground" />
         <p className="font-bold text-sm">Standy ถูกปิดใช้งาน</p>
         <p className="text-xs text-muted-foreground mt-1">Admin ปิดฟีเจอร์ Chat Bot ไว้ชั่วคราวครับ</p>
         <button onClick={close} className="mt-4 text-xs text-muted-foreground underline">ปิด</button>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed bottom-4 right-4 z-[9999] flex flex-col w-[340px] sm:w-[380px] max-h-[70vh] rounded-2xl shadow-2xl border border-border bg-background text-foreground overflow-hidden"
       style={{ fontFamily: "'Inter', 'Kanit', sans-serif" }}
@@ -322,6 +324,7 @@ export function StandyWidget() {
           <Send className="w-3.5 h-3.5" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
