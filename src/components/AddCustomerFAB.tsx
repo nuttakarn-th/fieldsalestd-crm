@@ -3,13 +3,16 @@ import { Zap, Plus, X } from "lucide-react";
 import { QuickLeadDialog } from "@/components/QuickLeadDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { useChatUI } from "@/components/ChatWidget";
+import { useStandyUI } from "@/components/StandyWidget";
 
 export function AddCustomerFAB() {
   const [open, setOpen]           = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [fullOpen,  setFullOpen]  = useState(false);
 
-  const hidden = useChatUI((s) => s.isOpen);
+  const chatOpen   = useChatUI((s) => s.isOpen);
+  const standyOpen = useStandyUI((s) => s.open);
+  const hidden     = chatOpen || standyOpen;
 
   function handleQuick() { setOpen(false); setQuickOpen(true); }
   function handleFull()  { setOpen(false); setFullOpen(true);  }

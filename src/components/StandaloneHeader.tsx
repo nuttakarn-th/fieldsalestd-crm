@@ -80,6 +80,7 @@ export function StandaloneHeader({ backTo = "/", extra, hideChat = false }: Stan
         </div>
       </header>
       {!hideChat && <ChatWidget />}
+      <StandyWidget />
     </>
   );
 }

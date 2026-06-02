@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { StandyWidget } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
@@ -89,6 +90,7 @@ export default function AppLayout() {
           </main>
         </div>
         <ChatWidget />
+        <StandyWidget />
         {showFAB && <AddCustomerFAB />}
       </div>
     </SidebarProvider>

@@ -292,6 +292,7 @@ export default function Hub() {
       </main>
 
       <ChatWidget />
+      <StandyWidget />
       {isSales && <AddCustomerFAB />}
     </div>
   );

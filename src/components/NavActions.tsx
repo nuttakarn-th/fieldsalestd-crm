@@ -57,6 +57,7 @@ export function NavActions({ hideChat = false }: { hideChat?: boolean }) {
         <UserMenu />
       </div>
       {!hideChat && <ChatWidget />}
+      <StandyWidget />
     </>
   );
 }
