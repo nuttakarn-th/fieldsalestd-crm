@@ -210,7 +210,8 @@ export default function Hub() {
     ...(effectiveRole === "Admin" ? [adminUserTile, webSettingTile] : []),
     profileTile,
   ];
-  const isSales = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";
+  const isSales = effectiveRole === "Sales" || effectiveRole === "Sales Manager" || effectiveRole === "OB Co-ordinator";
+  const hideChatbot = effectiveRole === "Sales" || effectiveRole === "Sales Manager";
   return (
     <div className="min-h-screen text-white flex flex-col" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)" }}>
       <header className="px-6 py-5 flex items-center gap-3">
@@ -231,7 +232,7 @@ export default function Hub() {
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
           <SwitchRoleBtn variant="dark" />
-          <StandyBtn />
+          {!hideChatbot && <StandyBtn />}
           <StaleLeadBtn />
           <HubChatButton />
           <TeamNotifications />
@@ -292,7 +293,7 @@ export default function Hub() {
       </main>
 
       <ChatWidget />
-      <StandyWidget />
+      {!hideChatbot && <StandyWidget />}
       {isSales && <AddCustomerFAB />}
     </div>
   );
