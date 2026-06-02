@@ -1,7 +1,7 @@
 /**
  * deleteRequestStore.ts
  * Zustand store สำหรับคำขอลบลูกค้า (2-step approval)
- * Sales → ส่งคำขอ → Manager อนุมัติ → ลบจริง
+ * Sales -> ส่งคำขอ -> Manager อนุมัติ -> ลบจริง
  */
 import { create } from "zustand";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -67,7 +67,7 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
     };
     // Optimistic update
     set({ requests: [newReq, ...get().requests] });
-    toast.success("ส่งคำขอลบลูกค้าให้ Manager แล้ว รอการอนุมัติ 🔔");
+    toast.success("ส่งคำขอลบลูกค้าให้ Manager แล้ว รอการอนุมัติ");
 
     if (SUPABASE_ENABLED && supabase) {
       const { error } = await supabase
@@ -96,7 +96,7 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
 
     // Delete the actual customer
     deleteCustomerFn(req.customer_id);
-    toast.success(`อนุมัติลบลูกค้า "${req.customer_name}" แล้ว ✅`);
+    toast.success("อนุมัติลบลูกค้า \"" + req.customer_name + "\" แล้ว");
 
     if (SUPABASE_ENABLED && supabase) {
       await supabase
@@ -119,7 +119,7 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
     const patch = { status: "rejected" as const, reviewed_by: reviewedBy, reviewed_at: now };
 
     set({ requests: get().requests.map((r) => r.id === id ? { ...r, ...patch } : r) });
-    toast.info(`ปฏิเสธคำขอลบลูกค้า "${req.customer_name}" แล้ว`);
+    toast.info("ปฏิเสธคำขอลบลูกค้า \"" + req.customer_name + "\" แล้ว");
 
     if (SUPABASE_ENABLED && supabase) {
       await supabase
