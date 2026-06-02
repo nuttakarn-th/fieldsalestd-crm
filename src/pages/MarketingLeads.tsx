@@ -5,13 +5,11 @@
  * ทุก Role → Export XLSX
  */
 import { useState, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
 import {
-  Users, Plus, Phone, ChevronLeft, Search,
+  Users, Plus, Phone, Search,
   CheckCircle2, Clock, Trash2, Megaphone, X, Filter,
   FileDown, Upload, FileSpreadsheet, AlertCircle,
 } from "lucide-react";
-import { NavActions } from "@/components/NavActions";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -459,7 +457,7 @@ export default function MarketingLeads() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
       {/* ── Hidden file input ── */}
       <input
         ref={fileInputRef}
@@ -468,38 +466,6 @@ export default function MarketingLeads() {
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {/* ── Header ── */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b px-4 sm:px-6 h-14 flex items-center gap-2">
-        {/* Logo — always visible */}
-        <Link to="/" className="flex items-center gap-2 group shrink-0" title="กลับหน้าหลัก">
-          <div className="w-8 h-8 rounded-full overflow-hidden group-hover:scale-105 transition shrink-0">
-            <img src="/logo-icon.png" alt="Standard Tour" className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }} />
-          </div>
-        </Link>
-
-        {/* Breadcrumb — desktop only */}
-        <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
-          <ChevronLeft className="w-3.5 h-3.5" /> Hub
-        </Link>
-        <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>
-
-        {/* Title — flex-1 on mobile so NavActions stays right */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-none">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0">
-            <Users className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-sm truncate">Marketing Leads</span>
-          <span className="shrink-0"><PageHelp pageKey="marketing-leads" defaultText="รายชื่อ Prospect ที่ Marketing ลงข้อมูลไว้ — Sales กดขอ Lead ไปติดตามได้" /></span>
-        </div>
-
-        <div className="flex-1" />
-        <NavActions hideChat />
-      </header>
-
-      {/* ── Body ── */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-2">
 
         {/* ── Action bar — ทุก responsive ── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
@@ -640,7 +606,6 @@ export default function MarketingLeads() {
             ))}
           </div>
         )}
-      </div>
 
       {/* Modals */}
       {showForm && <AddLeadForm onClose={() => setShowForm(false)} createdBy={me} />}
