@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { create } from "zustand";
 import { MessageSquare, X, Send, Reply, AtSign, CornerDownRight, ImagePlus, Camera, Plus, Smile, Mic, MicOff, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -174,7 +175,7 @@ export function ChatWidget() {
     try { r.start(); recRef.current = r; setRecording(true); } catch {}
   };
 
-  return (
+  return createPortal(
     <>
       {/* Floating toggle — shown only on mobile (header button handles desktop) */}
       <button
@@ -303,6 +304,7 @@ export function ChatWidget() {
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
