@@ -109,7 +109,6 @@ const App = () => (
           <Route path="/users" element={<UsersPage />} />
           <Route path="/login-banner" element={<LoginBannerPage />} />
           <Route path="/web-setting" element={<WebSetting />} />
-          <Route path="/marketing-leads" element={<MarketingLeads />} />
           <Route path="/ads-dashboard" element={<AdsDashboard />} />
           <Route path="/service-stock" element={<AllServicePage />} />
           <Route path="/marketing-dashboard" element={<MarketingDashboardPage />} />
@@ -162,6 +161,7 @@ const App = () => (
             <Route path="booking-overview" element={<BookingOverview />} />
             <Route path="ob-dashboard" element={<OBDashboard />} />
             <Route path="heatmap" element={<ProvinceHeatmap />} />
+            <Route path="marketing-leads" element={<MarketingLeads />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

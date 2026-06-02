@@ -95,7 +95,7 @@ const marketingTiles = [
     title: "Marketing Leads",
     description: "รายชื่อ Prospect ที่ Marketing ลงไว้ — Sales กดรับ Lead ไปติดตามได้เลย",
     icon: UserPlus,
-    to: "/marketing-leads",
+    to: "/app/marketing-leads",
     gradient: "from-teal-500 via-emerald-500 to-cyan-500",
   },
   {
