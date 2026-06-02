@@ -43,8 +43,33 @@ export default function SalesFollower() {
     });
   }, [routes, range]);
 
-  // อนุญาต: Admin (currentRep = "All"), Sales Manager
-  if (currentRep !== "All" && effectiveRole !== "Sales Manager") return <Navigate to="/app" replace />;
+  // ── declare completedItems ก่อน exportPDF (ป้องกัน TDZ error) ──
+  const completedItems = useMemo(() => {
+    return routes
+      .flatMap((r) => r.stops.filter((s) => s.status === "completed").map((s) => ({ ...s, rep: r.rep })))
+      .filter((s) => inRange(s.completed_at ?? null, range))
+      .sort((a, b) => new Date(b.completed_at ?? 0).getTime() - new Date(a.completed_at ?? 0).getTime());
+  }, [routes, range]);
+
+  const reportItems = useMemo(() => {
+    if (!reportRep) return [];
+    return routes
+      .filter((r) => r.rep === reportRep)
+      .flatMap((r) => r.stops.filter((s) => s.status === "completed").map((s) => ({ ...s, routeTitle: r.title, routeDate: r.date })))
+      .filter((s) => inRange(s.completed_at ?? s.routeDate, range))
+      .sort((a, b) => new Date(a.completed_at ?? a.routeDate).getTime() - new Date(b.completed_at ?? b.routeDate).getTime());
+  }, [reportRep, routes, range]);
+
+  const totals = stats.reduce(
+    (a, s) => ({
+      planned: a.planned + s.planned,
+      completed: a.completed + s.completed,
+      routes: a.routes + s.routes,
+      totalMin: a.totalMin + s.totalMin,
+    }),
+    { planned: 0, completed: 0, routes: 0, totalMin: 0 },
+  );
+  const overallRate = totals.planned ? Math.round((totals.completed / totals.planned) * 100) : 0;
 
   /* ── Export PDF (print window) ── */
   const exportPDF = useCallback(() => {
@@ -136,32 +161,8 @@ export default function SalesFollower() {
     setTimeout(() => win.print(), 600);
   }, [stats, completedItems, range]);
 
-  const totals = stats.reduce(
-    (a, s) => ({
-      planned: a.planned + s.planned,
-      completed: a.completed + s.completed,
-      routes: a.routes + s.routes,
-      totalMin: a.totalMin + s.totalMin,
-    }),
-    { planned: 0, completed: 0, routes: 0, totalMin: 0 },
-  );
-  const overallRate = totals.planned ? Math.round((totals.completed / totals.planned) * 100) : 0;
-
-  const completedItems = useMemo(() => {
-    return routes
-      .flatMap((r) => r.stops.filter((s) => s.status === "completed").map((s) => ({ ...s, rep: r.rep })))
-      .filter((s) => inRange(s.completed_at ?? null, range))
-      .sort((a, b) => new Date(b.completed_at ?? 0).getTime() - new Date(a.completed_at ?? 0).getTime());
-  }, [routes, range]);
-
-  const reportItems = useMemo(() => {
-    if (!reportRep) return [];
-    return routes
-      .filter((r) => r.rep === reportRep)
-      .flatMap((r) => r.stops.filter((s) => s.status === "completed").map((s) => ({ ...s, routeTitle: r.title, routeDate: r.date })))
-      .filter((s) => inRange(s.completed_at ?? s.routeDate, range))
-      .sort((a, b) => new Date(a.completed_at ?? a.routeDate).getTime() - new Date(b.completed_at ?? b.routeDate).getTime());
-  }, [reportRep, routes, range]);
+  // ── Guard: อนุญาตเฉพาะ Admin (currentRep="All") และ Sales Manager ──
+  if (currentRep !== "All" && effectiveRole !== "Sales Manager") return <Navigate to="/app" replace />;
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
