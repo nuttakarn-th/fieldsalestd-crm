@@ -381,7 +381,7 @@ export default function Customers() {
                         <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                       </Button>
                     )}
-                    {(user?.role === "Sales" || user?.role === "OB Co-ordinator") && currentRep !== "All" && (
+                    {currentRep !== "All" && (
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                         <Trash2 className="w-4 h-4 text-destructive/70" />
                       </Button>
@@ -508,7 +508,7 @@ export default function Customers() {
                               <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                             </Button>
                           )}
-                          {(user?.role === "Sales" || user?.role === "OB Co-ordinator") && currentRep !== "All" && (
+                          {currentRep !== "All" && (
                             <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                               <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
                             </Button>
