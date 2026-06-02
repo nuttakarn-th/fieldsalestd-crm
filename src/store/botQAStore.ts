@@ -4,7 +4,7 @@
  * Admin เพิ่ม/แก้/ลบ Q&A ได้ใน Web Setting → Bot ดึงมาตอบก่อน rule engine
  */
 import { create } from "zustand";
-import { supabase, SUPABASE_ENABLED } from "@/lib/supabaseClient";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export interface BotQA {
