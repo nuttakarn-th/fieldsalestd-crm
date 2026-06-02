@@ -2,11 +2,17 @@ import { useState } from "react";
 import { Zap, Plus, X } from "lucide-react";
 import { QuickLeadDialog } from "@/components/QuickLeadDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
+import { useChatUI } from "@/components/ChatWidget";
+import { useStandyUI } from "@/components/StandyWidget";
 
 export function AddCustomerFAB() {
   const [open, setOpen]           = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [fullOpen,  setFullOpen]  = useState(false);
+
+  const chatOpen   = useChatUI((s) => s.isOpen);
+  const standyOpen = useStandyUI((s) => s.open);
+  const hidden     = chatOpen || standyOpen;
 
   function handleQuick() { setOpen(false); setQuickOpen(true); }
   function handleFull()  { setOpen(false); setFullOpen(true);  }
@@ -14,7 +20,7 @@ export function AddCustomerFAB() {
   return (
     <>
       {/* Backdrop — close menu on outside click */}
-      {open && (
+      {open && !hidden && (
         <div
           className="fixed inset-0 z-40"
           onClick={() => setOpen(false)}
@@ -22,7 +28,7 @@ export function AddCustomerFAB() {
       )}
 
       {/* Speed-dial stack */}
-      <div className="fixed bottom-[4.5rem] right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3">
+      <div className={`fixed bottom-[4.5rem] right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3 transition-all duration-300 ${hidden ? "opacity-0 pointer-events-none scale-75" : "opacity-100 scale-100"}`}>
 
         {/* Sub-buttons (visible when open) */}
         {open && (
