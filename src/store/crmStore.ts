@@ -457,6 +457,7 @@ interface CRMState {
   loadAllFromSupabase: () => Promise<void>;
   addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by"> & { created_by?: SalesRep }) => string;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
   addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
@@ -731,6 +732,11 @@ export const useCRM = create<CRMState>()(
         if (error) console.error("[supabase] update customer ล้มเหลว:", error);
       });
     }
+  },
+
+  deleteCustomer: (id) => {
+    set({ customers: get().customers.filter((c) => c.customer_id !== id) });
+    // Supabase delete is handled by deleteRequestStore.approveRequest
   },
 
   transferCustomer: (id, toRep) => {

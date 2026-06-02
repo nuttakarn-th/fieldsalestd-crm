@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
 import { useCurrentUser, useActiveSalesNames } from "@/store/authStore";
+import { useDeleteRequests } from "@/store/deleteRequestStore";
+import { Textarea } from "@/components/ui/textarea";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -93,7 +95,9 @@ export default function Customers() {
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
+  const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const addCustomer = useCRM((s) => s.addCustomer);
+  const { addRequest } = useDeleteRequests();
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const [q, setQ] = useState("");
@@ -101,6 +105,8 @@ export default function Customers() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [transferOf, setTransferOf] = useState<Customer | null>(null);
   const [transferTo, setTransferTo] = useState<SalesRep | "">("");
+  const [deleteOf, setDeleteOf] = useState<Customer | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   // Filters
   const [filterTier, setFilterTier] = useState<Tier | "all">("all");
@@ -375,6 +381,11 @@ export default function Customers() {
                         <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                       </Button>
                     )}
+                    {(user?.role === "Sales" || user?.role === "OB Co-ordinator") && c.created_by === currentRep && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                        <Trash2 className="w-4 h-4 text-destructive/70" />
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -497,6 +508,11 @@ export default function Customers() {
                               <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                             </Button>
                           )}
+                          {(user?.role === "Sales" || user?.role === "OB Co-ordinator") && c.created_by === currentRep && (
+                            <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                              <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>
@@ -550,6 +566,58 @@ export default function Customers() {
                 setTransferOf(null);
               }}
             >ยืนยันโอน</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Request Dialog ── */}
+      <Dialog open={!!deleteOf} onOpenChange={(o) => !o && setDeleteOf(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" /> ขอลบลูกค้า
+            </DialogTitle>
+          </DialogHeader>
+          {deleteOf && (
+            <div className="space-y-4">
+              <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 space-y-1">
+                <p className="text-sm font-semibold">{deleteOf.full_name}</p>
+                {deleteOf.company !== "-" && <p className="text-xs text-muted-foreground">{deleteOf.company}</p>}
+                <p className="text-xs text-muted-foreground">{deleteOf.phone}</p>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                ⚠️ คำขอลบจะถูกส่งให้ <strong>Sales Manager</strong> พิจารณา
+                ข้อมูลจะยังคงอยู่จนกว่า Manager จะอนุมัติ
+              </p>
+              <div>
+                <label className="text-xs font-semibold block mb-1.5">เหตุผลในการลบ <span className="text-muted-foreground font-normal">(ถ้ามี)</span></label>
+                <Textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="เช่น ลูกค้าซ้ำ / ข้อมูลผิด / ลูกค้าขอให้ลบออก..."
+                  rows={3}
+                  className="text-sm resize-none"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOf(null)}>ยกเลิก</Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!deleteOf || !user) return;
+                await addRequest({
+                  customer_id: deleteOf.customer_id,
+                  customer_name: deleteOf.full_name,
+                  requested_by: user.full_name,
+                  reason: deleteReason.trim() || undefined,
+                });
+                setDeleteOf(null);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" /> ส่งคำขอให้ Manager
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
