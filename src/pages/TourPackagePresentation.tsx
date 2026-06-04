@@ -1627,7 +1627,7 @@ function CountryCombobox({
 type FormData = Omit<TourPackageItem, "id" | "uploadedAt" | "pdfUrl" | "pdfName" | "coverUrl" | "isHighlight">;
 
 const EMPTY_FORM: FormData = {
-  title: "", duration: "", continent: "", country: "", city: "", tourTypes: [], description: "",
+  title: "", duration: "", continent: "", country: "", city: "", tourTypes: [], description: "", extraCountries: [],
 };
 
 function AddEditDialog({
@@ -1648,6 +1648,7 @@ function AddEditDialog({
         continent: editItem.continent, country: editItem.country,
         city: editItem.city, tourTypes: editItem.tourTypes,
         description: editItem.description ?? "",
+        extraCountries: editItem.extraCountries ?? [],
       });
     } else setForm(EMPTY_FORM);
     setTypeInput("");
@@ -1736,6 +1737,54 @@ function AddEditDialog({
                 </p>
               )}
             </div>
+
+            {/* ── ประเทศเพิ่มเติม (ประเทศที่ 2, 3...) ── */}
+            {!isInland && (
+              <div className="col-span-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label className="text-xs text-muted-foreground">ประเทศเพิ่มเติม (สำหรับโปรแกรมหลายประเทศ)</Label>
+                  {(form.extraCountries ?? []).length < 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, extraCountries: [...(f.extraCountries ?? []), ""] }))}
+                      className="text-[11px] text-violet-600 hover:text-violet-700 flex items-center gap-1 font-semibold"
+                    >
+                      <Plus className="w-3 h-3" /> + เพิ่มประเทศที่ {(form.extraCountries ?? []).length + 2}
+                    </button>
+                  )}
+                </div>
+                {(form.extraCountries ?? []).length > 0 && (
+                  <div className="space-y-1.5">
+                    {(form.extraCountries ?? []).map((ec, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground w-16 shrink-0">ประเทศที่ {idx + 2}</span>
+                        <div className="flex-1">
+                          <CountryCombobox
+                            value={ec}
+                            onChange={(country) => {
+                              const updated = [...(form.extraCountries ?? [])];
+                              updated[idx] = country;
+                              setForm(f => ({ ...f, extraCountries: updated }));
+                            }}
+                            isInland={false}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = (form.extraCountries ?? []).filter((_, i) => i !== idx);
+                            setForm(f => ({ ...f, extraCountries: updated }));
+                          }}
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── เมือง / จุดเด่น ── */}
             <div className="col-span-2 sm:col-span-1">
@@ -1899,6 +1948,15 @@ export default function TourPackagePresentation() {
       if (!p.continent || !p.country) continue;
       if (!map[p.continent]) map[p.continent] = [];
       if (!map[p.continent].includes(p.country)) map[p.continent].push(p.country);
+      // รวมประเทศเพิ่มเติมเข้า filter list ด้วย
+      for (const ec of (p.extraCountries ?? [])) {
+        if (!ec) continue;
+        // หา continent ของประเทศนั้นจาก WORLD_COUNTRIES
+        const found = WORLD_COUNTRIES.find(w => w.name === ec);
+        const ecContinent = found?.continent ?? p.continent;
+        if (!map[ecContinent]) map[ecContinent] = [];
+        if (!map[ecContinent].includes(ec)) map[ecContinent].push(ec);
+      }
     }
     // sort each list
     for (const k of Object.keys(map)) map[k].sort();
@@ -1909,7 +1967,7 @@ export default function TourPackagePresentation() {
   const filtered = useMemo(() => {
     return packages.filter(pkg => {
       if (activeContinents.size > 0 && !activeContinents.has(pkg.continent)) return false;
-      if (activeCountries.size  > 0 && !activeCountries.has(pkg.country))    return false;
+      if (activeCountries.size  > 0 && !activeCountries.has(pkg.country) && !(pkg.extraCountries ?? []).some(ec => activeCountries.has(ec))) return false;
       if (activeTourTypes.size  > 0 && !pkg.tourTypes.some(t => activeTourTypes.has(t))) return false;
       return true;
     });

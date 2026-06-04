@@ -25,7 +25,8 @@ export interface TourPackageItem {
   title: string;
   duration: string;         // e.g. "6 วัน 4 คืน"
   continent: string;        // e.g. "ยุโรป", "เอเชีย"
-  country: string;          // e.g. "ญี่ปุ่น", "สวิตเซอร์แลนด์"
+  country: string;          // e.g. "ญี่ปุ่น", "สวิตเซอร์แลนด์"  (ประเทศหลัก)
+  extraCountries?: string[]; // ประเทศที่ 2, 3 สำหรับโปรแกรมหลายประเทศ
   city: string;             // e.g. "โตเกียว", "เซอร์แมท"
   tourTypes: string[];      // e.g. ["ครอบครัว", "Premium"]
   pdfUrl: string;
