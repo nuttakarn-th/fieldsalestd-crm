@@ -736,7 +736,11 @@ export const useCRM = create<CRMState>()(
 
   deleteCustomer: (id) => {
     set({ customers: get().customers.filter((c) => c.customer_id !== id) });
-    // Supabase delete is handled by deleteRequestStore.approveRequest
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("customers").delete().eq("customer_id", id).then(({ error }) => {
+        if (error) console.error("[supabase] delete customer ล้มเหลว:", error);
+      });
+    }
   },
 
   transferCustomer: (id, toRep) => {
