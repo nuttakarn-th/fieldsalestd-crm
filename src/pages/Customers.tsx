@@ -100,6 +100,7 @@ export default function Customers() {
   const { addRequest } = useDeleteRequests();
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
+  const isAdmin = user?.role === "Admin";
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -386,6 +387,11 @@ export default function Customers() {
                         <Trash2 className="w-4 h-4 text-destructive/70" />
                       </Button>
                     )}
+                    {isAdmin && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" title="ลบทันที (Admin)" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
@@ -513,6 +519,11 @@ export default function Customers() {
                               <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
                             </Button>
                           )}
+                          {isAdmin && (
+                            <Button size="icon" variant="ghost" title="ลบทันที (Admin)" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                              <Trash2 className="w-4 h-4 text-destructive hover:text-destructive" />
+                            </Button>
+                          )}
                         </>
                       )}
                     </div>
@@ -575,7 +586,7 @@ export default function Customers() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="w-5 h-5" /> ขอลบลูกค้า
+              <Trash2 className="w-5 h-5" /> {isAdmin ? "ลบลูกค้า (Admin)" : "ขอลบลูกค้า"}
             </DialogTitle>
           </DialogHeader>
           {deleteOf && (
@@ -585,10 +596,16 @@ export default function Customers() {
                 {deleteOf.company !== "-" && <p className="text-xs text-muted-foreground">{deleteOf.company}</p>}
                 <p className="text-xs text-muted-foreground">{deleteOf.phone}</p>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                ⚠️ คำขอลบจะถูกส่งให้ <strong>Sales Manager</strong> พิจารณา
-                ข้อมูลจะยังคงอยู่จนกว่า Manager จะอนุมัติ
-              </p>
+              {isAdmin ? (
+                <p className="text-xs text-destructive/80 leading-relaxed">
+                  ⚠️ การลบโดย Admin จะ<strong>ลบทันทีถาวร</strong> ไม่สามารถกู้คืนได้
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  ⚠️ คำขอลบจะถูกส่งให้ <strong>Sales Manager</strong> พิจารณา
+                  ข้อมูลจะยังคงอยู่จนกว่า Manager จะอนุมัติ
+                </p>
+              )}
               <div>
                 <label className="text-xs font-semibold block mb-1.5">เหตุผลในการลบ <span className="text-muted-foreground font-normal">(ถ้ามี)</span></label>
                 <Textarea
@@ -607,16 +624,22 @@ export default function Customers() {
               variant="destructive"
               onClick={async () => {
                 if (!deleteOf || !user) return;
-                await addRequest({
-                  customer_id: deleteOf.customer_id,
-                  customer_name: deleteOf.full_name,
-                  requested_by: user.full_name,
-                  reason: deleteReason.trim() || undefined,
-                });
+                if (isAdmin) {
+                  // Admin ลบตรงได้เลย ไม่ต้องผ่าน approval
+                  deleteCustomer(deleteOf.customer_id);
+                } else {
+                  await addRequest({
+                    customer_id: deleteOf.customer_id,
+                    customer_name: deleteOf.full_name,
+                    requested_by: user.full_name,
+                    reason: deleteReason.trim() || undefined,
+                  });
+                }
                 setDeleteOf(null);
               }}
             >
-              <Trash2 className="w-4 h-4 mr-1.5" /> ส่งคำขอให้ Manager
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              {isAdmin ? "ลบทันที" : "ส่งคำขอให้ Manager"}
             </Button>
           </DialogFooter>
         </DialogContent>
