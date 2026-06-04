@@ -101,6 +101,8 @@ export default function Customers() {
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
+  const isSalesManager = user?.role === "Sales Manager";
+  const canDirectDelete = isAdmin || isSalesManager;
   const [q, setQ] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -382,13 +384,13 @@ export default function Customers() {
                         <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                       </Button>
                     )}
-                    {currentRep !== "All" && (
+                    {currentRep !== "All" && !canDirectDelete && (
                       <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                         <Trash2 className="w-4 h-4 text-destructive/70" />
                       </Button>
                     )}
-                    {isAdmin && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" title="ลบทันที (Admin)" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                    {canDirectDelete && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     )}
@@ -514,13 +516,13 @@ export default function Customers() {
                               <ArrowRightLeft className="w-4 h-4 text-amber-600" />
                             </Button>
                           )}
-                          {currentRep !== "All" && (
+                          {currentRep !== "All" && !canDirectDelete && (
                             <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                               <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
                             </Button>
                           )}
-                          {isAdmin && (
-                            <Button size="icon" variant="ghost" title="ลบทันที (Admin)" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                          {canDirectDelete && (
+                            <Button size="icon" variant="ghost" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
                               <Trash2 className="w-4 h-4 text-destructive hover:text-destructive" />
                             </Button>
                           )}
@@ -586,7 +588,8 @@ export default function Customers() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="w-5 h-5" /> {isAdmin ? "ลบลูกค้า (Admin)" : "ขอลบลูกค้า"}
+              <Trash2 className="w-5 h-5" />
+              {isAdmin ? "ลบลูกค้า (Admin)" : isSalesManager ? "ลบลูกค้า (Sales Manager)" : "ขอลบลูกค้า"}
             </DialogTitle>
           </DialogHeader>
           {deleteOf && (
@@ -596,9 +599,9 @@ export default function Customers() {
                 {deleteOf.company !== "-" && <p className="text-xs text-muted-foreground">{deleteOf.company}</p>}
                 <p className="text-xs text-muted-foreground">{deleteOf.phone}</p>
               </div>
-              {isAdmin ? (
+              {canDirectDelete ? (
                 <p className="text-xs text-destructive/80 leading-relaxed">
-                  ⚠️ การลบโดย Admin จะ<strong>ลบทันทีถาวร</strong> ไม่สามารถกู้คืนได้
+                  ⚠️ การลบโดย {isAdmin ? "Admin" : "Sales Manager"} จะ<strong>ลบทันทีถาวร</strong> ไม่สามารถกู้คืนได้
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -624,8 +627,8 @@ export default function Customers() {
               variant="destructive"
               onClick={async () => {
                 if (!deleteOf || !user) return;
-                if (isAdmin) {
-                  // Admin ลบตรงได้เลย ไม่ต้องผ่าน approval
+                if (canDirectDelete) {
+                  // Admin / Sales Manager ลบตรงได้เลย ไม่ต้องผ่าน approval
                   deleteCustomer(deleteOf.customer_id);
                 } else {
                   await addRequest({
@@ -639,7 +642,7 @@ export default function Customers() {
               }}
             >
               <Trash2 className="w-4 h-4 mr-1.5" />
-              {isAdmin ? "ลบทันที" : "ส่งคำขอให้ Manager"}
+              {canDirectDelete ? "ลบทันที" : "ส่งคำขอให้ Manager"}
             </Button>
           </DialogFooter>
         </DialogContent>
