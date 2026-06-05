@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Camera, CheckCircle2, Clock, Edit3, ImageIcon, MapPin, Route as RouteIcon, Save, X, Map as MapIcon, CalendarIcon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
@@ -37,6 +37,19 @@ export default function CompletedRoute() {
   const [editNote, setEditNote] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<Date>(new Date());
+  const [osrmDistanceKm, setOsrmDistanceKm] = useState<string | null>(null);
+
+  // Listen for real road distance from OSRM (sent via postMessage from Leaflet iframe)
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "osrm_distance") setOsrmDistanceKm(e.data.km);
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  // Reset OSRM distance whenever report date or stops change
+  useEffect(() => { setOsrmDistanceKm(null); }, [reportKey]);
 
   const range = useMemo(() => resolveRange(preset, customRange), [preset, customRange]);
   const completedItems = useMemo<CompletedItem[]>(() => {
@@ -96,7 +109,8 @@ const pts=${pointsJson};
 const map=L.map('map',{zoomControl:true});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
 const latlngs=pts.map(p=>[p.lat,p.lng]);
-if(pts.length>1){L.polyline(latlngs,{color:'#6366f1',weight:4,opacity:0.75}).addTo(map);}
+
+// Add numbered markers
 pts.forEach((p,i)=>{
   const isFirst=i===0,isLast=i===pts.length-1;
   const bg=isFirst?'#22c55e':isLast?'#ef4444':'#6366f1';
@@ -104,6 +118,29 @@ pts.forEach((p,i)=>{
   L.marker([p.lat,p.lng],{icon}).bindPopup('<b>'+p.seq+'. '+p.name+'</b><br>'+p.time).addTo(map);
 });
 if(latlngs.length>0){map.fitBounds(latlngs,{padding:[25,25]});}
+
+// Draw actual road route via OSRM (free, no API key)
+if(pts.length>1){
+  const osrmCoords=pts.map(p=>p.lng+','+p.lat).join(';');
+  const osrmUrl='https://router.project-osrm.org/route/v1/driving/'+osrmCoords+'?overview=full&geometries=geojson';
+  fetch(osrmUrl)
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.routes&&data.routes[0]){
+        const roadLine=L.geoJSON(data.routes[0].geometry,{style:{color:'#6366f1',weight:5,opacity:0.85}}).addTo(map);
+        // Re-fit to road bounds
+        map.fitBounds(roadLine.getBounds(),{padding:[25,25]});
+        // Send actual road distance back to parent
+        const distKm=(data.routes[0].distance/1000).toFixed(1);
+        window.parent.postMessage({type:'osrm_distance',km:distKm},'*');
+      } else {
+        L.polyline(latlngs,{color:'#6366f1',weight:4,opacity:0.6,dashArray:'8,5'}).addTo(map);
+      }
+    })
+    .catch(()=>{
+      L.polyline(latlngs,{color:'#6366f1',weight:4,opacity:0.6,dashArray:'8,5'}).addTo(map);
+    });
+}
 <\/script></body></html>`;
   }, [reportPoints]);
 
@@ -230,14 +267,16 @@ if(latlngs.length>0){map.fitBounds(latlngs,{padding:[25,25]});}
               <Badge variant="outline">{reportPoints.length} จุดมีพิกัด · ทั้งหมด {reportStops.length} จุด</Badge>
               {reportPoints.length >= 2 && (
                 <Badge className="bg-primary/15 text-primary border-primary/30">
-                  ระยะทางรวม ~{totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} ม.` : `${totalDistanceKm.toFixed(1)} กม.`}
+                  {osrmDistanceKm
+                    ? `ระยะทางถนน ~${osrmDistanceKm} กม.`
+                    : `ระยะทางรวม ~${totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} ม.` : `${totalDistanceKm.toFixed(1)} กม.`}`}
                 </Badge>
               )}
             </div>
 
             <div className="rounded-xl border overflow-hidden bg-muted/40 aspect-video">
               {leafletMapSrcdoc ? (
-                <iframe title="Route Report Map" srcDoc={leafletMapSrcdoc} className="w-full h-full" sandbox="allow-scripts" />
+                <iframe title="Route Report Map" srcDoc={leafletMapSrcdoc} className="w-full h-full" sandbox="allow-scripts allow-same-origin" />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
                   <MapIcon className="w-10 h-10 mb-2" />
@@ -249,7 +288,11 @@ if(latlngs.length>0){map.fitBounds(latlngs,{padding:[25,25]});}
             {reportPoints.length >= 2 && (
               <div className="rounded-lg border bg-primary/5 border-primary/20 px-4 py-3 flex items-center gap-3 text-sm">
                 <MapPin className="w-4 h-4 text-primary shrink-0" />
-                <span>ระยะทางรวมโดยประมาณจากจุดที่ 1 ถึงจุดที่ {reportPoints.length} คือ <b>{totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} เมตร` : `${totalDistanceKm.toFixed(1)} กิโลเมตร`}</b> (เส้นตรง GPS)</span>
+                {osrmDistanceKm ? (
+                  <span>ระยะทางตามถนนจากจุดที่ 1 ถึงจุดที่ {reportPoints.length} คือ <b>~{osrmDistanceKm} กิโลเมตร</b></span>
+                ) : (
+                  <span>ระยะทางรวมโดยประมาณจากจุดที่ 1 ถึงจุดที่ {reportPoints.length} คือ <b>{totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} เมตร` : `${totalDistanceKm.toFixed(1)} กิโลเมตร`}</b> <span className="text-muted-foreground">(กำลังโหลดระยะทางถนนจริง…)</span></span>
+                )}
               </div>
             )}
 
