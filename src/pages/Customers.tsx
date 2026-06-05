@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2 } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +97,16 @@ export default function Customers() {
   const transferCustomer = useCRM((s) => s.transferCustomer);
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const addCustomer = useCRM((s) => s.addCustomer);
-  const { addRequest } = useDeleteRequests();
+  const { requests: deleteRequests, loadRequests, addRequest } = useDeleteRequests();
+
+  // โหลด delete requests เพื่อตรวจสอบสถานะ "รอลบ" ของลูกค้าแต่ละราย
+  useEffect(() => { loadRequests(); }, [loadRequests]);
+
+  // Set ของ customer_id ที่มี pending delete request อยู่ (ใช้ lookup O(1))
+  const pendingDeleteIds = useMemo(
+    () => new Set(deleteRequests.filter((r) => r.status === "pending").map((r) => r.customer_id)),
+    [deleteRequests],
+  );
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
@@ -351,6 +360,12 @@ export default function Customers() {
               </div>
               <Badge variant="outline" className={`${tierBadge(c.customer_tier)} shrink-0`}>{c.customer_tier}</Badge>
             </div>
+            {/* Pending delete badge */}
+            {pendingDeleteIds.has(c.customer_id) && (
+              <div className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 font-medium">
+                <Clock className="w-3 h-3" /> รอ Manager อนุมัติลบ
+              </div>
+            )}
             {/* Interest tags */}
             {(c.interests ?? []).length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -385,9 +400,15 @@ export default function Customers() {
                       </Button>
                     )}
                     {currentRep !== "All" && !canDirectDelete && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                        <Trash2 className="w-4 h-4 text-destructive/70" />
-                      </Button>
+                      pendingDeleteIds.has(c.customer_id) ? (
+                        <span title="รอ Manager อนุมัติลบ" className="h-8 w-8 flex items-center justify-center text-amber-500">
+                          <Clock className="w-4 h-4" />
+                        </span>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                          <Trash2 className="w-4 h-4 text-destructive/70" />
+                        </Button>
+                      )
                     )}
                     {canDirectDelete && (
                       <Button size="icon" variant="ghost" className="h-8 w-8" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
@@ -457,6 +478,11 @@ export default function Customers() {
                         📝 {c.note}
                       </div>
                     )}
+                    {pendingDeleteIds.has(c.customer_id) && (
+                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300 font-medium">
+                        <Clock className="w-2.5 h-2.5" /> รอ Manager อนุมัติลบ
+                      </div>
+                    )}
                   </td>
                   {/* ติดต่อ */}
                   <td className="p-3">
@@ -517,9 +543,15 @@ export default function Customers() {
                             </Button>
                           )}
                           {currentRep !== "All" && !canDirectDelete && (
-                            <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                              <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
-                            </Button>
+                            pendingDeleteIds.has(c.customer_id) ? (
+                              <span title="รอ Manager อนุมัติลบอยู่" className="w-8 h-8 flex items-center justify-center text-amber-500">
+                                <Clock className="w-4 h-4" />
+                              </span>
+                            ) : (
+                              <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                                <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
+                              </Button>
+                            )
                           )}
                           {canDirectDelete && (
                             <Button size="icon" variant="ghost" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>

@@ -108,6 +108,16 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
         .from("customers")
         .delete()
         .eq("customer_id", req.customer_id);
+      // Broadcast notification to ALL users via team_notifications + Supabase Realtime
+      await supabase.from("team_notifications").insert({
+        id: crypto.randomUUID(),
+        sales: "All",
+        type: "customer_deleted",
+        title: "🗑️ ลบข้อมูลลูกค้าแล้ว",
+        body: `"${req.customer_name}" ถูกลบออกจากระบบโดย ${reviewedBy} (อนุมัติโดย ${reviewedBy})`,
+        created_at: now,
+        read: false,
+      });
     }
   },
 
