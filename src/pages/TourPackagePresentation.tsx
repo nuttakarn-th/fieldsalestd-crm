@@ -375,20 +375,28 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     pages[s * 2] ?? null, [pages]);
 
   // Compute display book dimensions from window size
+  // Fullscreen: use screen dimensions at max 92% height / 46% width per page
   // Mobile: larger maxW so single pages are readable; desktop: dual-page side-by-side
   const { pageW, pageH } = useMemo(() => {
     if (imgW === 0 || imgH === 0) return { pageW: 0, pageH: 0 };
-    const maxH  = window.innerHeight * (isMobile ? 0.65 : 0.72);
-    const maxW  = window.innerWidth  * (isMobile ? 0.42 : 0.37);   // per-page width
+    const vH = isFullscreen ? (screen.height || window.screen.height) : window.innerHeight;
+    const vW = isFullscreen ? (screen.width  || window.screen.width)  : window.innerWidth;
+    const maxH = vH * (isFullscreen ? 0.90 : isMobile ? 0.65 : 0.72);
+    const maxW = vW * (isFullscreen ? 0.46 : isMobile ? 0.42 : 0.37);
     const scale = Math.min(maxH / imgH, maxW / imgW, 1);
     return { pageW: Math.floor(imgW * scale), pageH: Math.floor(imgH * scale) };
-  }, [imgW, imgH, isMobile]);
+  }, [imgW, imgH, isMobile, isFullscreen]);
   const bookW = pageW * 2;
 
   // Window resize + fullscreen change
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
-    const onFSChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFSChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      // Give browser 1 frame to update screen dimensions, then force re-render
+      requestAnimationFrame(() => setIsMobile(prev => prev));
+    };
     window.addEventListener("resize", onResize);
     document.addEventListener("fullscreenchange", onFSChange);
     return () => {
@@ -400,6 +408,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       modalRef.current?.requestFullscreen?.();
+      setZoom(1); // reset zoom เมื่อขยายเต็มจอ
     } else {
       document.exitFullscreen?.();
     }
