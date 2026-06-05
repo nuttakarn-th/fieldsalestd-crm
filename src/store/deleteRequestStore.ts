@@ -114,7 +114,7 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
         sales: "All",
         type: "customer_deleted",
         title: "🗑️ ลบข้อมูลลูกค้าแล้ว",
-        body: `"${req.customer_name}" ถูกลบออกจากระบบโดย ${reviewedBy} (อนุมัติโดย ${reviewedBy})`,
+        detail: `"${req.customer_name}" ถูกลบออกจากระบบ — ขอโดย: ${req.requested_by} · อนุมัติโดย: ${reviewedBy}`,
         created_at: now,
         read: false,
       });

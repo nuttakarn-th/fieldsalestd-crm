@@ -50,7 +50,7 @@ export function TeamNotifications() {
         <div className="p-4 border-b">
           <p className="font-bold">แจ้งเตือนกิจกรรมทีม</p>
           <p className="text-xs text-muted-foreground">
-            {isManager ? "Mission, ลูกค้าใหม่ และคำขอลบลูกค้า" : "Mission และลูกค้าใหม่จาก Sales ทุกคน"}
+            {isManager ? "Mission, ลูกค้าใหม่, คำขอลบ และการลบลูกค้า" : "Mission, ลูกค้าใหม่ และการลบลูกค้า"}
           </p>
         </div>
 
@@ -117,15 +117,21 @@ export function TeamNotifications() {
             notifications.map((n) => (
               <div key={n.id} className="p-3 hover:bg-muted/40">
                 <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    {n.type === "mission_completed" ? <CheckCircle2 className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                    n.type === "customer_deleted"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-primary/10 text-primary"
+                  }`}>
+                    {n.type === "mission_completed" ? <CheckCircle2 className="w-4 h-4" />
+                      : n.type === "customer_deleted" ? <Trash2 className="w-4 h-4" />
+                      : <UserPlus className="w-4 h-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold">{n.title}</p>
-                      <Badge variant="outline" className="text-[10px]">{n.sales}</Badge>
+                      {n.sales !== "All" && <Badge variant="outline" className="text-[10px]">{n.sales}</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.detail}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{n.detail ?? (n as any).body}</p>
                     <div className="flex items-center justify-between gap-2 mt-2">
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />{fmtTime(n.created_at)}

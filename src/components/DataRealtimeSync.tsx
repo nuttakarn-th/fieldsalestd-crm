@@ -93,7 +93,8 @@ export function DataRealtimeSync() {
             sales: string;
             type: string;
             title: string;
-            body: string;
+            detail: string;
+            action_url?: string;
             created_at: string;
             read: boolean;
           };
@@ -106,7 +107,7 @@ export function DataRealtimeSync() {
 
             // Show toast if addressed to me or broadcast
             if (me && (notif.sales === me || notif.sales === "All")) {
-              toast(notif.title, { description: notif.body });
+              toast(notif.title, { description: notif.detail });
             }
           }
         }
