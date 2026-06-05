@@ -19,7 +19,7 @@ export function TeamNotifications() {
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const { requests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
 
-  const isManager = user?.role === "Admin" || user?.role === "Manager";
+  const isManager = user?.role === "Admin" || user?.role === "Sales Manager";
 
   // โหลด delete requests เมื่อ Manager/Admin เปิดระบบ
   useEffect(() => {

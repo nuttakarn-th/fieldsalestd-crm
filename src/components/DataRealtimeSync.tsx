@@ -1,11 +1,13 @@
 /**
  * DataRealtimeSync.tsx
- * Subscribe to Supabase Realtime channels for customers, leads, and team_notifications.
+ * Subscribe to Supabase Realtime channels for customers, leads, team_notifications,
+ * and customer_delete_requests.
  * Keeps all open tabs/browsers in sync without a manual refresh.
  */
 import { useEffect } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCRM, type Customer, type Lead } from "@/store/crmStore";
+import { useDeleteRequests, type DeleteRequest } from "@/store/deleteRequestStore";
 import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
 
@@ -14,6 +16,7 @@ export function DataRealtimeSync() {
 
   useEffect(() => {
     if (!SUPABASE_ENABLED || !supabase) return;
+    const isManager = currentUser?.role === "Admin" || currentUser?.role === "Sales Manager";
 
     // ── Customers channel ──────────────────────────────────────────────────
     const customerChannel = supabase
@@ -110,10 +113,44 @@ export function DataRealtimeSync() {
       )
       .subscribe();
 
+    // ── Customer Delete Requests channel ─────────────────────────────────────
+    // Manager/Admin ได้รับ toast แจ้งเตือนทันทีเมื่อ Sales ส่งคำขอลบ
+    const deleteReqChannel = supabase
+      .channel("delete_requests_realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "customer_delete_requests" },
+        (payload) => {
+          const newReq = payload.new as DeleteRequest;
+          // Push into deleteRequestStore so badge updates immediately
+          const store = useDeleteRequests.getState();
+          if (!store.requests.some((r) => r.id === newReq.id)) {
+            useDeleteRequests.setState({ requests: [newReq, ...store.requests] });
+          }
+          // Toast only for Manager / Admin
+          if (isManager) {
+            toast("🔔 คำขออนุมัติลบลูกค้า", {
+              description: `${newReq.requested_by} ขอลบ "${newReq.customer_name}"${newReq.reason ? ` — ${newReq.reason}` : ""}`,
+              duration: Infinity,   // ค้างจนกว่าจะกด action
+              action: {
+                label: "ดูคำขอ",
+                onClick: () => {
+                  // เปิด Bell popover ไม่ได้โดยตรง แต่ trigger click บน bell button ได้
+                  const bellBtn = document.querySelector<HTMLButtonElement>("[aria-label='Team notifications']");
+                  bellBtn?.click();
+                },
+              },
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(customerChannel);
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(notifChannel);
+      supabase.removeChannel(deleteReqChannel);
     };
   }, [currentUser]);
 
