@@ -22,7 +22,7 @@ import {
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
   MessageCircle, LogIn, Flame,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2,
-  SlidersHorizontal, Check, Search,
+  SlidersHorizontal, Check, Search, Maximize2, Minimize2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
@@ -343,6 +343,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const [,          forceUpdate]       = useState(0);
   const [zoom,          setZoom]       = useState(1);
   const [isMobile,      setIsMobile]   = useState(window.innerWidth < 768);
+  const [isFullscreen,  setIsFullscreen] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const flipRef    = useRef<{
     progress:    number;
@@ -383,12 +385,25 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   }, [imgW, imgH, isMobile]);
   const bookW = pageW * 2;
 
-  // Window resize
+  // Window resize + fullscreen change
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
+    const onFSChange = () => setIsFullscreen(!!document.fullscreenElement);
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    document.addEventListener("fullscreenchange", onFSChange);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("fullscreenchange", onFSChange);
+    };
   }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      modalRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
 
   // Load PDF
   useEffect(() => {
@@ -523,7 +538,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   function goToSpread(i: number) { if (!flipRef.current) setSpread(i); }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col">
+    <div ref={modalRef} className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex flex-col">
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-b from-black/80 to-transparent shrink-0 border-b border-white/10">
@@ -549,6 +564,11 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           className="hidden sm:flex items-center gap-1.5 text-xs text-white/70 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all">
           <FileText className="w-3.5 h-3.5" /> PDF
         </a>
+        <button onClick={toggleFullscreen}
+          className="w-8 h-8 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all"
+          title={isFullscreen ? "ออกจากเต็มจอ" : "เต็มจอ"}>
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
         <button onClick={onClose}
           className="w-8 h-8 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all">
           <X className="w-5 h-5" />
@@ -759,12 +779,37 @@ function BannerSlider({ banners, canEdit, onManage }: {
   const [idx, setIdx]           = useState(0);
   const [paused, setPaused]     = useState(false);
   const intervalRef             = useRef<NodeJS.Timeout | null>(null);
+  const dragStartX              = useRef<number | null>(null);
+  const isDragging              = useRef(false);
 
   useEffect(() => {
     if (banners.length <= 1 || paused) return;
     intervalRef.current = setInterval(() => setIdx(i => (i + 1) % banners.length), 5000);
     return () => { intervalRef.current && clearInterval(intervalRef.current); };
   }, [banners.length, paused]);
+
+  const prev = () => setIdx(i => (i - 1 + banners.length) % banners.length);
+  const next = () => setIdx(i => (i + 1) % banners.length);
+
+  // Touch handlers
+  const onTouchStartBanner = (e: React.TouchEvent) => { dragStartX.current = e.touches[0].clientX; };
+  const onTouchEndBanner   = (e: React.TouchEvent) => {
+    if (dragStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - dragStartX.current;
+    if (Math.abs(dx) > 40) { dx < 0 ? next() : prev(); setPaused(false); }
+    dragStartX.current = null;
+  };
+  // Mouse drag handlers
+  const onMouseDownBanner  = (e: React.MouseEvent) => { dragStartX.current = e.clientX; isDragging.current = false; };
+  const onMouseMoveBanner  = (e: React.MouseEvent) => {
+    if (dragStartX.current !== null && Math.abs(e.clientX - dragStartX.current) > 5) isDragging.current = true;
+  };
+  const onMouseUpBanner    = (e: React.MouseEvent) => {
+    if (dragStartX.current === null) return;
+    const dx = e.clientX - dragStartX.current;
+    if (isDragging.current && Math.abs(dx) > 40) { dx < 0 ? next() : prev(); setPaused(false); }
+    dragStartX.current = null; isDragging.current = false;
+  };
 
   if (banners.length === 0) {
     if (!canEdit) return null;
@@ -788,10 +833,15 @@ function BannerSlider({ banners, canEdit, onManage }: {
 
   return (
     <div
-      className="relative w-full overflow-hidden bg-gray-900"
-      style={{ aspectRatio: "1920/700" }}
+      className="relative w-full overflow-hidden bg-gray-900 select-none"
+      style={{ aspectRatio: "1920/700", cursor: banners.length > 1 ? "grab" : "default" }}
       onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onMouseLeave={(e) => { setPaused(false); onMouseUpBanner(e); }}
+      onTouchStart={onTouchStartBanner}
+      onTouchEnd={onTouchEndBanner}
+      onMouseDown={onMouseDownBanner}
+      onMouseMove={onMouseMoveBanner}
+      onMouseUp={onMouseUpBanner}
     >
       {banners.map((b, i) => (
         <div
@@ -851,13 +901,13 @@ function BannerSlider({ banners, canEdit, onManage }: {
       {banners.length > 1 && (
         <>
           <button
-            onClick={() => setIdx(i => (i - 1 + banners.length) % banners.length)}
+            onClick={prev}
             className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-10 transition-all"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
-            onClick={() => setIdx(i => (i + 1) % banners.length)}
+            onClick={next}
             className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center z-10 transition-all"
           >
             <ChevronRight className="w-5 h-5" />
