@@ -63,16 +63,48 @@ export default function CompletedRoute() {
     return all;
   }, [route, routes, reportKey]);
   const reportPoints = reportStops.filter((s) => typeof s.lat === "number" && typeof s.lng === "number") as (RouteStop & { lat: number; lng: number })[];
-  const mapSrc = useMemo(() => {
-    if (reportPoints.length === 0) return "";
-    if (reportPoints.length === 1) {
-      return `https://www.google.com/maps?q=${reportPoints[0].lat},${reportPoints[0].lng}&z=14&output=embed`;
+
+  // Haversine distance between two GPS points (km)
+  function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  const totalDistanceKm = useMemo(() => {
+    if (reportPoints.length < 2) return 0;
+    let sum = 0;
+    for (let i = 0; i < reportPoints.length - 1; i++) {
+      sum += haversineKm(reportPoints[i].lat, reportPoints[i].lng, reportPoints[i + 1].lat, reportPoints[i + 1].lng);
     }
-    const origin = `${reportPoints[0].lat},${reportPoints[0].lng}`;
-    const destination = `${reportPoints[reportPoints.length - 1].lat},${reportPoints[reportPoints.length - 1].lng}`;
-    const waypoints = reportPoints.slice(1, -1).map((p) => `${p.lat},${p.lng}`).join("|");
-    const wp = waypoints ? `&waypoints=${encodeURIComponent(waypoints)}` : "";
-    return `https://www.google.com/maps?saddr=${origin}&daddr=${destination}${wp}&output=embed`;
+    return sum;
+  }, [reportPoints]);
+
+  const leafletMapSrcdoc = useMemo(() => {
+    if (reportPoints.length === 0) return "";
+    const pointsJson = JSON.stringify(reportPoints.map((p, i) => ({
+      lat: p.lat,
+      lng: p.lng,
+      name: p.place_name,
+      time: p.completed_at ? new Date(p.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-",
+      seq: i + 1,
+    })));
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><style>html,body,#map{margin:0;padding:0;width:100%;height:100%;overflow:hidden;}</style></head><body><div id="map"></div><script>
+const pts=${pointsJson};
+const map=L.map('map',{zoomControl:true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
+const latlngs=pts.map(p=>[p.lat,p.lng]);
+if(pts.length>1){L.polyline(latlngs,{color:'#6366f1',weight:4,opacity:0.75}).addTo(map);}
+pts.forEach((p,i)=>{
+  const isFirst=i===0,isLast=i===pts.length-1;
+  const bg=isFirst?'#22c55e':isLast?'#ef4444':'#6366f1';
+  const icon=L.divIcon({html:'<div style="background:'+bg+';color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);line-height:1">'+p.seq+'</div>',iconSize:[30,30],iconAnchor:[15,15],className:''});
+  L.marker([p.lat,p.lng],{icon}).bindPopup('<b>'+p.seq+'. '+p.name+'</b><br>'+p.time).addTo(map);
+});
+if(latlngs.length>0){map.fitBounds(latlngs,{padding:[25,25]});}
+<\/script></body></html>`;
   }, [reportPoints]);
 
   const saveEdit = () => {
@@ -196,11 +228,16 @@ export default function CompletedRoute() {
                 </PopoverContent>
               </Popover>
               <Badge variant="outline">{reportPoints.length} จุดมีพิกัด · ทั้งหมด {reportStops.length} จุด</Badge>
+              {reportPoints.length >= 2 && (
+                <Badge className="bg-primary/15 text-primary border-primary/30">
+                  ระยะทางรวม ~{totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} ม.` : `${totalDistanceKm.toFixed(1)} กม.`}
+                </Badge>
+              )}
             </div>
 
             <div className="rounded-xl border overflow-hidden bg-muted/40 aspect-video">
-              {mapSrc ? (
-                <iframe title="Route Report Map" src={mapSrc} className="w-full h-full" loading="lazy" />
+              {leafletMapSrcdoc ? (
+                <iframe title="Route Report Map" srcDoc={leafletMapSrcdoc} className="w-full h-full" sandbox="allow-scripts" />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
                   <MapIcon className="w-10 h-10 mb-2" />
@@ -208,6 +245,13 @@ export default function CompletedRoute() {
                 </div>
               )}
             </div>
+
+            {reportPoints.length >= 2 && (
+              <div className="rounded-lg border bg-primary/5 border-primary/20 px-4 py-3 flex items-center gap-3 text-sm">
+                <MapPin className="w-4 h-4 text-primary shrink-0" />
+                <span>ระยะทางรวมโดยประมาณจากจุดที่ 1 ถึงจุดที่ {reportPoints.length} คือ <b>{totalDistanceKm < 1 ? `${Math.round(totalDistanceKm * 1000)} เมตร` : `${totalDistanceKm.toFixed(1)} กิโลเมตร`}</b> (เส้นตรง GPS)</span>
+              </div>
+            )}
 
             <ol className="space-y-2 max-h-64 overflow-auto pr-1">
               {reportStops.map((s, i) => (

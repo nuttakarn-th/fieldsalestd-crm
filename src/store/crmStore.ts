@@ -965,7 +965,12 @@ export const useCRM = create<CRMState>()(
       ),
     });
     if (SUPABASE_ENABLED && supabase) {
-      supabase.from("route_stops").update(patch).eq("stop_id", stopId).then(({ error }) => {
+      // Strip data URLs before sending to Supabase — data: strings (~500KB) cause silent REST API failures
+      const supabasePatch = { ...patch } as Record<string, unknown>;
+      if (typeof supabasePatch.field_photo_url === "string" && supabasePatch.field_photo_url.startsWith("data:")) {
+        delete supabasePatch.field_photo_url;
+      }
+      supabase.from("route_stops").update(supabasePatch).eq("stop_id", stopId).then(({ error }) => {
         if (error) console.error("[supabase] update stop ล้มเหลว:", error);
       });
     }
