@@ -39,6 +39,9 @@ export default function CompletedRoute() {
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [osrmDistanceKm, setOsrmDistanceKm] = useState<string | null>(null);
 
+  // reportKey must be declared before the useEffect that depends on it
+  const reportKey = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, "0")}-${String(reportDate.getDate()).padStart(2, "0")}`;
+
   // Listen for real road distance from OSRM (sent via postMessage from Leaflet iframe)
   useEffect(() => {
     const handler = (e: MessageEvent) => {
@@ -48,7 +51,7 @@ export default function CompletedRoute() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  // Reset OSRM distance whenever report date or stops change
+  // Reset OSRM distance whenever report date changes
   useEffect(() => { setOsrmDistanceKm(null); }, [reportKey]);
 
   const range = useMemo(() => resolveRange(preset, customRange), [preset, customRange]);
@@ -66,8 +69,6 @@ export default function CompletedRoute() {
     setEditing(item);
     setEditNote(item.note ?? "");
   };
-
-  const reportKey = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, "0")}-${String(reportDate.getDate()).padStart(2, "0")}`;
   const reportStops = useMemo(() => {
     const all = (route ? [route] : routes)
       .filter((r) => r.date === reportKey)
