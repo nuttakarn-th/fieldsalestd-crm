@@ -22,7 +22,7 @@ import {
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
   MessageCircle, LogIn, Flame,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2,
-  SlidersHorizontal, Check,
+  SlidersHorizontal, Check, Search,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
@@ -980,6 +980,7 @@ function FilterSidebar({
   allContinents, allTourTypes, allCountriesByContinent,
   activeContinents, activeTourTypes, activeCountries,
   onToggleContinent, onToggleTourType, onToggleCountry, onClear, hasActive,
+  searchQuery, onSearchChange,
 }: {
   allContinents: string[];
   allTourTypes: string[];
@@ -992,10 +993,12 @@ function FilterSidebar({
   onToggleCountry: (v: string) => void;
   onClear: () => void;
   hasActive: boolean;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const totalActive = activeContinents.size + activeTourTypes.size + activeCountries.size;
+  const totalActive = activeContinents.size + activeTourTypes.size + activeCountries.size + (searchQuery.trim() ? 1 : 0);
 
   const sidebarContent = (
     <div className="space-y-5">
@@ -1007,6 +1010,26 @@ function FilterSidebar({
         {hasActive && (
           <button onClick={onClear} className="text-xs text-violet-600 hover:underline flex items-center gap-1">
             <X className="w-3 h-3" /> ล้าง
+          </button>
+        )}
+      </div>
+
+      {/* ── Keyword Search ── */}
+      <div className="relative">
+        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => onSearchChange(e.target.value)}
+          placeholder="ค้นหา ชื่อ ประเทศ เมือง แท็ก..."
+          className="w-full pl-8 pr-7 py-1.5 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-1 focus:ring-violet-400 placeholder:text-muted-foreground/60"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => onSearchChange("")}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
@@ -1929,6 +1952,7 @@ export default function TourPackagePresentation() {
   const [activeContinents, setActiveContinents] = useState<Set<string>>(new Set());
   const [activeTourTypes,  setActiveTourTypes]  = useState<Set<string>>(new Set());
   const [activeCountries,  setActiveCountries]  = useState<Set<string>>(new Set());
+  const [searchQuery,      setSearchQuery]      = useState("");
 
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
@@ -1965,13 +1989,27 @@ export default function TourPackagePresentation() {
 
   // ── Filtered packages ──────────────────────────────────────────────────────
   const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return packages.filter(pkg => {
       if (activeContinents.size > 0 && !activeContinents.has(pkg.continent)) return false;
       if (activeCountries.size  > 0 && !activeCountries.has(pkg.country) && !(pkg.extraCountries ?? []).some(ec => activeCountries.has(ec))) return false;
       if (activeTourTypes.size  > 0 && !pkg.tourTypes.some(t => activeTourTypes.has(t))) return false;
+      if (q) {
+        const haystack = [
+          pkg.title,
+          pkg.country,
+          pkg.city,
+          pkg.continent,
+          pkg.duration,
+          pkg.description ?? "",
+          ...(pkg.tourTypes),
+          ...(pkg.extraCountries ?? []),
+        ].join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [packages, activeContinents, activeCountries, activeTourTypes]);
+  }, [packages, activeContinents, activeCountries, activeTourTypes, searchQuery]);
 
   // ── Highlight packages ─────────────────────────────────────────────────────
   const highlightPkgs = useMemo(() => filtered.filter(p => p.isHighlight), [filtered]);
@@ -1986,7 +2024,7 @@ export default function TourPackagePresentation() {
     return map;
   }, [filtered]);
 
-  const hasActiveFilter = activeContinents.size + activeTourTypes.size + activeCountries.size > 0;
+  const hasActiveFilter = activeContinents.size + activeTourTypes.size + activeCountries.size > 0 || searchQuery.trim() !== "";
 
   function toggleContinent(v: string) {
     setActiveContinents(prev => {
@@ -2015,7 +2053,7 @@ export default function TourPackagePresentation() {
     setActiveTourTypes(prev => { const n = new Set(prev); n.has(v) ? n.delete(v) : n.add(v); return n; });
   }
   function clearAllFilters() {
-    setActiveContinents(new Set()); setActiveTourTypes(new Set()); setActiveCountries(new Set());
+    setActiveContinents(new Set()); setActiveTourTypes(new Set()); setActiveCountries(new Set()); setSearchQuery("");
   }
 
   // ── Upload PDF ─────────────────────────────────────────────────────────────
@@ -2173,6 +2211,8 @@ export default function TourPackagePresentation() {
             onToggleCountry={toggleCountry}
             onClear={clearAllFilters}
             hasActive={hasActiveFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
           />
         )}
 
