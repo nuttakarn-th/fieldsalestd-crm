@@ -61,6 +61,18 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH");
 }
 
+function timeStr(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const isToday =
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
+  const hhmm = d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+  if (isToday) return hhmm;
+  return `${d.toLocaleDateString("th-TH", { day: "numeric", month: "short" })} ${hhmm}`;
+}
+
 function renderText(text: string) {
   const parts = text.split(/(@\S+)/g);
   return parts.map((p, i) =>
@@ -225,7 +237,7 @@ export function ChatWidget() {
                 : `rounded-2xl rounded-bl-${isLastInGroup ? "sm" : "2xl"}`;
 
               return (
-                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${isFirstInGroup ? "mt-3" : "mt-0.5"}`}>
+                <div key={m.id} className={`group flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${isFirstInGroup ? "mt-3" : "mt-0.5"}`}>
 
                   {/* Avatar — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
                   {(() => {
@@ -253,11 +265,10 @@ export function ChatWidget() {
                   {/* Bubble column */}
                   <div className={`flex flex-col gap-0.5 max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
 
-                    {/* ชื่อ + เวลา — แสดงเฉพาะข้อความแรกของกลุ่ม */}
-                    {isFirstInGroup && (
-                      <div className={`flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
-                        {!isMe && <span className="font-semibold text-foreground/70">{m.author}</span>}
-                        <span>{timeAgo(m.created_at)}</span>
+                    {/* ชื่อ — แสดงเฉพาะข้อความแรกของกลุ่ม (ไม่ใช่ตัวเอง) */}
+                    {isFirstInGroup && !isMe && (
+                      <div className="text-[10px] font-semibold text-foreground/70 px-1">
+                        {m.author}
                       </div>
                     )}
 
@@ -282,15 +293,16 @@ export function ChatWidget() {
                       {m.text && renderText(m.text)}
                     </div>
 
-                    {/* Reply button — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
-                    {isLastInGroup && (
+                    {/* เวลา + Reply button — แสดงใต้ทุก bubble */}
+                    <div className={`flex items-center gap-2 px-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                      <span className="text-[10px] text-muted-foreground">{timeStr(m.created_at)}</span>
                       <button
                         onClick={() => setReplyTo(m)}
-                        className={`text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : ""}`}
+                        className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Reply className="w-3 h-3" /> ตอบกลับ
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
