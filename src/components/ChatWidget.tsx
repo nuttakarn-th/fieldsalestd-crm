@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { create } from "zustand";
 import { MessageSquare, X, Send, Reply, AtSign, CornerDownRight, ImagePlus, Camera, Plus, Smile, Mic, MicOff, Bell, BellOff } from "lucide-react";
@@ -123,6 +123,12 @@ export function ChatWidget() {
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  // Map full_name → avatar_url สำหรับ lookup ใน message bubbles
+  const avatarMap = useMemo(
+    () => new Map(allUsers.map((u) => [u.full_name, u.avatar_url ?? null])),
+    [allUsers],
+  );
+
   const unread = messages.filter((m) => m.author !== me && new Date(m.created_at).getTime() > new Date(lastReadAt).getTime()).length;
 
   useEffect(() => {
@@ -222,15 +228,27 @@ export function ChatWidget() {
                 <div key={m.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${isFirstInGroup ? "mt-3" : "mt-0.5"}`}>
 
                   {/* Avatar — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
-                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white select-none ${isLastInGroup ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-                    style={{
-                      background: isMe
-                        ? "linear-gradient(135deg, #ec4899, #f97316)"
-                        : `linear-gradient(135deg, hsl(${(hashStr(m.author) * 47) % 360}, 60%, 45%), hsl(${(hashStr(m.author) * 47 + 40) % 360}, 55%, 35%))`,
-                    }}
-                  >
-                    {initial}
-                  </div>
+                  {(() => {
+                    const avatarUrl = avatarMap.get(m.author);
+                    return avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={m.author}
+                        className={`w-7 h-7 rounded-full shrink-0 object-cover select-none ${isLastInGroup ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                      />
+                    ) : (
+                      <div
+                        className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white select-none ${isLastInGroup ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                        style={{
+                          background: isMe
+                            ? "linear-gradient(135deg, #ec4899, #f97316)"
+                            : `linear-gradient(135deg, hsl(${(hashStr(m.author) * 47) % 360}, 60%, 45%), hsl(${(hashStr(m.author) * 47 + 40) % 360}, 55%, 35%))`,
+                        }}
+                      >
+                        {initial}
+                      </div>
+                    );
+                  })()}
 
                   {/* Bubble column */}
                   <div className={`flex flex-col gap-0.5 max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
