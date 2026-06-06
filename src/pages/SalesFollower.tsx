@@ -273,86 +273,171 @@ export default function SalesFollower() {
     const win = window.open("", "_blank");
     if (!win) return;
     const rangeLabel = range.label;
-    const rows = stats.map((s) => `
-      <tr>
-        <td>${s.rep}</td>
-        <td>${s.routes}</td>
-        <td>${s.planned}</td>
-        <td class="green">${s.completed}</td>
-        <td>${s.skipped}</td>
-        <td>${s.totalMin}</td>
-        <td>${s.avgMin} m</td>
-        <td class="bold">${s.completionRate}%</td>
-      </tr>`).join("");
+    const now = new Date();
+    const exportDateStr = now.toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+    const exportTimeStr = now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+    function fmtMin(m: number) {
+      const h = Math.floor(m / 60); const r = m % 60;
+      return h > 0 ? `${h}ชม.${r}น.` : `${m}น.`;
+    }
+
     const totalRows = stats.reduce((a, s) => ({
       routes: a.routes + s.routes, planned: a.planned + s.planned,
       completed: a.completed + s.completed, skipped: a.skipped + s.skipped,
       totalMin: a.totalMin + s.totalMin,
     }), { routes: 0, planned: 0, completed: 0, skipped: 0, totalMin: 0 });
     const overallRateCalc = totalRows.planned ? Math.round((totalRows.completed / totalRows.planned) * 100) : 0;
-    const completedRows = completedItems.map((s) => {
-      const dt = s.completed_at ? new Date(s.completed_at) : null;
-      const dd = dt ? String(dt.getDate()).padStart(2,"0") : "";
-      const mm = dt ? String(dt.getMonth()+1).padStart(2,"0") : "";
-      const yy = dt ? String(dt.getFullYear()).slice(2) : "";
-      const hh = dt ? String(dt.getHours()).padStart(2,"0") : "";
-      const mi = dt ? String(dt.getMinutes()).padStart(2,"0") : "";
-      return `<tr>
-        <td>${s.rep}</td>
-        <td>${s.place_name || "-"}</td>
-        <td>${s.purpose || "-"}</td>
-        <td>${dd && mm && yy ? `${dd}/${mm}/${yy} ${hh}:${mi}` : "-"}</td>
-        <td>${s.duration_min ?? 0} นาที</td>
-        <td>${s.note ? `"${s.note}"` : "-"}</td>
+
+    const rows = stats.map((s, i) => {
+      const rate = s.planned ? Math.round((s.completed / s.planned) * 100) : 0;
+      const rateColor = rate >= 80 ? "#059669" : rate >= 50 ? "#b45309" : "#dc2626";
+      return `<tr class="${i % 2 === 1 ? "alt" : ""}">
+        <td class="rep-cell">${s.rep}</td>
+        <td class="tc">${s.routes}</td>
+        <td class="tc">${s.planned}</td>
+        <td class="tc cg">${s.completed}</td>
+        <td class="tc cr">${s.skipped}</td>
+        <td class="tc">${fmtMin(s.totalMin)}</td>
+        <td class="tc">${fmtMin(s.avgMin)}</td>
+        <td class="tc" style="color:${rateColor};font-weight:700">${rate}%</td>
       </tr>`;
     }).join("");
-    win.document.write(`<!DOCTYPE html><html><head>
+
+    const completedRows = completedItems.map((s, i) => {
+      const dt = s.completed_at ? new Date(s.completed_at) : null;
+      const dd2 = dt ? String(dt.getDate()).padStart(2,"0") : "";
+      const mm2 = dt ? String(dt.getMonth()+1).padStart(2,"0") : "";
+      const yy2 = dt ? String(dt.getFullYear()).slice(2) : "";
+      const hh2 = dt ? String(dt.getHours()).padStart(2,"0") : "";
+      const mi2 = dt ? String(dt.getMinutes()).padStart(2,"0") : "";
+      const dateStr = dd2 ? `${dd2}/${mm2}/${yy2}` : "-";
+      const timeStr = hh2 ? `${hh2}:${mi2}` : "-";
+      return `<tr class="${i % 2 === 1 ? "alt" : ""}">
+        <td><span class="rep-tag">${s.rep}</span></td>
+        <td><div class="pn">${s.place_name || "-"}</div></td>
+        <td><span class="ptag">${s.purpose || "-"}</span></td>
+        <td class="tc mono">${dateStr}</td>
+        <td class="tc mono">${timeStr}</td>
+        <td class="tc" style="color:#7c3aed;font-weight:700;white-space:nowrap">${fmtMin(s.duration_min ?? 0)}</td>
+        <td class="note-cell">${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}</td>
+      </tr>`;
+    }).join("");
+
+    win.document.write(`<!DOCTYPE html><html lang="th"><head>
       <meta charset="utf-8">
       <title>Sales Mission Report — ${rangeLabel}</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
       <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #1e293b; margin: 0; padding: 24px; }
-        h1 { font-size: 18pt; margin: 0 0 4px; }
-        .sub { color: #64748b; font-size: 10pt; margin-bottom: 20px; }
-        .stats { display: flex; gap: 16px; margin-bottom: 20px; }
-        .stat { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; min-width: 90px; }
-        .stat-val { font-size: 22pt; font-weight: 800; }
-        .stat-lbl { font-size: 8pt; color: #64748b; }
-        table { border-collapse: collapse; width: 100%; font-size: 10pt; }
-        th { background: #f1f5f9; padding: 6px 10px; text-align: left; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
-        td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; }
-        .green { color: #16a34a; font-weight: 700; }
-        .bold { font-weight: 800; }
-        .tfoot td { background: #f8fafc; font-weight: 700; }
-        h2 { font-size: 13pt; margin: 24px 0 8px; }
-        @media print { body { padding: 10px; } }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Google Sans',Arial,sans-serif;font-size:8pt;color:#1e293b;background:#fff;padding:16px 20px;line-height:1.3}
+        /* ── Header ── */
+        .hdr{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:9px;margin-bottom:9px;border-bottom:3px solid #7c3aed}
+        .co{font-size:8.5pt;font-weight:700;color:#7c3aed}
+        .ht{font-size:13pt;font-weight:700;color:#1e293b;margin:2px 0 1px}
+        .hsub{font-size:7pt;color:#64748b;margin-top:2px}
+        .badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border-radius:8px;padding:6px 14px;text-align:right}
+        .bn{font-size:11pt;font-weight:700;white-space:nowrap}
+        .bs{font-size:6.5pt;color:#c4b5fd;margin-top:1px}
+        /* ── Summary bar ── */
+        .sum{display:flex;gap:0;margin-bottom:9px;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden}
+        .sc{flex:1;padding:6px 8px;background:#faf9ff;border-right:1px solid #e2e8f0;text-align:center}
+        .sc:last-child{border-right:none}
+        .sv{font-size:11pt;font-weight:700;white-space:nowrap;letter-spacing:-0.02em}
+        .sl{font-size:6pt;color:#64748b;margin-top:1px}
+        .cg2{color:#059669}.cp{color:#7c3aed}.ca{color:#b45309}.cb{color:#0369a1}
+        /* ── Section heading ── */
+        .sec{font-size:9pt;font-weight:700;color:#4c1d95;margin:10px 0 5px;padding-left:8px;border-left:3px solid #7c3aed}
+        /* ── Tables ── */
+        table{border-collapse:collapse;width:100%;font-size:7.5pt}
+        thead tr{background:linear-gradient(90deg,#7c3aed,#6d28d9)}
+        thead th{padding:4px 6px;text-align:left;font-weight:700;font-size:7pt;color:#fff}
+        .tc{text-align:center}
+        tbody td{padding:2.5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.2}
+        tbody tr.alt{background:#f8f7ff}
+        tfoot td{padding:3px 6px;background:#ede9fe;font-weight:700;font-size:7.5pt;border-top:1.5px solid #ddd6fe}
+        .cg{color:#059669;font-weight:700}
+        .cr{color:#dc2626;font-weight:600}
+        .rep-cell{font-weight:600;color:#1e293b}
+        .rep-tag{background:#ede9fe;color:#5b21b6;border-radius:3px;padding:1px 5px;font-size:6.5pt;font-weight:700;white-space:nowrap}
+        .pn{font-weight:600;font-size:7.5pt;color:#1e293b}
+        .ptag{background:#f0fdf4;color:#166534;border-radius:3px;padding:1px 5px;font-size:6.5pt;font-weight:600;white-space:nowrap}
+        .mono{font-size:7pt;color:#475569}
+        .note-cell{font-size:7pt;color:#374151;font-style:italic;line-height:1.2}
+        .nd{color:#cbd5e1;font-style:normal}
+        /* ── Footer ── */
+        .footer{margin-top:12px;padding-top:7px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:6.5pt;color:#94a3b8}
+        @media print{body{padding:6px 10px}@page{size:A4;margin:10mm 8mm}}
       </style>
     </head><body>
-      <h1>Sales Mission Report</h1>
-      <div class="sub">ช่วงเวลา: ${rangeLabel} · ส่งออกเมื่อ ${new Date().toLocaleDateString("th-TH")}</div>
-      <div class="stats">
-        <div class="stat"><div class="stat-val">${totalRows.routes}</div><div class="stat-lbl">Routes</div></div>
-        <div class="stat"><div class="stat-val">${totalRows.planned}</div><div class="stat-lbl">วางแผน</div></div>
-        <div class="stat" style="color:#16a34a"><div class="stat-val">${totalRows.completed}</div><div class="stat-lbl">Complete</div></div>
-        <div class="stat"><div class="stat-val">${overallRateCalc}%</div><div class="stat-lbl">อัตราเสร็จ</div></div>
+
+      <div class="hdr">
+        <div>
+          <div class="co">บริษัท สแตนดาร์ดทัวร์ จำกัด</div>
+          <div class="ht">Sales Mission Report</div>
+          <div class="hsub">ช่วงเวลา: ${rangeLabel} &nbsp;·&nbsp; ส่งออก: ${exportDateStr} ${exportTimeStr}</div>
+        </div>
+        <div class="badge">
+          <div class="bn">${overallRateCalc}%</div>
+          <div class="bs">อัตราเสร็จงาน</div>
+        </div>
       </div>
-      <h2>ตารางสรุปรายคน</h2>
+
+      <div class="sum">
+        <div class="sc"><div class="sv cb">${totalRows.routes}</div><div class="sl">Routes ทั้งหมด</div></div>
+        <div class="sc"><div class="sv cp">${totalRows.planned}</div><div class="sl">จุดที่วางแผน</div></div>
+        <div class="sc"><div class="sv cg2">${totalRows.completed}</div><div class="sl">Complete แล้ว</div></div>
+        <div class="sc"><div class="sv cr">${totalRows.skipped}</div><div class="sl">Skipped</div></div>
+        <div class="sc"><div class="sv">${fmtMin(totalRows.totalMin)}</div><div class="sl">เวลารวมทั้งหมด</div></div>
+        <div class="sc"><div class="sv">${stats.length}</div><div class="sl">จำนวน Sales</div></div>
+      </div>
+
+      <div class="sec">ตารางสรุปรายคน</div>
       <table>
         <thead><tr>
-          <th>Sales</th><th>Routes</th><th>วางแผน</th><th>Complete</th><th>Skipped</th><th>เวลารวม (นาที)</th><th>เฉลี่ย/จุด</th><th>% เสร็จ</th>
+          <th>Sales</th>
+          <th class="tc" style="width:52px">Routes</th>
+          <th class="tc" style="width:52px">วางแผน</th>
+          <th class="tc" style="width:60px">Complete</th>
+          <th class="tc" style="width:52px">Skipped</th>
+          <th class="tc" style="width:72px">เวลารวม</th>
+          <th class="tc" style="width:65px">เฉลี่ย/จุด</th>
+          <th class="tc" style="width:52px">% เสร็จ</th>
         </tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr>
-          <td>รวม</td><td>${totalRows.routes}</td><td>${totalRows.planned}</td>
-          <td class="green">${totalRows.completed}</td><td>${totalRows.skipped}</td>
-          <td>${totalRows.totalMin}</td><td>-</td><td class="bold">${overallRateCalc}%</td>
+          <td>รวมทั้งหมด</td>
+          <td class="tc">${totalRows.routes}</td>
+          <td class="tc">${totalRows.planned}</td>
+          <td class="tc cg">${totalRows.completed}</td>
+          <td class="tc cr">${totalRows.skipped}</td>
+          <td class="tc">${fmtMin(totalRows.totalMin)}</td>
+          <td class="tc">—</td>
+          <td class="tc" style="color:#7c3aed">${overallRateCalc}%</td>
         </tr></tfoot>
       </table>
+
       ${completedItems.length > 0 ? `
-      <h2>รายการ Mission Complete (${completedItems.length} รายการ)</h2>
+      <div class="sec">รายการ Mission Complete (${completedItems.length} รายการ)</div>
       <table>
-        <thead><tr><th>Sales</th><th>สถานที่</th><th>ประเภท</th><th>วันเวลา</th><th>เวลา</th><th>หมายเหตุ</th></tr></thead>
+        <thead><tr>
+          <th style="width:68px">Sales</th>
+          <th>สถานที่</th>
+          <th style="width:18%">ประเภท</th>
+          <th class="tc" style="width:58px">วันที่</th>
+          <th class="tc" style="width:40px">เวลา</th>
+          <th class="tc" style="width:54px">ใช้เวลา</th>
+          <th>หมายเหตุ</th>
+        </tr></thead>
         <tbody>${completedRows}</tbody>
       </table>` : ""}
+
+      <div class="footer">
+        <span>บริษัท สแตนดาร์ดทัวร์ จำกัด · Standard Tour Co., Ltd.</span>
+        <span>Field Sale CRM · ${exportDateStr}</span>
+      </div>
+
     </body></html>`);
     win.document.close();
     setTimeout(() => win.print(), 600);
