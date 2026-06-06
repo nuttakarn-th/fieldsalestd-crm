@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown } from "lucide-react";
+import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer } from "lucide-react";
 import { fmtDateTime } from "@/lib/dateUtils";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,262 @@ export default function SalesFollower() {
     { planned: 0, completed: 0, routes: 0, totalMin: 0 },
   );
   const overallRate = totals.planned ? Math.round((totals.completed / totals.planned) * 100) : 0;
+
+  /* ── Route Report PDF (A4 รายบุคคล) ── */
+  const downloadRouteReportPDF = useCallback(() => {
+    if (!reportRep || reportItems.length === 0) return;
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    const now = new Date();
+    const exportDateStr = now.toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+    const exportTimeStr = now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+    const totalMin = reportItems.reduce((a, s) => a + (s.duration_min ?? 0), 0);
+    const totalHr = Math.floor(totalMin / 60);
+    const totalMinRem = totalMin % 60;
+    const totalTimeStr = totalHr > 0 ? `${totalHr} ชั่วโมง ${totalMinRem} นาที` : `${totalMin} นาที`;
+
+    // group by date
+    const byDate = new Map<string, typeof reportItems>();
+    reportItems.forEach((s) => {
+      const arr = byDate.get(s.routeDate) ?? [];
+      arr.push(s);
+      byDate.set(s.routeDate, arr);
+    });
+
+    // Timeline SVG (horizontal numbered dots)
+    const totalStops = reportItems.length;
+    const svgW = Math.max(totalStops * 85, 300);
+    const timelineSvg = totalStops > 1 ? `
+      <svg viewBox="0 0 ${svgW} 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:90px;display:block;margin-bottom:8px">
+        ${reportItems.map((_, i) => i === 0 ? "" : `
+          <line x1="${25 + (i-1)*85}" y1="40" x2="${25 + i*85}" y2="40"
+                stroke="#6d28d9" stroke-width="2" stroke-dasharray="5,4"/>
+        `).join("")}
+        ${reportItems.map((s, i) => {
+          const x = 25 + i * 85;
+          const isFirst = i === 0; const isLast = i === totalStops - 1;
+          const fill = isFirst ? "#059669" : isLast ? "#dc2626" : "#6d28d9";
+          const label = (s.place_name || "-").slice(0, 10) + ((s.place_name || "").length > 10 ? "…" : "");
+          const timeLabel = s.completed_at
+            ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })
+            : "";
+          return `
+            <circle cx="${x}" cy="40" r="15" fill="${fill}"/>
+            <text x="${x}" y="45" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${i+1}</text>
+            <text x="${x}" y="65" text-anchor="middle" fill="#374151" font-size="8.5" font-family="Arial">${label}</text>
+            <text x="${x}" y="77" text-anchor="middle" fill="#6b7280" font-size="8" font-family="Arial">${timeLabel}</text>
+          `;
+        }).join("")}
+      </svg>` : "";
+
+    // Detail rows grouped by date
+    let detailRows = "";
+    byDate.forEach((stops, date) => {
+      const d = new Date(date);
+      const dateLabel = d.toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      detailRows += `
+        <tr class="date-group"><td colspan="6">${dateLabel}</td></tr>
+      `;
+      stops.forEach((s, i) => {
+        const dt = s.completed_at ? new Date(s.completed_at) : null;
+        const timeStr = dt ? dt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-";
+        const seqLabel = String(reportItems.indexOf(s) + 1).padStart(2, "0");
+        detailRows += `
+          <tr>
+            <td class="center seq">${seqLabel}</td>
+            <td><strong>${s.place_name || "-"}</strong>${s.address ? `<br><span class="sub">${s.address}</span>` : ""}</td>
+            <td class="center">${s.purpose || "-"}</td>
+            <td class="center">${timeStr}</td>
+            <td class="center">${s.duration_min ?? 0} นาที</td>
+            <td>${s.note ? `"${s.note}"` : "-"}</td>
+          </tr>
+        `;
+      });
+    });
+
+    win.document.write(`<!DOCTYPE html><html lang="th"><head>
+      <meta charset="utf-8">
+      <title>Route Report — ${reportRep}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Helvetica Neue', Arial, 'Sarabun', sans-serif;
+          font-size: 10.5pt;
+          color: #1e293b;
+          background: #fff;
+          padding: 28px 32px;
+        }
+        /* ── Header ── */
+        .header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          border-bottom: 3px solid #6d28d9;
+          padding-bottom: 14px;
+          margin-bottom: 18px;
+        }
+        .company-name { font-size: 12pt; font-weight: 800; color: #6d28d9; }
+        .report-title { font-size: 16pt; font-weight: 800; color: #1e293b; margin: 4px 0 2px; }
+        .report-sub { font-size: 9pt; color: #64748b; }
+        .badge-rep {
+          background: #6d28d9;
+          color: #fff;
+          border-radius: 20px;
+          padding: 6px 18px;
+          font-size: 12pt;
+          font-weight: 700;
+          white-space: nowrap;
+          text-align: center;
+        }
+        .badge-role { font-size: 8pt; opacity: 0.85; margin-top: 2px; text-align: center; }
+        /* ── Summary cards ── */
+        .summary {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        .card {
+          flex: 1;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 10px 14px;
+          background: #f8fafc;
+        }
+        .card-val { font-size: 20pt; font-weight: 800; line-height: 1.1; }
+        .card-lbl { font-size: 8pt; color: #64748b; margin-top: 2px; }
+        .green { color: #059669; }
+        .purple { color: #6d28d9; }
+        .amber { color: #b45309; }
+        /* ── Timeline ── */
+        .timeline-box {
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px 16px;
+          background: #faf5ff;
+          margin-bottom: 18px;
+        }
+        .timeline-title { font-size: 9pt; font-weight: 700; color: #6d28d9; margin-bottom: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
+        /* ── Table ── */
+        h2 { font-size: 11pt; font-weight: 800; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        h2::before { content: ""; display: inline-block; width: 4px; height: 14px; background: #6d28d9; border-radius: 2px; }
+        table { border-collapse: collapse; width: 100%; font-size: 9.5pt; }
+        thead tr { background: #6d28d9; color: #fff; }
+        thead th { padding: 7px 9px; text-align: left; font-weight: 700; font-size: 9pt; }
+        .center { text-align: center; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody tr:hover { background: #f3e8ff; }
+        tbody td { padding: 7px 9px; border-bottom: 1px solid #f1f5f9; vertical-align: top; line-height: 1.4; }
+        .date-group td {
+          background: #ede9fe;
+          color: #5b21b6;
+          font-weight: 700;
+          font-size: 9pt;
+          padding: 5px 9px;
+          border-bottom: none;
+        }
+        .seq { color: #6d28d9; font-weight: 800; }
+        .sub { color: #94a3b8; font-size: 8.5pt; }
+        /* ── Legend ── */
+        .legend { display: flex; gap: 16px; font-size: 8.5pt; color: #64748b; margin-bottom: 14px; }
+        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+        /* ── Footer ── */
+        .footer {
+          margin-top: 22px;
+          padding-top: 12px;
+          border-top: 1.5px solid #e2e8f0;
+          display: flex;
+          justify-content: space-between;
+          font-size: 8pt;
+          color: #94a3b8;
+        }
+        @media print {
+          body { padding: 10px 14px; }
+          @page { size: A4; margin: 14mm 12mm; }
+        }
+      </style>
+    </head><body>
+
+      <div class="header">
+        <div>
+          <div class="company-name">บริษัท สแตนดาร์ดทัวร์ จำกัด</div>
+          <div class="report-title">รายงาน Sales Mission Route</div>
+          <div class="report-sub">
+            ช่วงเวลา: ${range.label} &nbsp;·&nbsp;
+            จำนวน ${reportItems.length} จุด &nbsp;·&nbsp;
+            ส่งออก: ${exportDateStr} ${exportTimeStr}
+          </div>
+        </div>
+        <div>
+          <div class="badge-rep">${reportRep}</div>
+          <div class="badge-role">Sales Representative</div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="card">
+          <div class="card-val green">${reportItems.length}</div>
+          <div class="card-lbl">จุดที่เยี่ยมชม</div>
+        </div>
+        <div class="card">
+          <div class="card-val purple">${totalTimeStr}</div>
+          <div class="card-lbl">เวลารวมทั้งหมด</div>
+        </div>
+        <div class="card">
+          <div class="card-val amber">${reportItems.length > 0 ? Math.round(totalMin / reportItems.length) : 0} นาที</div>
+          <div class="card-lbl">เฉลี่ยต่อจุด</div>
+        </div>
+        <div class="card">
+          <div class="card-val">${byDate.size}</div>
+          <div class="card-lbl">วันที่ออกพื้นที่</div>
+        </div>
+      </div>
+
+      ${totalStops > 1 ? `
+      <div class="timeline-box">
+        <div class="timeline-title">🗺 เส้นทางการทำ Mission (ตามลำดับเวลา)</div>
+        ${timelineSvg}
+        <div class="legend">
+          <span><span class="dot" style="background:#059669"></span>จุดเริ่มต้น</span>
+          <span><span class="dot" style="background:#6d28d9"></span>จุดกลาง</span>
+          <span><span class="dot" style="background:#dc2626"></span>จุดสุดท้าย</span>
+        </div>
+      </div>` : ""}
+
+      <h2>รายละเอียดการเยี่ยมชม</h2>
+      <table>
+        <thead>
+          <tr>
+            <th class="center" style="width:36px">ที่</th>
+            <th style="width:30%">สถานที่</th>
+            <th class="center" style="width:14%">ประเภท</th>
+            <th class="center" style="width:11%">เวลา</th>
+            <th class="center" style="width:12%">ระยะเวลา</th>
+            <th>บันทึกการพบ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detailRows}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f1f5f9;font-weight:700;font-size:9pt">
+            <td colspan="4" style="padding:7px 9px;text-align:right;color:#64748b">รวม</td>
+            <td style="padding:7px 9px;text-align:center;color:#6d28d9;font-weight:800">${totalMin} นาที</td>
+            <td style="padding:7px 9px"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="footer">
+        <span>บริษัท สแตนดาร์ดทัวร์ จำกัด · Standard Tour Co., Ltd.</span>
+        <span>รายงานนี้สร้างโดย Field Sale CRM · ${exportDateStr}</span>
+      </div>
+
+    </body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+  }, [reportRep, reportItems, range]);
 
   /* ── Export PDF (print window) ── */
   const exportPDF = useCallback(() => {
@@ -363,7 +619,18 @@ export default function SalesFollower() {
               ))}
             </ol>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setReportRep(null)}>ปิด</Button></DialogFooter>
+          <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
+            <Button
+              variant="default"
+              onClick={downloadRouteReportPDF}
+              disabled={reportItems.length === 0}
+              className="gap-2 bg-primary hover:bg-primary/90"
+            >
+              <Printer className="w-4 h-4" />
+              Download PDF
+            </Button>
+            <Button variant="outline" onClick={() => setReportRep(null)}>ปิด</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
