@@ -204,31 +204,75 @@ export function ChatWidget() {
             </div>
           </div>
 
-          <div ref={listRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-background/50">
-            {messages.map((m) => {
+          <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 bg-background/50 space-y-0.5">
+            {messages.map((m, idx) => {
               const replied = m.reply_to ? messages.find((x) => x.id === m.reply_to) : null;
               const isMe = m.author === me;
+              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+              const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
+              const isFirstInGroup = !prevMsg || prevMsg.author !== m.author;
+              const isLastInGroup = !nextMsg || nextMsg.author !== m.author;
+              const initial = (m.author?.[0] ?? "?").toUpperCase();
+              // กำหนด border-radius ตาม position ในกลุ่ม
+              const bubbleRadius = isMe
+                ? `rounded-2xl rounded-br-${isLastInGroup ? "sm" : "2xl"} rounded-tr-${isFirstInGroup ? "2xl" : "2xl"}`
+                : `rounded-2xl rounded-bl-${isLastInGroup ? "sm" : "2xl"}`;
+
               return (
-                <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span className={`px-1.5 py-0.5 rounded border ${authorColor(m.author)}`}>{m.author}</span>
-                      <span>{timeAgo(m.created_at)}</span>
-                    </div>
-                    {replied && (
-                      <div className="text-[11px] text-muted-foreground bg-muted/60 px-2 py-1 rounded border-l-2 border-primary/50 max-w-full truncate flex items-center gap-1">
-                        <CornerDownRight className="w-3 h-3 shrink-0" />
-                        <span className="font-semibold">{replied.author}:</span>
-                        <span className="truncate">{replied.text}</span>
+                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${isFirstInGroup ? "mt-3" : "mt-0.5"}`}>
+
+                  {/* Avatar — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
+                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white select-none ${isLastInGroup ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                    style={{
+                      background: isMe
+                        ? "linear-gradient(135deg, #ec4899, #f97316)"
+                        : `linear-gradient(135deg, hsl(${(hashStr(m.author) * 47) % 360}, 60%, 45%), hsl(${(hashStr(m.author) * 47 + 40) % 360}, 55%, 35%))`,
+                    }}
+                  >
+                    {initial}
+                  </div>
+
+                  {/* Bubble column */}
+                  <div className={`flex flex-col gap-0.5 max-w-[72%] ${isMe ? "items-end" : "items-start"}`}>
+
+                    {/* ชื่อ + เวลา — แสดงเฉพาะข้อความแรกของกลุ่ม */}
+                    {isFirstInGroup && (
+                      <div className={`flex items-center gap-1.5 text-[10px] text-muted-foreground px-1 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
+                        {!isMe && <span className="font-semibold text-foreground/70">{m.author}</span>}
+                        <span>{timeAgo(m.created_at)}</span>
                       </div>
                     )}
-                    <div className={`px-3 py-2 rounded-2xl text-sm ${isMe ? "bg-gradient-coral text-white rounded-br-sm" : "bg-muted text-foreground rounded-bl-sm"}`}>
-                      {m.image_url && <img src={m.image_url} alt="แนบรูป" className="rounded-lg mb-1 max-w-full max-h-60 object-cover" />}
-                      {renderText(m.text)}
+
+                    {/* Reply preview */}
+                    {replied && (
+                      <div className="text-[11px] text-muted-foreground bg-muted/70 px-2 py-1 rounded-lg border-l-2 border-primary/50 max-w-full truncate flex items-center gap-1">
+                        <CornerDownRight className="w-3 h-3 shrink-0" />
+                        <span className="font-semibold">{replied.author}:</span>
+                        <span className="truncate">{replied.text || "รูปภาพ"}</span>
+                      </div>
+                    )}
+
+                    {/* Message bubble */}
+                    <div className={`px-3 py-2 text-sm leading-relaxed ${bubbleRadius} ${
+                      isMe
+                        ? "bg-[#4338ca] text-white"
+                        : "bg-[#f1f1f1] dark:bg-muted text-foreground"
+                    }`}>
+                      {m.image_url && (
+                        <img src={m.image_url} alt="แนบรูป" className="rounded-xl mb-1 max-w-full max-h-48 object-cover" />
+                      )}
+                      {m.text && renderText(m.text)}
                     </div>
-                    <button onClick={() => setReplyTo(m)} className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1">
-                      <Reply className="w-3 h-3" /> ตอบกลับ
-                    </button>
+
+                    {/* Reply button — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
+                    {isLastInGroup && (
+                      <button
+                        onClick={() => setReplyTo(m)}
+                        className={`text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1 px-1 ${isMe ? "flex-row-reverse" : ""}`}
+                      >
+                        <Reply className="w-3 h-3" /> ตอบกลับ
+                      </button>
+                    )}
                   </div>
                 </div>
               );
