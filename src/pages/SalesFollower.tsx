@@ -84,7 +84,16 @@ export default function SalesFollower() {
     const totalMin = reportItems.reduce((a, s) => a + (s.duration_min ?? 0), 0);
     const totalHr = Math.floor(totalMin / 60);
     const totalMinRem = totalMin % 60;
-    const totalTimeStr = totalHr > 0 ? `${totalHr} ชั่วโมง ${totalMinRem} นาที` : `${totalMin} นาที`;
+    const totalTimeStr = totalHr > 0 ? `${totalHr} ชม. ${totalMinRem} น.` : `${totalMin} น.`;
+
+    // Haversine distance (km)
+    function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
     // group by date
     const byDate = new Map<string, typeof reportItems>();
@@ -94,232 +103,202 @@ export default function SalesFollower() {
       byDate.set(s.routeDate, arr);
     });
 
+    // คำนวณระยะทางรวมทั้งหมด (km)
+    let totalDistKm = 0;
+    byDate.forEach((stops) => {
+      for (let i = 1; i < stops.length; i++) {
+        const p = stops[i - 1]; const c = stops[i];
+        if (p.lat && p.lng && c.lat && c.lng) totalDistKm += haversineKm(p.lat, p.lng, c.lat, c.lng);
+      }
+    });
+
     // Timeline SVG (horizontal numbered dots)
     const totalStops = reportItems.length;
-    const svgW = Math.max(totalStops * 85, 300);
+    const svgW = Math.max(totalStops * 80, 280);
     const timelineSvg = totalStops > 1 ? `
-      <svg viewBox="0 0 ${svgW} 100" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:90px;display:block;margin-bottom:8px">
+      <svg viewBox="0 0 ${svgW} 86" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:80px;display:block">
         ${reportItems.map((_, i) => i === 0 ? "" : `
-          <line x1="${25 + (i-1)*85}" y1="40" x2="${25 + i*85}" y2="40"
-                stroke="#6d28d9" stroke-width="2" stroke-dasharray="5,4"/>
+          <line x1="${22 + (i-1)*80}" y1="34" x2="${22 + i*80}" y2="34"
+                stroke="#7c3aed" stroke-width="1.8" stroke-dasharray="5,3.5" opacity="0.7"/>
         `).join("")}
         ${reportItems.map((s, i) => {
-          const x = 25 + i * 85;
+          const x = 22 + i * 80;
           const isFirst = i === 0; const isLast = i === totalStops - 1;
-          const fill = isFirst ? "#059669" : isLast ? "#dc2626" : "#6d28d9";
-          const label = (s.place_name || "-").slice(0, 10) + ((s.place_name || "").length > 10 ? "…" : "");
-          const timeLabel = s.completed_at
-            ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })
-            : "";
+          const fill = isFirst ? "#059669" : isLast ? "#dc2626" : "#7c3aed";
+          const label = (s.place_name || "-").length > 9 ? (s.place_name || "-").slice(0, 9) + "…" : (s.place_name || "-");
+          const t = s.completed_at ? new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
           return `
-            <circle cx="${x}" cy="40" r="15" fill="${fill}"/>
-            <text x="${x}" y="45" text-anchor="middle" fill="white" font-size="12" font-weight="bold">${i+1}</text>
-            <text x="${x}" y="65" text-anchor="middle" fill="#374151" font-size="8.5" font-family="Arial">${label}</text>
-            <text x="${x}" y="77" text-anchor="middle" fill="#6b7280" font-size="8" font-family="Arial">${timeLabel}</text>
+            <circle cx="${x}" cy="34" r="13" fill="${fill}" opacity="0.92"/>
+            <text x="${x}" y="39" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Arial">${i+1}</text>
+            <text x="${x}" y="56" text-anchor="middle" fill="#374151" font-size="7.5" font-family="Arial">${label}</text>
+            <text x="${x}" y="67" text-anchor="middle" fill="#7c3aed" font-size="7" font-family="Arial" font-weight="600">${t}</text>
           `;
         }).join("")}
       </svg>` : "";
 
-    // Detail rows grouped by date
-    let detailRows = "";
+    // Detail sections per date
+    let detailSections = "";
     byDate.forEach((stops, date) => {
       const d = new Date(date);
       const dateLabel = d.toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-      detailRows += `
-        <tr class="date-group"><td colspan="6">${dateLabel}</td></tr>
-      `;
-      stops.forEach((s, i) => {
+
+      // ระยะทางของวันนี้
+      let dayDistKm = 0;
+      for (let i = 1; i < stops.length; i++) {
+        const p = stops[i - 1]; const c = stops[i];
+        if (p.lat && p.lng && c.lat && c.lng) dayDistKm += haversineKm(p.lat, p.lng, c.lat, c.lng);
+      }
+      const dayDistStr = dayDistKm > 0 ? `~ ${dayDistKm.toFixed(1)} กม.` : "ไม่มีข้อมูล GPS";
+      const dayMin = stops.reduce((a, s) => a + (s.duration_min ?? 0), 0);
+
+      // รูปของวันนี้ (เฉพาะที่มี photo_url)
+      const photos = stops.filter((s) => s.field_photo_url);
+      const photoStrip = photos.length > 0
+        ? `<div class="photo-strip">${photos.slice(0, 6).map((s) => `
+            <div class="photo-wrap">
+              <img src="${s.field_photo_url}" alt="${s.place_name || ""}"/>
+              <div class="photo-cap">${(s.place_name || "").slice(0, 12)}</div>
+            </div>`).join("")}</div>`
+        : "";
+
+      let rows = "";
+      stops.forEach((s) => {
         const dt = s.completed_at ? new Date(s.completed_at) : null;
         const timeStr = dt ? dt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }) : "-";
-        const seqLabel = String(reportItems.indexOf(s) + 1).padStart(2, "0");
-        detailRows += `
+        const seqNum = String(reportItems.indexOf(s) + 1).padStart(2, "0");
+        rows += `
           <tr>
-            <td class="center seq">${seqLabel}</td>
-            <td><strong>${s.place_name || "-"}</strong>${s.address ? `<br><span class="sub">${s.address}</span>` : ""}</td>
-            <td class="center">${s.purpose || "-"}</td>
-            <td class="center">${timeStr}</td>
-            <td class="center">${s.duration_min ?? 0} นาที</td>
-            <td>${s.note ? `"${s.note}"` : "-"}</td>
-          </tr>
-        `;
+            <td class="seq-cell">${seqNum}</td>
+            <td class="place-cell">
+              <div class="place-name">${s.place_name || "-"}</div>
+              ${s.address ? `<div class="place-addr">${s.address}</div>` : ""}
+            </td>
+            <td><span class="purpose-tag">${s.purpose || "-"}</span></td>
+            <td class="tc">${timeStr}</td>
+            <td class="tc dur-cell">${s.duration_min ?? 0} น.</td>
+            <td class="note-cell">${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}</td>
+          </tr>`;
       });
+
+      detailSections += `
+        <div class="day-block">
+          <div class="day-header">
+            <div class="day-label">📅 ${dateLabel}</div>
+            <div class="day-meta">
+              <span class="meta-chip dist">📍 ${dayDistStr}</span>
+              <span class="meta-chip time">⏱ ${dayMin} นาที</span>
+              <span class="meta-chip stop">🏢 ${stops.length} จุด</span>
+            </div>
+          </div>
+          ${photoStrip}
+          <table>
+            <thead><tr>
+              <th style="width:28px">ที่</th>
+              <th style="width:24%">สถานที่</th>
+              <th style="width:13%">ประเภท</th>
+              <th style="width:8%" class="tc">เวลา</th>
+              <th style="width:9%" class="tc">ใช้เวลา</th>
+              <th>บันทึกการพบ</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
     });
 
     win.document.write(`<!DOCTYPE html><html lang="th"><head>
       <meta charset="utf-8">
       <title>Route Report — ${reportRep}</title>
       <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-          font-family: 'Helvetica Neue', Arial, 'Sarabun', sans-serif;
-          font-size: 10.5pt;
-          color: #1e293b;
-          background: #fff;
-          padding: 28px 32px;
-        }
-        /* ── Header ── */
-        .header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          border-bottom: 3px solid #6d28d9;
-          padding-bottom: 14px;
-          margin-bottom: 18px;
-        }
-        .company-name { font-size: 12pt; font-weight: 800; color: #6d28d9; }
-        .report-title { font-size: 16pt; font-weight: 800; color: #1e293b; margin: 4px 0 2px; }
-        .report-sub { font-size: 9pt; color: #64748b; }
-        .badge-rep {
-          background: #6d28d9;
-          color: #fff;
-          border-radius: 20px;
-          padding: 6px 18px;
-          font-size: 12pt;
-          font-weight: 700;
-          white-space: nowrap;
-          text-align: center;
-        }
-        .badge-role { font-size: 8pt; opacity: 0.85; margin-top: 2px; text-align: center; }
-        /* ── Summary cards ── */
-        .summary {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 18px;
-        }
-        .card {
-          flex: 1;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 10px 14px;
-          background: #f8fafc;
-        }
-        .card-val { font-size: 20pt; font-weight: 800; line-height: 1.1; }
-        .card-lbl { font-size: 8pt; color: #64748b; margin-top: 2px; }
-        .green { color: #059669; }
-        .purple { color: #6d28d9; }
-        .amber { color: #b45309; }
-        /* ── Timeline ── */
-        .timeline-box {
-          border: 1.5px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 12px 16px;
-          background: #faf5ff;
-          margin-bottom: 18px;
-        }
-        .timeline-title { font-size: 9pt; font-weight: 700; color: #6d28d9; margin-bottom: 6px; letter-spacing: 0.03em; text-transform: uppercase; }
-        /* ── Table ── */
-        h2 { font-size: 11pt; font-weight: 800; color: #1e293b; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-        h2::before { content: ""; display: inline-block; width: 4px; height: 14px; background: #6d28d9; border-radius: 2px; }
-        table { border-collapse: collapse; width: 100%; font-size: 9.5pt; }
-        thead tr { background: #6d28d9; color: #fff; }
-        thead th { padding: 7px 9px; text-align: left; font-weight: 700; font-size: 9pt; }
-        .center { text-align: center; }
-        tbody tr:nth-child(even) { background: #f8fafc; }
-        tbody tr:hover { background: #f3e8ff; }
-        tbody td { padding: 7px 9px; border-bottom: 1px solid #f1f5f9; vertical-align: top; line-height: 1.4; }
-        .date-group td {
-          background: #ede9fe;
-          color: #5b21b6;
-          font-weight: 700;
-          font-size: 9pt;
-          padding: 5px 9px;
-          border-bottom: none;
-        }
-        .seq { color: #6d28d9; font-weight: 800; }
-        .sub { color: #94a3b8; font-size: 8.5pt; }
-        /* ── Legend ── */
-        .legend { display: flex; gap: 16px; font-size: 8.5pt; color: #64748b; margin-bottom: 14px; }
-        .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-        /* ── Footer ── */
-        .footer {
-          margin-top: 22px;
-          padding-top: 12px;
-          border-top: 1.5px solid #e2e8f0;
-          display: flex;
-          justify-content: space-between;
-          font-size: 8pt;
-          color: #94a3b8;
-        }
-        @media print {
-          body { padding: 10px 14px; }
-          @page { size: A4; margin: 14mm 12mm; }
-        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Helvetica Neue',Arial,sans-serif;font-size:9pt;color:#1e293b;background:#fff;padding:22px 26px}
+        /* Header */
+        .hdr{display:flex;align-items:flex-start;justify-content:space-between;border-bottom:3px solid #7c3aed;padding-bottom:12px;margin-bottom:14px}
+        .co{font-size:10pt;font-weight:800;color:#7c3aed}
+        .rt{font-size:15pt;font-weight:800;color:#1e293b;margin:3px 0 1px}
+        .rsub{font-size:8pt;color:#64748b}
+        .rep-badge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border-radius:22px;padding:7px 20px;font-size:11pt;font-weight:700;text-align:center}
+        .rep-role{font-size:7.5pt;color:#a78bfa;margin-top:3px;text-align:center}
+        /* Summary */
+        .sum{display:flex;gap:10px;margin-bottom:14px}
+        .sc{flex:1;border:1.5px solid #e2e8f0;border-radius:9px;padding:8px 12px;background:#faf9ff}
+        .sv{font-size:15pt;font-weight:800;line-height:1.15}
+        .sl{font-size:7.5pt;color:#64748b;margin-top:1px}
+        .g{color:#059669}.p{color:#7c3aed}.a{color:#b45309}.b{color:#0369a1}
+        /* Timeline */
+        .tl-box{border:1.5px solid #ddd6fe;border-radius:9px;padding:10px 14px;background:#faf5ff;margin-bottom:14px}
+        .tl-title{font-size:8pt;font-weight:700;color:#7c3aed;margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+        .legend{display:flex;gap:14px;font-size:7.5pt;color:#64748b;margin-top:4px}
+        .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:middle}
+        /* Day block */
+        .day-block{margin-bottom:16px;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden}
+        .day-header{background:linear-gradient(90deg,#7c3aed,#6d28d9);color:#fff;padding:7px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+        .day-label{font-size:9pt;font-weight:700}
+        .day-meta{display:flex;gap:6px;flex-wrap:wrap}
+        .meta-chip{background:rgba(255,255,255,.18);border-radius:12px;padding:2px 9px;font-size:7.5pt;font-weight:600}
+        .dist{background:rgba(16,185,129,.25)}
+        .time{background:rgba(251,191,36,.25)}
+        .stop{background:rgba(255,255,255,.18)}
+        /* Photo strip */
+        .photo-strip{display:flex;gap:6px;padding:8px 10px;background:#f8fafc;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}
+        .photo-wrap{text-align:center}
+        .photo-wrap img{width:68px;height:52px;object-fit:cover;border-radius:5px;border:1px solid #e2e8f0;display:block}
+        .photo-cap{font-size:6.5pt;color:#94a3b8;margin-top:2px;max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        /* Table */
+        table{border-collapse:collapse;width:100%;font-size:8.5pt}
+        thead tr{background:#f3f0ff}
+        thead th{padding:5px 7px;text-align:left;font-weight:700;font-size:8pt;color:#5b21b6;border-bottom:2px solid #ddd6fe}
+        .tc{text-align:center}
+        tbody td{padding:5px 7px;border-bottom:1px solid #f1f5f9;vertical-align:top;line-height:1.35}
+        tbody tr:nth-child(even){background:#faf9ff}
+        .seq-cell{color:#7c3aed;font-weight:800;font-size:8pt;text-align:center}
+        .place-name{font-weight:600;font-size:8.5pt;color:#1e293b}
+        .place-addr{font-size:7pt;color:#94a3b8;margin-top:1px}
+        .purpose-tag{background:#ede9fe;color:#5b21b6;border-radius:4px;padding:1px 6px;font-size:7.5pt;font-weight:600;white-space:nowrap}
+        .dur-cell{color:#7c3aed;font-weight:700}
+        .note-cell{font-size:8pt;color:#374151;font-style:italic;line-height:1.3}
+        .nd{color:#cbd5e1;font-style:normal}
+        /* Footer */
+        .footer{margin-top:18px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;font-size:7.5pt;color:#94a3b8}
+        @media print{body{padding:8px 12px}@page{size:A4;margin:12mm 10mm}}
       </style>
     </head><body>
 
-      <div class="header">
+      <div class="hdr">
         <div>
-          <div class="company-name">บริษัท สแตนดาร์ดทัวร์ จำกัด</div>
-          <div class="report-title">รายงาน Sales Mission Route</div>
-          <div class="report-sub">
-            ช่วงเวลา: ${range.label} &nbsp;·&nbsp;
-            จำนวน ${reportItems.length} จุด &nbsp;·&nbsp;
-            ส่งออก: ${exportDateStr} ${exportTimeStr}
-          </div>
+          <div class="co">บริษัท สแตนดาร์ดทัวร์ จำกัด</div>
+          <div class="rt">รายงาน Sales Mission Route</div>
+          <div class="rsub">ช่วงเวลา: ${range.label} &nbsp;·&nbsp; ${reportItems.length} จุด &nbsp;·&nbsp; ส่งออก: ${exportDateStr} ${exportTimeStr}</div>
         </div>
         <div>
-          <div class="badge-rep">${reportRep}</div>
-          <div class="badge-role">Sales Representative</div>
+          <div class="rep-badge">${reportRep}</div>
+          <div class="rep-role">Sales Representative</div>
         </div>
       </div>
 
-      <div class="summary">
-        <div class="card">
-          <div class="card-val green">${reportItems.length}</div>
-          <div class="card-lbl">จุดที่เยี่ยมชม</div>
-        </div>
-        <div class="card">
-          <div class="card-val purple">${totalTimeStr}</div>
-          <div class="card-lbl">เวลารวมทั้งหมด</div>
-        </div>
-        <div class="card">
-          <div class="card-val amber">${reportItems.length > 0 ? Math.round(totalMin / reportItems.length) : 0} นาที</div>
-          <div class="card-lbl">เฉลี่ยต่อจุด</div>
-        </div>
-        <div class="card">
-          <div class="card-val">${byDate.size}</div>
-          <div class="card-lbl">วันที่ออกพื้นที่</div>
-        </div>
+      <div class="sum">
+        <div class="sc"><div class="sv g">${reportItems.length}</div><div class="sl">จุดที่เยี่ยมชม</div></div>
+        <div class="sc"><div class="sv p">${totalTimeStr}</div><div class="sl">เวลารวมทั้งหมด</div></div>
+        <div class="sc"><div class="sv a">${reportItems.length > 0 ? Math.round(totalMin / reportItems.length) : 0} น.</div><div class="sl">เฉลี่ยต่อจุด</div></div>
+        <div class="sc"><div class="sv b">${totalDistKm > 0 ? totalDistKm.toFixed(1) + " กม." : "N/A"}</div><div class="sl">ระยะทางรวม (GPS)</div></div>
+        <div class="sc"><div class="sv">${byDate.size}</div><div class="sl">วันที่ออกพื้นที่</div></div>
       </div>
 
       ${totalStops > 1 ? `
-      <div class="timeline-box">
-        <div class="timeline-title">🗺 เส้นทางการทำ Mission (ตามลำดับเวลา)</div>
+      <div class="tl-box">
+        <div class="tl-title">🗺 เส้นทาง Mission (ตามลำดับเวลา)</div>
         ${timelineSvg}
         <div class="legend">
-          <span><span class="dot" style="background:#059669"></span>จุดเริ่มต้น</span>
-          <span><span class="dot" style="background:#6d28d9"></span>จุดกลาง</span>
+          <span><span class="dot" style="background:#059669"></span>จุดเริ่ม</span>
+          <span><span class="dot" style="background:#7c3aed"></span>จุดกลาง</span>
           <span><span class="dot" style="background:#dc2626"></span>จุดสุดท้าย</span>
         </div>
       </div>` : ""}
 
-      <h2>รายละเอียดการเยี่ยมชม</h2>
-      <table>
-        <thead>
-          <tr>
-            <th class="center" style="width:36px">ที่</th>
-            <th style="width:30%">สถานที่</th>
-            <th class="center" style="width:14%">ประเภท</th>
-            <th class="center" style="width:11%">เวลา</th>
-            <th class="center" style="width:12%">ระยะเวลา</th>
-            <th>บันทึกการพบ</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${detailRows}
-        </tbody>
-        <tfoot>
-          <tr style="background:#f1f5f9;font-weight:700;font-size:9pt">
-            <td colspan="4" style="padding:7px 9px;text-align:right;color:#64748b">รวม</td>
-            <td style="padding:7px 9px;text-align:center;color:#6d28d9;font-weight:800">${totalMin} นาที</td>
-            <td style="padding:7px 9px"></td>
-          </tr>
-        </tfoot>
-      </table>
+      ${detailSections}
 
       <div class="footer">
         <span>บริษัท สแตนดาร์ดทัวร์ จำกัด · Standard Tour Co., Ltd.</span>
-        <span>รายงานนี้สร้างโดย Field Sale CRM · ${exportDateStr}</span>
+        <span>Field Sale CRM · ${exportDateStr}</span>
       </div>
 
     </body></html>`);
