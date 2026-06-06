@@ -118,17 +118,7 @@ export default function SalesFollower() {
       }
     });
 
-    // รูปทั้งหมด (เรียงตามเวลา) สำหรับ photo strip บนสุด
-    const allPhotos = reportItems.filter((s) => s.field_photo_url);
-    const topPhotoStrip = allPhotos.length > 0
-      ? allPhotos.slice(0, 10).map((s) => `
-          <div class="pw">
-            <img src="${s.field_photo_url}" alt="${s.place_name || ""}"/>
-            <div class="pc">${(s.place_name || "").slice(0, 11)}</div>
-          </div>`).join("")
-      : "";
-
-    // Detail sections per date (ตารางอย่างเดียว ไม่มี photo ซ้ำ)
+    // Detail sections per date
     let detailSections = "";
     byDate.forEach((stops, date) => {
       const d = new Date(date);
@@ -150,6 +140,11 @@ export default function SalesFollower() {
         rows += `
           <tr>
             <td class="seq-cell">${seqNum}</td>
+            <td style="padding:2px 4px;vertical-align:middle;text-align:center">
+              ${s.field_photo_url
+                ? `<img class="thumb" src="${s.field_photo_url}" alt="${s.place_name || ""}"/>`
+                : `<div class="no-thumb"></div>`}
+            </td>
             <td class="place-cell">
               <div class="pn">${s.place_name || "-"}</div>
               ${s.address ? `<div class="pa">${s.address}</div>` : ""}
@@ -174,8 +169,9 @@ export default function SalesFollower() {
           <table>
             <thead><tr>
               <th style="width:26px">ที่</th>
-              <th style="width:26%">สถานที่</th>
-              <th style="width:15%">ประเภท</th>
+              <th style="width:62px;text-align:center">รูป</th>
+              <th style="width:24%">สถานที่</th>
+              <th style="width:14%">ประเภท</th>
               <th style="width:9%" class="tc">เวลา</th>
               <th style="width:9%" class="tc">ใช้เวลา</th>
               <th>บันทึกการพบ</th>
@@ -201,11 +197,9 @@ export default function SalesFollower() {
         .rbadge{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border-radius:8px;padding:6px 16px;text-align:right}
         .rn{font-size:13pt;font-weight:700;white-space:nowrap}
         .rr{font-size:7pt;color:#c4b5fd;margin-top:1px}
-        /* Photo strip — ใต้ header */
-        .photo-top{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:#f8f7ff;border-radius:8px;border:1px solid #ede9fe}
-        .pw{text-align:center}
-        .pw img{width:75px;height:56px;object-fit:cover;border-radius:5px;border:1.5px solid #ddd6fe;display:block}
-        .pc{font-size:6pt;color:#94a3b8;margin-top:2px;max-width:75px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        /* Photo thumbnail ในตาราง */
+        .thumb{width:55px;height:42px;object-fit:cover;border-radius:4px;border:1px solid #ddd6fe;display:block;margin:0 auto}
+        .no-thumb{width:55px;height:42px;background:#f1f5f9;border-radius:4px;border:1px solid #e2e8f0;display:block;margin:0 auto}
         /* Summary bar — 1 แถว */
         .sum{display:flex;gap:0;margin-bottom:10px;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden}
         .sc{flex:1;padding:7px 10px;background:#faf9ff;border-right:1px solid #e2e8f0;text-align:center}
@@ -253,8 +247,6 @@ export default function SalesFollower() {
           <div class="rr">Sales Representative</div>
         </div>
       </div>
-
-      ${topPhotoStrip ? `<div class="photo-top">${topPhotoStrip}</div>` : ""}
 
       <div class="sum">
         <div class="sc"><div class="sv g">${reportItems.length}</div><div class="sl">จุดที่เยี่ยมชม</div></div>
