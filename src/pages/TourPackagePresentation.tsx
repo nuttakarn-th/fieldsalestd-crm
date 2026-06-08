@@ -1989,14 +1989,30 @@ function PublicHeader({ lineUrl, socialLinks, phones }: {
   };
 
   return (
-    <header className="sticky top-0 z-30 shadow-md">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border/40 shadow-sm">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
 
-      {/* ── Strip 1: social icons + phone dropdown + LINE ── */}
-      <div style={{ background: "linear-gradient(90deg, #3b0764 0%, #5b21b6 55%, #4c1d95 100%)" }}>
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+        {/* ── Left: logo + brand ── */}
+        <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0 border border-border/40">
+          <img
+            src="/logo-icon.png" alt="Standard Tour"
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+          />
+        </div>
+        <div className="shrink-0">
+          <p className="font-black text-sm sm:text-base leading-tight">Standard Tour</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">โปรแกรมทัวร์ &amp; E-Booklet</p>
+        </div>
+
+        {/* ── Spacer ── */}
+        <div className="flex-1" />
+
+        {/* ── Right: social icons + phone dropdown + LINE ── */}
+        <div className="flex items-center gap-2">
 
           {/* Social icons */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="hidden sm:flex items-center gap-1.5">
             {(socialLinks ?? []).map((s) => (
               <a
                 key={s.name}
@@ -2012,83 +2028,62 @@ function PublicHeader({ lineUrl, socialLinks, phones }: {
             ))}
           </div>
 
-          {/* Phone + LINE */}
-          <div className="flex items-center gap-2">
+          {/* Divider (desktop) */}
+          <div className="hidden sm:block w-px h-6 bg-border/60 mx-1" />
 
-            {/* Phone dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setPhoneOpen((o) => !o)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition-colors"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">เบอร์โทร</span>
-                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${phoneOpen ? "rotate-180" : ""}`} />
-              </button>
-              {phoneOpen && (
-                <>
-                  {/* backdrop */}
-                  <div className="fixed inset-0 z-40" onClick={() => setPhoneOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-border/60 p-2 w-60 z-50">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
-                      เบอร์โทรติดต่อ
-                    </p>
-                    {(phones ?? []).map((p) => (
-                      <a
-                        key={p.num}
-                        href={`tel:${p.num.replace(/[-\s]/g, "")}`}
-                        className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-violet-50 transition-colors group"
-                        onClick={() => setPhoneOpen(false)}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-200 transition-colors">
-                          <Phone className="w-3.5 h-3.5 text-violet-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[10px] text-muted-foreground leading-none mb-0.5">{p.label}</div>
-                          <div className="text-sm font-bold text-foreground tracking-wide">{p.num}</div>
-                        </div>
-                      </a>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* LINE */}
-            {lineUrl && (
-              <a
-                href={lineUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold transition-opacity hover:opacity-80 shrink-0"
-                style={{ background: "#06C755" }}
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">สอบถาม LINE</span>
-                <span className="sm:hidden">LINE</span>
-              </a>
+          {/* Phone dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setPhoneOpen((o) => !o)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border border-border/60 hover:bg-muted"
+            >
+              <Phone className="w-3.5 h-3.5 text-violet-600" />
+              <span className="hidden sm:inline text-foreground">เบอร์โทร</span>
+              <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform duration-200 ${phoneOpen ? "rotate-180" : ""}`} />
+            </button>
+            {phoneOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setPhoneOpen(false)} />
+                <div className="absolute right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-border/60 p-2 w-60 z-50">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">เบอร์โทรติดต่อ</p>
+                  {(phones ?? []).map((p) => (
+                    <a
+                      key={p.num}
+                      href={`tel:${p.num.replace(/[-\s]/g, "")}`}
+                      className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-violet-50 transition-colors group"
+                      onClick={() => setPhoneOpen(false)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-200 transition-colors">
+                        <Phone className="w-3.5 h-3.5 text-violet-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-muted-foreground leading-none mb-0.5">{p.label}</div>
+                        <div className="text-sm font-bold text-foreground tracking-wide">{p.num}</div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* ── Strip 2: logo + brand ── */}
-      <div className="bg-white/95 backdrop-blur-md border-b border-border/40">
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0 border border-border/40">
-            <img
-              src="/logo-icon.png" alt="Standard Tour"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-sm sm:text-base leading-tight">Standard Tour</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">โปรแกรมทัวร์ &amp; E-Booklet</p>
-          </div>
+          {/* LINE */}
+          {lineUrl && (
+            <a
+              href={lineUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold transition-opacity hover:opacity-80 shrink-0"
+              style={{ background: "#06C755" }}
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">สอบถาม LINE</span>
+              <span className="sm:hidden">LINE</span>
+            </a>
+          )}
         </div>
-      </div>
 
+      </div>
     </header>
   );
 }
