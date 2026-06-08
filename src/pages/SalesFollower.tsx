@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer } from "lucide-react";
+import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer, ChevronLeft, ChevronRight, CalendarClock } from "lucide-react";
 import { fmtDateTime } from "@/lib/dateUtils";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ export default function SalesFollower() {
   const [preset, setPreset] = useState<RangePreset>("month");
   const [custom, setCustom] = useState<DateRange | undefined>();
   const [reportRep, setReportRep] = useState<string | null>(null);
+  const [completedPage, setCompletedPage] = useState(1);
+  const COMPLETED_PAGE_SIZE = 10;
 
   const range = resolveRange(preset, custom);
 
@@ -462,7 +464,7 @@ export default function SalesFollower() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); }} />
+          <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); setCompletedPage(1); }} />
           <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1 shrink-0">
             <FileDown className="w-4 h-4" /> Export PDF
           </Button>
@@ -591,7 +593,7 @@ export default function SalesFollower() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); }} />
+              <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); setCompletedPage(1); }} />
               <Badge variant="outline">{reportItems.length} รายการ · {range.label}</Badge>
             </div>
 
@@ -660,38 +662,126 @@ export default function SalesFollower() {
         </DialogContent>
       </Dialog>
 
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between gap-3">
-          <h2 className="font-bold">รายการ Mission Complete ของทีม (ใหม่ → เก่า)</h2>
-          <Badge variant="outline">{completedItems.length} รายการ</Badge>
-        </div>
-        <ul className="divide-y">
-          {completedItems.length === 0 && <li className="p-8 text-center text-muted-foreground">ไม่มีรายการในช่วงเวลานี้</li>}
-          {completedItems.map((s) => (
-            <li key={`${s.route_id}-${s.stop_id}`} className="p-3 flex items-center gap-3">
-              <div className="w-20 h-16 rounded-lg bg-muted/60 overflow-hidden flex items-center justify-center shrink-0">
-                {s.field_photo_url ? (
-                  <img src={s.field_photo_url} alt={s.place_name} className="w-full h-full object-cover" />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                )}
+      {/* ── Completed items list with pagination ── */}
+      {(() => {
+        const totalPages = Math.max(1, Math.ceil(completedItems.length / COMPLETED_PAGE_SIZE));
+        const safePage = Math.min(completedPage, totalPages);
+        const pageItems = completedItems.slice((safePage - 1) * COMPLETED_PAGE_SIZE, safePage * COMPLETED_PAGE_SIZE);
+        return (
+          <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+            {/* Header */}
+            <div className="px-4 py-3 border-b flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-success" />
+                <h2 className="font-bold text-sm">Mission Complete ของทีม</h2>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold truncate">{s.place_name}</p>
-                  <Badge variant="outline">{s.rep}</Badge>
-                  <Badge variant="outline">{s.purpose}</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-3 mt-1 flex-wrap">
-                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{fmtDateTime(s.completed_at)}</span>
-                  <span>· {s.duration_min ?? 0} นาที</span>
-                </div>
-                {s.note && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">"{s.note}"</p>}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">ใหม่ → เก่า</span>
+                <Badge variant="outline" className="text-xs">{completedItems.length} รายการ</Badge>
               </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+            </div>
+
+            {/* List */}
+            {completedItems.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground text-sm">ไม่มีรายการในช่วงเวลานี้</div>
+            ) : (
+              <ul className="divide-y">
+                {pageItems.map((s, idx) => {
+                  const rowNo = (safePage - 1) * COMPLETED_PAGE_SIZE + idx + 1;
+                  return (
+                    <li key={`${s.route_id}-${s.stop_id}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/30 transition-colors">
+                      {/* Row number */}
+                      <span className="text-[11px] text-muted-foreground/60 w-5 text-right shrink-0 font-mono">{rowNo}</span>
+
+                      {/* Thumbnail */}
+                      <div className="w-11 h-9 rounded-md bg-muted/60 overflow-hidden flex items-center justify-center shrink-0 border border-border/50">
+                        {s.field_photo_url ? (
+                          <img src={s.field_photo_url} alt={s.place_name} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        {/* Name + badges row */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-sm truncate leading-tight">{s.place_name}</p>
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-medium">{s.rep}</Badge>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{s.purpose}</Badge>
+                        </div>
+                        {/* Meta row */}
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                            <CalendarClock className="w-3 h-3 shrink-0" />{fmtDateTime(s.completed_at)}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="w-3 h-3 shrink-0" />{s.duration_min ?? 0} นาที
+                          </span>
+                          {s.note && (
+                            <span className="text-[11px] text-muted-foreground italic truncate max-w-[240px]">
+                              "{s.note}"
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {/* Pagination footer */}
+            {totalPages > 1 && (
+              <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between gap-3">
+                <span className="text-xs text-muted-foreground">
+                  หน้า {safePage} / {totalPages} · แสดง {(safePage - 1) * COMPLETED_PAGE_SIZE + 1}–{Math.min(safePage * COMPLETED_PAGE_SIZE, completedItems.length)} จาก {completedItems.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline" size="icon"
+                    className="w-7 h-7"
+                    disabled={safePage <= 1}
+                    onClick={() => setCompletedPage(safePage - 1)}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                    .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                      if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push("…");
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((p, i) =>
+                      p === "…" ? (
+                        <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                      ) : (
+                        <Button
+                          key={p}
+                          variant={p === safePage ? "default" : "outline"}
+                          size="icon"
+                          className={`w-7 h-7 text-xs ${p === safePage ? "bg-primary text-primary-foreground" : ""}`}
+                          onClick={() => setCompletedPage(p as number)}
+                        >
+                          {p}
+                        </Button>
+                      )
+                    )}
+                  <Button
+                    variant="outline" size="icon"
+                    className="w-7 h-7"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setCompletedPage(safePage + 1)}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
