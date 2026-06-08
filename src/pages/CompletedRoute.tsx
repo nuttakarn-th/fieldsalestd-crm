@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, Clock, Edit3, ImageIcon, MapPin, Route as RouteIcon, Save, X, Map as MapIcon, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, Clock, Edit3, ImageIcon, MapPin, Route as RouteIcon, Save, X, Map as MapIcon, CalendarIcon, Upload, Trash2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -35,6 +37,12 @@ export default function CompletedRoute() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const [editing, setEditing] = useState<CompletedItem | null>(null);
   const [editNote, setEditNote] = useState("");
+  const [editPlaceName, setEditPlaceName] = useState("");
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
+  const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
+  const [editPhotoUploading, setEditPhotoUploading] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDate, setReportDate] = useState<Date>(new Date());
   const [osrmDistanceKm, setOsrmDistanceKm] = useState<string | null>(null);
@@ -68,6 +76,24 @@ export default function CompletedRoute() {
   const openEdit = (item: CompletedItem) => {
     setEditing(item);
     setEditNote(item.note ?? "");
+    setEditPlaceName(item.place_name ?? "");
+    setEditPhotoFile(null);
+    setEditPhotoPreview(item.field_photo_url ?? null);
+  };
+
+  const handleEditPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setEditPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const clearEditPhoto = () => {
+    setEditPhotoFile(null);
+    setEditPhotoPreview(null);
   };
   const reportStops = useMemo(() => {
     const all = (route ? [route] : routes)
@@ -145,12 +171,34 @@ if(pts.length>1){
 <\/script></body></html>`;
   }, [reportPoints]);
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing) return;
-    updateStop(editing.route_id, editing.stop_id, { note: editNote });
-    toast.success("อัปเดตรายละเอียด Route แล้ว");
+    const patch: Record<string, unknown> = {
+      note: editNote,
+      place_name: editPlaceName.trim() || editing.place_name,
+    };
+    if (editPhotoFile) {
+      setEditPhotoUploading(true);
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(editPhotoFile);
+      });
+      patch.field_photo_url = dataUrl;
+      patch.field_photo_name = editPhotoFile.name;
+    } else if (editPhotoPreview === null && editing.field_photo_url) {
+      // User cleared the photo
+      patch.field_photo_url = null;
+      patch.field_photo_name = null;
+    }
+    updateStop(editing.route_id, editing.stop_id, patch as Partial<RouteStop>);
+    setEditPhotoUploading(false);
+    toast.success("อัปเดตข้อมูล Route แล้ว");
     setEditing(null);
     setEditNote("");
+    setEditPlaceName("");
+    setEditPhotoFile(null);
+    setEditPhotoPreview(null);
   };
 
   if (routeId && !route) {
@@ -236,16 +284,86 @@ if(pts.length>1){
         ))}
       </section>
 
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>แก้ไขข้อมูล Route</DialogTitle></DialogHeader>
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">{editing?.place_name}</p>
-            <VoiceTextarea rows={5} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="รายละเอียดที่ต้องการบันทึก..." />
+      {/* Hidden file inputs for photo picker */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleEditPhotoChange} />
+      <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={handleEditPhotoChange} />
+
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) { setEditing(null); setEditPhotoFile(null); setEditPhotoPreview(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit3 className="w-4 h-4 text-primary" /> แก้ไขข้อมูล Route
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* ชื่อ Route */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ชื่อ Route / สถานที่</Label>
+              <Input
+                value={editPlaceName}
+                onChange={(e) => setEditPlaceName(e.target.value)}
+                placeholder="ชื่อสถานที่..."
+                className="text-sm"
+              />
+            </div>
+
+            {/* รายละเอียด */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">รายละเอียด / บันทึกการพบ</Label>
+              <VoiceTextarea rows={4} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="รายละเอียดที่ต้องการบันทึก..." />
+            </div>
+
+            {/* รูปภาพ */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">รูปภาพหน้างาน</Label>
+              {editPhotoPreview ? (
+                <div className="relative rounded-xl overflow-hidden border border-primary/20 bg-muted/20">
+                  <img src={editPhotoPreview} alt="ตัวอย่างรูป" className="w-full max-h-48 object-cover" />
+                  <button
+                    onClick={clearEditPhoto}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  {editPhotoFile && (
+                    <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
+                      <Camera className="w-3 h-3 shrink-0" />{editPhotoFile.name}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/10 p-4 flex items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => cameraRef.current?.click()}
+                  >
+                    <Camera className="w-3.5 h-3.5" /> ถ่ายรูป
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => galleryRef.current?.click()}
+                  >
+                    <Upload className="w-3.5 h-3.5" /> เลือกรูป
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}><X className="w-4 h-4 mr-2" />ยกเลิก</Button>
-            <Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground"><Save className="w-4 h-4 mr-2" />บันทึก</Button>
+
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => { setEditing(null); setEditPhotoFile(null); setEditPhotoPreview(null); }}>
+              <X className="w-4 h-4 mr-2" />ยกเลิก
+            </Button>
+            <Button onClick={saveEdit} disabled={editPhotoUploading} className="bg-gradient-primary text-primary-foreground">
+              <Save className="w-4 h-4 mr-2" />{editPhotoUploading ? "กำลังบันทึก..." : "บันทึก"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
