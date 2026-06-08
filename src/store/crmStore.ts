@@ -959,20 +959,70 @@ export const useCRM = create<CRMState>()(
     }
   },
   updateStop: (routeId, stopId, patch) => {
+    // 1) Update local state immediately (with data URL for instant preview)
     set({
       routes: get().routes.map((r) =>
         r.route_id !== routeId ? r : { ...r, stops: r.stops.map((s) => (s.stop_id === stopId ? { ...s, ...patch } : s)) },
       ),
     });
-    if (SUPABASE_ENABLED && supabase) {
-      // Strip data URLs before sending to Supabase — data: strings (~500KB) cause silent REST API failures
-      const supabasePatch = { ...patch } as Record<string, unknown>;
-      if (typeof supabasePatch.field_photo_url === "string" && supabasePatch.field_photo_url.startsWith("data:")) {
-        delete supabasePatch.field_photo_url;
-      }
-      supabase.from("route_stops").update(supabasePatch).eq("stop_id", stopId).then(({ error }) => {
-        if (error) console.error("[supabase] update stop ล้มเหลว:", error);
-      });
+    if (!SUPABASE_ENABLED || !supabase) return;
+
+    const supabasePatch = { ...patch } as Record<string, unknown>;
+    const dataUrl = typeof supabasePatch.field_photo_url === "string" && supabasePatch.field_photo_url.startsWith("data:")
+      ? supabasePatch.field_photo_url as string
+      : null;
+
+    if (dataUrl) {
+      // 2) Upload photo to Supabase Storage → get public URL → persist
+      delete supabasePatch.field_photo_url; // don't send data URL in REST patch
+
+      (async () => {
+        try {
+          // Convert data URL → Blob
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const ext  = blob.type.includes("png") ? "png" : "jpg";
+          const path = `route-photos/${stopId}_${Date.now()}.${ext}`;
+
+          const { error: uploadErr } = await supabase.storage
+            .from("field-photos")
+            .upload(path, blob, { upsert: true, contentType: blob.type });
+
+          if (uploadErr) {
+            console.error("[supabase] upload รูปล้มเหลว:", uploadErr);
+            // Still update other fields without photo URL
+            supabase.from("route_stops").update(supabasePatch).eq("stop_id", stopId)
+              .then(({ error }) => { if (error) console.error("[supabase] update stop ล้มเหลว:", error); });
+            return;
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage.from("field-photos").getPublicUrl(path);
+
+          // Update Supabase row with persistent public URL
+          const finalPatch = { ...supabasePatch, field_photo_url: publicUrl };
+          supabase.from("route_stops").update(finalPatch).eq("stop_id", stopId)
+            .then(({ error }) => { if (error) console.error("[supabase] update stop ล้มเหลว:", error); });
+
+          // Update local state with public URL (replaces data URL)
+          set({
+            routes: get().routes.map((r) =>
+              r.route_id !== routeId ? r : {
+                ...r,
+                stops: r.stops.map((s) =>
+                  s.stop_id === stopId ? { ...s, field_photo_url: publicUrl } : s
+                ),
+              },
+            ),
+          });
+        } catch (e) {
+          console.error("[supabase] upload photo error:", e);
+        }
+      })();
+    } else {
+      // No data URL — update normally
+      supabase.from("route_stops").update(supabasePatch).eq("stop_id", stopId)
+        .then(({ error }) => { if (error) console.error("[supabase] update stop ล้มเหลว:", error); });
     }
   },
   deleteStop: (routeId, stopId) => {

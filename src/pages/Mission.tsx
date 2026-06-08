@@ -186,8 +186,31 @@ export default function Mission() {
                   {s.status === "completed" && s.note && (
                     <p className="text-xs text-muted-foreground mt-2 italic">"{s.note}"</p>
                   )}
-                  {s.status === "completed" && s.field_photo_name && (
-                    <p className="text-xs text-primary mt-2 flex items-center gap-1"><Camera className="w-3 h-3" /> รูปหน้างาน: {s.field_photo_name}</p>
+                  {s.status === "completed" && (s.field_photo_url || s.field_photo_name) && (
+                    <div className="mt-3">
+                      {s.field_photo_url ? (
+                        <div className="rounded-xl overflow-hidden border border-primary/20 bg-muted/20">
+                          <img
+                            src={s.field_photo_url}
+                            alt={`รูปหน้างาน ${s.place_name}`}
+                            className="w-full max-h-48 object-cover"
+                            loading="lazy"
+                          />
+                          {s.field_photo_name && (
+                            <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
+                              <Camera className="w-3 h-3 shrink-0" />
+                              {s.field_photo_name}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Camera className="w-3 h-3 shrink-0" />
+                          รูปหน้างาน: {s.field_photo_name}
+                          <span className="text-[10px] opacity-60">(ไม่สามารถแสดงรูปได้ — บันทึกเฉพาะชื่อไฟล์)</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
