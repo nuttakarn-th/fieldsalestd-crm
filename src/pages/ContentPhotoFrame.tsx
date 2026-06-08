@@ -14,6 +14,7 @@ import {
   Folder, FolderOpen, ChevronRight, ChevronDown, ChevronUp,
   Maximize2, AlignCenter, Info, Pencil, RotateCcw,
   FlipHorizontal, FlipVertical, SlidersHorizontal, CopyCheck,
+  Scissors, Loader2, Sparkles,
 } from "lucide-react";
 import { useCRM, type ContentTemplate } from "@/store/crmStore";
 import { toast } from "sonner";
@@ -370,6 +371,9 @@ export default function ContentPhotoFrame() {
   const [showTemplatePanel,   setShowTemplatePanel]   = useState(false);
   const [showToolbar,         setShowToolbar]         = useState(true);
   const [showUploadMenu,      setShowUploadMenu]      = useState(false);
+  // Background removal
+  const [bgRemoving,    setBgRemoving]    = useState(false);
+  const [bgProcessed,   setBgProcessed]   = useState<Set<number>>(new Set());
   const [uploadCreatingFolder, setUploadCreatingFolder] = useState(false);
   const [uploadNewFolderName,  setUploadNewFolderName]  = useState("");
   const uploadFolderRef = useRef<string | undefined>(undefined);
@@ -578,6 +582,50 @@ export default function ContentPhotoFrame() {
       ctx.restore();
     }
   }, [drawTick, cx, cy, scale, rotation, flipH, flipV, selectedTemplate, activeIdx]);
+
+  // ── Background removal (AI — @imgly/background-removal) ──────────────────
+  async function handleRemoveBg() {
+    if (!activePhoto || bgRemoving) return;
+    setBgRemoving(true);
+    toast.info("กำลังวิเคราะห์ภาพ AI...", { duration: 60000, id: "bg-remove" });
+    try {
+      // Dynamic import — loads only when needed (avoids bloating initial bundle)
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore — package installed via package.json; tsc resolves after npm install
+      const { removeBackground } = await import("@imgly/background-removal");
+      const url = URL.createObjectURL(activePhoto);
+      const resultBlob = await removeBackground(url, {
+        // Use WebAssembly SIMD for speed; fallback to non-SIMD automatically
+        model: "medium",          // 'small' | 'medium' | 'large'
+        output: {
+          format: "image/png",
+          quality: 1,
+          type: "foreground",     // keep foreground, transparent bg
+        },
+      });
+      URL.revokeObjectURL(url);
+      // Replace current photo with the transparent result
+      const newFile = new File([resultBlob], activePhoto.name.replace(/\.[^.]+$/, "") + "_nobg.png", { type: "image/png" });
+      setPhotoFiles(prev => {
+        const arr = [...prev];
+        arr[activeIdx] = newFile;
+        return arr;
+      });
+      // Reset position so canvas re-renders the new image
+      setPhotoPositions(prev => {
+        const arr = [...prev];
+        arr[activeIdx] = undefined;
+        return arr;
+      });
+      setBgProcessed(prev => new Set([...prev, activeIdx]));
+      toast.success("ลบพื้นหลังเรียบร้อย ✅", { id: "bg-remove" });
+    } catch (err) {
+      console.error("[BG Remove]", err);
+      toast.error("ลบพื้นหลังไม่สำเร็จ — ตรวจสอบ network แล้วลองใหม่", { id: "bg-remove" });
+    } finally {
+      setBgRemoving(false);
+    }
+  }
 
   // ── Fit / Center helpers ───────────────────────────────────────────────────
   function handleFitFull() {
@@ -1135,6 +1183,33 @@ export default function ContentPhotoFrame() {
             <ImageIcon className="w-3.5 h-3.5" /> อัปโหลดรูปภาพ
           </button>
           <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onPhotoUpload} />
+
+          {/* Background Removal — shown when photo loaded */}
+          {activePhoto && (
+            <>
+              <div className="w-px h-5 bg-border shrink-0" />
+              <button
+                onClick={handleRemoveBg}
+                disabled={bgRemoving}
+                title={bgProcessed.has(activeIdx) ? "ลบพื้นหลังแล้ว (ลบซ้ำได้)" : "ลบพื้นหลังด้วย AI (รูป PNG โปร่งใส)"}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 touch-manipulation ${
+                  bgRemoving
+                    ? "bg-fuchsia-100 text-fuchsia-500 cursor-wait"
+                    : bgProcessed.has(activeIdx)
+                    ? "bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200"
+                    : "bg-fuchsia-600 text-white hover:bg-fuchsia-700 active:bg-fuchsia-700"
+                }`}
+              >
+                {bgRemoving ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> AI กำลังลบ...</>
+                ) : bgProcessed.has(activeIdx) ? (
+                  <><Sparkles className="w-3.5 h-3.5" /> <span className="hidden sm:inline">ลบแล้ว ✓</span></>
+                ) : (
+                  <><Scissors className="w-3.5 h-3.5" /> <span className="hidden sm:inline">ลบพื้นหลัง</span></>
+                )}
+              </button>
+            </>
+          )}
 
           {/* Controls — shown when photo + template are loaded */}
           {pw > 0 && selectedTemplate && (
