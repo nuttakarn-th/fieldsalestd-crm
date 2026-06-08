@@ -21,7 +21,7 @@ import {
   Globe2, MapPin, Clock, ChevronLeft, ChevronRight, Loader2,
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
   MessageCircle, LogIn, Flame,
-  Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2,
+  Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2, Copy,
   SlidersHorizontal, Check, Search, Maximize2, Minimize2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -2223,6 +2223,31 @@ export default function TourPackagePresentation() {
         <StandaloneHeader backTo="/tour-presentation" hideChat />
       ) : (
         <PublicHeader lineUrl={settings.lineUrl} />
+      )}
+
+      {/* ── Staff: Share Link bar ── */}
+      {user && (
+        <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-8 pt-3 flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 text-xs text-muted-foreground bg-muted/50 border border-border/60 rounded-lg px-3 py-2 font-mono truncate select-all">
+            <Link2 className="w-3.5 h-3.5 shrink-0 text-violet-500" />
+            <span className="truncate">{`${window.location.origin}/tour-packages`}</span>
+          </div>
+          <button
+            onClick={() => {
+              const url = `${window.location.origin}/tour-packages`;
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => toast.success("คัดลอกลิงก์แล้ว ✓"));
+              } else {
+                toast.info(url);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white shrink-0 transition-all hover:scale-105 active:scale-95"
+            style={{ background: "linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%)" }}
+          >
+            <Copy className="w-3.5 h-3.5" />
+            คัดลอกลิงก์
+          </button>
+        </div>
       )}
 
       {/* ── Banner Slider ── */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff, Map } from "lucide-react";
 import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
 import { toast } from "sonner";
@@ -61,18 +61,22 @@ export default function Login() {
       className="min-h-screen flex flex-col"
       style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)", fontFamily: "'Inter', 'Kanit', sans-serif" }}
     >
-      {/* ── Top-left logo (white version) ── */}
-      <div className="absolute top-5 left-6 z-10 flex items-center gap-2">
-        {/* Logo white: ถ้ามีไฟล์ logo-white.png ใน public/ ให้ใช้ แต่ถ้าไม่มีใช้ SVG placeholder */}
+      {/* ── Top bar: logo left + Tour Program button right ── */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
         <img
           src="/logo-white.png"
           alt="Standard Tour"
           className="h-7 w-auto"
-          onError={(e) => {
-            // Fallback to SVG if PNG not available
-            (e.target as HTMLImageElement).src = "/logo-white.svg";
-          }}
+          onError={(e) => { (e.target as HTMLImageElement).src = "/logo-white.svg"; }}
         />
+        <Link
+          to="/tour-packages"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-lg transition-all hover:scale-105 active:scale-95"
+          style={{ background: "linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%)" }}
+        >
+          <Map className="w-4 h-4" />
+          Tour Program
+        </Link>
       </div>
 
       {/* ── Main content: vertically + horizontally centered ── */}

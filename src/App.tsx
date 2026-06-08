@@ -104,25 +104,25 @@ const App = () => (
           <Route path="/contact-info" element={<ContactInfo />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />
-          <Route path="/teams" element={<SalesTeam />} />
-          <Route path="/profile" element={<MyProfile />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/login-banner" element={<LoginBannerPage />} />
-          <Route path="/web-setting" element={<WebSetting />} />
-          <Route path="/ads-dashboard" element={<AdsDashboard />} />
-          <Route path="/service-stock" element={<AllServicePage />} />
-          <Route path="/marketing-dashboard" element={<MarketingDashboardPage />} />
-          <Route path="/marketing-customers" element={<CustomersPage />} />
-          <Route path="/marketing-campaigns" element={<CampaignsPage />} />
-          <Route path="/marketing-report" element={<MarketingReportPage />} />
-          <Route path="/marketing-contents" element={<ContentManagementLayout />}>
+          <Route path="/teams" element={<RouteGuard><SalesTeam /></RouteGuard>} />
+          <Route path="/profile" element={<RouteGuard><MyProfile /></RouteGuard>} />
+          <Route path="/users" element={<RouteGuard><UsersPage /></RouteGuard>} />
+          <Route path="/login-banner" element={<RouteGuard><LoginBannerPage /></RouteGuard>} />
+          <Route path="/web-setting" element={<RouteGuard><WebSetting /></RouteGuard>} />
+          <Route path="/ads-dashboard" element={<RouteGuard><AdsDashboard /></RouteGuard>} />
+          <Route path="/service-stock" element={<RouteGuard><AllServicePage /></RouteGuard>} />
+          <Route path="/marketing-dashboard" element={<RouteGuard><MarketingDashboardPage /></RouteGuard>} />
+          <Route path="/marketing-customers" element={<RouteGuard><CustomersPage /></RouteGuard>} />
+          <Route path="/marketing-campaigns" element={<RouteGuard><CampaignsPage /></RouteGuard>} />
+          <Route path="/marketing-report" element={<RouteGuard><MarketingReportPage /></RouteGuard>} />
+          <Route path="/marketing-contents" element={<RouteGuard><ContentManagementLayout /></RouteGuard>}>
             <Route path="calendar"     element={<ContentCalendar />} />
             <Route path="tour-link"    element={<TourContentLink />} />
             <Route path="assets"       element={<ContentAssetLibrary />} />
             <Route path="performance"  element={<PostPerformanceTracker />} />
             <Route path="photo-frame"  element={<ContentPhotoFrame />} />
           </Route>
-          <Route path="/audience-builder" element={<AudienceBuilderLayout />}>
+          <Route path="/audience-builder" element={<RouteGuard><AudienceBuilderLayout /></RouteGuard>}>
             <Route path="line-export" element={<AudienceLineExport />} />
             <Route path="facebook"    element={<AudienceFacebook />} />
             <Route path="birthday"    element={<AudienceBirthday />} />
