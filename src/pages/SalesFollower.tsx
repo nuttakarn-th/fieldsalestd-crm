@@ -681,6 +681,18 @@ export default function SalesFollower() {
               </div>
             </div>
 
+            {/* Column header */}
+            <div className="hidden sm:grid px-3 py-1.5 bg-muted/30 border-b text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
+              style={{ gridTemplateColumns: "28px 48px 1fr 90px 130px 72px 1fr" }}>
+              <span className="text-center">#</span>
+              <span className="text-center">รูป</span>
+              <span className="pl-1">สถานที่</span>
+              <span>Sales</span>
+              <span className="flex items-center gap-1"><CalendarClock className="w-3 h-3" />วันที่/เวลา</span>
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" />ใช้เวลา</span>
+              <span>บันทึก</span>
+            </div>
+
             {/* List */}
             {completedItems.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground text-sm">ไม่มีรายการในช่วงเวลานี้</div>
@@ -689,42 +701,43 @@ export default function SalesFollower() {
                 {pageItems.map((s, idx) => {
                   const rowNo = (safePage - 1) * COMPLETED_PAGE_SIZE + idx + 1;
                   return (
-                    <li key={`${s.route_id}-${s.stop_id}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/30 transition-colors">
-                      {/* Row number */}
-                      <span className="text-[11px] text-muted-foreground/60 w-5 text-right shrink-0 font-mono">{rowNo}</span>
+                    <li key={`${s.route_id}-${s.stop_id}`}
+                      className="hidden sm:grid items-center gap-0 px-3 py-2 hover:bg-muted/20 transition-colors"
+                      style={{ gridTemplateColumns: "28px 48px 1fr 90px 130px 72px 1fr" }}>
+
+                      {/* # */}
+                      <span className="text-[11px] text-muted-foreground/50 text-center font-mono">{rowNo}</span>
 
                       {/* Thumbnail */}
-                      <div className="w-11 h-9 rounded-md bg-muted/60 overflow-hidden flex items-center justify-center shrink-0 border border-border/50">
+                      <div className="w-10 h-8 rounded-md bg-muted/50 overflow-hidden flex items-center justify-center border border-border/40 mx-auto">
                         {s.field_photo_url ? (
                           <img src={s.field_photo_url} alt={s.place_name} className="w-full h-full object-cover" loading="lazy" />
                         ) : (
-                          <ImageIcon className="w-4 h-4 text-muted-foreground/40" />
+                          <ImageIcon className="w-3.5 h-3.5 text-muted-foreground/30" />
                         )}
                       </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        {/* Name + badges row */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-semibold text-sm truncate leading-tight">{s.place_name}</p>
-                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-primary/10 text-primary border-primary/20 font-medium">{s.rep}</Badge>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{s.purpose}</Badge>
-                        </div>
-                        {/* Meta row */}
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
-                            <CalendarClock className="w-3 h-3 shrink-0" />{fmtDateTime(s.completed_at)}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
-                            <Clock className="w-3 h-3 shrink-0" />{s.duration_min ?? 0} นาที
-                          </span>
-                          {s.note && (
-                            <span className="text-[11px] text-muted-foreground italic truncate max-w-[240px]">
-                              "{s.note}"
-                            </span>
-                          )}
-                        </div>
+                      {/* สถานที่ + ประเภท */}
+                      <div className="min-w-0 pl-1">
+                        <p className="font-semibold text-sm truncate leading-tight">{s.place_name}</p>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-[14px] mt-0.5">{s.purpose}</Badge>
                       </div>
+
+                      {/* Sales rep */}
+                      <div>
+                        <Badge className="text-[10px] px-1.5 py-0 h-5 bg-primary/10 text-primary border-primary/20 font-medium">{s.rep}</Badge>
+                      </div>
+
+                      {/* วันที่/เวลา */}
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{fmtDateTime(s.completed_at)}</span>
+
+                      {/* ระยะเวลา */}
+                      <span className="text-[11px] text-muted-foreground tabular-nums">{s.duration_min ?? 0} นาที</span>
+
+                      {/* บันทึก */}
+                      <p className="text-[11px] text-muted-foreground italic truncate pr-2">
+                        {s.note ? `"${s.note}"` : <span className="not-italic opacity-30">—</span>}
+                      </p>
                     </li>
                   );
                 })}
