@@ -20,7 +20,8 @@ import {
   BookOpen, Upload, Trash2, Edit3, Save, X, Plus, Tag,
   Globe2, MapPin, Clock, ChevronLeft, ChevronRight, Loader2,
   ZoomIn, ZoomOut, FileText, Image as ImageIcon, Filter,
-  MessageCircle, LogIn, Flame,
+  MessageCircle, Flame, Phone,
+  Facebook, Instagram, Youtube,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2, Copy,
   SlidersHorizontal, Check, Search, Maximize2, Minimize2,
 } from "lucide-react";
@@ -30,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useSiteSettings, type TourPackageItem, type TourPackageBanner } from "@/store/siteSettingsStore";
+import { useSiteSettings, type TourPackageItem, type TourPackageBanner, type SocialLink, type PhoneEntry } from "@/store/siteSettingsStore";
 import { useCurrentUser } from "@/store/authStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { compressImage } from "@/lib/imageCompression";
@@ -1949,39 +1950,145 @@ function AddEditDialog({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TikTok icon (no lucide equivalent)
+// ─────────────────────────────────────────────────────────────────────────────
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? "w-3.5 h-3.5"} aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.73a8.28 8.28 0 0 0 4.83 1.54V6.82a4.85 4.85 0 0 1-1.06-.13z"/>
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PublicHeader
 // ─────────────────────────────────────────────────────────────────────────────
+function PublicHeader({ lineUrl, socialLinks, phones }: {
+  lineUrl?: string;
+  socialLinks?: SocialLink[];
+  phones?: PhoneEntry[];
+}) {
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
-function PublicHeader({ lineUrl }: { lineUrl?: string }) {
+  const socialIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n === "facebook")  return <Facebook  className="w-3.5 h-3.5" />;
+    if (n === "instagram") return <Instagram className="w-3.5 h-3.5" />;
+    if (n === "youtube")   return <Youtube   className="w-3.5 h-3.5" />;
+    if (n === "tiktok")    return <TikTokIcon className="w-3.5 h-3.5" />;
+    return <Globe2 className="w-3.5 h-3.5" />;
+  };
+
+  const socialBg = (name: string): string => {
+    const n = name.toLowerCase();
+    if (n === "facebook")  return "#1877F2";
+    if (n === "instagram") return "#E1306C";
+    if (n === "youtube")   return "#FF0000";
+    if (n === "tiktok")    return "#010101";
+    return "#059669";
+  };
+
   return (
-    <header className="sticky top-0 z-30 bg-white/80 dark:bg-background/80 backdrop-blur-md border-b border-border/60 shadow-sm">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0 border border-border/40">
-          <img
-            src="/logo-icon.png" alt="Standard Tour"
-            className="w-full h-full object-cover"
-            onError={e => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
-          />
+    <header className="sticky top-0 z-30 shadow-md">
+
+      {/* ── Strip 1: social icons + phone dropdown + LINE ── */}
+      <div style={{ background: "linear-gradient(90deg, #3b0764 0%, #5b21b6 55%, #4c1d95 100%)" }}>
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-3">
+
+          {/* Social icons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(socialLinks ?? []).map((s) => (
+              <a
+                key={s.name}
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+                title={s.name}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white transition-opacity hover:opacity-75 shrink-0"
+                style={{ background: socialBg(s.name) }}
+              >
+                {socialIcon(s.name)}
+              </a>
+            ))}
+          </div>
+
+          {/* Phone + LINE */}
+          <div className="flex items-center gap-2">
+
+            {/* Phone dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setPhoneOpen((o) => !o)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">เบอร์โทร</span>
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${phoneOpen ? "rotate-180" : ""}`} />
+              </button>
+              {phoneOpen && (
+                <>
+                  {/* backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setPhoneOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-border/60 p-2 w-60 z-50">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+                      เบอร์โทรติดต่อ
+                    </p>
+                    {(phones ?? []).map((p) => (
+                      <a
+                        key={p.num}
+                        href={`tel:${p.num.replace(/[-\s]/g, "")}`}
+                        className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-violet-50 transition-colors group"
+                        onClick={() => setPhoneOpen(false)}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-200 transition-colors">
+                          <Phone className="w-3.5 h-3.5 text-violet-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-muted-foreground leading-none mb-0.5">{p.label}</div>
+                          <div className="text-sm font-bold text-foreground tracking-wide">{p.num}</div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* LINE */}
+            {lineUrl && (
+              <a
+                href={lineUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold transition-opacity hover:opacity-80 shrink-0"
+                style={{ background: "#06C755" }}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">สอบถาม LINE</span>
+                <span className="sm:hidden">LINE</span>
+              </a>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-black text-sm sm:text-base leading-tight">Standard Tour</p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">โปรแกรมทัวร์ &amp; E-Booklet</p>
-        </div>
-        {lineUrl && (
-          <a
-            href={lineUrl} target="_blank" rel="noreferrer"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-[#06C755] text-white hover:bg-[#05b34c] transition-colors shrink-0 shadow-sm"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">สอบถาม LINE</span>
-            <span className="sm:hidden">LINE</span>
-          </a>
-        )}
-        <Link to="/login" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0 px-2 py-1 rounded-lg hover:bg-muted" title="Staff">
-          <LogIn className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Staff</span>
-        </Link>
       </div>
+
+      {/* ── Strip 2: logo + brand ── */}
+      <div className="bg-white/95 backdrop-blur-md border-b border-border/40">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full overflow-hidden shadow-md shrink-0 border border-border/40">
+            <img
+              src="/logo-icon.png" alt="Standard Tour"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-sm sm:text-base leading-tight">Standard Tour</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground leading-none">โปรแกรมทัวร์ &amp; E-Booklet</p>
+          </div>
+        </div>
+      </div>
+
     </header>
   );
 }
@@ -2222,7 +2329,7 @@ export default function TourPackagePresentation() {
       {user ? (
         <StandaloneHeader backTo="/tour-presentation" hideChat />
       ) : (
-        <PublicHeader lineUrl={settings.lineUrl} />
+        <PublicHeader lineUrl={settings.lineUrl} socialLinks={settings.socialLinks} phones={settings.phones} />
       )}
 
       {/* ── Staff: Share Link bar ── */}
