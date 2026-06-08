@@ -989,10 +989,12 @@ export const useCRM = create<CRMState>()(
             .upload(path, blob, { upsert: true, contentType: blob.type });
 
           if (uploadErr) {
-            console.error("[supabase] upload รูปล้มเหลว:", uploadErr);
-            // Still update other fields without photo URL
-            supabase.from("route_stops").update(supabasePatch).eq("stop_id", stopId)
-              .then(({ error }) => { if (error) console.error("[supabase] update stop ล้มเหลว:", error); });
+            // Storage upload ล้มเหลว → fallback: บันทึก data URL ตรงลง DB
+            // (data URL ทำงานได้เป็น img src และ PostgreSQL text column รองรับขนาดนี้)
+            console.warn("[supabase] Storage upload ล้มเหลว — fallback บันทึก data URL ลง DB:", uploadErr.message);
+            const fallbackPatch = { ...supabasePatch, field_photo_url: dataUrl };
+            supabase.from("route_stops").update(fallbackPatch).eq("stop_id", stopId)
+              .then(({ error }) => { if (error) console.error("[supabase] fallback update stop ล้มเหลว:", error); });
             return;
           }
 
