@@ -9,7 +9,7 @@ import {
   Save, RotateCcw, ChevronLeft, Check,
   ToggleLeft, ToggleRight, Info,
   Brain, Plus, Trash2, Pencil, X, Tag, ChevronRight as ChevronRightIcon,
-  ChevronRight,
+  ChevronRight, Globe2, Copy,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,11 @@ import {
   type BotSettings,
 } from "@/store/webSettingsStore";
 import { useBotQA, type BotQA, type BotQADraft } from "@/store/botQAStore";
+import { useSiteSettings, type OgMeta } from "@/store/siteSettingsStore";
+import { generateOgHtml } from "@/lib/ogMeta";
 import { toast } from "sonner";
 
-type SidebarTab = "help" | "bot" | "training" | "banner";
+type SidebarTab = "help" | "bot" | "training" | "banner" | "og";
 
 const PAGE_LABELS: Record<string, string> = {
   "service-stock":        "Service and Stock",
@@ -455,6 +457,183 @@ function BotTrainingSection() {
   );
 }
 
+/* ── OG Meta ── */
+function OgCard({
+  label, url, draft, setDraft, onSave, onCopy,
+}: {
+  label: string;
+  url: string;
+  draft: OgMeta;
+  setDraft: React.Dispatch<React.SetStateAction<OgMeta>>;
+  onSave: () => void;
+  onCopy: () => void;
+}) {
+  const domain = new URL(url).hostname;
+  return (
+    <div className="bg-card rounded-2xl border p-4 space-y-4">
+      {/* Card header */}
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-sm">{label}</p>
+          <p className="text-[11px] text-muted-foreground font-mono truncate">{url}</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button size="sm" variant="outline" onClick={onCopy} className="gap-1.5 text-xs h-8">
+            <Copy className="w-3.5 h-3.5" /> คัดลอก HTML Tags
+          </Button>
+          <Button size="sm" onClick={onSave} className="bg-gradient-primary text-primary-foreground gap-1.5 text-xs h-8">
+            <Save className="w-3.5 h-3.5" /> บันทึก
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Fields */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">OG Title</label>
+            <Input
+              value={draft.title}
+              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+              className="mt-1 text-sm h-9"
+              placeholder="ชื่อหน้าเมื่อแชร์"
+            />
+            <p className="text-[10px] text-muted-foreground mt-0.5">{draft.title.length}/60 ตัวอักษร (แนะนำไม่เกิน 60)</p>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">OG Description</label>
+            <Textarea
+              value={draft.description}
+              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+              rows={3}
+              className="mt-1 text-sm resize-none"
+              placeholder="คำอธิบายสั้นๆ เมื่อแชร์ลิงก์"
+            />
+            <p className="text-[10px] text-muted-foreground mt-0.5">{draft.description.length}/160 ตัวอักษร (แนะนำไม่เกิน 160)</p>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">OG Image URL</label>
+            <Input
+              value={draft.imageUrl}
+              onChange={(e) => setDraft((d) => ({ ...d, imageUrl: e.target.value }))}
+              className="mt-1 text-sm h-9 font-mono text-xs"
+              placeholder="https://..."
+            />
+            <p className="text-[10px] text-muted-foreground mt-0.5">แนะนำขนาด 1200×630 px</p>
+          </div>
+
+          {/* Image thumbnail */}
+          {draft.imageUrl && (
+            <div className="rounded-lg overflow-hidden border aspect-video bg-muted">
+              <img
+                src={draft.imageUrl}
+                alt="OG Preview"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Social preview card */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Preview (Facebook / LINE)</p>
+          <div className="border rounded-xl overflow-hidden shadow-sm bg-white dark:bg-zinc-900 max-w-xs">
+            {draft.imageUrl ? (
+              <div className="aspect-video bg-muted overflow-hidden">
+                <img
+                  src={draft.imageUrl}
+                  alt="og preview"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+            ) : (
+              <div className="aspect-video bg-muted flex items-center justify-center">
+                <Globe2 className="w-8 h-8 text-muted-foreground/30" />
+              </div>
+            )}
+            <div className="px-3 py-2 border-t">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{domain}</p>
+              <p className="text-xs font-semibold line-clamp-2 mt-0.5 text-zinc-900 dark:text-zinc-100">
+                {draft.title || "ชื่อหน้า..."}
+              </p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 mt-0.5">
+                {draft.description || "คำอธิบาย..."}
+              </p>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">* Preview อิงจากค่าในฟอร์ม ยังไม่ได้บันทึก</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OgMetaSection() {
+  const ogMain     = useSiteSettings((s) => s.ogMain);
+  const ogPackages = useSiteSettings((s) => s.ogPackages);
+  const setOgMain     = useSiteSettings((s) => s.setOgMain);
+  const setOgPackages = useSiteSettings((s) => s.setOgPackages);
+
+  const [mainDraft, setMainDraft] = useState<OgMeta>({ ...ogMain });
+  const [pkgDraft,  setPkgDraft]  = useState<OgMeta>({ ...ogPackages });
+
+  // Sync if another tab modifies store
+  useEffect(() => { setMainDraft((d) => ({ ...d, ...ogMain })); }, [ogMain]);
+  useEffect(() => { setPkgDraft((d)  => ({ ...d, ...ogPackages })); }, [ogPackages]);
+
+  const saveMain = () => { setOgMain(mainDraft); toast.success("บันทึก OG Meta หน้าหลักแล้ว ✅"); };
+  const savePkg  = () => { setOgPackages(pkgDraft); toast.success("บันทึก OG Meta หน้าทัวร์แล้ว ✅"); };
+
+  const copyHtml = (og: OgMeta, url: string) => {
+    const html = generateOgHtml(og, url);
+    navigator.clipboard.writeText(html).then(() => toast.success("คัดลอก HTML Tags แล้ว ✅"));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Globe2 className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="font-bold text-base">OG Meta Tags</h2>
+          <p className="text-xs text-muted-foreground">ชื่อ, คำอธิบาย และภาพที่แสดงเมื่อแชร์ลิงก์บน Facebook / LINE / Twitter</p>
+        </div>
+      </div>
+
+      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 flex gap-2">
+        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+          กด <strong>บันทึก</strong> เพื่ออัปเดตทันทีใน Browser (Google, Tab ชื่อ) — แต่ Facebook / LINE
+          ใช้ static crawler ตอน build ต้องกด <strong>คัดลอก HTML Tags</strong> แล้วนำไปวางใน{" "}
+          <code className="font-mono text-[11px] bg-amber-100 dark:bg-amber-900/30 px-1 rounded">index.html</code>{" "}
+          แล้ว deploy ใหม่จึงจะเห็นผล
+        </p>
+      </div>
+
+      <OgCard
+        label="หน้าหลักระบบ"
+        url="https://standardtour-hub.vercel.app/"
+        draft={mainDraft}
+        setDraft={setMainDraft}
+        onSave={saveMain}
+        onCopy={() => copyHtml(mainDraft, "https://standardtour-hub.vercel.app/")}
+      />
+
+      <OgCard
+        label="หน้าโปรแกรมทัวร์ (ลูกค้า)"
+        url="https://standardtour-hub.vercel.app/tour-packages"
+        draft={pkgDraft}
+        setDraft={setPkgDraft}
+        onSave={savePkg}
+        onCopy={() => copyHtml(pkgDraft, "https://standardtour-hub.vercel.app/tour-packages")}
+      />
+    </div>
+  );
+}
+
 /* ── Main ── */
 export default function WebSetting() {
   const user = useCurrentUser();
@@ -467,6 +646,7 @@ export default function WebSetting() {
     { key: "bot",      label: "ตั้งค่า Chat Bot",    icon: Bot },
     { key: "training", label: "เทรน Bot (Q&A)",      icon: Brain },
     { key: "banner",   label: "Login Banner",         icon: ImageIcon },
+    { key: "og",       label: "OG Meta Tags",         icon: Globe2 },
   ];
 
   return (
@@ -541,6 +721,7 @@ export default function WebSetting() {
           {tab === "help"     && <HelpTextSection />}
           {tab === "bot"      && <BotSection />}
           {tab === "training" && <BotTrainingSection />}
+          {tab === "og"       && <OgMetaSection />}
           {tab === "banner" && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">

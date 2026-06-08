@@ -1,6 +1,9 @@
 import { Link, Navigate } from "react-router-dom";
 import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp } from "lucide-react";
+import { useEffect } from "react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
+import { useSiteSettings } from "@/store/siteSettingsStore";
+import { applyOgMeta } from "@/lib/ogMeta";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
 import { TeamNotifications } from "@/components/TeamNotifications";
@@ -200,6 +203,10 @@ function HubChatButton() {
 export default function Hub() {
   const user = useCurrentUser();
   const viewAsRole = useAuth((s) => s.viewAsRole);
+  const ogMain = useSiteSettings((s) => s.ogMain);
+  useEffect(() => {
+    applyOgMeta(ogMain, `${window.location.origin}/`);
+  }, [ogMain]);
   if (!user) return <Navigate to="/login" replace />;
   const effectiveRole: AppRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
   const isMarketing = effectiveRole === "Marketing";

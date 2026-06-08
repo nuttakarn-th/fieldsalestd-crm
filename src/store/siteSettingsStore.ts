@@ -4,6 +4,11 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 export interface SocialLink { name: string; url: string; tone: string }
 export interface PhoneEntry { label: string; num: string }
+export interface OgMeta {
+  title: string;
+  description: string;
+  imageUrl: string;
+}
 export interface PresentationItem {
   id: string;
   title: string;
@@ -68,6 +73,9 @@ interface State {
   tourPackages: TourPackageItem[];
   // Tour Package Page Banners (1920×700)
   tourPackageBanners: TourPackageBanner[];
+  // OG Meta for social sharing
+  ogMain: OgMeta;
+  ogPackages: OgMeta;
 
   setProfile: (v: string) => void;
   setSocial: (l: SocialLink[]) => void;
@@ -88,6 +96,8 @@ interface State {
   addTourPackageBanner: (banner: TourPackageBanner) => void;
   updateTourPackageBanner: (id: string, patch: Partial<TourPackageBanner>) => void;
   removeTourPackageBanner: (id: string) => void;
+  setOgMain: (patch: Partial<OgMeta>) => void;
+  setOgPackages: (patch: Partial<OgMeta>) => void;
 
   loadFromSupabase: () => Promise<void>;
   saveToSupabase: () => Promise<void>;
@@ -109,6 +119,18 @@ const DEFAULT_PHONES: PhoneEntry[] = [
   { label: "สำนักงานใหญ่", num: "053-818-600" },
   { label: "สาขากรุงเทพฯ", num: "092-197-2185" },
 ];
+
+const DEFAULT_OG_MAIN: OgMeta = {
+  title: "Standard Tour Hub — ระบบบริหารงานขายและจัดการลูกค้า",
+  description: "ระบบติดตามการขาย จัดการลูกค้า Pipeline, Target, Mission และ Dashboard สำหรับทีม Standard Tour",
+  imageUrl: "https://standardtour-hub.vercel.app/og-image.jpg",
+};
+
+const DEFAULT_OG_PACKAGES: OgMeta = {
+  title: "Standard Tour — โปรแกรมทัวร์ & E-Booklet",
+  description: "เลือกโปรแกรมทัวร์ที่ใช่สำหรับคุณ — ทัวร์ต่างประเทศ ในประเทศ และทั่วโลก โดย Standard Tour",
+  imageUrl: "https://standardtour-hub.vercel.app/og-image-packages.jpg",
+};
 
 const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
   { id: "bs-1", imageUrl: "", title: "ยินดีต้อนรับสู่ Standard Tour", subtitle: "ผู้นำด้านบริการท่องเที่ยวคุณภาพ" },
@@ -133,6 +155,8 @@ const DEFAULTS = {
   bannerSlides: DEFAULT_BANNER_SLIDES,
   tourPackages: [] as TourPackageItem[],
   tourPackageBanners: [] as TourPackageBanner[],
+  ogMain: DEFAULT_OG_MAIN,
+  ogPackages: DEFAULT_OG_PACKAGES,
 };
 
 // Pick only the data fields (no actions) for serialization
@@ -154,6 +178,8 @@ function snapshot(s: State) {
     bannerSlides: s.bannerSlides,
     tourPackages: s.tourPackages,
     tourPackageBanners: s.tourPackageBanners,
+    ogMain: s.ogMain,
+    ogPackages: s.ogPackages,
   };
 }
 
@@ -191,6 +217,8 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
     get().saveToSupabase();
   },
   removeTourPackageBanner: (id) => { set({ tourPackageBanners: (get().tourPackageBanners ?? []).filter((b) => b.id !== id) }); get().saveToSupabase(); },
+  setOgMain: (patch) => { set({ ogMain: { ...get().ogMain, ...patch } }); get().saveToSupabase(); },
+  setOgPackages: (patch) => { set({ ogPackages: { ...get().ogPackages, ...patch } }); get().saveToSupabase(); },
 
   loadFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
@@ -223,6 +251,9 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
         if (!payload.tourPackages) payload.tourPackages = [];
         // Ensure tourPackageBanners defaults
         if (!payload.tourPackageBanners) payload.tourPackageBanners = [];
+        // Ensure OG meta defaults
+        if (!payload.ogMain) payload.ogMain = DEFAULT_OG_MAIN;
+        if (!payload.ogPackages) payload.ogPackages = DEFAULT_OG_PACKAGES;
         set(payload);
       }
     } catch (e) {

@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useSiteSettings, type TourPackageItem, type TourPackageBanner, type SocialLink, type PhoneEntry } from "@/store/siteSettingsStore";
+import { applyOgMeta } from "@/lib/ogMeta";
 import { useCurrentUser } from "@/store/authStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { compressImage } from "@/lib/imageCompression";
@@ -2099,6 +2100,11 @@ export default function TourPackagePresentation() {
 
   const packages         = settings.tourPackages ?? [];
   const tourPackageBanners = settings.tourPackageBanners ?? [];
+
+  // ── OG Meta injection ─────────────────────────────────────────────────────
+  useEffect(() => {
+    applyOgMeta(settings.ogPackages, `${window.location.origin}/tour-packages`);
+  }, [settings.ogPackages]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [flipbookPkg, setFlipbookPkg]     = useState<TourPackageItem | null>(null);
