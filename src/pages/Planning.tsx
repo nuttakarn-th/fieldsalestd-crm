@@ -165,34 +165,39 @@ export default function Planning() {
             const hasCompleted = completed > 0;
             return (
               <div key={r.route_id} className="bg-card rounded-xl border shadow-soft overflow-hidden">
-                <div className="p-4 border-b bg-gradient-to-r from-primary/5 to-accent/5 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold">{r.title}</h3>
-                      <Badge variant="outline" className="border-primary/40 text-primary">{r.stops.length} จุด</Badge>
-                      <Badge variant="outline" className="border-success/40 text-success">เสร็จ {completed}/{r.stops.length}</Badge>
+                <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 border-b bg-gradient-to-r from-primary/5 to-accent/5">
+                  {/* Row 1: title + delete */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm sm:text-base leading-snug">{r.title}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <Badge variant="outline" className="border-primary/40 text-primary text-[10px] h-5">{r.stops.length} จุด</Badge>
+                        <Badge variant="outline" className="border-success/40 text-success text-[10px] h-5">เสร็จ {completed}/{r.stops.length}</Badge>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">Route ID: {r.route_id}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">Route ID: {r.route_id}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setOpenStop(r)}>
-                      <Plus className="w-4 h-4 mr-1" /> เพิ่มจุด
+                    <Button size="icon" variant="ghost" className="shrink-0 w-7 h-7 mt-0.5" onClick={() => { deleteRoute(r.route_id); toast.success("ลบ Route แล้ว"); }}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
                     </Button>
-                    <Link to={`/app/mission/${r.route_id}`}>
-                      <Button size="sm" className="bg-gradient-primary text-primary-foreground">
-                        เริ่ม Mission <ChevronRight className="w-4 h-4 ml-1" />
+                  </div>
+                  {/* Row 2: action buttons */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button size="sm" variant="outline" className="h-8 text-xs px-3 shrink-0" onClick={() => setOpenStop(r)}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มจุด
+                    </Button>
+                    <Link to={`/app/mission/${r.route_id}`} className="flex-1 sm:flex-none">
+                      <Button size="sm" className="w-full h-8 text-xs bg-gradient-primary text-primary-foreground">
+                        เริ่ม Mission <ChevronRight className="w-3.5 h-3.5 ml-1" />
                       </Button>
                     </Link>
                     {hasCompleted && (
-                      <Link to={`/app/route-completed/${r.route_id}`}>
-                        <Button size="sm" variant="outline" className="border-success/40 text-success hover:bg-success/10">
-                          <Eye className="w-4 h-4 mr-1" /> ข้อมูล Route
+                      <Link to={`/app/route-completed/${r.route_id}`} className="shrink-0">
+                        <Button size="sm" variant="outline" className="h-8 text-xs border-success/40 text-success hover:bg-success/10 px-2.5">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline ml-1">ข้อมูล Route</span>
                         </Button>
                       </Link>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => { deleteRoute(r.route_id); toast.success("ลบ Route แล้ว"); }}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
                   </div>
                 </div>
                 {(() => {
