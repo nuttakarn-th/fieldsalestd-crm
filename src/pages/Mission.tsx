@@ -234,43 +234,23 @@ export default function Mission() {
         {/* ════ RIGHT: Detail panel ════ */}
         <div className="w-full flex-1 min-w-0 space-y-4 overflow-hidden">
 
-          {/* Active stop — timer + complete */}
-          {activeStop && (
-            <div className="bg-card rounded-xl border-2 border-primary/30 shadow-soft p-5 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0">
-                    {activeStop.seq}
-                  </div>
-                  <div>
-                    <p className="font-bold text-base">{activeStop.place_name}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{activeStop.planned_time}</span>
-                      {activeStop.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{activeStop.address}</span>}
-                    </div>
-                  </div>
-                </div>
-                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs shrink-0">กำลังทำ</Badge>
-              </div>
-              {/* timer */}
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/15">
-                <Timer className="w-6 h-6 text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">เวลาที่ใช้</p>
-                  <p className="text-4xl font-bold tabular-nums text-primary tracking-tight">{fmtDuration(activeElapsed)}</p>
-                </div>
-                <Button
-                  className="bg-success text-success-foreground hover:opacity-90 h-11 px-5"
-                  onClick={() => { setCompleteOpen(activeStop); setCompleteNote(activeStop.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
-                </Button>
-              </div>
-              {activeStop.note && <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">📝 {activeStop.note}</p>}
+          {/* ① Progress stats — บนสุดเสมอ */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-primary">{sortedStops.length}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">จุดทั้งหมด</p>
             </div>
-          )}
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-success">{completed}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">เสร็จแล้ว</p>
+            </div>
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-muted-foreground">{sortedStops.length - completed}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">คงเหลือ</p>
+            </div>
+          </div>
 
-          {/* Next stop (if nothing active) */}
+          {/* ② Next stop หรือ Active stop — อยู่ใต้ stats ทันที */}
           {!activeStop && nextStop && !allDone && (
             <div className="bg-card rounded-xl border shadow-soft p-4 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">จุดถัดไป</p>
@@ -293,23 +273,41 @@ export default function Mission() {
             </div>
           )}
 
-          {/* Progress stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-card rounded-xl border p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{sortedStops.length}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">จุดทั้งหมด</p>
+          {activeStop && (
+            <div className="bg-card rounded-xl border-2 border-primary/30 shadow-soft p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0">
+                    {activeStop.seq}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-base truncate">{activeStop.place_name}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                      <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{activeStop.planned_time}</span>
+                      {activeStop.address && <span className="flex items-center gap-1 truncate max-w-[160px]"><MapPin className="w-3 h-3 shrink-0" />{activeStop.address}</span>}
+                    </div>
+                  </div>
+                </div>
+                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs shrink-0">กำลังทำ</Badge>
+              </div>
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/15">
+                <Timer className="w-6 h-6 text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">เวลาที่ใช้</p>
+                  <p className="text-4xl font-bold tabular-nums text-primary tracking-tight">{fmtDuration(activeElapsed)}</p>
+                </div>
+                <Button
+                  className="bg-success text-success-foreground hover:opacity-90 h-11 px-5 shrink-0"
+                  onClick={() => { setCompleteOpen(activeStop); setCompleteNote(activeStop.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
+                </Button>
+              </div>
+              {activeStop.note && <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">📝 {activeStop.note}</p>}
             </div>
-            <div className="bg-card rounded-xl border p-3 text-center">
-              <p className="text-2xl font-bold text-success">{completed}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">เสร็จแล้ว</p>
-            </div>
-            <div className="bg-card rounded-xl border p-3 text-center">
-              <p className="text-2xl font-bold text-muted-foreground">{sortedStops.length - completed}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">คงเหลือ</p>
-            </div>
-          </div>
+          )}
 
-          {/* Completed stops with notes / photos */}
+          {/* ③ Completed stops with notes / photos */}
           {completedStops.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">บันทึกผลการเยี่ยม</p>
