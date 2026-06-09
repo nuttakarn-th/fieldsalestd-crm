@@ -452,6 +452,8 @@ interface CRMState {
   deleteQuotation: (id: string) => void;
   addChatMessage: (msg: Omit<ChatMessage, "id" | "created_at">) => void;
   markNotificationsRead: () => void;
+  dismissNotification: (id: string) => void;
+  clearAllNotifications: () => void;
   setCurrentRep: (r: SalesRep | "All") => void;
   loadCustomersFromSupabase: () => Promise<void>;
   loadAllFromSupabase: () => Promise<void>;
@@ -600,6 +602,23 @@ export const useCRM = create<CRMState>()(
     if (SUPABASE_ENABLED && supabase) {
       supabase.from("team_notifications").update({ read: true }).eq("read", false).then(({ error }) => {
         if (error) console.error("[supabase] mark notifications read ล้มเหลว:", error);
+      });
+    }
+  },
+  dismissNotification: (id) => {
+    set({ teamNotifications: get().teamNotifications.filter((n) => n.id !== id) });
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("team_notifications").delete().eq("id", id).then(({ error }) => {
+        if (error) console.error("[supabase] dismiss notification ล้มเหลว:", error);
+      });
+    }
+  },
+  clearAllNotifications: () => {
+    const ids = get().teamNotifications.map((n) => n.id);
+    set({ teamNotifications: [] });
+    if (SUPABASE_ENABLED && supabase && ids.length > 0) {
+      supabase.from("team_notifications").delete().in("id", ids).then(({ error }) => {
+        if (error) console.error("[supabase] clear notifications ล้มเหลว:", error);
       });
     }
   },

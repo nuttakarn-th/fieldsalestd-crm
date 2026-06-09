@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Bell, CheckCircle2, Clock, UserPlus, ExternalLink, Trash2, ShieldCheck, ShieldX } from "lucide-react";
+import { Bell, CheckCircle2, Clock, UserPlus, ExternalLink, Trash2, ShieldCheck, ShieldX, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ export function TeamNotifications() {
   const user = useCurrentUser();
   const notifications = useCRM((s) => s.teamNotifications);
   const markNotificationsRead = useCRM((s) => s.markNotificationsRead);
+  const dismissNotification = useCRM((s) => s.dismissNotification);
+  const clearAllNotifications = useCRM((s) => s.clearAllNotifications);
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const { requests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
 
@@ -47,11 +49,23 @@ export function TeamNotifications() {
       </PopoverTrigger>
 
       <PopoverContent className="w-[360px] p-0" align="end">
-        <div className="p-4 border-b">
-          <p className="font-bold">แจ้งเตือนกิจกรรมทีม</p>
-          <p className="text-xs text-muted-foreground">
-            {isManager ? "Mission, ลูกค้าใหม่, คำขอลบ และการลบลูกค้า" : "Mission, ลูกค้าใหม่ และการลบลูกค้า"}
-          </p>
+        <div className="p-4 border-b flex items-start justify-between gap-2">
+          <div>
+            <p className="font-bold">แจ้งเตือนกิจกรรมทีม</p>
+            <p className="text-xs text-muted-foreground">
+              {isManager ? "Mission, ลูกค้าใหม่, คำขอลบ และการลบลูกค้า" : "Mission, ลูกค้าใหม่ และการลบลูกค้า"}
+            </p>
+          </div>
+          {notifications.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive shrink-0"
+              onClick={clearAllNotifications}
+            >
+              ล้างทั้งหมด
+            </Button>
+          )}
         </div>
 
         <div className="max-h-[480px] overflow-y-auto divide-y">
@@ -115,7 +129,7 @@ export function TeamNotifications() {
             <div className="p-6 text-center text-sm text-muted-foreground">ยังไม่มีแจ้งเตือนใหม่</div>
           ) : (
             notifications.map((n) => (
-              <div key={n.id} className="p-3 hover:bg-muted/40">
+              <div key={n.id} className="p-3 hover:bg-muted/40 group relative">
                 <div className="flex items-start gap-3">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
                     n.type === "customer_deleted"
@@ -126,7 +140,7 @@ export function TeamNotifications() {
                       : n.type === "customer_deleted" ? <Trash2 className="w-4 h-4" />
                       : <UserPlus className="w-4 h-4" />}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pr-6">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold">{n.title}</p>
                       {n.sales !== "All" && <Badge variant="outline" className="text-[10px]">{n.sales}</Badge>}
@@ -144,6 +158,14 @@ export function TeamNotifications() {
                     </div>
                   </div>
                 </div>
+                {/* X dismiss button */}
+                <button
+                  onClick={() => dismissNotification(n.id)}
+                  className="absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground transition-all"
+                  aria-label="ปิดการแจ้งเตือน"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               </div>
             ))
           )}
