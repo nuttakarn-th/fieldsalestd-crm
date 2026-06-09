@@ -151,7 +151,7 @@ export default function Mission() {
       </div>
 
       {/* ── DESKTOP: 2-panel │ MOBILE: single column ── */}
-      <div className="flex flex-col md:flex-row gap-4 items-start">
+      <div className="flex flex-col md:flex-row gap-4 md:items-start">
 
         {/* ════ LEFT: Stop list (compact rows) ════ */}
         <div className="w-full md:w-[420px] lg:w-[460px] shrink-0 md:sticky md:top-4">
@@ -232,7 +232,7 @@ export default function Mission() {
         </div>
 
         {/* ════ RIGHT: Detail panel ════ */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="w-full flex-1 min-w-0 space-y-4 overflow-hidden">
 
           {/* Active stop — timer + complete */}
           {activeStop && (
@@ -274,20 +274,20 @@ export default function Mission() {
           {!activeStop && nextStop && !allDone && (
             <div className="bg-card rounded-xl border shadow-soft p-4 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">จุดถัดไป</p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold shrink-0">
                   {nextStop.seq}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold truncate">{nextStop.place_name}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{nextStop.planned_time}</span>
-                    {nextStop.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{nextStop.address}</span>}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                    <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{nextStop.planned_time}</span>
+                    {nextStop.address && <span className="flex items-center gap-1 truncate max-w-[160px]"><MapPin className="w-3 h-3 shrink-0" />{nextStop.address}</span>}
                   </div>
-                  {nextStop.note && <p className="text-xs text-muted-foreground mt-1">📝 {nextStop.note}</p>}
+                  {nextStop.note && <p className="text-xs text-muted-foreground mt-1 truncate">📝 {nextStop.note}</p>}
                 </div>
-                <Button onClick={() => handleStart(nextStop)} className="bg-gradient-primary text-primary-foreground shrink-0">
-                  <Play className="w-4 h-4 mr-2" /> Check-in / เริ่ม
+                <Button onClick={() => handleStart(nextStop)} className="bg-gradient-primary text-primary-foreground shrink-0 h-9 px-3 text-sm">
+                  <Play className="w-3.5 h-3.5 mr-1.5" /> เริ่ม
                 </Button>
               </div>
             </div>
