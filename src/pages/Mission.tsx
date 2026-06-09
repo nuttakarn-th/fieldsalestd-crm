@@ -153,8 +153,8 @@ export default function Mission() {
       {/* ── DESKTOP: 2-panel │ MOBILE: single column ── */}
       <div className="flex flex-col md:flex-row gap-4 md:items-start">
 
-        {/* ════ LEFT: Stop list (compact rows) ════ */}
-        <div className="w-full md:w-[420px] lg:w-[460px] shrink-0 md:sticky md:top-4">
+        {/* ════ LEFT: Stop list (compact rows) — mobile: ลงไปอยู่ด้านล่าง ════ */}
+        <div className="w-full md:w-[420px] lg:w-[460px] shrink-0 md:sticky md:top-4 order-2 md:order-1">
           <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
             {/* section header */}
             <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between">
@@ -232,7 +232,8 @@ export default function Mission() {
         </div>
 
         {/* ════ RIGHT: Detail panel ════ */}
-        <div className="w-full flex-1 min-w-0 space-y-4 overflow-hidden">
+        {/* ════ RIGHT: Detail panel — mobile: ขึ้นมาอยู่บนสุด ════ */}
+        <div className="w-full flex-1 min-w-0 space-y-4 overflow-hidden order-1 md:order-2">
 
           {/* ① Progress stats — บนสุดเสมอ */}
           <div className="grid grid-cols-3 gap-3">
