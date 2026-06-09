@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Clock, ChevronRight as ArrowRight, Lock, Plus } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Clock, ChevronRight as ArrowRight, Lock, Plus, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -134,9 +134,10 @@ export default function RouteCalendar() {
       </div>
 
       <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+        {/* Day headers — Sunday (index 6) gets pink tint */}
         <div className="grid grid-cols-7 bg-muted/50 text-xs font-semibold text-muted-foreground">
-          {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((d) => (
-            <div key={d} className="p-2 text-center">{d}</div>
+          {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((d, i) => (
+            <div key={d} className={`p-2 text-center ${i === 6 ? "bg-rose-50 text-rose-400 dark:bg-rose-950/30 dark:text-rose-400" : ""}`}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -145,14 +146,24 @@ export default function RouteCalendar() {
             const key = ymd(c.date);
             const dayRoutes = byDate.get(key) ?? [];
             const isToday = key === todayKey;
+            const isPast = key < todayKey;
+            const isSunday = c.date.getDay() === 0;
             return (
               <button
                 key={c.key}
                 onClick={() => setDayOpen({ date: key, routes: dayRoutes })}
-                className={`text-left min-h-28 border-t border-r p-1.5 flex flex-col gap-1 hover:bg-primary/5 transition ${isToday ? "bg-primary/5" : ""}`}
+                className={[
+                  "text-left min-h-28 border-t border-r p-1.5 flex flex-col gap-1 transition",
+                  isSunday ? "bg-rose-50/60 dark:bg-rose-950/20" : "",
+                  isToday ? "bg-primary/5" : "",
+                  isPast ? "opacity-60 cursor-default hover:bg-transparent" : "hover:bg-primary/5",
+                ].filter(Boolean).join(" ")}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold ${isToday ? "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center" : ""}`}>
+                  <span className={`text-xs font-bold ${
+                    isToday ? "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center" :
+                    isSunday ? "text-rose-400" : ""
+                  }`}>
                     {c.date.getDate()}
                   </span>
                   {dayRoutes.length > 0 && (
@@ -227,8 +238,25 @@ export default function RouteCalendar() {
 
       <Dialog open={!!dayOpen} onOpenChange={(o) => !o && setDayOpen(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>วันที่ {dayOpen?.date}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {dayOpen && dayOpen.date < todayKey && (
+                <History className="w-4 h-4 text-muted-foreground shrink-0" />
+              )}
+              วันที่ {dayOpen?.date}
+              {dayOpen && dayOpen.date < todayKey && (
+                <Badge variant="outline" className="text-[10px] border-muted text-muted-foreground font-normal">ข้อมูลย้อนหลัง</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-2 max-h-[50vh] overflow-auto">
+            {/* Past date: show read-only notice */}
+            {dayOpen && dayOpen.date < todayKey && (
+              <div className="flex items-start gap-2 rounded-lg bg-muted/50 border px-3 py-2 text-xs text-muted-foreground">
+                <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>ไม่สามารถเพิ่มหรือแก้ไขแผนในวันที่ผ่านมาได้ — แสดงเฉพาะรายงาน</span>
+              </div>
+            )}
             {dayOpen && dayOpen.routes.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-6">ยังไม่มี Route ในวันนี้</p>
             )}
@@ -247,18 +275,23 @@ export default function RouteCalendar() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDayOpen(null)}>ปิด</Button>
-            <Button
-              variant="outline"
-              onClick={() => dayOpen && openQuickStop(dayOpen.date)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> เพิ่มจุดเยี่ยม
-            </Button>
-            <Button
-              onClick={() => dayOpen && openCreateRoute(dayOpen.date)}
-              className="bg-gradient-pink text-accent-foreground"
-            >
-              <Plus className="w-4 h-4 mr-2" /> เพิ่ม Route + รายละเอียด
-            </Button>
+            {/* Only show add buttons for today or future dates */}
+            {dayOpen && dayOpen.date >= todayKey && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => dayOpen && openQuickStop(dayOpen.date)}
+                >
+                  <Plus className="w-4 h-4 mr-2" /> เพิ่มจุดเยี่ยม
+                </Button>
+                <Button
+                  onClick={() => dayOpen && openCreateRoute(dayOpen.date)}
+                  className="bg-gradient-pink text-accent-foreground"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> เพิ่ม Route + รายละเอียด
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
