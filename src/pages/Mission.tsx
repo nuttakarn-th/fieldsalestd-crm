@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Play, CheckCircle2, Clock, Timer, UserPlus, Flag, ChevronRight, Camera, X, Loader2, Locate } from "lucide-react";
+import { ArrowLeft, MapPin, Play, CheckCircle2, Clock, Timer, UserPlus, Flag, ChevronRight, Camera, X, Loader2, Locate, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
@@ -26,6 +26,7 @@ export default function Mission() {
   const customers = useCRM((s) => s.customers);
   const startStop = useCRM((s) => s.startStop);
   const completeStop = useCRM((s) => s.completeStop);
+  const skipStop = useCRM((s) => s.skipStop);
 
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -40,6 +41,15 @@ export default function Mission() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [skipTarget, setSkipTarget] = useState<RouteStop | null>(null);
+  const [skipDate, setSkipDate] = useState("");
+
+  // วันพรุ่งนี้ (YYYY-MM-DD) — ขั้นต่ำของ skip date
+  function tomorrowYMD() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -198,9 +208,19 @@ export default function Mission() {
                           </span>
                         )}
                         {s.status === "planned" && (
-                          <Button size="sm" className="h-7 text-xs px-2.5 bg-gradient-primary text-primary-foreground" onClick={() => handleStart(s)}>
-                            <Play className="w-3 h-3 mr-1" /> เริ่ม
-                          </Button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button size="sm" className="h-7 text-xs px-2.5 bg-gradient-primary text-primary-foreground" onClick={() => handleStart(s)}>
+                              <Play className="w-3 h-3 mr-1" /> เริ่ม
+                            </Button>
+                            <Button
+                              size="sm" variant="outline"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-600 hover:border-amber-400"
+                              title="เลื่อนไปวันอื่น"
+                              onClick={() => { setSkipTarget(s); setSkipDate(tomorrowYMD()); }}
+                            >
+                              <SkipForward className="w-3 h-3" />
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </li>
@@ -347,6 +367,47 @@ export default function Mission() {
 
         </div>{/* end right panel */}
       </div>{/* end 2-panel flex */}
+
+      {/* ── Skip Dialog ── */}
+      <Dialog open={!!skipTarget} onOpenChange={(o) => !o && setSkipTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SkipForward className="w-4 h-4 text-amber-500" /> เลื่อนจุดนี้ไปวันอื่น
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              <b className="text-foreground">{skipTarget?.place_name}</b> จะถูกย้ายไปยังแผนของวันที่เลือก (status รีเซ็ตเป็น "รอดำเนินการ")
+            </p>
+            <div>
+              <Label className="text-sm font-medium">วันที่ต้องการเลื่อนไป *</Label>
+              <Input
+                type="date"
+                value={skipDate}
+                min={tomorrowYMD()}
+                onChange={(e) => setSkipDate(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSkipTarget(null)}>ยกเลิก</Button>
+            <Button
+              disabled={!skipDate}
+              onClick={() => {
+                if (!skipTarget || !skipDate) return;
+                skipStop(route.route_id, skipTarget.stop_id, skipDate);
+                toast.success(`เลื่อน "${skipTarget.place_name}" ไปวัน ${skipDate} แล้ว`);
+                setSkipTarget(null);
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              <SkipForward className="w-4 h-4 mr-2" /> เลื่อนวัน
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Complete Dialog ── */}
       <Dialog open={!!completeOpen} onOpenChange={(o) => !o && setCompleteOpen(null)}>

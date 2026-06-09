@@ -473,6 +473,7 @@ interface CRMState {
   updateStop: (routeId: string, stopId: string, patch: Partial<RouteStop>) => void;
   deleteStop: (routeId: string, stopId: string) => void;
   reorderStops: (routeId: string, orderedStopIds: string[]) => void;
+  skipStop: (routeId: string, stopId: string, targetDate: string) => void;
   startStop: (routeId: string, stopId: string) => void;
   completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number) => void;
 }
@@ -1149,6 +1150,78 @@ export const useCRM = create<CRMState>()(
           if (error) console.error("[supabase] reorder stop ล้มเหลว:", stopId, error);
         });
       });
+    }
+  },
+  skipStop: (routeId, stopId, targetDate) => {
+    const state = get();
+    const currentRoute = state.routes.find((r) => r.route_id === routeId);
+    if (!currentRoute) return;
+    const stop = currentRoute.stops.find((s) => s.stop_id === stopId);
+    if (!stop) return;
+
+    // Reset stop state (ลบ timing ที่อาจติดมา)
+    const cleanStop: RouteStop = {
+      ...stop,
+      status: "planned",
+      started_at: undefined,
+      completed_at: undefined,
+      duration_min: undefined,
+    };
+
+    const existingTarget = state.routes.find(
+      (r) => r.date === targetDate && r.rep === currentRoute.rep,
+    );
+
+    if (existingTarget) {
+      const targetRouteId = existingTarget.route_id;
+      const newSeq = existingTarget.stops.length + 1;
+      set({
+        routes: state.routes.map((r) => {
+          if (r.route_id === routeId) {
+            return { ...r, stops: r.stops.filter((s) => s.stop_id !== stopId).map((s, i) => ({ ...s, seq: i + 1 })) };
+          }
+          if (r.route_id === targetRouteId) {
+            return { ...r, stops: [...r.stops, { ...cleanStop, route_id: targetRouteId, seq: newSeq }] };
+          }
+          return r;
+        }),
+      });
+      if (SUPABASE_ENABLED && supabase) {
+        supabase!.from("route_stops")
+          .update({ route_id: targetRouteId, seq: newSeq, status: "planned", started_at: null, completed_at: null, duration_min: null })
+          .eq("stop_id", stopId)
+          .then(({ error }) => { if (error) console.error("[supabase] skipStop update ล้มเหลว:", error); });
+      }
+    } else {
+      // สร้าง route ใหม่สำหรับวันนั้น
+      const targetRouteId = `R${Date.now()}`;
+      const newRoute: RoutePlan = {
+        route_id: targetRouteId,
+        rep: currentRoute.rep,
+        date: targetDate,
+        title: `แผนเยี่ยมลูกค้า ${targetDate}`,
+        stops: [{ ...cleanStop, route_id: targetRouteId, seq: 1 }],
+        created_at: new Date().toISOString(),
+      };
+      set({
+        routes: [
+          ...state.routes.map((r) => {
+            if (r.route_id !== routeId) return r;
+            return { ...r, stops: r.stops.filter((s) => s.stop_id !== stopId).map((s, i) => ({ ...s, seq: i + 1 })) };
+          }),
+          newRoute,
+        ],
+      });
+      if (SUPABASE_ENABLED && supabase) {
+        const { stops: _stops, ...routeOnly } = newRoute;
+        supabase!.from("route_plans").upsert(routeOnly, { onConflict: "route_id" }).then(({ error }) => {
+          if (error) console.error("[supabase] skipStop: create route ล้มเหลว:", error);
+        });
+        supabase!.from("route_stops")
+          .update({ route_id: targetRouteId, seq: 1, status: "planned", started_at: null, completed_at: null, duration_min: null })
+          .eq("stop_id", stopId)
+          .then(({ error }) => { if (error) console.error("[supabase] skipStop: move stop ล้มเหลว:", error); });
+      }
     }
   },
   startStop: (routeId, stopId) => {
