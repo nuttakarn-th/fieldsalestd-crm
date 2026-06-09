@@ -648,16 +648,66 @@ export const useCRM = create<CRMState>()(
       if (chats.error) console.error("[supabase] load chats error:", chats.error);
       if (notifs.error) console.error("[supabase] load notifications error:", notifs.error);
 
-      // อัพเดต state ทุกตาราง — แม้ว่าจะว่าง ก็ต้อง replace (ไม่ใช้ mock)
+      // ── Smart merge routes ──────────────────────────────────────────────────
+      // ปัญหาเดิม: loadAll blindly replace → stops ที่ insert ยังไม่สำเร็จจะหายหมด
+      // → Mission หน้าว่าง → กด Complete ไม่ได้
+      // แก้: merge อย่างฉลาด — local ชนะถ้า status ไปไกลกว่า หรือมี stops เพิ่ม
+      const currentRoutes = get().routes;
+      const STATUS_RANK: Record<StopStatus, number> = { planned: 0, in_progress: 1, completed: 2, skipped: 2 };
+      // timestamp-based ID = R + 10+ digits; seeded = R0001–R0100
+      const isRealRoute = (rid: string) => /^R\d{10,}/.test(rid);
+
+      const mergedRoutes: RoutePlan[] = ((routes.data ?? []) as any[]).map((r) => {
+        const supaStops: RouteStop[] = (r.route_stops || []).sort(
+          (a: RouteStop, b: RouteStop) => a.seq - b.seq,
+        );
+        const localRoute = currentRoutes.find((lr) => lr.route_id === r.route_id);
+        if (!localRoute) return { ...r, stops: supaStops };
+
+        // local มี stops มากกว่า → stops ยัง pending sync → ใช้ local + re-sync ที่หาย
+        if (localRoute.stops.length > supaStops.length) {
+          const supaStopIds = new Set(supaStops.map((s) => s.stop_id));
+          const missingStops = localRoute.stops.filter((s) => !supaStopIds.has(s.stop_id));
+          if (missingStops.length > 0) {
+            // eslint-disable-next-line no-console
+            console.warn(`[supabase] re-sync ${missingStops.length} stops ที่หาย (route ${r.route_id})`);
+            missingStops.forEach((stop) => {
+              supabase!.from("route_stops").upsert(stop, { onConflict: "stop_id" }).then(({ error }) => {
+                if (error) console.error("[supabase] re-sync stop ล้มเหลว:", stop.stop_id, error);
+              });
+            });
+          }
+          return { ...r, stops: localRoute.stops };
+        }
+
+        // merge stop statuses: local ชนะถ้า status ไป "ไกลกว่า" (in_progress > planned)
+        const mergedStops = supaStops.map((ss) => {
+          const ls = localRoute.stops.find((s) => s.stop_id === ss.stop_id);
+          if (ls && STATUS_RANK[ls.status] > STATUS_RANK[ss.status]) return ls;
+          return ss;
+        });
+        return { ...r, stops: mergedStops };
+      });
+
+      // เก็บ routes ที่มีใน local แต่ยังไม่อยู่ใน Supabase (pending sync)
+      // เฉพาะ "real" routes (timestamp ID) — ทิ้ง seeded data เก่า
+      const supaIds = new Set(mergedRoutes.map((r) => r.route_id));
+      const localOnlyRoutes = currentRoutes.filter(
+        (r) => !supaIds.has(r.route_id) && isRealRoute(r.route_id),
+      );
+      if (localOnlyRoutes.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(`[supabase] พบ ${localOnlyRoutes.length} route ที่ยังไม่ sync — เก็บไว้ก่อน`);
+      }
+      const finalRoutes: RoutePlan[] = [...mergedRoutes, ...localOnlyRoutes];
+      // ─────────────────────────────────────────────────────────────────────
+
       const updates: Partial<CRMState> = {
         customers: (customers.data ?? []) as Customer[],
         leads: (leads.data ?? []) as Lead[],
         targets: (targets.data ?? []) as MonthlyTarget[],
         quotations: (quotations.data ?? []) as QuotationDoc[],
-        routes: (routes.data ?? []).map((r: any) => ({
-          ...r,
-          stops: (r.route_stops || []).sort((a: RouteStop, b: RouteStop) => a.seq - b.seq),
-        })) as RoutePlan[],
+        routes: finalRoutes,
         chatMessages: (chats.data ?? []) as ChatMessage[],
         teamNotifications: (notifs.data ?? []) as TeamNotification[],
       };
@@ -665,7 +715,7 @@ export const useCRM = create<CRMState>()(
       if (leads.data?.length) loadedSummary.push(`leads ${leads.data.length}`);
       if (targets.data?.length) loadedSummary.push(`targets ${targets.data.length}`);
       if (quotations.data?.length) loadedSummary.push(`quotations ${quotations.data.length}`);
-      if (routes.data?.length) loadedSummary.push(`routes ${routes.data.length}`);
+      if (finalRoutes.length) loadedSummary.push(`routes ${finalRoutes.length}`);
       if (chats.data?.length) loadedSummary.push(`chats ${chats.data.length}`);
       if (notifs.data?.length) loadedSummary.push(`notifications ${notifs.data.length}`);
       set(updates);
@@ -914,11 +964,19 @@ export const useCRM = create<CRMState>()(
     const r: RoutePlan = { route_id: id, rep, date, title, stops: [], created_at: new Date().toISOString() };
     set({ routes: [r, ...get().routes] });
     if (SUPABASE_ENABLED && supabase) {
-      // Insert route_plan only — stops จะ insert ตอน addStop
+      // upsert แทน insert — retry safe (idempotent)
       const { stops, ...routeOnly } = r;
-      supabase.from("route_plans").insert(routeOnly).then(({ error }) => {
-        if (error) console.error("[supabase] เพิ่ม route ล้มเหลว:", error);
-      });
+      const upsertRoute = async (attempt = 1) => {
+        const { error } = await supabase!.from("route_plans").upsert(routeOnly, { onConflict: "route_id" });
+        if (error) {
+          if (attempt < 3) {
+            await new Promise((res) => setTimeout(res, 800 * attempt));
+            return upsertRoute(attempt + 1);
+          }
+          console.error("[supabase] เพิ่ม route ล้มเหลว (3 attempts):", error);
+        }
+      };
+      upsertRoute();
     }
     return id;
   },
@@ -953,9 +1011,18 @@ export const useCRM = create<CRMState>()(
       }),
     });
     if (SUPABASE_ENABLED && supabase && newStop) {
-      supabase.from("route_stops").insert(newStop).then(({ error }) => {
-        if (error) console.error("[supabase] เพิ่ม stop ล้มเหลว:", error);
-      });
+      // upsert แทน insert (idempotent — ถ้า retry แล้วได้ stop_id ซ้ำก็ไม่ error)
+      const upsertStop = async (s: RouteStop, attempt = 1) => {
+        const { error } = await supabase!.from("route_stops").upsert(s, { onConflict: "stop_id" });
+        if (error) {
+          if (attempt < 3) {
+            await new Promise((res) => setTimeout(res, 800 * attempt));
+            return upsertStop(s, attempt + 1);
+          }
+          console.error("[supabase] เพิ่ม stop ล้มเหลว (3 attempts):", error);
+        }
+      };
+      upsertStop(newStop);
     }
   },
   updateStop: (routeId, stopId, patch) => {
@@ -1079,27 +1146,62 @@ export const useCRM = create<CRMState>()(
   },
     }),
     {
-      name: "std-crm-store",
-      storage: createJSONStorage(() => localStorage),
-      // ไม่ persist ส่วนที่ควร load จาก Supabase หรือ state ชั่วคราว
+      // v2: เปลี่ยน name → ล้าง localStorage เก่าที่มี seeded data / base64 ปนอยู่
+      // ข้อมูลจริงทั้งหมดโหลดจาก Supabase ทันทีที่ app mount
+      name: "std-crm-store-v2",
+      storage: createJSONStorage(() => {
+        // Wrapper รอบ localStorage ที่จัดการ QuotaExceededError ได้
+        return {
+          getItem: (key) => {
+            try { return localStorage.getItem(key); } catch { return null; }
+          },
+          setItem: (key, value) => {
+            try {
+              localStorage.setItem(key, value);
+            } catch (e) {
+              // localStorage เต็ม → ลบ key เก่าแล้ว retry ครั้งเดียว
+              console.warn("[persist] localStorage เต็ม — ลบข้อมูลเก่าแล้ว retry", e);
+              try { localStorage.removeItem(key); localStorage.setItem(key, value); } catch { /* ignore */ }
+            }
+          },
+          removeItem: (key) => {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+          },
+        };
+      }),
       partialize: (state) => ({
-        customers:         state.customers,
-        leads:             state.leads,
-        targets:           state.targets,
-        // ไม่ persist data URL ของรูปภาพ (หนัก ~500KB/รูป → localStorage เต็ม)
-        // เก็บเฉพาะ URL จริง (http/https) ถ้ามี
-        routes: state.routes.map((r) => ({
-          ...r,
-          stops: r.stops.map((s) => ({
-            ...s,
-            field_photo_url: s.field_photo_url?.startsWith("data:") ? undefined : s.field_photo_url,
+        // ──────────────────────────────────────────────────────────────────
+        // สิ่งที่ persist:
+        //   routes + stops (ไม่เอา data URL) → Mission ยังทำต่อได้หลัง refresh
+        //   currentRep → จำการเลือก rep ไว้
+        //   customers, leads, targets → โหลดเร็วก่อน Supabase ตอบกลับ
+        //
+        // สิ่งที่ไม่ persist (โหลดจาก Supabase ทุกครั้ง หรือ ใหญ่เกินไป):
+        //   contentTemplates → มี base64 PNG (~500KB-2MB/ชิ้น) → overflow localStorage
+        //   chatMessages / teamNotifications → limit 100 ไม่ให้บวม
+        //   contentPosts → ดึงจาก Supabase
+        //   quotations → ดึงจาก Supabase
+        // ──────────────────────────────────────────────────────────────────
+        currentRep: state.currentRep,
+        customers:  state.customers,
+        leads:      state.leads,
+        targets:    state.targets,
+        // strip data URL ออก — เก็บแค่ public URL (http/https)
+        routes: state.routes
+          .filter((r) => /^R\d{10,}/.test(r.route_id)) // เก็บเฉพาะ real routes (timestamp ID)
+          .map((r) => ({
+            ...r,
+            stops: r.stops.map((s) => ({
+              ...s,
+              field_photo_url: s.field_photo_url?.startsWith("data:") ? undefined : s.field_photo_url,
+            })),
           })),
-        })),
-        currentRep:        state.currentRep,
-        chatMessages:      state.chatMessages,
-        teamNotifications: state.teamNotifications,
+        // จำกัดขนาด — ป้องกัน localStorage บวม
+        chatMessages:      state.chatMessages.slice(-100),
+        teamNotifications: state.teamNotifications.slice(0, 50),
         contentPosts:      state.contentPosts,
-        contentTemplates:  state.contentTemplates,
+        // contentTemplates ไม่ persist → base64 images ทำให้ localStorage เต็ม
+        // (templates จะหายหลัง refresh — ต้องเพิ่ม Supabase table ถ้าอยากให้คงอยู่)
       }),
     }
   )
