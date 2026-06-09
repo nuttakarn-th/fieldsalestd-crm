@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Clock, ChevronRight as ArrowRight, Lock, Plus, History } from "lucide-react";
+import { TimeInput24, nowHHMM } from "@/components/TimeInput24";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -37,7 +38,8 @@ export default function RouteCalendar() {
     setDayOpen(null);
     setNewRouteOpen({ date });
     setNewTitle(`แผนเยี่ยมลูกค้า ${date}`);
-    setNewPlace(""); setNewAddress(""); setNewTime("09:00"); setNewPurpose("พบลูกค้า"); setNewNote("");
+    const defaultTime = date === todayKey ? nowHHMM() : "09:00";
+    setNewPlace(""); setNewAddress(""); setNewTime(defaultTime); setNewPurpose("พบลูกค้า"); setNewNote("");
   };
 
   const openQuickStop = (date: string) => {
@@ -313,7 +315,15 @@ export default function RouteCalendar() {
             <div><Label>ชื่อสถานที่ / บริษัท</Label><Input value={newPlace} onChange={(e) => setNewPlace(e.target.value)} placeholder="เช่น บมจ. พัฒนาดี" /></div>
             <div><Label>ที่อยู่</Label><Input value={newAddress} onChange={(e) => setNewAddress(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>เวลานัด</Label><Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} /></div>
+              <div>
+                <Label>เวลานัด</Label>
+                <TimeInput24
+                  value={newTime}
+                  onChange={setNewTime}
+                  min={newRouteOpen?.date === todayKey ? nowHHMM() : undefined}
+                  className="w-full"
+                />
+              </div>
               <div><Label>วัตถุประสงค์</Label><Input value={newPurpose} onChange={(e) => setNewPurpose(e.target.value)} /></div>
             </div>
             <div><Label>โน๊ต</Label><VoiceTextarea rows={3} value={newNote} onChange={(e) => setNewNote(e.target.value)} /></div>

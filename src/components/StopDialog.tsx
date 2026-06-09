@@ -5,8 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VoiceTextarea } from "@/components/VoiceTextarea";
+import { TimeInput24, nowHHMM } from "@/components/TimeInput24";
 import { useCRM } from "@/store/crmStore";
 import { toast } from "sonner";
+
+function ymdToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export const ACTIVITY_GROUPS: { group: string; items: string[] }[] = [
   { group: "Sales", items: ["Field Sale (New Prospect)", "Follow-up Visit"] },
@@ -40,11 +46,15 @@ export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, tit
   const [customerId, setCustomerId] = useState("none");
   const [note, setNote] = useState("");
 
+  const isToday = autoCreateForDate === ymdToday();
+  const minTime = isToday ? nowHHMM() : undefined;
+
   useEffect(() => {
     if (open) {
-      setPurpose(PURPOSES[0]); setTime("09:00"); setPlace(""); setAddress(""); setCustomerId("none"); setNote("");
+      const defaultTime = isToday ? nowHHMM() : "09:00";
+      setPurpose(PURPOSES[0]); setTime(defaultTime); setPlace(""); setAddress(""); setCustomerId("none"); setNote("");
     }
-  }, [open]);
+  }, [open, isToday]);
 
   const isOffice = purpose === "Office Day";
 
@@ -87,7 +97,13 @@ export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, tit
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>เวลานัด</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+            <div>
+              <Label>เวลานัด</Label>
+              <TimeInput24 value={time} onChange={setTime} min={minTime} className="w-full" />
+              {isToday && (
+                <p className="text-[10px] text-muted-foreground mt-1">⏰ วันนี้ — เลือกได้ตั้งแต่เวลาปัจจุบัน</p>
+              )}
+            </div>
           </div>
           {!isOffice && (
             <>

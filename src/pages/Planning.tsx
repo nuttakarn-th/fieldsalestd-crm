@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Clock, Lock, Eye, GripVertical, CheckCircle2, Timer } from "lucide-react";
+import { TimeInput24, nowHHMM } from "@/components/TimeInput24";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,7 +183,11 @@ export default function Planning() {
                   </div>
                   {/* Row 2: action buttons */}
                   <div className="flex items-center gap-2 mt-2">
-                    <Button size="sm" variant="outline" className="h-8 text-xs px-3 shrink-0" onClick={() => setOpenStop(r)}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs px-3 shrink-0" onClick={() => {
+                      const defaultTime = r.date === ymd(new Date()) ? nowHHMM() : "09:00";
+                      setStopForm({ place_name: "", address: "", purpose: PURPOSES[0], planned_time: defaultTime, customer_id: "none", note: "" });
+                      setOpenStop(r);
+                    }}>
                       <Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มจุด
                     </Button>
                     <Link to={`/app/mission/${r.route_id}`} className="flex-1 sm:flex-none">
@@ -329,7 +334,12 @@ export default function Planning() {
               </div>
               <div>
                 <label className="text-xs font-semibold">เวลานัด</label>
-                <Input type="time" value={stopForm.planned_time} onChange={(e) => setStopForm({ ...stopForm, planned_time: e.target.value })} />
+                <TimeInput24
+                  value={stopForm.planned_time}
+                  onChange={(v) => setStopForm({ ...stopForm, planned_time: v })}
+                  min={openStop?.date === ymd(new Date()) ? nowHHMM() : undefined}
+                  className="w-full"
+                />
               </div>
             </div>
             {stopForm.purpose !== "Office Day" && (
