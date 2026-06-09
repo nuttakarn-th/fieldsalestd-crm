@@ -239,13 +239,49 @@ if(pts.length>1){
         <Badge className="bg-success/15 text-success border-success/30"><CheckCircle2 className="w-3 h-3 mr-1" /> {completedItems.length} รายการ</Badge>
       </div>
 
-      <section className="space-y-3">
+      <section className="space-y-2.5">
         {completedItems.length === 0 ? (
           <div className="rounded-xl border border-dashed p-10 text-center bg-card text-muted-foreground">ไม่มี Route ที่ Complete ในช่วงเวลานี้</div>
         ) : completedItems.map((s) => (
           <article key={`${s.route_id}-${s.stop_id}`} className="rounded-xl border bg-card shadow-soft overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-[220px_1fr]">
-              <div className="h-48 md:h-full min-h-48 bg-muted/60">
+
+            {/* ── MOBILE: compact row (thumbnail + info) ── */}
+            <div className="flex items-start gap-0 md:hidden">
+              {/* thumbnail */}
+              <div className="w-24 h-24 shrink-0 bg-muted/60">
+                {s.field_photo_url ? (
+                  <img src={s.field_photo_url} alt={s.place_name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted to-muted/40">
+                    <ImageIcon className="w-7 h-7" />
+                  </div>
+                )}
+              </div>
+              {/* info */}
+              <div className="flex-1 min-w-0 p-2.5 space-y-1">
+                <div className="flex items-start justify-between gap-1.5">
+                  <h2 className="font-bold text-sm leading-snug truncate flex-1">{s.place_name}</h2>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0 -mt-0.5" onClick={() => openEdit(s)}>
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{s.purpose}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">{s.routeRep}</Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-0.5"><Clock className="w-3 h-3 shrink-0" />{fmtTime(s.completed_at)}</span>
+                  <span>ใช้เวลา {s.duration_min ?? 0}m</span>
+                </div>
+                {s.note && (
+                  <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{s.note}</p>
+                )}
+              </div>
+            </div>
+
+            {/* ── DESKTOP: original photo-left layout ── */}
+            <div className="hidden md:grid md:grid-cols-[220px_1fr]">
+              <div className="h-full min-h-[192px] bg-muted/60">
                 {s.field_photo_url ? (
                   <img src={s.field_photo_url} alt={`รูปประกอบ ${s.place_name}`} className="w-full h-full object-cover" />
                 ) : (
@@ -272,7 +308,7 @@ if(pts.length>1){
                 <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> อัปเดต {fmtTime(s.completed_at)}</span>
                   <span>ใช้เวลา {s.duration_min ?? 0} นาที</span>
-                  {s.field_photo_name && <span className="flex items-center gap-1"><Camera className="w-4 h-4" /> {s.field_photo_name}</span>}
+                  {s.field_photo_name && <span className="flex items-center gap-1"><Camera className="w-4 h-4" />{s.field_photo_name}</span>}
                 </div>
                 <div className="rounded-lg border bg-background p-3">
                   <p className="text-xs text-muted-foreground mb-1">รายละเอียด</p>
@@ -280,6 +316,7 @@ if(pts.length>1){
                 </div>
               </div>
             </div>
+
           </article>
         ))}
       </section>
