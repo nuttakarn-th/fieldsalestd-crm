@@ -137,7 +137,7 @@ export default function RouteCalendar() {
         {/* Day headers — Sunday (index 6) gets pink tint */}
         <div className="grid grid-cols-7 bg-muted/50 text-xs font-semibold text-muted-foreground">
           {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((d, i) => (
-            <div key={d} className={`p-2 text-center ${i === 6 ? "bg-rose-50 text-rose-400 dark:bg-rose-950/30 dark:text-rose-400" : ""}`}>{d}</div>
+            <div key={d} className={`p-2 text-center ${i === 6 ? "bg-rose-100 text-rose-600 font-bold dark:bg-rose-900/40 dark:text-rose-400" : ""}`}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -154,7 +154,7 @@ export default function RouteCalendar() {
                 onClick={() => setDayOpen({ date: key, routes: dayRoutes })}
                 className={[
                   "text-left min-h-28 border-t border-r p-1.5 flex flex-col gap-1 transition",
-                  isSunday ? "bg-rose-50/60 dark:bg-rose-950/20" : "",
+                  isSunday ? "bg-rose-50 dark:bg-rose-950/30" : "",
                   isToday ? "bg-primary/5" : "",
                   isPast ? "opacity-60 cursor-default hover:bg-transparent" : "hover:bg-primary/5",
                 ].filter(Boolean).join(" ")}
@@ -162,7 +162,7 @@ export default function RouteCalendar() {
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-bold ${
                     isToday ? "w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center" :
-                    isSunday ? "text-rose-400" : ""
+                    isSunday ? "text-rose-600 font-bold" : ""
                   }`}>
                     {c.date.getDate()}
                   </span>
