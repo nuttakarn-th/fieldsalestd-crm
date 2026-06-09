@@ -313,40 +313,40 @@ export default function Mission() {
             <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">บันทึกผลการเยี่ยม</p>
               {completedStops.map((s) => (
-                <div key={s.stop_id} className="bg-card rounded-xl border shadow-soft overflow-hidden">
-                  <div className="p-3 flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-success/15 text-success flex items-center justify-center shrink-0">
+                <div key={s.stop_id} className="bg-card rounded-xl border shadow-soft p-3">
+                  <div className="flex items-start gap-3">
+                    {/* ✓ icon */}
+                    <div className="w-8 h-8 rounded-full bg-success/15 text-success flex items-center justify-center shrink-0 mt-0.5">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
+                    {/* text info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-sm text-success/80">{s.place_name}</p>
+                      <p className="font-semibold text-sm text-success/80 truncate">{s.place_name}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <Badge className="bg-success/15 text-success border-success/30 text-[10px]">เสร็จ · {s.duration_min}m</Badge>
                         {s.completed_at && (
                           <span className="text-[10px] text-success font-medium">
-                            เสร็จ {new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
+                            {new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
                           </span>
                         )}
                       </div>
-                      {s.note && <p className="text-xs text-muted-foreground mt-1.5 italic">"{s.note}"</p>}
+                      {s.note && <p className="text-xs text-muted-foreground mt-1 italic line-clamp-2">"{s.note}"</p>}
                     </div>
+                    {/* thumbnail เล็กๆ ด้านขวา */}
+                    {s.field_photo_url && (
+                      <img
+                        src={s.field_photo_url}
+                        alt="รูปหน้างาน"
+                        className="w-16 h-12 object-cover rounded-lg shrink-0 border border-success/20"
+                        loading="lazy"
+                      />
+                    )}
+                    {!s.field_photo_url && s.field_photo_name && (
+                      <div className="w-16 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0 border">
+                        <Camera className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
-                  {s.field_photo_url && (
-                    <div className="border-t">
-                      <img src={s.field_photo_url} alt={`รูปหน้างาน ${s.place_name}`} className="w-full max-h-48 object-cover" loading="lazy" />
-                      {s.field_photo_name && (
-                        <p className="text-[10px] text-muted-foreground px-3 py-1.5 flex items-center gap-1">
-                          <Camera className="w-3 h-3 shrink-0" />{s.field_photo_name}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {!s.field_photo_url && s.field_photo_name && (
-                    <p className="text-xs text-muted-foreground px-3 pb-2 flex items-center gap-1">
-                      <Camera className="w-3 h-3 shrink-0" />{s.field_photo_name}
-                      <span className="text-[10px] opacity-60">(บันทึกเฉพาะชื่อไฟล์)</span>
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
