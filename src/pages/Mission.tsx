@@ -111,131 +111,244 @@ export default function Mission() {
     setActiveStopId(null);
   };
 
+  // active stop for right panel
+  const activeStop = sortedStops.find((s) => s.status === "in_progress") ?? null;
+  const activeElapsed = activeStop?.started_at ? now - new Date(activeStop.started_at).getTime() : 0;
+  const nextStop = sortedStops.find((s) => s.status === "planned") ?? null;
+  const completedStops = sortedStops.filter((s) => s.status === "completed");
+
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-5 space-y-4">
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4" /></Button>
           <div>
-            <h1 className="text-xl font-bold">{route.title}</h1>
-            <p className="text-xs text-muted-foreground">{route.date} · {route.rep} · {sortedStops.length} จุด · เสร็จ {completed}</p>
+            <h1 className="text-lg sm:text-xl font-bold leading-snug">{route.title}</h1>
+            <p className="text-xs text-muted-foreground">{route.date} · {route.rep} · {sortedStops.length} จุด · เสร็จ {completed}/{sortedStops.length}</p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => setNewCustOpen(true)} title="เพิ่มลูกค้าใหม่">
+        <Button variant="outline" size="sm" onClick={() => setNewCustOpen(true)}>
           <UserPlus className="w-4 h-4" />
           <span className="hidden sm:inline ml-2">เพิ่มลูกค้าใหม่</span>
         </Button>
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full bg-gradient-pink transition-all"
-          style={{ width: `${sortedStops.length ? (completed / sortedStops.length) * 100 : 0}%` }}
-        />
+      {/* ── Progress bar ── */}
+      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full bg-gradient-pink transition-all" style={{ width: `${sortedStops.length ? (completed / sortedStops.length) * 100 : 0}%` }} />
       </div>
 
-      <ol className="space-y-3">
-        {sortedStops.map((s) => {
-          const customer = s.customer_id ? customers.find((c) => c.customer_id === s.customer_id) : null;
-          const isActive = s.status === "in_progress";
-          const elapsed = isActive && s.started_at ? now - new Date(s.started_at).getTime() : 0;
-          return (
-            <li key={s.stop_id} className={`bg-card rounded-xl border shadow-soft overflow-hidden ${isActive ? "ring-2 ring-primary/40" : ""}`}>
-              <div className="p-4 flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 ${
-                  s.status === "completed" ? "bg-success/15 text-success" :
-                  isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}>
-                  {s.status === "completed" ? <CheckCircle2 className="w-5 h-5" /> : s.seq}
+      {/* ── DESKTOP: 2-panel │ MOBILE: single column ── */}
+      <div className="flex flex-col md:flex-row gap-4 items-start">
+
+        {/* ════ LEFT: Stop list (compact rows) ════ */}
+        <div className="w-full md:w-[420px] lg:w-[460px] shrink-0 md:sticky md:top-4">
+          <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+            {/* section header */}
+            <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">จุดทั้งหมด</span>
+              <span className="text-xs text-muted-foreground">{completed}/{sortedStops.length} เสร็จ</span>
+            </div>
+
+            {sortedStops.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-muted-foreground">ยังไม่มีจุดเยี่ยมใน Route นี้</p>
+                <Link to="/app/planning"><Button variant="outline" size="sm" className="mt-3">ไปเพิ่มจุดที่ Planning</Button></Link>
+              </div>
+            ) : (
+              <ol className="divide-y">
+                {sortedStops.map((s) => {
+                  const isActive = s.status === "in_progress";
+                  const isDone = s.status === "completed";
+                  return (
+                    <li key={s.stop_id} className={[
+                      "flex items-center gap-3 px-3 py-2.5 transition-colors",
+                      isActive ? "bg-primary/5 border-l-[3px] border-l-primary" : "",
+                      isDone ? "bg-success/4 opacity-75" : "",
+                      !isActive && !isDone ? "hover:bg-muted/30" : "",
+                    ].join(" ")}>
+                      {/* seq / status badge */}
+                      <div className={`w-8 h-8 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${
+                        isDone ? "bg-success/15 text-success" :
+                        isActive ? "bg-primary text-primary-foreground shadow-glow" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {isDone ? <CheckCircle2 className="w-4 h-4" /> : s.seq}
+                      </div>
+                      {/* info */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${isDone ? "text-success/80" : ""}`}>{s.place_name}</p>
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{s.planned_time}</span>
+                          {s.address && <span className="truncate max-w-[140px]">· {s.address}</span>}
+                        </div>
+                      </div>
+                      {/* action */}
+                      <div className="shrink-0">
+                        {isActive && (
+                          <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                            <Timer className="w-2.5 h-2.5 mr-1" />{fmtDuration(activeElapsed)}
+                          </Badge>
+                        )}
+                        {isDone && s.completed_at && (
+                          <span className="text-[10px] text-success font-medium">
+                            {new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
+                          </span>
+                        )}
+                        {s.status === "planned" && (
+                          <Button size="sm" className="h-7 text-xs px-2.5 bg-gradient-primary text-primary-foreground" onClick={() => handleStart(s)}>
+                            <Play className="w-3 h-3 mr-1" /> เริ่ม
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        </div>
+
+        {/* ════ RIGHT: Detail panel ════ */}
+        <div className="flex-1 min-w-0 space-y-4">
+
+          {/* Active stop — timer + complete */}
+          {activeStop && (
+            <div className="bg-card rounded-xl border-2 border-primary/30 shadow-soft p-5 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0">
+                    {activeStop.seq}
+                  </div>
+                  <div>
+                    <p className="font-bold text-base">{activeStop.place_name}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{activeStop.planned_time}</span>
+                      {activeStop.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{activeStop.address}</span>}
+                    </div>
+                  </div>
+                </div>
+                <Badge className="bg-primary/15 text-primary border-primary/30 text-xs shrink-0">กำลังทำ</Badge>
+              </div>
+              {/* timer */}
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/15">
+                <Timer className="w-6 h-6 text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">เวลาที่ใช้</p>
+                  <p className="text-4xl font-bold tabular-nums text-primary tracking-tight">{fmtDuration(activeElapsed)}</p>
+                </div>
+                <Button
+                  className="bg-success text-success-foreground hover:opacity-90 h-11 px-5"
+                  onClick={() => { setCompleteOpen(activeStop); setCompleteNote(activeStop.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
+                </Button>
+              </div>
+              {activeStop.note && <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">📝 {activeStop.note}</p>}
+            </div>
+          )}
+
+          {/* Next stop (if nothing active) */}
+          {!activeStop && nextStop && !allDone && (
+            <div className="bg-card rounded-xl border shadow-soft p-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">จุดถัดไป</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center font-bold shrink-0">
+                  {nextStop.seq}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold">{s.place_name}</p>
-                    <Badge variant="outline" className="text-[10px]">{s.purpose}</Badge>
-                    {s.status === "completed" && <Badge className="bg-success/15 text-success border-success/30 text-[10px]">เสร็จ · {s.duration_min}m</Badge>}
-                    {isActive && <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">กำลังทำ</Badge>}
+                  <p className="font-bold truncate">{nextStop.place_name}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{nextStop.planned_time}</span>
+                    {nextStop.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{nextStop.address}</span>}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.planned_time}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address}</span>
-                    {customer && <span>· ลูกค้า: <b>{customer.full_name}</b></span>}
-                  </div>
-                  {s.note && (
-                    <p className="text-xs text-muted-foreground mt-1.5 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">📝 {s.note}</p>
-                  )}
-                  {isActive && (
-                    <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                      <Timer className="w-5 h-5 text-primary" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">เวลาที่ใช้</p>
-                        <p className="text-2xl font-bold tabular-nums text-primary">{fmtDuration(elapsed)}</p>
+                  {nextStop.note && <p className="text-xs text-muted-foreground mt-1">📝 {nextStop.note}</p>}
+                </div>
+                <Button onClick={() => handleStart(nextStop)} className="bg-gradient-primary text-primary-foreground shrink-0">
+                  <Play className="w-4 h-4 mr-2" /> Check-in / เริ่ม
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Progress stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-primary">{sortedStops.length}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">จุดทั้งหมด</p>
+            </div>
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-success">{completed}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">เสร็จแล้ว</p>
+            </div>
+            <div className="bg-card rounded-xl border p-3 text-center">
+              <p className="text-2xl font-bold text-muted-foreground">{sortedStops.length - completed}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">คงเหลือ</p>
+            </div>
+          </div>
+
+          {/* Completed stops with notes / photos */}
+          {completedStops.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">บันทึกผลการเยี่ยม</p>
+              {completedStops.map((s) => (
+                <div key={s.stop_id} className="bg-card rounded-xl border shadow-soft overflow-hidden">
+                  <div className="p-3 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-success/15 text-success flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-success/80">{s.place_name}</p>
+                        <Badge className="bg-success/15 text-success border-success/30 text-[10px]">เสร็จ · {s.duration_min}m</Badge>
+                        {s.completed_at && (
+                          <span className="text-[10px] text-success font-medium">
+                            เสร็จ {new Date(s.completed_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
+                          </span>
+                        )}
                       </div>
-                      <Button onClick={() => { setCompleteOpen(s); setCompleteNote(s.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }} className="bg-success text-success-foreground hover:opacity-90">
-                        <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
-                      </Button>
+                      {s.note && <p className="text-xs text-muted-foreground mt-1.5 italic">"{s.note}"</p>}
                     </div>
-                  )}
-                  {s.status === "planned" && (
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" onClick={() => handleStart(s)} className="bg-gradient-primary text-primary-foreground">
-                        <Play className="w-4 h-4 mr-1" /> Check-in / เริ่ม
-                      </Button>
-                    </div>
-                  )}
-                  {s.status === "completed" && s.note && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">"{s.note}"</p>
-                  )}
-                  {s.status === "completed" && (s.field_photo_url || s.field_photo_name) && (
-                    <div className="mt-3">
-                      {s.field_photo_url ? (
-                        <div className="rounded-xl overflow-hidden border border-primary/20 bg-muted/20">
-                          <img
-                            src={s.field_photo_url}
-                            alt={`รูปหน้างาน ${s.place_name}`}
-                            className="w-full max-h-48 object-cover"
-                            loading="lazy"
-                          />
-                          {s.field_photo_name && (
-                            <p className="text-[10px] text-muted-foreground px-2 py-1 flex items-center gap-1">
-                              <Camera className="w-3 h-3 shrink-0" />
-                              {s.field_photo_name}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Camera className="w-3 h-3 shrink-0" />
-                          รูปหน้างาน: {s.field_photo_name}
-                          <span className="text-[10px] opacity-60">(ไม่สามารถแสดงรูปได้ — บันทึกเฉพาะชื่อไฟล์)</span>
+                  </div>
+                  {s.field_photo_url && (
+                    <div className="border-t">
+                      <img src={s.field_photo_url} alt={`รูปหน้างาน ${s.place_name}`} className="w-full max-h-48 object-cover" loading="lazy" />
+                      {s.field_photo_name && (
+                        <p className="text-[10px] text-muted-foreground px-3 py-1.5 flex items-center gap-1">
+                          <Camera className="w-3 h-3 shrink-0" />{s.field_photo_name}
                         </p>
                       )}
                     </div>
                   )}
+                  {!s.field_photo_url && s.field_photo_name && (
+                    <p className="text-xs text-muted-foreground px-3 pb-2 flex items-center gap-1">
+                      <Camera className="w-3 h-3 shrink-0" />{s.field_photo_name}
+                      <span className="text-[10px] opacity-60">(บันทึกเฉพาะชื่อไฟล์)</span>
+                    </p>
+                  )}
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Route complete banner */}
+          {allDone && (
+            <div className="rounded-xl bg-gradient-to-r from-success/15 to-primary/10 border border-success/30 p-5 flex items-center gap-3">
+              <Flag className="w-6 h-6 text-success shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold text-success">Route Complete!</p>
+                <p className="text-sm text-muted-foreground">คุณทำครบทุกจุดในเส้นทางนี้แล้ว</p>
               </div>
-            </li>
-          );
-        })}
-        {sortedStops.length === 0 && (
-          <li className="rounded-xl border border-dashed p-10 text-center bg-card">
-            <p className="text-sm text-muted-foreground">ยังไม่มีจุดเยี่ยมใน Route นี้</p>
-            <Link to="/app/planning"><Button variant="outline" className="mt-3">ไปเพิ่มจุดที่ Planning</Button></Link>
-          </li>
-        )}
-      </ol>
+              <Link to="/app/planning"><Button className="bg-gradient-primary text-primary-foreground shrink-0">ไปวางแผนถัดไป <ChevronRight className="w-4 h-4 ml-1" /></Button></Link>
+            </div>
+          )}
 
-      {allDone && (
-        <div className="rounded-xl bg-gradient-to-r from-success/15 to-primary/10 border border-success/30 p-5 flex items-center gap-3">
-          <Flag className="w-6 h-6 text-success" />
-          <div className="flex-1">
-            <p className="font-bold text-success">Route Complete!</p>
-            <p className="text-sm text-muted-foreground">คุณทำครบทุกจุดในเส้นทางนี้แล้ว</p>
-          </div>
-          <Link to="/app/planning"><Button className="bg-gradient-primary text-primary-foreground">ไปวางแผนถัดไป <ChevronRight className="w-4 h-4 ml-1" /></Button></Link>
-        </div>
-      )}
+        </div>{/* end right panel */}
+      </div>{/* end 2-panel flex */}
 
+      {/* ── Complete Dialog ── */}
       <Dialog open={!!completeOpen} onOpenChange={(o) => !o && setCompleteOpen(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Complete: {completeOpen?.place_name}</DialogTitle></DialogHeader>
