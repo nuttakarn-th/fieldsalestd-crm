@@ -279,19 +279,19 @@ if(pts.length>1){
               </div>
             </div>
 
-            {/* ── DESKTOP: original photo-left layout ── */}
-            <div className="hidden md:grid md:grid-cols-[220px_1fr]">
-              <div className="h-full min-h-[192px] bg-muted/60">
+            {/* ── DESKTOP: square 1:1 photo + info ── */}
+            <div className="hidden md:flex items-start">
+              <div className="w-44 h-44 shrink-0 bg-muted/60">
                 {s.field_photo_url ? (
                   <img src={s.field_photo_url} alt={`รูปประกอบ ${s.place_name}`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-gradient-to-br from-muted to-muted/40">
-                    <ImageIcon className="w-10 h-10 mb-2" />
-                    <span className="text-sm font-medium">ไม่มีรูปประกอบ</span>
+                    <ImageIcon className="w-8 h-8 mb-1" />
+                    <span className="text-xs font-medium">ไม่มีรูป</span>
                   </div>
                 )}
               </div>
-              <div className="p-4 space-y-3 min-w-0">
+              <div className="p-4 space-y-3 min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

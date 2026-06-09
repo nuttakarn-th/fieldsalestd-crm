@@ -79,7 +79,7 @@ export default function Mission() {
     if (!file) { setFieldPhoto(null); setPhotoPreview(null); setPhotoSize(0); return; }
     setCompressing(true);
     try {
-      const result = await compressImage(file, { maxWidth: 1500, maxSizeKB: 500 });
+      const result = await compressImage(file, { maxWidth: 700, maxSizeKB: 200 });
       setFieldPhoto(result.file);
       setPhotoPreview(result.dataUrl);
       setPhotoSize(result.sizeKB);

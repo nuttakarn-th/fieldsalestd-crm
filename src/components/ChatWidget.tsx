@@ -175,7 +175,7 @@ export function ChatWidget() {
   const handleImage = async (f: File | null) => {
     if (!f) return;
     try {
-      const r = await compressImage(f, { maxWidth: 1500, maxSizeKB: 500 });
+      const r = await compressImage(f, { maxWidth: 700, maxSizeKB: 200 });
       setPendingImage(r.dataUrl);
       setShowPlus(false);
     } catch { toast.error("ส่งรูปไม่สำเร็จ"); }
