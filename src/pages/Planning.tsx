@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Clock, Lock, Eye } from "lucide-react";
+import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Clock, Lock, Eye, GripVertical, CheckCircle2, Timer } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export default function Planning() {
   const addRoute = useCRM((s) => s.addRoute);
   const addStop = useCRM((s) => s.addStop);
   const deleteStop = useCRM((s) => s.deleteStop);
+  const reorderStops = useCRM((s) => s.reorderStops);
   const deleteRoute = useCRM((s) => s.deleteRoute);
 
   const [date, setDate] = useState<Date>(new Date());
@@ -45,6 +46,8 @@ export default function Planning() {
   });
   const [openNewRoute, setOpenNewRoute] = useState(false);
   const [newRouteTitle, setNewRouteTitle] = useState("");
+  const dragStopId = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const dateKey = ymd(date);
   const todayRoutes = useMemo(
@@ -77,6 +80,29 @@ export default function Planning() {
     setOpenNewRoute(false);
     setNewRouteTitle("");
     toast.success(`สร้าง Route "${title}" แล้ว`);
+  };
+
+  function fmtCompleted(iso?: string) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+
+  const handleDragStart = (stopId: string) => { dragStopId.current = stopId; };
+  const handleDragOver = (e: React.DragEvent, stopId: string) => { e.preventDefault(); setDragOverId(stopId); };
+  const handleDragEnd = () => { dragStopId.current = null; setDragOverId(null); };
+  const handleDrop = (routeId: string, pendingStops: typeof todayRoutes[0]["stops"], toStopId: string) => {
+    const fromId = dragStopId.current;
+    if (!fromId || fromId === toStopId) { setDragOverId(null); return; }
+    const ids = pendingStops.map((s) => s.stop_id);
+    const fromIdx = ids.indexOf(fromId);
+    const toIdx = ids.indexOf(toStopId);
+    if (fromIdx < 0 || toIdx < 0) { setDragOverId(null); return; }
+    const reordered = [...ids];
+    reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, fromId);
+    reorderStops(routeId, reordered);
+    setDragOverId(null);
+    dragStopId.current = null;
   };
 
   const submitStop = () => {
@@ -169,37 +195,108 @@ export default function Planning() {
                     </Button>
                   </div>
                 </div>
-                <ol className="divide-y">
-                  {r.stops.length === 0 ? (
-                    <li className="p-6 text-sm text-muted-foreground text-center">ยังไม่มีจุดเยี่ยม — กดปุ่ม "เพิ่มจุด" ด้านบน</li>
-                  ) : r.stops.map((s) => (
-                    <li key={s.stop_id} className="p-3 flex items-start gap-3 hover:bg-muted/30">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0">
-                        {s.seq}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold truncate">{s.place_name}</p>
-                          <Badge variant="outline" className="text-[10px]">{s.purpose}</Badge>
-                          {s.status === "completed" && <Badge className="bg-success/15 text-success border-success/30 text-[10px]">เสร็จแล้ว · {s.duration_min}m</Badge>}
-                          {s.status === "in_progress" && <Badge className="bg-warning/20 text-warning-foreground border-warning/40 text-[10px]">กำลังทำ</Badge>}
+                {(() => {
+                  if (r.stops.length === 0) {
+                    return <p className="p-6 text-sm text-muted-foreground text-center">ยังไม่มีจุดเยี่ยม — กดปุ่ม "เพิ่มจุด" ด้านบน</p>;
+                  }
+                  const sorted = r.stops.slice().sort((a, b) => a.seq - b.seq);
+                  const pending = sorted.filter((s) => s.status !== "completed");
+                  const done = sorted.filter((s) => s.status === "completed");
+                  return (
+                    <div>
+                      {/* ── รอดำเนินการ (draggable) ── */}
+                      {pending.length > 0 && (
+                        <div>
+                          {pending.map((s) => {
+                            const isActive = s.status === "in_progress";
+                            const isDragOver = dragOverId === s.stop_id;
+                            return (
+                              <div
+                                key={s.stop_id}
+                                draggable
+                                onDragStart={() => handleDragStart(s.stop_id)}
+                                onDragOver={(e) => handleDragOver(e, s.stop_id)}
+                                onDrop={() => handleDrop(r.route_id, pending, s.stop_id)}
+                                onDragEnd={handleDragEnd}
+                                className={`flex items-start gap-3 px-3 py-3 border-b last:border-b-0 transition-colors select-none
+                                  ${isDragOver ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/30"}
+                                  ${isActive ? "bg-primary/5 border-l-2 border-l-primary" : ""}`}
+                              >
+                                {/* drag handle */}
+                                <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5 cursor-grab active:cursor-grabbing">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                                </div>
+                                {/* seq badge */}
+                                <div className={`w-8 h-8 rounded-full font-bold flex items-center justify-center shrink-0 text-sm
+                                  ${isActive ? "bg-primary text-primary-foreground shadow-glow" : "bg-muted text-muted-foreground"}`}>
+                                  {s.seq}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-semibold truncate">{s.place_name}</p>
+                                    <Badge variant="outline" className="text-[10px]">{s.purpose}</Badge>
+                                    {isActive && (
+                                      <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                                        <Timer className="w-2.5 h-2.5 mr-1" /> กำลังทำ
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.planned_time ?? "-"}</span>
+                                    {s.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address}</span>}
+                                  </div>
+                                  {s.note && <p className="text-xs text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">📝 {s.note}</p>}
+                                </div>
+                                <Button size="icon" variant="ghost" className="shrink-0" onClick={() => deleteStop(r.route_id, s.stop_id)}>
+                                  <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.planned_time ?? "-"}</span>
-                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address || "-"}</span>
+                      )}
+
+                      {/* ── เสร็จแล้ว section ── */}
+                      {done.length > 0 && (
+                        <div className="border-t-2 border-success/20">
+                          <div className="px-3 py-1.5 bg-success/8 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                            <span className="text-xs font-semibold text-success">เสร็จแล้ว {done.length} จุด</span>
+                          </div>
+                          {done.map((s) => (
+                            <div key={s.stop_id} className="flex items-start gap-3 px-3 py-3 bg-success/5 border-b last:border-b-0 border-success/10">
+                              <div className="w-8 h-8 rounded-full bg-success/20 text-success flex items-center justify-center shrink-0">
+                                <CheckCircle2 className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold truncate text-success/80">{s.place_name}</p>
+                                  <Badge variant="outline" className="text-[10px] border-success/30 text-success/70">{s.purpose}</Badge>
+                                  <Badge className="bg-success/15 text-success border-success/30 text-[10px]">
+                                    เสร็จ {s.duration_min}m
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
+                                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />นัด {s.planned_time ?? "-"}</span>
+                                  {s.completed_at && (
+                                    <span className="flex items-center gap-1 text-success font-medium">
+                                      <CheckCircle2 className="w-3 h-3" />เสร็จ {fmtCompleted(s.completed_at)} น.
+                                    </span>
+                                  )}
+                                  {s.address && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.address}</span>}
+                                </div>
+                                {s.note && <p className="text-xs text-success/60 mt-1 italic">"{s.note}"</p>}
+                              </div>
+                              <Button size="icon" variant="ghost" className="shrink-0 opacity-40 hover:opacity-100" onClick={() => deleteStop(r.route_id, s.stop_id)}>
+                                <Trash2 className="w-4 h-4 text-muted-foreground" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
-                        {s.note && (
-                          <p className="text-xs text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 whitespace-pre-wrap">
-                            📝 {s.note}
-                          </p>
-                        )}
-                      </div>
-                      <Button size="icon" variant="ghost" onClick={() => deleteStop(r.route_id, s.stop_id)}>
-                        <Trash2 className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                    </li>
-                  ))}
-                </ol>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

@@ -472,6 +472,7 @@ interface CRMState {
   addStop: (routeId: string, stop: Omit<RouteStop, "stop_id" | "route_id" | "seq" | "status">) => void;
   updateStop: (routeId: string, stopId: string, patch: Partial<RouteStop>) => void;
   deleteStop: (routeId: string, stopId: string) => void;
+  reorderStops: (routeId: string, orderedStopIds: string[]) => void;
   startStop: (routeId: string, stopId: string) => void;
   completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number) => void;
 }
@@ -1122,6 +1123,31 @@ export const useCRM = create<CRMState>()(
     if (SUPABASE_ENABLED && supabase) {
       supabase.from("route_stops").delete().eq("stop_id", stopId).then(({ error }) => {
         if (error) console.error("[supabase] delete stop ล้มเหลว:", error);
+      });
+    }
+  },
+  reorderStops: (routeId, orderedStopIds) => {
+    set({
+      routes: get().routes.map((r) => {
+        if (r.route_id !== routeId) return r;
+        const stopMap = new Map(r.stops.map((s) => [s.stop_id, s]));
+        const reordered = orderedStopIds
+          .map((id, idx) => {
+            const s = stopMap.get(id);
+            return s ? { ...s, seq: idx + 1 } : null;
+          })
+          .filter(Boolean) as RouteStop[];
+        // append any stops not in orderedStopIds (safety)
+        const reorderedIds = new Set(orderedStopIds);
+        const extra = r.stops.filter((s) => !reorderedIds.has(s.stop_id)).map((s, i) => ({ ...s, seq: reordered.length + i + 1 }));
+        return { ...r, stops: [...reordered, ...extra] };
+      }),
+    });
+    if (SUPABASE_ENABLED && supabase) {
+      orderedStopIds.forEach((stopId, idx) => {
+        supabase!.from("route_stops").update({ seq: idx + 1 }).eq("stop_id", stopId).then(({ error }) => {
+          if (error) console.error("[supabase] reorder stop ล้มเหลว:", stopId, error);
+        });
       });
     }
   },
