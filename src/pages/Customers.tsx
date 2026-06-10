@@ -426,86 +426,86 @@ export default function Customers() {
         </div>
       </div>
 
-      {/* Mobile: Card grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:hidden">
+      {/* Mobile: Compact list */}
+      <div className="flex flex-col md:hidden bg-card border rounded-xl shadow-soft overflow-hidden divide-y">
         {filtered.length === 0 && (
-          <div className="col-span-full p-8 text-center text-muted-foreground bg-card border rounded-xl">ไม่พบข้อมูลลูกค้า</div>
+          <div className="p-8 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</div>
         )}
         {filtered.map((c) => (
           <div
             key={c.customer_id}
-            className="bg-card border rounded-xl p-4 shadow-soft space-y-2 cursor-pointer hover:border-primary/40 transition"
+            className="flex items-center gap-3 px-3 py-3 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60"
             onClick={() => navigate(`/app/customers/${c.customer_id}`)}
           >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold truncate">{c.full_name}</p>
-                <p className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}{c.province ? ` · ${c.province}` : ""}</p>
-              </div>
-              <Badge variant="outline" className={`${tierBadge(c.customer_tier)} shrink-0`}>{c.customer_tier}</Badge>
+            {/* Avatar circle */}
+            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center shrink-0 text-white font-bold text-sm">
+              {c.full_name.charAt(0)}
             </div>
-            {/* Pending delete badge */}
-            {pendingDeleteIds.has(c.customer_id) && (
-              <div className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 font-medium">
-                <Clock className="w-3 h-3" /> รอ Manager อนุมัติลบ
-              </div>
-            )}
-            {/* Interest tags */}
-            {(c.interests ?? []).length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {c.interests!.map((key) => {
-                  const style = INTEREST_STYLE[key];
-                  if (!style) return null;
-                  return <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${style.className}`}>{style.label}</span>;
-                })}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-1 text-xs">
-              <a href={`tel:${c.phone}`} className="flex items-center gap-1.5 text-primary hover:underline"><Phone className="w-3 h-3" /> {c.phone}</a>
-              <span className="flex items-center gap-1.5 text-success truncate"><MessageCircle className="w-3 h-3 shrink-0" /> {c.line_id || "—"}</span>
-              {c.email && <span className="col-span-2 flex items-center gap-1.5 text-muted-foreground truncate"><Mail className="w-3 h-3 shrink-0" />{c.email}</span>}
-              <span className="text-muted-foreground"><b className="text-foreground">{c.source}</b> · {c.segment}</span>
-              <span className="text-right font-bold text-primary">{formatTHB(c.total_spend)}</span>
-            </div>
-            <div className="flex items-center justify-between pt-2 border-t">
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/30">
-                <span className="w-4 h-4 rounded-full bg-gradient-pink text-white flex items-center justify-center text-[9px] font-bold">{c.created_by[0]}</span>
-                {c.created_by}
-              </span>
-              <div className="flex gap-1">
-                {c.transferred_from === currentRep && c.transferred_to ? (
-                  <span title="โอนแล้ว" className="text-muted-foreground p-2"><Lock className="w-4 h-4" /></span>
-                ) : (
-                  <>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditing(c); }}><Pencil className="w-4 h-4 text-primary" /></Button>
-                    {currentRep !== "All" && c.created_by === currentRep && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setTransferOf(c); setTransferTo(""); }}>
-                        <ArrowRightLeft className="w-4 h-4 text-amber-600" />
-                      </Button>
-                    )}
-                    {currentRep !== "All" && !canDirectDelete && (
-                      pendingDeleteIds.has(c.customer_id) ? (
-                        <span title="รอ Manager อนุมัติลบ" className="h-8 w-8 flex items-center justify-center text-amber-500">
-                          <Clock className="w-4 h-4" />
-                        </span>
-                      ) : (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                          <Trash2 className="w-4 h-4 text-destructive/70" />
-                        </Button>
-                      )
-                    )}
-                    {canDirectDelete && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    )}
-                  </>
+
+            {/* Main info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-sm truncate">{c.full_name}</span>
+                <Badge variant="outline" className={`${tierBadge(c.customer_tier)} shrink-0 text-[10px] px-1.5 py-0`}>{c.customer_tier}</Badge>
+                {pendingDeleteIds.has(c.customer_id) && (
+                  <Clock className="w-3 h-3 text-amber-500 shrink-0" title="รอ Manager อนุมัติลบ" />
                 )}
               </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                {c.phone && c.phone !== "-" && (
+                  <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-primary" onClick={(e) => e.stopPropagation()}>
+                    <Phone className="w-3 h-3" />{c.phone}
+                  </a>
+                )}
+                {c.line_id && (
+                  <span className="flex items-center gap-1 text-success truncate">
+                    <MessageCircle className="w-3 h-3 shrink-0" />{c.line_id}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
+                  <span className="w-3 h-3 rounded-full bg-gradient-pink text-white flex items-center justify-center text-[8px] font-bold">{c.created_by[0]}</span>
+                  {c.created_by}
+                </span>
+                {c.source && <span className="text-[10px] text-muted-foreground">{c.source}</span>}
+                {c.total_spend > 0 && <span className="text-[10px] font-semibold text-primary ml-auto">฿{formatTHB(c.total_spend)}</span>}
+              </div>
             </div>
-            {c.created_at && (
-              <p className="text-[10px] text-muted-foreground">เพิ่มเมื่อ {new Date(c.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false })}</p>
-            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+              {c.transferred_from === currentRep && c.transferred_to ? (
+                <span className="text-muted-foreground p-1.5"><Lock className="w-4 h-4" /></span>
+              ) : (
+                <>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(c)}>
+                    <Pencil className="w-3.5 h-3.5 text-primary" />
+                  </Button>
+                  {currentRep !== "All" && c.created_by === currentRep && (
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setTransferOf(c); setTransferTo(""); }}>
+                      <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
+                    </Button>
+                  )}
+                  {currentRep !== "All" && !canDirectDelete && (
+                    pendingDeleteIds.has(c.customer_id) ? (
+                      <span className="h-8 w-8 flex items-center justify-center text-amber-500">
+                        <Clock className="w-3.5 h-3.5" />
+                      </span>
+                    ) : (
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setDeleteOf(c); setDeleteReason(""); }}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+                      </Button>
+                    )
+                  )}
+                  {canDirectDelete && (
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setDeleteOf(c); setDeleteReason(""); }}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
