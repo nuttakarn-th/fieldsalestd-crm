@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Pencil, Plus, Phone, MessageCircle, Mail, MapPin, Cake, Star,
   TrendingUp, CalendarDays, Clock, ChevronDown, ChevronUp, ArrowRightLeft,
+  User, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-// interest key → short label + color (same as Customers.tsx)
 const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ทัวร์ต่างประเทศ":  { label: "✈️ ทัวร์ต่างประเทศ",   className: "bg-blue-100 text-blue-700 border-blue-200" },
   "ทัวร์ภายในประเทศ": { label: "🏔️ ทัวร์ภายในประเทศ",  className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
@@ -39,37 +39,36 @@ function LeadCard({ lead }: { lead: Lead }) {
 
   return (
     <div className="border rounded-xl bg-card shadow-soft overflow-hidden">
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-2 p-4">
+      <div className="flex items-start justify-between gap-2 p-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Badge variant="outline" className={`${statusColor(lead.status)} text-xs`}>{lead.status}</Badge>
             {urgencyOpt && (
-              <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${urgencyBadge(lead.urgency)}`}>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${urgencyBadge(lead.urgency)}`}>
                 {urgencyOpt.emoji} {lead.urgency}
               </span>
             )}
             <span className="text-[10px] text-muted-foreground font-mono">{lead.lead_id}</span>
           </div>
-          <p className="mt-1 font-semibold truncate">{lead.program || lead.bu_type}</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+          <p className="mt-0.5 font-semibold text-sm truncate">{lead.program || lead.bu_type}</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
             <span>🗓️ {lead.travel_month}</span>
             <span>👥 {lead.pax_count} ท่าน</span>
             <span>💰 {lead.budget_range}</span>
             {lead.quoted_price > 0 && <span className="font-semibold text-primary">฿ {formatTHB(lead.quoted_price)}</span>}
           </div>
           {lead.next_followup_date && !["Closed Won", "Closed Lost"].includes(lead.status) && (
-            <div className="flex items-center gap-1 text-[11px] mt-1 text-amber-700">
+            <div className="flex items-center gap-1 text-[11px] mt-0.5 text-amber-700">
               <CalendarDays className="w-3 h-3" /> Follow up: {new Date(lead.next_followup_date).toLocaleDateString("th-TH", { dateStyle: "medium" })}
             </div>
           )}
           {lead.closed_date && (
-            <div className="flex items-center gap-1 text-[11px] mt-1 text-muted-foreground">
+            <div className="flex items-center gap-1 text-[11px] mt-0.5 text-muted-foreground">
               <Clock className="w-3 h-3" /> ปิดดีล: {new Date(lead.closed_date).toLocaleDateString("th-TH", { dateStyle: "medium" })}
             </div>
           )}
           {lead.lost_reason && (
-            <div className="text-[11px] mt-1 text-destructive">❌ {lead.lost_reason}</div>
+            <div className="text-[11px] mt-0.5 text-destructive">❌ {lead.lost_reason}</div>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -80,9 +79,8 @@ function LeadCard({ lead }: { lead: Lead }) {
         </div>
       </div>
 
-      {/* Expanded detail */}
       {expanded && (
-        <div className="border-t bg-muted/30 px-4 py-3 space-y-3">
+        <div className="border-t bg-muted/30 px-3 py-2.5 space-y-2.5">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <div><span className="text-muted-foreground">BU Type</span><p className="font-medium">{lead.bu_type}</p></div>
             <div><span className="text-muted-foreground">Category</span><p className="font-medium">{lead.lead_category}</p></div>
@@ -90,50 +88,25 @@ function LeadCard({ lead }: { lead: Lead }) {
             <div><span className="text-muted-foreground">Tour Type</span><p className="font-medium">{lead.tour_type}</p></div>
             <div><span className="text-muted-foreground">Assigned to</span><p className="font-medium">{lead.assigned_to}</p></div>
           </div>
-
-          {/* Status note */}
           <div>
             <p className="text-xs text-muted-foreground mb-1">📝 หมายเหตุ Lead</p>
             {editingNote ? (
               <div className="space-y-1.5">
-                <Textarea
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  className="min-h-[60px] text-sm"
-                  placeholder="เพิ่มหมายเหตุ..."
-                />
+                <Textarea value={statusNote} onChange={(e) => setStatusNote(e.target.value)} className="min-h-[60px] text-sm" placeholder="เพิ่มหมายเหตุ..." />
                 <div className="flex gap-2">
-                  <Button size="sm" className="h-7 text-xs" onClick={() => {
-                    updateLead(lead.lead_id, { status_note: statusNote || null });
-                    setEditingNote(false);
-                    toast.success("บันทึกหมายเหตุแล้ว");
-                  }}>บันทึก</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => {
-                    setStatusNote(lead.status_note ?? "");
-                    setEditingNote(false);
-                  }}>ยกเลิก</Button>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => { updateLead(lead.lead_id, { status_note: statusNote || null }); setEditingNote(false); toast.success("บันทึกหมายเหตุแล้ว"); }}>บันทึก</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setStatusNote(lead.status_note ?? ""); setEditingNote(false); }}>ยกเลิก</Button>
                 </div>
               </div>
             ) : (
-              <div
-                className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition min-h-[28px] rounded px-2 py-1 hover:bg-muted"
-                onClick={() => setEditingNote(true)}
-              >
+              <div className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition min-h-[28px] rounded px-2 py-1 hover:bg-muted" onClick={() => setEditingNote(true)}>
                 {lead.status_note || <span className="italic text-xs">คลิกเพื่อเพิ่มหมายเหตุ...</span>}
               </div>
             )}
           </div>
-
-          {/* Change status */}
           <div>
             <p className="text-xs text-muted-foreground mb-1">เปลี่ยนสถานะ</p>
-            <Select
-              value={lead.status}
-              onValueChange={(v) => {
-                updateLeadStatus(lead.lead_id, v as LeadStatus);
-                toast.success(`เปลี่ยนสถานะ Lead เป็น "${v}" แล้ว`);
-              }}
-            >
+            <Select value={lead.status} onValueChange={(v) => { updateLeadStatus(lead.lead_id, v as LeadStatus); toast.success(`เปลี่ยนสถานะ Lead เป็น "${v}" แล้ว`); }}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {LEAD_STATUSES.map((s) => (
@@ -143,6 +116,118 @@ function LeadCard({ lead }: { lead: Lead }) {
             </Select>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Compact profile card (replaces 4 separate cards) ── */
+function ProfileCard({ customer }: { customer: Customer }) {
+  const [showMore, setShowMore] = useState(false);
+  const birthdayDisplay = customer.birthday
+    ? new Date(customer.birthday).toLocaleDateString("th-TH", { day: "numeric", month: "long" })
+    : null;
+
+  return (
+    <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
+      {/* Contact action row */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b">
+        {customer.phone && customer.phone !== "-" && (
+          <a href={`tel:${customer.phone}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-primary/8 hover:bg-primary/15 text-primary text-xs font-medium transition">
+            <Phone className="w-3.5 h-3.5" /> {customer.phone}
+          </a>
+        )}
+        {customer.line_id && (
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 text-green-700 text-xs font-medium border border-green-100">
+            <MessageCircle className="w-3.5 h-3.5" /> {customer.line_id}
+          </div>
+        )}
+        {customer.email && (
+          <a href={`mailto:${customer.email}`} className="p-2 rounded-lg bg-muted hover:bg-muted/80 transition">
+            <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+          </a>
+        )}
+      </div>
+
+      {/* Key info grid */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs">
+        <div>
+          <p className="text-muted-foreground">ช่องทาง</p>
+          <p className="font-medium mt-0.5">{customer.source}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">กลุ่มลูกค้า</p>
+          <p className="font-medium mt-0.5 leading-tight">{customer.segment}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Sales</p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className="w-4 h-4 rounded-full bg-gradient-pink text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+              {customer.created_by[0]}
+            </span>
+            <span className="font-medium text-accent">{customer.created_by}</span>
+          </div>
+        </div>
+        <div>
+          <p className="text-muted-foreground">เพิ่มเมื่อ</p>
+          <p className="font-medium mt-0.5">
+            {customer.created_at
+              ? new Date(customer.created_at).toLocaleDateString("th-TH", { dateStyle: "medium" })
+              : customer.first_contact_date}
+          </p>
+        </div>
+        {customer.province && (
+          <div>
+            <p className="text-muted-foreground">จังหวัด</p>
+            <p className="font-medium mt-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />{customer.province}</p>
+          </div>
+        )}
+        {customer.last_contacted_at && (
+          <div>
+            <p className="text-muted-foreground">ติดต่อล่าสุด</p>
+            <p className="font-medium mt-0.5">{new Date(customer.last_contacted_at).toLocaleDateString("th-TH", { dateStyle: "medium" })}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Interests */}
+      {(customer.interests ?? []).length > 0 && (
+        <div className="px-4 pb-3 flex flex-wrap gap-1">
+          {customer.interests!.map((key) => {
+            const style = INTEREST_STYLE[key];
+            if (!style) return null;
+            return (
+              <span key={key} className={`text-[11px] px-2 py-0.5 rounded border font-medium ${style.className}`}>
+                {style.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Note + birthday (show more toggle) */}
+      {(customer.note || birthdayDisplay) && (
+        <>
+          <button
+            onClick={() => setShowMore((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground hover:bg-muted/40 transition"
+          >
+            <span>{showMore ? "ซ่อนรายละเอียด" : "ดูเพิ่มเติม (บันทึก / วันเกิด)"}</span>
+            {showMore ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          {showMore && (
+            <div className="px-4 pb-3 space-y-2 text-xs">
+              {birthdayDisplay && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Cake className="w-3.5 h-3.5" /> วันเกิด: <span className="font-medium text-foreground">{birthdayDisplay}</span>
+                </div>
+              )}
+              {customer.note && (
+                <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/40 rounded-lg p-2">{customer.note}</p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -158,7 +243,6 @@ export default function CustomerDetail() {
   const customerLeads = leads
     .filter((l) => l.customer_id === customerId)
     .sort((a, b) => {
-      // Active leads first, then by status group, then closed
       const order: Record<string, number> = {
         "New": 0, "Contacted": 1, "Quotation Sent": 2, "Negotiating": 3, "Closed Won": 4, "Closed Lost": 5,
       };
@@ -168,6 +252,7 @@ export default function CustomerDetail() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [openAddLead, setOpenAddLead] = useState(false);
   const [leadFilter, setLeadFilter] = useState<LeadStatus | "all">("all");
+  const [mobileTab, setMobileTab] = useState<"info" | "leads">("info");
 
   if (!customer) {
     return (
@@ -180,186 +265,138 @@ export default function CustomerDetail() {
     );
   }
 
-  // Stats
   const wonLeads = customerLeads.filter((l) => l.status === "Closed Won");
   const activeLeads = customerLeads.filter((l) => !["Closed Won", "Closed Lost"].includes(l.status));
   const totalQuoted = customerLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
-
   const filteredLeads = leadFilter === "all" ? customerLeads : customerLeads.filter((l) => l.status === leadFilter);
 
-  const birthdayDisplay = customer.birthday
-    ? new Date(customer.birthday).toLocaleDateString("th-TH", { day: "numeric", month: "long" })
-    : null;
-
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-5xl mx-auto">
+    <div className="p-3 sm:p-6 space-y-3 sm:space-y-4 max-w-5xl mx-auto">
 
-      {/* ── Back + Header ── */}
-      <div className="flex items-start gap-3">
-        <Button variant="ghost" size="icon" className="mt-0.5 shrink-0" onClick={() => navigate("/app/customers")}>
-          <ArrowLeft className="w-5 h-5" />
+      {/* ── Header ── */}
+      <div className="flex items-start gap-2">
+        <Button variant="ghost" size="icon" className="mt-0.5 shrink-0 h-8 w-8" onClick={() => navigate("/app/customers")}>
+          <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold truncate">{customer.full_name}</h1>
-            <Badge variant="outline" className={`${tierBadge(customer.customer_tier)} shrink-0`}>
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{customer.full_name}</h1>
+            <Badge variant="outline" className={`${tierBadge(customer.customer_tier)} shrink-0 text-xs`}>
               {customer.customer_tier}
             </Badge>
             {customer.customer_tier === "VIP" && <Star className="w-4 h-4 text-accent fill-accent" />}
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             {customer.company !== "-" ? customer.company : "B2C Individual"}
             {customer.province ? ` · ${customer.province}` : ""}
             {" · "}
-            <span className="font-mono text-xs">{customer.customer_id}</span>
+            <span className="font-mono">{customer.customer_id}</span>
           </p>
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={() => setEditingCustomer(customer)}>
-            <Pencil className="w-4 h-4 mr-1.5" /> แก้ไข
+        <div className="flex gap-1.5 shrink-0">
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => setEditingCustomer(customer)}>
+            <Pencil className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">แก้ไข</span>
           </Button>
-          <Button size="sm" className="bg-gradient-primary" onClick={() => setOpenAddLead(true)}>
-            <Plus className="w-4 h-4 mr-1.5" /> สร้าง Lead
+          <Button size="sm" className="bg-gradient-primary h-8 text-xs px-2.5" onClick={() => setOpenAddLead(true)}>
+            <Plus className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">สร้าง Lead</span>
           </Button>
         </div>
       </div>
 
+      {/* ── Stats strip (always visible) ── */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-xl font-bold text-primary">{customer.total_trips}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">ทริปซื้อแล้ว</p>
+        </div>
+        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-base font-bold text-success leading-tight">{formatTHB(customer.total_spend)}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">ยอดซื้อรวม</p>
+        </div>
+        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-xl font-bold text-amber-600">{activeLeads.length}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">Active Leads</p>
+        </div>
+        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-base font-bold leading-tight">{formatTHB(totalQuoted)}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">Quoted รวม</p>
+        </div>
+      </div>
+
+      {/* ── Mobile tab bar ── */}
+      <div className="flex lg:hidden rounded-xl border bg-card shadow-soft overflow-hidden">
+        <button
+          onClick={() => setMobileTab("info")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition ${
+            mobileTab === "info" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <User className="w-4 h-4" /> ข้อมูล
+        </button>
+        <button
+          onClick={() => setMobileTab("leads")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition ${
+            mobileTab === "leads" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <FileText className="w-4 h-4" /> Leads
+          {activeLeads.length > 0 && (
+            <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${mobileTab === "leads" ? "bg-white/20" : "bg-amber-100 text-amber-700"}`}>
+              {activeLeads.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── Desktop: 2-col | Mobile: tabbed ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* ── Left column: Profile ── */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* Left: Profile (hidden on mobile when leads tab active) */}
+        <div className={`lg:col-span-1 space-y-3 ${mobileTab === "leads" ? "hidden lg:block" : ""}`}>
+          <ProfileCard customer={customer} />
 
-          {/* Contact info */}
-          <div className="bg-card border rounded-xl shadow-soft p-4 space-y-2.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📞 ติดต่อ</p>
-            <div className="space-y-1.5 text-sm">
-              <a href={`tel:${customer.phone}`} className="flex items-center gap-2 text-primary hover:underline">
-                <Phone className="w-3.5 h-3.5 shrink-0" /> {customer.phone}
-              </a>
-              <div className="flex items-center gap-2 text-success">
-                <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{customer.line_id || "—"}</span>
+          {/* Transfer log (desktop always, mobile in info tab) */}
+          {(customer.transfer_logs ?? []).length > 0 && (
+            <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
+              <div className="px-4 py-2.5 border-b bg-muted/30 flex items-center gap-2">
+                <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                <p className="font-semibold text-xs">โอนลูกค้า ({(customer.transfer_logs ?? []).length} ครั้ง)</p>
               </div>
-              {customer.email && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{customer.email}</span>
-                </div>
-              )}
-              {customer.province && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span>{customer.province}</span>
-                </div>
-              )}
-              {birthdayDisplay && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Cake className="w-3.5 h-3.5 shrink-0" />
-                  <span>{birthdayDisplay}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Customer details */}
-          <div className="bg-card border rounded-xl shadow-soft p-4 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">👤 ข้อมูลเพิ่มเติม</p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">ช่องทาง</span>
-                <span className="font-medium">{customer.source}</span>
+              <div className="p-3">
+                <ol className="relative border-l border-border space-y-3 ml-3">
+                  {[...(customer.transfer_logs ?? [])].reverse().map((log: TransferLog) => (
+                    <li key={log.log_id} className="ml-4">
+                      <div className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full border-2 border-background bg-primary" />
+                      <div className="bg-muted/30 rounded-lg px-2.5 py-2 space-y-0.5">
+                        <p className="text-xs font-medium">
+                          <span className="text-muted-foreground">{log.from_rep}</span>
+                          {" → "}
+                          <span className="font-semibold text-primary">{log.to_rep}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          🕐 {new Date(log.transferred_at).toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                          {log.transferred_by && log.transferred_by !== log.from_rep && ` · โดย ${log.transferred_by}`}
+                        </p>
+                        {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">กลุ่มลูกค้า</span>
-                <span className="font-medium text-right max-w-[140px] text-xs leading-tight">{customer.segment}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sales</span>
-                <div className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/30">
-                  <span className="w-4 h-4 rounded-full bg-gradient-pink text-white flex items-center justify-center text-[9px] font-bold">
-                    {customer.created_by[0]}
-                  </span>
-                  {customer.created_by}
-                </div>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">เพิ่มเมื่อ</span>
-                <span className="text-xs">
-                  {customer.created_at
-                    ? new Date(customer.created_at).toLocaleDateString("th-TH", { dateStyle: "medium" })
-                    : customer.first_contact_date}
-                </span>
-              </div>
-              {customer.last_contacted_at && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">ติดต่อล่าสุด</span>
-                  <span className="text-xs">
-                    {new Date(customer.last_contacted_at).toLocaleDateString("th-TH", { dateStyle: "medium" })}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Interests */}
-          {(customer.interests ?? []).length > 0 && (
-            <div className="bg-card border rounded-xl shadow-soft p-4 space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">🎯 บริการที่สนใจ</p>
-              <div className="flex flex-wrap gap-1.5">
-                {customer.interests!.map((key) => {
-                  const style = INTEREST_STYLE[key];
-                  if (!style) return null;
-                  return (
-                    <span key={key} className={`text-xs px-2 py-0.5 rounded border font-medium ${style.className}`}>
-                      {style.label}
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Note */}
-          {customer.note && (
-            <div className="bg-card border rounded-xl shadow-soft p-4 space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📝 บันทึก</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{customer.note}</p>
             </div>
           )}
         </div>
 
-        {/* ── Right column: Stats + Leads ── */}
-        <div className="lg:col-span-2 space-y-4">
-
-          {/* Stats strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-card border rounded-xl shadow-soft p-3 text-center">
-              <p className="text-2xl font-bold text-primary">{customer.total_trips}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">ทริปที่ซื้อแล้ว</p>
-            </div>
-            <div className="bg-card border rounded-xl shadow-soft p-3 text-center">
-              <p className="text-xl font-bold text-success">{formatTHB(customer.total_spend)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">ยอดซื้อรวม</p>
-            </div>
-            <div className="bg-card border rounded-xl shadow-soft p-3 text-center">
-              <p className="text-2xl font-bold text-amber-600">{activeLeads.length}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Leads ที่ active</p>
-            </div>
-            <div className="bg-card border rounded-xl shadow-soft p-3 text-center">
-              <p className="text-xl font-bold">{formatTHB(totalQuoted)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">มูลค่า quoted รวม</p>
-            </div>
-          </div>
-
-          {/* Leads section */}
+        {/* Right: Leads (hidden on mobile when info tab active) */}
+        <div className={`lg:col-span-2 space-y-3 ${mobileTab === "info" ? "hidden lg:block" : ""}`}>
           <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-primary" />
                 <p className="font-semibold text-sm">Leads ทั้งหมด ({customerLeads.length})</p>
               </div>
               <Select value={leadFilter} onValueChange={(v) => setLeadFilter(v as any)}>
-                <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="กรองสถานะ" /></SelectTrigger>
+                <SelectTrigger className="h-7 w-36 text-xs"><SelectValue placeholder="กรองสถานะ" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">ทุกสถานะ</SelectItem>
                   {LEAD_STATUSES.map((s) => (
@@ -385,10 +422,8 @@ export default function CustomerDetail() {
             </div>
 
             {filteredLeads.length > 0 && (
-              <div className="border-t px-4 py-2.5 bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
-                <span>
-                  ✅ ปิดได้ {wonLeads.length} leads · ยอดซื้อจริง {formatTHB(customer.total_spend)}
-                </span>
+              <div className="border-t px-4 py-2 bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
+                <span>✅ ปิดได้ {wonLeads.length} leads · ยอดซื้อจริง {formatTHB(customer.total_spend)}</span>
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpenAddLead(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1" /> Lead ใหม่
                 </Button>
@@ -397,42 +432,6 @@ export default function CustomerDetail() {
           </div>
         </div>
       </div>
-
-      {/* ── Transfer Log Timeline ── */}
-      {(customer.transfer_logs ?? []).length > 0 && (
-        <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
-          <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
-            <ArrowRightLeft className="w-4 h-4 text-muted-foreground" />
-            <p className="font-semibold text-sm">ประวัติการโอนลูกค้า ({(customer.transfer_logs ?? []).length} ครั้ง)</p>
-          </div>
-          <div className="p-4">
-            <ol className="relative border-l border-border space-y-4 ml-3">
-              {[...(customer.transfer_logs ?? [])].reverse().map((log: TransferLog, idx) => (
-                <li key={log.log_id} className="ml-4">
-                  <div className="absolute -left-[7px] mt-1 w-3.5 h-3.5 rounded-full border-2 border-background bg-primary" />
-                  <div className="bg-muted/30 rounded-lg px-3 py-2 space-y-0.5">
-                    <p className="text-sm font-medium">
-                      <span className="text-muted-foreground">{log.from_rep}</span>
-                      {" → "}
-                      <span className="font-semibold text-primary">{log.to_rep}</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      🕐 {new Date(log.transferred_at).toLocaleDateString("th-TH", {
-                        year: "numeric", month: "long", day: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                      {log.transferred_by && log.transferred_by !== log.from_rep && (
-                        <span> · โดย {log.transferred_by}</span>
-                      )}
-                    </p>
-                    {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
-      )}
 
       {/* Dialogs */}
       <EditCustomerDialog customer={editingCustomer} onClose={() => setEditingCustomer(null)} />
