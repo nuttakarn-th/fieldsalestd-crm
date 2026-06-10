@@ -176,6 +176,8 @@ export const useAuth = create<AuthState>()(
               ? {
                   ...u,
                   ...patch,
+                  // ถ้า patch มี password ให้อัปเดต plain_password ด้วย
+                  plain_password: (patch as any).password !== undefined ? (patch as any).password : u.plain_password,
                   // never allow changing role to Admin or removing admin
                   role: u.role === "Admin" ? "Admin" : (patch.role && patch.role !== "Admin" ? patch.role : u.role),
                 }
@@ -183,11 +185,22 @@ export const useAuth = create<AuthState>()(
           ),
         });
         if (SUPABASE_ENABLED && supabase) {
-          // Don't include `password` field in patch — use resetPassword for that
-          const { password, ...safePatch } = patch as any;
-          supabase.from("app_users").update(safePatch).eq("user_id", id).then(({ error }) => {
-            if (error) console.error("[supabase] update user ล้มเหลว:", error);
-          });
+          const { password: newPwd, ...safePatch } = patch as any;
+          if (newPwd !== undefined) {
+            // User เปลี่ยน password เอง → hash แล้ว save ทั้ง password_hash + plain_password
+            hashPassword(newPwd).then((newHash) => {
+              supabase.from("app_users")
+                .update({ ...safePatch, password_hash: newHash, plain_password: newPwd })
+                .eq("user_id", id)
+                .then(({ error }) => {
+                  if (error) console.error("[supabase] update user password ล้มเหลว:", error);
+                });
+            });
+          } else {
+            supabase.from("app_users").update(safePatch).eq("user_id", id).then(({ error }) => {
+              if (error) console.error("[supabase] update user ล้มเหลว:", error);
+            });
+          }
         }
       },
 
