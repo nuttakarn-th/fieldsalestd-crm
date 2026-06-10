@@ -44,7 +44,8 @@ export default function MyProfile() {
       setDepartment(user.department ?? user.role);
       setEmail(user.email ?? "");
       setTel(user.tel ?? "");
-      setPwd(user.password);
+      // แสดง plain_password (ข้อความจริง) ไม่ใช่ hash
+      setPwd(user.plain_password ?? "");
       setAvatar(user.avatar_url);
       setLineQr(user.line_qr_url);
     }
@@ -54,13 +55,19 @@ export default function MyProfile() {
 
   const save = () => {
     if (!fullName.trim()) { toast.error("กรุณากรอกชื่อ-นามสกุล"); return; }
-    updateUser(user.user_id, {
+    const patch: Parameters<typeof updateUser>[1] = {
       full_name: fullName.trim(),
       department: department.trim() || undefined,
-      email, tel, password: pwd,
+      email, tel,
       avatar_url: avatar,
       line_qr_url: lineQr,
-    });
+    };
+    // อัปเดต password เฉพาะตอนที่ User พิมพ์รหัสใหม่จริงๆ
+    const originalPwd = user.plain_password ?? "";
+    if (pwd.trim() && pwd !== originalPwd) {
+      (patch as any).password = pwd.trim();
+    }
+    updateUser(user.user_id, patch);
     toast.success("บันทึกข้อมูลเรียบร้อย");
     setEditOpen(false);
   };
