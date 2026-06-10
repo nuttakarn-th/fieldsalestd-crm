@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +125,7 @@ export default function Customers() {
   const [filterSource, setFilterSource] = useState<Source | "all">("all");
   const [filterDateRange, setFilterDateRange] = useState<"all" | "7d" | "30d" | "90d" | "365d">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "spend_desc" | "spend_asc" | "name">("newest");
+  const [showFilters, setShowFilters] = useState(false);
 
   const scoped = useMemo(
     () => (currentRep === "All"
@@ -191,6 +192,8 @@ export default function Customers() {
     setQ("");
   };
   const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterDateRange !== "all" || q !== "";
+  const activeFilterCount = [filterTier !== "all", filterSource !== "all", filterDateRange !== "all"].filter(Boolean).length;
+  const DATE_LABELS: Record<string, string> = { "7d": "7 วัน", "30d": "30 วัน", "90d": "90 วัน", "365d": "1 ปี" };
 
   // Build export-ready records from filtered customers
   const exportData = useMemo(() =>
@@ -291,54 +294,135 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border shadow-soft p-4 space-y-3">
-        <div className="relative max-w-xl">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ, เบอร์โทร, องค์กร, Line ID, อีเมล, ชื่อ Sales..." className="pl-9" />
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <Select value={filterDateRange} onValueChange={(v) => setFilterDateRange(v as any)}>
-            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ช่วงวันที่เพิ่ม" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ทุกช่วงเวลา</SelectItem>
-              <SelectItem value="7d">7 วันล่าสุด</SelectItem>
-              <SelectItem value="30d">30 วันล่าสุด</SelectItem>
-              <SelectItem value="90d">90 วันล่าสุด</SelectItem>
-              <SelectItem value="365d">1 ปีล่าสุด</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterTier} onValueChange={(v) => setFilterTier(v as any)}>
-            <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Tier" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ทุก Tier</SelectItem>
-              <SelectItem value="VIP">VIP</SelectItem>
-              <SelectItem value="Regular">Regular</SelectItem>
-              <SelectItem value="New">New</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterSource} onValueChange={(v) => setFilterSource(v as any)}>
-            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="ช่องทาง" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ทุกช่องทาง</SelectItem>
-              {SOURCES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
-            </SelectContent>
-          </Select>
+      <div className="bg-card rounded-xl border shadow-soft p-3 space-y-2">
+        {/* Row 1: Search + Filter toggle + Sort */}
+        <div className="flex gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ, เบอร์โทร, องค์กร..." className="pl-9 h-10" />
+          </div>
+          <Button
+            variant={activeFilterCount > 0 ? "default" : "outline"}
+            className={`shrink-0 gap-1.5 h-10 ${activeFilterCount > 0 ? "bg-gradient-primary" : ""}`}
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm">กรอง</span>
+            {activeFilterCount > 0 && (
+              <span className="bg-white/90 text-primary rounded-full w-4 h-4 text-[10px] font-bold flex items-center justify-center leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-            <SelectTrigger className="w-44 h-9"><SelectValue placeholder="เรียงตาม" /></SelectTrigger>
+            <SelectTrigger className="w-[120px] sm:w-[140px] h-10 shrink-0 text-xs">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="newest">ใหม่ → เก่า</SelectItem>
               <SelectItem value="oldest">เก่า → ใหม่</SelectItem>
-              <SelectItem value="spend_desc">ยอดซื้อมาก → น้อย</SelectItem>
-              <SelectItem value="spend_asc">ยอดซื้อน้อย → มาก</SelectItem>
+              <SelectItem value="spend_desc">ยอดมาก → น้อย</SelectItem>
+              <SelectItem value="spend_asc">ยอดน้อย → มาก</SelectItem>
               <SelectItem value="name">ชื่อ ก-ฮ</SelectItem>
             </SelectContent>
           </Select>
-          {hasActiveFilter && (
-            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-9 text-muted-foreground">
-              ล้างตัวกรอง
-            </Button>
+        </div>
+
+        {/* Active filter chips (when filters active and panel closed) */}
+        {activeFilterCount > 0 && !showFilters && (
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {filterDateRange !== "all" && (
+              <button
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20 hover:bg-primary/20 transition"
+                onClick={() => setFilterDateRange("all")}
+              >
+                {DATE_LABELS[filterDateRange]}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+            {filterTier !== "all" && (
+              <button
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20 hover:bg-primary/20 transition"
+                onClick={() => setFilterTier("all")}
+              >
+                {filterTier} <X className="w-3 h-3" />
+              </button>
+            )}
+            {filterSource !== "all" && (
+              <button
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-primary/20 hover:bg-primary/20 transition"
+                onClick={() => setFilterSource("all")}
+              >
+                {filterSource} <X className="w-3 h-3" />
+              </button>
+            )}
+            <button
+              className="text-xs text-muted-foreground hover:text-destructive transition ml-auto"
+              onClick={resetFilters}
+            >
+              ล้างทั้งหมด
+            </button>
+          </div>
+        )}
+
+        {/* Expandable filter panel */}
+        {showFilters && (
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground font-medium">ช่วงเวลาเพิ่ม</label>
+              <Select value={filterDateRange} onValueChange={(v) => setFilterDateRange(v as any)}>
+                <SelectTrigger className="h-9 w-full text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุกช่วงเวลา</SelectItem>
+                  <SelectItem value="7d">7 วันล่าสุด</SelectItem>
+                  <SelectItem value="30d">30 วันล่าสุด</SelectItem>
+                  <SelectItem value="90d">90 วันล่าสุด</SelectItem>
+                  <SelectItem value="365d">1 ปีล่าสุด</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground font-medium">Tier</label>
+              <Select value={filterTier} onValueChange={(v) => setFilterTier(v as any)}>
+                <SelectTrigger className="h-9 w-full text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุก Tier</SelectItem>
+                  <SelectItem value="VIP">VIP</SelectItem>
+                  <SelectItem value="Regular">Regular</SelectItem>
+                  <SelectItem value="New">New</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground font-medium">ช่องทาง</label>
+              <Select value={filterSource} onValueChange={(v) => setFilterSource(v as any)}>
+                <SelectTrigger className="h-9 w-full text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทุกช่องทาง</SelectItem>
+                  {SOURCES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="ghost" size="sm"
+                onClick={() => { resetFilters(); setShowFilters(false); }}
+                className="w-full h-9 text-xs text-muted-foreground hover:text-destructive"
+              >
+                ล้างตัวกรอง
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Count row */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>{filtered.length} รายการ</span>
+          {hasActiveFilter && !showFilters && activeFilterCount === 0 && (
+            <button onClick={resetFilters} className="text-destructive/70 hover:text-destructive transition">
+              ล้างการค้นหา
+            </button>
           )}
-          <span className="ml-auto text-xs text-muted-foreground">{filtered.length} รายการ</span>
         </div>
       </div>
 
