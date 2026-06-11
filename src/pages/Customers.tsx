@@ -126,6 +126,8 @@ export default function Customers() {
   const [filterDateRange, setFilterDateRange] = useState<"all" | "7d" | "30d" | "90d" | "365d">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "spend_desc" | "spend_asc" | "name">("newest");
   const [showFilters, setShowFilters] = useState(false);
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
 
   const scoped = useMemo(
     () => (currentRep === "All"
@@ -184,6 +186,9 @@ export default function Customers() {
     return sorted;
   }, [scoped, q, filterTier, filterSource, filterDateRange, sortBy]);
 
+  // Reset to page 1 whenever filter/search changes
+  useEffect(() => { setPage(1); }, [q, filterTier, filterSource, filterDateRange, sortBy]);
+
   const resetFilters = () => {
     setFilterTier("all");
     setFilterSource("all");
@@ -194,6 +199,10 @@ export default function Customers() {
   const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterDateRange !== "all" || q !== "";
   const activeFilterCount = [filterTier !== "all", filterSource !== "all", filterDateRange !== "all"].filter(Boolean).length;
   const DATE_LABELS: Record<string, string> = { "7d": "7 วัน", "30d": "30 วัน", "90d": "90 วัน", "365d": "1 ปี" };
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pagedCustomers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Build export-ready records from filtered customers
   const exportData = useMemo(() =>
@@ -417,7 +426,7 @@ export default function Customers() {
 
         {/* Count row */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{filtered.length} รายการ</span>
+          <span>{filtered.length} รายการ · หน้า {page}/{totalPages}</span>
           {hasActiveFilter && !showFilters && activeFilterCount === 0 && (
             <button onClick={resetFilters} className="text-destructive/70 hover:text-destructive transition">
               ล้างการค้นหา
@@ -431,10 +440,10 @@ export default function Customers() {
         {filtered.length === 0 && (
           <div className="p-8 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</div>
         )}
-        {filtered.map((c) => (
+        {pagedCustomers.map((c) => (
           <div
             key={c.customer_id}
-            className="flex items-center gap-3 px-3 py-3 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60"
+            className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60"
             onClick={() => navigate(`/app/customers/${c.customer_id}`)}
           >
             {/* Avatar circle */}
@@ -516,25 +525,25 @@ export default function Customers() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
-                <th className="text-left p-3 font-medium">ชื่อลูกค้า / องค์กร</th>
-                <th className="text-left p-3 font-medium">ติดต่อ</th>
-                <th className="text-left p-3 font-medium">บริการที่สนใจ</th>
-                <th className="text-left p-3 font-medium">ช่องทาง / กลุ่ม</th>
-                <th className="text-left p-3 font-medium">Tier</th>
-                <th className="text-left p-3 font-medium">Sales</th>
-                <th className="text-right p-3 font-medium">ยอดซื้อ</th>
-                <th className="p-3 font-medium w-24">จัดการ</th>
+                <th className="text-left py-2 px-3 font-medium">ชื่อลูกค้า / องค์กร</th>
+                <th className="text-left py-2 px-3 font-medium">ติดต่อ</th>
+                <th className="text-left py-2 px-3 font-medium">บริการที่สนใจ</th>
+                <th className="text-left py-2 px-3 font-medium">ช่องทาง / กลุ่ม</th>
+                <th className="text-left py-2 px-3 font-medium">Tier</th>
+                <th className="text-left py-2 px-3 font-medium">Sales</th>
+                <th className="text-right py-2 px-3 font-medium">ยอดซื้อ</th>
+                <th className="py-2 px-3 font-medium w-24">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filtered.map((c) => (
+              {pagedCustomers.map((c) => (
                 <tr
                   key={c.customer_id}
                   className="hover:bg-muted/30 transition cursor-pointer"
                   onClick={() => navigate(`/app/customers/${c.customer_id}`)}
                 >
                   {/* ชื่อ / องค์กร / จังหวัด */}
-                  <td className="p-3 max-w-[200px]">
+                  <td className="py-1.5 px-3 max-w-[200px]">
                     <div className="font-semibold truncate">{c.full_name}</div>
                     <div className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}</div>
                     {c.province && (
@@ -569,7 +578,7 @@ export default function Customers() {
                     )}
                   </td>
                   {/* ติดต่อ */}
-                  <td className="p-3">
+                  <td className="py-1.5 px-3">
                     <div className="flex items-center gap-1.5 text-xs"><Phone className="w-3 h-3 text-primary" /> {c.phone}</div>
                     <div className="flex items-center gap-1.5 text-xs text-success mt-0.5"><MessageCircle className="w-3 h-3" /> {c.line_id || "—"}</div>
                     {c.email && (
@@ -580,7 +589,7 @@ export default function Customers() {
                     )}
                   </td>
                   {/* บริการที่สนใจ */}
-                  <td className="p-3">
+                  <td className="py-1.5 px-3">
                     <div className="flex flex-wrap gap-1">
                       {(c.interests ?? []).length > 0
                         ? (c.interests!).map((key) => {
@@ -597,22 +606,22 @@ export default function Customers() {
                     </div>
                   </td>
                   {/* ช่องทาง */}
-                  <td className="p-3">
+                  <td className="py-1.5 px-3">
                     <div className="text-sm">{c.source}</div>
                     <div className="text-xs text-muted-foreground">{c.segment}</div>
                   </td>
-                  <td className="p-3"><Badge variant="outline" className={tierBadge(c.customer_tier)}>{c.customer_tier}</Badge></td>
-                  <td className="p-3">
+                  <td className="py-1.5 px-3"><Badge variant="outline" className={tierBadge(c.customer_tier)}>{c.customer_tier}</Badge></td>
+                  <td className="py-1.5 px-3">
                     <div className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-accent/10 text-accent border border-accent/30">
                       <span className="w-5 h-5 rounded-full bg-gradient-pink text-accent-foreground flex items-center justify-center text-[10px] font-bold">{c.created_by[0]}</span>
                       <span className="font-semibold">{c.created_by}</span>
                     </div>
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="py-1.5 px-3 text-right">
                     <div className="font-semibold">{formatTHB(c.total_spend)}</div>
                     <div className="text-xs text-muted-foreground">{c.total_trips} ทริป</div>
                   </td>
-                  <td className="p-3 text-center">
+                  <td className="py-1.5 px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       {c.transferred_from === currentRep && c.transferred_to ? (
                         <span title="โอนแล้ว ไม่สามารถแก้ไขได้" className="inline-flex items-center text-muted-foreground">
@@ -655,6 +664,40 @@ export default function Customers() {
           </table>
         </div>
       </div>
+
+      {/* Pagination bar — shared for both mobile & desktop */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between bg-card border rounded-xl px-4 py-2.5 shadow-soft">
+          <span className="text-xs text-muted-foreground">
+            แสดง {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline" size="sm" className="h-8 px-3 text-xs"
+              disabled={page === 1}
+              onClick={() => setPage(1)}
+            >«</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 px-3 text-xs"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+            >‹ ก่อน</Button>
+            <span className="text-xs font-semibold px-3 py-1.5 bg-primary/10 text-primary rounded-lg border border-primary/20">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline" size="sm" className="h-8 px-3 text-xs"
+              disabled={page === totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >ถัดไป ›</Button>
+            <Button
+              variant="outline" size="sm" className="h-8 px-3 text-xs"
+              disabled={page === totalPages}
+              onClick={() => setPage(totalPages)}
+            >»</Button>
+          </div>
+        </div>
+      )}
 
       <CustomerLeadDialog open={openAdd} onOpenChange={setOpenAdd} />
       <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
