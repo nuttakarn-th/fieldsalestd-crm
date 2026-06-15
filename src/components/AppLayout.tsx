@@ -45,16 +45,27 @@ export default function AppLayout() {
   const viewAsRole = useAuth((s) => s.viewAsRole);
   const setCurrentRep = useCRM((s) => s.setCurrentRep);
 
+  // ใช้ primitive selectors แยกเพื่อป้องกัน effect re-run เมื่อ users array replace
+  // (useCurrentUser() return new object ref ทุกครั้งที่ loadUsersFromSupabase runs)
+  const currentUserId = useAuth((s) => s.currentUserId);
+  const currentUserRole = useAuth(
+    (s) => s.users.find((u) => u.user_id === s.currentUserId)?.role ?? null
+  );
+  const currentUserFullName = useAuth(
+    (s) => s.users.find((u) => u.user_id === s.currentUserId)?.full_name ?? null
+  );
+
   useEffect(() => {
-    if (!user) return;
-    const effectiveRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
+    if (!currentUserId) return;
+    const effectiveRole = currentUserRole === "Admin" && viewAsRole ? viewAsRole : currentUserRole;
     // Sales + OB Co-ordinator ใช้ชื่อตัวเองเสมอ
     if (effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator") {
-      setCurrentRep(user.full_name as SalesRep);
-    } else if (user.role === "Admin" && !viewAsRole) {
+      setCurrentRep(currentUserFullName as SalesRep);
+    } else {
+      // Admin, Sales Manager และ role อื่นๆ → เห็นข้อมูลทั้งหมด
       setCurrentRep("All");
     }
-  }, [user, viewAsRole, setCurrentRep]);
+  }, [currentUserId, currentUserRole, currentUserFullName, viewAsRole, setCurrentRep]);
 
   const effectiveRole = user ? (user.role === "Admin" && viewAsRole ? viewAsRole : user.role) : null;
   const showFAB = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";

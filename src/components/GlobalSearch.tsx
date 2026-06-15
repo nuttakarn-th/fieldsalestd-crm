@@ -5,17 +5,20 @@ import { useCRM, tierBadge } from "@/store/crmStore";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 
+// ย้ายออกนอก component เพื่อให้ reference stable ไม่เปลี่ยนทุก render
+// ถ้าอยู่ในตัว component → Zustand useSyncExternalStoreWithSelector
+// จะได้ isEqual function ใหม่ทุก render → selector ถูกเรียกซ้ำมากกว่าจำเป็น
+type CustSearch = {
+  customer_id: string; full_name: string; phone: string; company: string;
+  line_id: string; email?: string; customer_tier: string; created_by: string;
+};
+const eqCustSearch = (a: CustSearch[], b: CustSearch[]) =>
+  a.length === b.length &&
+  a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name && x.phone === b[i].phone);
+
 export function GlobalSearch() {
   // narrow selector: ดึงแค่ field ที่ใช้ค้นหา + แสดงผล
-  // GlobalSearch always rendered → ลด re-render มีผลมากที่สุด
   // component นี้จะ re-render ก็ต่อเมื่อ full_name/phone/company/tier เปลี่ยน เท่านั้น
-  type CustSearch = {
-    customer_id: string; full_name: string; phone: string; company: string;
-    line_id: string; email?: string; customer_tier: string; created_by: string;
-  };
-  const eqCustSearch = (a: CustSearch[], b: CustSearch[]) =>
-    a.length === b.length &&
-    a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name && x.phone === b[i].phone);
   const customers = useCRM(
     (s) => s.customers.map((c): CustSearch => ({
       customer_id: c.customer_id,

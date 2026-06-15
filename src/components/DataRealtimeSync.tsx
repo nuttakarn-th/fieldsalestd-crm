@@ -12,15 +12,24 @@ import { useEffect } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCRM, type Customer, type Lead, type RouteStop, type StopStatus } from "@/store/crmStore";
 import { useDeleteRequests, type DeleteRequest } from "@/store/deleteRequestStore";
-import { useCurrentUser } from "@/store/authStore";
+import { useAuth } from "@/store/authStore";
 import { toast } from "sonner";
 
 export function DataRealtimeSync() {
-  const currentUser = useCurrentUser();
+  // ใช้ primitive selectors แทน useCurrentUser() object
+  // เพื่อป้องกัน useEffect re-run ทุกครั้งที่ loadUsersFromSupabase replaces users array
+  // (object reference เปลี่ยน แม้ข้อมูลเดิม → React #185 infinite loop)
+  const isManager = useAuth((s) => {
+    const u = s.users.find((u) => u.user_id === s.currentUserId);
+    return u?.role === "Admin" || u?.role === "Sales Manager";
+  });
+  const currentUserName = useAuth((s) => {
+    const u = s.users.find((u) => u.user_id === s.currentUserId);
+    return u?.full_name ?? null;
+  });
 
   useEffect(() => {
     if (!SUPABASE_ENABLED || !supabase) return;
-    const isManager = currentUser?.role === "Admin" || currentUser?.role === "Sales Manager";
 
     // ── Throttle buckets สำหรับ UPDATE events ─────────────────────────────
     // แทนที่จะ setState ทุก event → collect ใน Map แล้ว flush พร้อมกัน 500ms
@@ -115,7 +124,7 @@ export function DataRealtimeSync() {
       .subscribe();
 
     // ── Team Notifications channel ─────────────────────────────────────────
-    const me = currentUser?.full_name;
+    const me = currentUserName;
     const notifChannel = supabase
       .channel("team_notifications_realtime")
       .on(
@@ -259,7 +268,7 @@ export function DataRealtimeSync() {
       supabase.removeChannel(deleteReqChannel);
       supabase.removeChannel(routeStopsChannel);
     };
-  }, [currentUser]);
+  }, [isManager, currentUserName]);
 
   return null;
 }
