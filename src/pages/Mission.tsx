@@ -23,7 +23,6 @@ export default function Mission() {
   const { routeId } = useParams<{ routeId: string }>();
   const navigate = useNavigate();
   const route = useCRM((s) => s.routes.find((r) => r.route_id === routeId));
-  const customers = useCRM((s) => s.customers);
   const startStop = useCRM((s) => s.startStop);
   const completeStop = useCRM((s) => s.completeStop);
   const skipStop = useCRM((s) => s.skipStop);

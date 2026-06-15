@@ -35,7 +35,14 @@ interface Props {
 }
 
 export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, title = "เพิ่มจุดเยี่ยม" }: Props) {
-  const customers = useCRM((s) => s.customers);
+  // narrow selector: ดึงแค่ field ที่ใช้ใน dropdown — ลด re-render เมื่อ note/tier/spend เปลี่ยน
+  type CustOpt = { customer_id: string; full_name: string; company: string };
+  const eqCustOpts = (a: CustOpt[], b: CustOpt[]) =>
+    a.length === b.length && a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name);
+  const customers = useCRM(
+    (s) => s.customers.map((c): CustOpt => ({ customer_id: c.customer_id, full_name: c.full_name, company: c.company })),
+    eqCustOpts,
+  );
   const addStop = useCRM((s) => s.addStop);
   const addRoute = useCRM((s) => s.addRoute);
 

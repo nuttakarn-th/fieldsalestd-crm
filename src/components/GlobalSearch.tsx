@@ -6,7 +6,29 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 
 export function GlobalSearch() {
-  const customers = useCRM((s) => s.customers);
+  // narrow selector: ดึงแค่ field ที่ใช้ค้นหา + แสดงผล
+  // GlobalSearch always rendered → ลด re-render มีผลมากที่สุด
+  // component นี้จะ re-render ก็ต่อเมื่อ full_name/phone/company/tier เปลี่ยน เท่านั้น
+  type CustSearch = {
+    customer_id: string; full_name: string; phone: string; company: string;
+    line_id: string; email?: string; customer_tier: string; created_by: string;
+  };
+  const eqCustSearch = (a: CustSearch[], b: CustSearch[]) =>
+    a.length === b.length &&
+    a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name && x.phone === b[i].phone);
+  const customers = useCRM(
+    (s) => s.customers.map((c): CustSearch => ({
+      customer_id: c.customer_id,
+      full_name:   c.full_name,
+      phone:       c.phone,
+      company:     c.company,
+      line_id:     c.line_id,
+      email:       c.email,
+      customer_tier: c.customer_tier,
+      created_by:  c.created_by,
+    })),
+    eqCustSearch,
+  );
   const currentRep = useCRM((s) => s.currentRep);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
