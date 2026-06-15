@@ -3,6 +3,10 @@
  * Subscribe to Supabase Realtime channels for customers, leads, team_notifications,
  * and customer_delete_requests.
  * Keeps all open tabs/browsers in sync without a manual refresh.
+ *
+ * v98 performance: throttle UPDATE events 500ms
+ * — batch หลาย UPDATE เป็น setState เดียว ลด re-render เมื่อ Mission ทำงานเร็ว
+ * — INSERT / DELETE ยังคง immediate (ผู้ใช้ต้องเห็นทันที)
  */
 import { useEffect } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -18,6 +22,36 @@ export function DataRealtimeSync() {
     if (!SUPABASE_ENABLED || !supabase) return;
     const isManager = currentUser?.role === "Admin" || currentUser?.role === "Sales Manager";
 
+    // ── Throttle buckets สำหรับ UPDATE events ─────────────────────────────
+    // แทนที่จะ setState ทุก event → collect ใน Map แล้ว flush พร้อมกัน 500ms
+    const pendingCustUpdates = new Map<string, Customer>();
+    let custFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flushCustomerUpdates = () => {
+      if (pendingCustUpdates.size === 0) return;
+      const updates = new Map(pendingCustUpdates);
+      pendingCustUpdates.clear();
+      useCRM.setState((s) => ({
+        customers: s.customers.map((c) =>
+          updates.has(c.customer_id) ? { ...c, ...updates.get(c.customer_id) } : c
+        ),
+      }));
+    };
+
+    const pendingLeadUpdates = new Map<string, Lead>();
+    let leadFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flushLeadUpdates = () => {
+      if (pendingLeadUpdates.size === 0) return;
+      const updates = new Map(pendingLeadUpdates);
+      pendingLeadUpdates.clear();
+      useCRM.setState((s) => ({
+        leads: s.leads.map((l) =>
+          updates.has(l.lead_id) ? { ...l, ...updates.get(l.lead_id) } : l
+        ),
+      }));
+    };
+
     // ── Customers channel ──────────────────────────────────────────────────
     const customerChannel = supabase
       .channel("customers_realtime")
@@ -28,18 +62,19 @@ export function DataRealtimeSync() {
           const state = useCRM.getState();
 
           if (payload.eventType === "INSERT") {
+            // INSERT: immediate — ผู้ใช้อื่นต้องเห็นลูกค้าใหม่ทันที
             const newCust = payload.new as Customer;
             if (!state.customers.some((c) => c.customer_id === newCust.customer_id)) {
               useCRM.setState({ customers: [newCust, ...state.customers] });
             }
           } else if (payload.eventType === "UPDATE") {
+            // UPDATE: throttle 500ms — batch หลาย update เป็น setState เดียว
             const updated = payload.new as Customer;
-            useCRM.setState({
-              customers: state.customers.map((c) =>
-                c.customer_id === updated.customer_id ? { ...c, ...updated } : c
-              ),
-            });
+            pendingCustUpdates.set(updated.customer_id, updated);
+            if (custFlushTimer) clearTimeout(custFlushTimer);
+            custFlushTimer = setTimeout(flushCustomerUpdates, 500);
           } else if (payload.eventType === "DELETE") {
+            // DELETE: immediate — ต้องเห็นทันทีว่าหายไป
             const deleted = payload.old as { customer_id: string };
             useCRM.setState({
               customers: state.customers.filter((c) => c.customer_id !== deleted.customer_id),
@@ -64,12 +99,11 @@ export function DataRealtimeSync() {
               useCRM.setState({ leads: [newLead, ...state.leads] });
             }
           } else if (payload.eventType === "UPDATE") {
+            // UPDATE: throttle 500ms
             const updated = payload.new as Lead;
-            useCRM.setState({
-              leads: state.leads.map((l) =>
-                l.lead_id === updated.lead_id ? { ...l, ...updated } : l
-              ),
-            });
+            pendingLeadUpdates.set(updated.lead_id, updated);
+            if (leadFlushTimer) clearTimeout(leadFlushTimer);
+            leadFlushTimer = setTimeout(flushLeadUpdates, 500);
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as { lead_id: string };
             useCRM.setState({
@@ -148,6 +182,9 @@ export function DataRealtimeSync() {
       .subscribe();
 
     return () => {
+      // flush pending throttled updates ก่อน unmount เพื่อไม่ให้ข้อมูลหาย
+      if (custFlushTimer) { clearTimeout(custFlushTimer); flushCustomerUpdates(); }
+      if (leadFlushTimer) { clearTimeout(leadFlushTimer); flushLeadUpdates(); }
       supabase.removeChannel(customerChannel);
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(notifChannel);

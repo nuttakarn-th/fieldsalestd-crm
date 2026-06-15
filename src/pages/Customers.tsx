@@ -113,6 +113,13 @@ export default function Customers() {
   const isSalesManager = user?.role === "Sales Manager";
   const canDirectDelete = isAdmin || isSalesManager;
   const [q, setQ] = useState("");
+  // debounce q 200ms — ป้องกัน filter 300+ รายการทุก keydown
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q), 200);
+    return () => clearTimeout(t);
+  }, [q]);
+
   const [openAdd, setOpenAdd] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [transferOf, setTransferOf] = useState<Customer | null>(null);
@@ -137,7 +144,7 @@ export default function Customers() {
   );
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
+    const s = debouncedQ.trim().toLowerCase();
     let list = scoped;
 
     // Search
@@ -184,10 +191,10 @@ export default function Customers() {
       }
     });
     return sorted;
-  }, [scoped, q, filterTier, filterSource, filterDateRange, sortBy]);
+  }, [scoped, debouncedQ, filterTier, filterSource, filterDateRange, sortBy]);
 
-  // Reset to page 1 whenever filter/search changes
-  useEffect(() => { setPage(1); }, [q, filterTier, filterSource, filterDateRange, sortBy]);
+  // Reset to page 1 whenever filter/search changes (ใช้ debouncedQ ไม่ใช่ q ดิบ)
+  useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterDateRange, sortBy]);
 
   const resetFilters = () => {
     setFilterTier("all");
