@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { hashPassword, verifyPassword, isHashed } from "@/lib/passwordHash";
+import { useShallow } from "zustand/react/shallow";
 
 export type AppRole =
   | "Admin"
@@ -305,30 +306,21 @@ export const useAuth = create<AuthState>()(
 );
 
 /**
+/**
  * useCurrentUser — returns the currently logged-in AppUser, or null.
  *
- * IMPORTANT: uses a custom equality function so components only re-render
- * when the user's actual DATA changes (user_id, role, full_name, avatar_url…),
- * NOT every time loadUsersFromSupabase replaces the users array with a new
- * reference. Without this, the selector returns a new object on every auth
- * refresh, which triggers all useEffect([user]) hooks → React #185 infinite loop.
+ * ใช้ useShallow จาก zustand/react/shallow เพราะ Zustand v5 ลบ equalityFn
+ * ออกจาก useStore(selector, equalityFn) แล้ว — ถ้าใส่ argument ที่ 2 จะถูก ignore
+ * useShallow ทำ shallow equality comparison ทุก field ของ AppUser object
+ * → component re-render เฉพาะเมื่อข้อมูลจริงเปลี่ยน ไม่ใช่แค่ array reference เปลี่ยน
+ * → ป้องกัน React #185 infinite loop
  */
 export function useCurrentUser(): AppUser | null {
   return useAuth(
-    (s) => (s.currentUserId ? (s.users.find((u) => u.user_id === s.currentUserId) ?? null) : null),
-    // Custom equality: shallow compare key fields — ignore array-reference churn
-    (prev, next) => {
-      if (prev === next) return true;
-      if (!prev || !next) return prev === next;
-      return (
-        prev.user_id      === next.user_id      &&
-        prev.role         === next.role          &&
-        prev.full_name    === next.full_name     &&
-        prev.username     === next.username      &&
-        prev.avatar_url   === next.avatar_url    &&
-        prev.is_active    === next.is_active
-      );
-    },
+    useShallow((s) => {
+      if (!s.currentUserId) return null;
+      return s.users.find((u) => u.user_id === s.currentUserId) ?? null;
+    }),
   );
 }
 
