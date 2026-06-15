@@ -652,12 +652,33 @@ export const useCRM = create<CRMState>()(
   loadAllFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
+      // ── กำหนด window วันที่สำหรับ route (30 วันล่าสุด) ──────────────────
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      const thirtyDaysAgo = d.toISOString().slice(0, 10); // YYYY-MM-DD
+
       const [customers, leads, targets, quotations, routes, chats, notifs] = await Promise.all([
-        supabase.from("customers").select("*").order("created_at", { ascending: false }),
+        // customers: ดึงแค่ column ที่ใช้จริง — ลด payload ~60%
+        supabase
+          .from("customers")
+          .select(
+            "customer_id,full_name,company,phone,line_id,email,province,birthday,interests," +
+            "note,last_contacted_at,source,segment,total_trips,total_spend,customer_tier," +
+            "first_contact_date,created_by,transferred_to,transferred_from,transferred_at," +
+            "transfer_logs,created_at"
+          )
+          .order("created_at", { ascending: false })
+          .limit(500),
         supabase.from("leads").select("*"),
         supabase.from("monthly_targets").select("*"),
         supabase.from("quotations").select("*").order("created_at", { ascending: false }),
-        supabase.from("route_plans").select("*, route_stops (*)").order("date", { ascending: false }),
+        // routes: เฉพาะ 30 วันล่าสุด + cap 60 route — ลด payload ~80%
+        supabase
+          .from("route_plans")
+          .select("*, route_stops (*)")
+          .gte("route_date", thirtyDaysAgo)
+          .order("route_date", { ascending: false })
+          .limit(60),
         supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
         supabase.from("team_notifications").select("*").order("created_at", { ascending: false }).limit(100),
       ]);
@@ -1380,24 +1401,49 @@ export const useCRM = create<CRMState>()(
       }),
       partialize: (state) => ({
         // ──────────────────────────────────────────────────────────────────
-        // สิ่งที่ persist:
+        // v97 performance: ลด localStorage payload ให้เล็กลง
+        //
+        // สิ่งที่ persist (core fields เท่านั้น):
         //   routes + stops (ไม่เอา data URL) → Mission ยังทำต่อได้หลัง refresh
         //   currentRep → จำการเลือก rep ไว้
-        //   customers, leads, targets → โหลดเร็วก่อน Supabase ตอบกลับ
+        //   customers: เก็บแค่ core fields ที่ใช้บ่อย
+        //              ตัด: transfer_logs (JSON array ใหญ่), note ยาวๆ
+        //              → โหลด full detail เมื่อเปิด CustomerDetail
+        //   leads, targets → เก็บเต็ม (ขนาดไม่ใหญ่)
         //
-        // สิ่งที่ไม่ persist (โหลดจาก Supabase ทุกครั้ง หรือ ใหญ่เกินไป):
-        //   contentTemplates → มี base64 PNG (~500KB-2MB/ชิ้น) → overflow localStorage
-        //   chatMessages / teamNotifications → limit 100 ไม่ให้บวม
-        //   contentPosts → ดึงจาก Supabase
-        //   quotations → ดึงจาก Supabase
+        // สิ่งที่ไม่ persist:
+        //   contentTemplates → base64 PNG ~500KB-2MB/ชิ้น → overflow localStorage
+        //   chatMessages / teamNotifications → limit ไม่ให้บวม
+        //   contentPosts, quotations → ดึงจาก Supabase
         // ──────────────────────────────────────────────────────────────────
         currentRep: state.currentRep,
-        customers:  state.customers,
-        leads:      state.leads,
-        targets:    state.targets,
-        // strip data URL ออก — เก็บแค่ public URL (http/https)
+        // customers: เก็บแค่ core fields ที่ใช้แสดงในรายการ/ค้นหา
+        // field หนักอย่าง transfer_logs / note โหลดจาก Supabase เมื่อเปิด detail
+        customers: state.customers.map((c) => ({
+          customer_id:       c.customer_id,
+          full_name:         c.full_name,
+          company:           c.company,
+          phone:             c.phone,
+          line_id:           c.line_id,
+          email:             c.email,
+          source:            c.source,
+          segment:           c.segment,
+          total_trips:       c.total_trips,
+          total_spend:       c.total_spend,
+          customer_tier:     c.customer_tier,
+          first_contact_date: c.first_contact_date,
+          created_by:        c.created_by,
+          transferred_to:    c.transferred_to,
+          created_at:        c.created_at,
+          last_contacted_at: c.last_contacted_at,
+          // ไม่เก็บ: transfer_logs, note, interests, province, birthday
+        })),
+        leads:   state.leads,
+        targets: state.targets,
+        // routes: เฉพาะ real routes 30 วันล่าสุด (cap 60) + strip data URL
         routes: state.routes
-          .filter((r) => /^R\d{10,}/.test(r.route_id)) // เก็บเฉพาะ real routes (timestamp ID)
+          .filter((r) => /^R\d{10,}/.test(r.route_id))
+          .slice(0, 60)
           .map((r) => ({
             ...r,
             stops: r.stops.map((s) => ({
@@ -1409,8 +1455,6 @@ export const useCRM = create<CRMState>()(
         chatMessages:      state.chatMessages.slice(-100),
         teamNotifications: state.teamNotifications.slice(0, 50),
         contentPosts:      state.contentPosts,
-        // contentTemplates ไม่ persist → base64 images ทำให้ localStorage เต็ม
-        // (templates จะหายหลัง refresh — ต้องเพิ่ม Supabase table ถ้าอยากให้คงอยู่)
       }),
     }
   )
