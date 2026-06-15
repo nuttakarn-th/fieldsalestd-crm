@@ -304,10 +304,32 @@ export const useAuth = create<AuthState>()(
   ),
 );
 
+/**
+ * useCurrentUser — returns the currently logged-in AppUser, or null.
+ *
+ * IMPORTANT: uses a custom equality function so components only re-render
+ * when the user's actual DATA changes (user_id, role, full_name, avatar_url…),
+ * NOT every time loadUsersFromSupabase replaces the users array with a new
+ * reference. Without this, the selector returns a new object on every auth
+ * refresh, which triggers all useEffect([user]) hooks → React #185 infinite loop.
+ */
 export function useCurrentUser(): AppUser | null {
-  const id = useAuth((s) => s.currentUserId);
-  const users = useAuth((s) => s.users);
-  return id ? users.find((u) => u.user_id === id) ?? null : null;
+  return useAuth(
+    (s) => (s.currentUserId ? (s.users.find((u) => u.user_id === s.currentUserId) ?? null) : null),
+    // Custom equality: shallow compare key fields — ignore array-reference churn
+    (prev, next) => {
+      if (prev === next) return true;
+      if (!prev || !next) return prev === next;
+      return (
+        prev.user_id      === next.user_id      &&
+        prev.role         === next.role          &&
+        prev.full_name    === next.full_name     &&
+        prev.username     === next.username      &&
+        prev.avatar_url   === next.avatar_url    &&
+        prev.is_active    === next.is_active
+      );
+    },
+  );
 }
 
 /** Returns full_names of all active users with role 'Sales', 'Sales Manager', or 'OB Co-ordinator' */

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCRM, type ChatMessage } from "@/store/crmStore";
-import { useCurrentUser } from "@/store/authStore";
+import { useAuth } from "@/store/authStore";
 import { useChatUI } from "@/components/ChatWidget";
 import { useChatRead } from "@/store/chatReadStore";
 
@@ -11,7 +11,12 @@ import { useChatRead } from "@/store/chatReadStore";
  * - If sender is not me → desktop notification + sound
  */
 export function ChatRealtimeSync() {
-  const currentUser = useCurrentUser();
+  // primitive selector แทน useCurrentUser() object
+  // ป้องกัน useEffect re-run ทุกครั้งที่ loadUsersFromSupabase replaces users array
+  const currentUserName = useAuth((s) => {
+    const u = s.users.find((usr) => usr.user_id === s.currentUserId);
+    return u?.full_name ?? null;
+  });
   const isOpenRef = useRef<boolean>(false);
   const isOpen = useChatUI((s) => s.isOpen);
 
@@ -20,9 +25,9 @@ export function ChatRealtimeSync() {
 
   useEffect(() => {
     if (!SUPABASE_ENABLED || !supabase) return;
-    if (!currentUser) return;
+    if (!currentUserName) return;
 
-    const me = currentUser.full_name;
+    const me = currentUserName;
 
     const channel = supabase
       .channel("chat_messages_changes")
@@ -52,7 +57,7 @@ export function ChatRealtimeSync() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser]);
+  }, [currentUserName]);
 
   return null;
 }
