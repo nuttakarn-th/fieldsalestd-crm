@@ -10,7 +10,7 @@
  */
 import { useEffect } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { useCRM, type Customer, type Lead } from "@/store/crmStore";
+import { useCRM, type Customer, type Lead, type RouteStop, type StopStatus } from "@/store/crmStore";
 import { useDeleteRequests, type DeleteRequest } from "@/store/deleteRequestStore";
 import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
@@ -181,6 +181,74 @@ export function DataRealtimeSync() {
       )
       .subscribe();
 
+    // ── route_stops channel ───────────────────────────────────────────────────
+    // Manager เห็น Sales complete stop แบบ real-time ทันที ไม่ต้อง refresh
+    // Sales 2 คนทำ mission พร้อมกันก็ไม่ชนกัน (STATUS_RANK local wins)
+    const STATUS_RANK: Record<StopStatus, number> = {
+      planned: 0,
+      in_progress: 1,
+      completed: 2,
+      skipped: 2,
+    };
+
+    const routeStopsChannel = supabase
+      .channel("route_stops_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "route_stops" },
+        (payload) => {
+          const { routes } = useCRM.getState();
+
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as RouteStop;
+            // อัปเดตแค่ route ที่มีอยู่ใน local store (ไม่ยัดข้อมูลคนอื่นเข้า)
+            const targetRoute = routes.find((r) => r.route_id === updated.route_id);
+            if (!targetRoute) return;
+            const localStop = targetRoute.stops.find((s) => s.stop_id === updated.stop_id);
+            // local ชนะถ้า status ไปไกลกว่า (เช่น local = completed, remote = in_progress)
+            if (localStop && STATUS_RANK[localStop.status] > STATUS_RANK[updated.status]) return;
+            useCRM.setState({
+              routes: routes.map((r) =>
+                r.route_id === updated.route_id
+                  ? {
+                      ...r,
+                      stops: r.stops.map((s) =>
+                        s.stop_id === updated.stop_id ? { ...s, ...updated } : s
+                      ),
+                    }
+                  : r
+              ),
+            });
+          } else if (payload.eventType === "INSERT") {
+            const newStop = payload.new as RouteStop;
+            const targetRoute = routes.find((r) => r.route_id === newStop.route_id);
+            if (!targetRoute) return;
+            // ป้องกัน duplicate
+            if (targetRoute.stops.some((s) => s.stop_id === newStop.stop_id)) return;
+            useCRM.setState({
+              routes: routes.map((r) =>
+                r.route_id === newStop.route_id
+                  ? {
+                      ...r,
+                      stops: [...r.stops, newStop].sort((a, b) => a.seq - b.seq),
+                    }
+                  : r
+              ),
+            });
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as { stop_id: string; route_id: string };
+            useCRM.setState({
+              routes: routes.map((r) =>
+                r.route_id === deleted.route_id
+                  ? { ...r, stops: r.stops.filter((s) => s.stop_id !== deleted.stop_id) }
+                  : r
+              ),
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       // flush pending throttled updates ก่อน unmount เพื่อไม่ให้ข้อมูลหาย
       if (custFlushTimer) { clearTimeout(custFlushTimer); flushCustomerUpdates(); }
@@ -189,6 +257,7 @@ export function DataRealtimeSync() {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(deleteReqChannel);
+      supabase.removeChannel(routeStopsChannel);
     };
   }, [currentUser]);
 

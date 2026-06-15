@@ -657,28 +657,43 @@ export const useCRM = create<CRMState>()(
       d.setDate(d.getDate() - 30);
       const thirtyDaysAgo = d.toISOString().slice(0, 10); // YYYY-MM-DD
 
+      // ── App-level security filter ────────────────────────────────────────
+      // ระบบใช้ custom auth (ไม่ใช่ Supabase Auth) → RLS ใช้ auth.uid() ไม่ได้
+      // แก้: กรองข้อมูลที่ application layer แทน
+      // Sales เห็นแค่ข้อมูลตัวเอง | Manager/Admin เห็นทั้งทีม
+      const authState = useAuth.getState();
+      const currentUser = authState.users.find((u) => u.user_id === authState.currentUserId);
+      const isSalesOnly = currentUser?.role === "Sales";
+      // JSON.stringify ใส่ "" รอบชื่อ → รองรับชื่อที่มีเว้นวรรค เช่น "โดนัท สาวงาม"
+      const repFilter = JSON.stringify(currentUser?.full_name ?? "");
+
+      // ── build queries แบบ conditional ───────────────────────────────────
+      const custSelect =
+        "customer_id,full_name,company,phone,line_id,email,province,birthday,interests," +
+        "note,last_contacted_at,source,segment,total_trips,total_spend,customer_tier," +
+        "first_contact_date,created_by,transferred_to,transferred_from,transferred_at," +
+        "transfer_logs,created_at";
+
+      const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(500);
+      const leadsQ = supabase.from("leads").select("*");
+      const routesQ = supabase
+        .from("route_plans")
+        .select("*, route_stops (*)")
+        .gte("route_date", thirtyDaysAgo)
+        .order("route_date", { ascending: false })
+        .limit(60);
+
+      // Sales: กรองเฉพาะข้อมูลของตัวเอง
+      const custFiltered  = isSalesOnly ? custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`) : custQ;
+      const leadsFiltered = isSalesOnly ? leadsQ.eq("assigned_to", currentUser?.full_name ?? "") : leadsQ;
+      const routesFiltered = isSalesOnly ? routesQ.eq("rep", currentUser?.full_name ?? "") : routesQ;
+
       const [customers, leads, targets, quotations, routes, chats, notifs] = await Promise.all([
-        // customers: ดึงแค่ column ที่ใช้จริง — ลด payload ~60%
-        supabase
-          .from("customers")
-          .select(
-            "customer_id,full_name,company,phone,line_id,email,province,birthday,interests," +
-            "note,last_contacted_at,source,segment,total_trips,total_spend,customer_tier," +
-            "first_contact_date,created_by,transferred_to,transferred_from,transferred_at," +
-            "transfer_logs,created_at"
-          )
-          .order("created_at", { ascending: false })
-          .limit(500),
-        supabase.from("leads").select("*"),
+        custFiltered,
+        leadsFiltered,
         supabase.from("monthly_targets").select("*"),
         supabase.from("quotations").select("*").order("created_at", { ascending: false }),
-        // routes: เฉพาะ 30 วันล่าสุด + cap 60 route — ลด payload ~80%
-        supabase
-          .from("route_plans")
-          .select("*, route_stops (*)")
-          .gte("route_date", thirtyDaysAgo)
-          .order("route_date", { ascending: false })
-          .limit(60),
+        routesFiltered,
         supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
         supabase.from("team_notifications").select("*").order("created_at", { ascending: false }).limit(100),
       ]);
