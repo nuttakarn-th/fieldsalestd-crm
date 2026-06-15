@@ -27,6 +27,7 @@ export default function Mission() {
   const startStop = useCRM((s) => s.startStop);
   const completeStop = useCRM((s) => s.completeStop);
   const skipStop = useCRM((s) => s.skipStop);
+  const loadRouteFromSupabase = useCRM((s) => s.loadRouteFromSupabase);
 
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -50,6 +51,12 @@ export default function Mission() {
     d.setDate(d.getDate() + 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
+
+  // โหลดข้อมูล route ล่าสุดจาก Supabase ทุกครั้งที่เปิดหน้า Mission
+  // ป้องกัน: หน้าค้าง / Complete ไม่ได้ เพราะ local state เก่า
+  useEffect(() => {
+    if (routeId) loadRouteFromSupabase(routeId);
+  }, [routeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -198,9 +205,18 @@ export default function Mission() {
                       {/* action */}
                       <div className="shrink-0">
                         {isActive && (
-                          <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
-                            <Timer className="w-2.5 h-2.5 mr-1" />{fmtDuration(activeElapsed)}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px]">
+                              <Timer className="w-2.5 h-2.5 mr-1" />{fmtDuration(activeElapsed)}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              className="h-7 text-xs px-2.5 bg-success text-success-foreground"
+                              onClick={() => { setCompleteOpen(s); setCompleteNote(s.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Complete
+                            </Button>
+                          </div>
                         )}
                         {isDone && s.completed_at && (
                           <span className="text-[10px] text-success font-medium">

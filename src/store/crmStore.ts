@@ -457,6 +457,7 @@ interface CRMState {
   setCurrentRep: (r: SalesRep | "All") => void;
   loadCustomersFromSupabase: () => Promise<void>;
   loadAllFromSupabase: () => Promise<void>;
+  loadRouteFromSupabase: (routeId: string) => Promise<void>;
   addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by"> & { created_by?: SalesRep }) => string;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
@@ -702,9 +703,20 @@ export const useCRM = create<CRMState>()(
         }
 
         // merge stop statuses: local ชนะถ้า status ไป "ไกลกว่า" (in_progress > planned)
+        // หรือ status เท่ากันแต่ local มีข้อมูลมากกว่า (note, photo, timing)
         const mergedStops = supaStops.map((ss) => {
           const ls = localRoute.stops.find((s) => s.stop_id === ss.stop_id);
-          if (ls && STATUS_RANK[ls.status] > STATUS_RANK[ss.status]) return ls;
+          if (!ls) return ss;
+          if (STATUS_RANK[ls.status] > STATUS_RANK[ss.status]) return ls;
+          // status เท่ากัน (เช่น completed vs completed) → local ชนะถ้ามีข้อมูลมากกว่า
+          if (STATUS_RANK[ls.status] === STATUS_RANK[ss.status] && ls.status !== "planned") {
+            const localRicher =
+              (ls.note && !ss.note) ||
+              (ls.field_photo_url && !ss.field_photo_url) ||
+              (ls.started_at && !ss.started_at) ||
+              (ls.completed_at && !ss.completed_at);
+            if (localRicher) return ls;
+          }
           return ss;
         });
         return { ...r, stops: mergedStops };
@@ -747,6 +759,85 @@ export const useCRM = create<CRMState>()(
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("[supabase] loadAll ล้มเหลว:", e);
+    }
+  },
+
+  loadRouteFromSupabase: async (routeId) => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from("route_plans")
+        .select("*, route_stops(*)")
+        .eq("route_id", routeId)
+        .single();
+      if (error || !data) return;
+
+      const supaStops: RouteStop[] = ((data.route_stops as RouteStop[]) || []).sort(
+        (a, b) => a.seq - b.seq,
+      );
+      const currentRoutes = get().routes;
+      const localRoute = currentRoutes.find((r) => r.route_id === routeId);
+
+      if (!localRoute) {
+        // eslint-disable-next-line no-console
+        console.info(`[supabase] loadRoute: route ใหม่ ${routeId} — เพิ่มเข้า store`);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { route_stops: _rs, ...routeData } = data as typeof data & { route_stops: RouteStop[] };
+        set({ routes: [{ ...routeData, stops: supaStops } as RoutePlan, ...currentRoutes] });
+        return;
+      }
+
+      const STOP_STATUS_RANK: Record<StopStatus, number> = {
+        planned: 0,
+        in_progress: 1,
+        completed: 2,
+        skipped: 2,
+      };
+
+      // ถ้า local มี stop มากกว่า → local กำลัง add ใหม่อยู่ (ยังไม่ sync) → re-sync แล้วคง local
+      if (localRoute.stops.length > supaStops.length) {
+        const supaStopIds = new Set(supaStops.map((s) => s.stop_id));
+        const missingStops = localRoute.stops.filter((s) => !supaStopIds.has(s.stop_id));
+        // eslint-disable-next-line no-console
+        console.warn(`[supabase] loadRoute: ${missingStops.length} stop ยังไม่ sync → re-upsert`);
+        missingStops.forEach((stop) => {
+          supabase!.from("route_stops").upsert(stop, { onConflict: "stop_id" }).then(({ error: e }) => {
+            if (e) console.error("[supabase] re-sync stop:", stop.stop_id, e);
+          });
+        });
+        return; // คง local stops ไว้ก่อน
+      }
+
+      // merge แต่ละ stop: local ชนะถ้า status ไปไกลกว่า หรือมีข้อมูลมากกว่า
+      const mergedStops = supaStops.map((ss) => {
+        const ls = localRoute.stops.find((s) => s.stop_id === ss.stop_id);
+        if (!ls) return ss;
+        if (STOP_STATUS_RANK[ls.status] > STOP_STATUS_RANK[ss.status]) return ls;
+        if (STOP_STATUS_RANK[ls.status] === STOP_STATUS_RANK[ss.status] && ls.status !== "planned") {
+          const localRicher =
+            (ls.note && !ss.note) ||
+            (ls.field_photo_url && !ss.field_photo_url) ||
+            (ls.started_at && !ss.started_at) ||
+            (ls.completed_at && !ss.completed_at);
+          if (localRicher) return ls;
+        }
+        return ss;
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { route_stops: _rs2, ...routeData2 } = data as typeof data & { route_stops: RouteStop[] };
+      set({
+        routes: currentRoutes.map((r) =>
+          r.route_id === routeId
+            ? { ...r, ...routeData2, stops: mergedStops } as RoutePlan
+            : r,
+        ),
+      });
+      // eslint-disable-next-line no-console
+      console.info(`[supabase] loadRoute: ${routeId} อัปเดต ${mergedStops.length} stops`);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("[supabase] loadRoute ล้มเหลว:", e);
     }
   },
 
