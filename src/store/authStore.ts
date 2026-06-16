@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { supabase, SUPABASE_ENABLED, setSupabaseAuthToken } from "@/lib/supabase";
 import { hashPassword, verifyPassword, isHashed } from "@/lib/passwordHash";
 import { useShallow } from "zustand/react/shallow";
 
@@ -116,10 +116,32 @@ export const useAuth = create<AuthState>()(
           }
         }
         set({ currentUserId: u.user_id, viewAsRole: null });
+
+        // ── ขอ custom JWT จาก Edge Function เพื่อใช้กับ Supabase RLS ──────────
+        // JWT นี้ทำให้ auth.role() = 'authenticated' + auth.jwt() ->> 'app_role' ใน RLS policies
+        // ถ้า Edge Function ยังไม่ deploy หรือ error → app ยังทำงานได้ปกติ (fallback anon key)
+        if (SUPABASE_ENABLED && supabase) {
+          supabase.functions.invoke("sign-jwt", {
+            body: { user_id: u.user_id, password },
+          }).then(({ data, error }) => {
+            if (error) {
+              console.warn("[auth] sign-jwt failed (RLS fallback to anon):", error.message);
+              return;
+            }
+            if (data?.access_token) {
+              setSupabaseAuthToken(data.access_token);
+              console.info("[auth] JWT set — RLS active");
+            }
+          });
+        }
+
         return { ok: true };
       },
 
-      logout: () => set({ currentUserId: null, viewAsRole: null }),
+      logout: () => {
+        setSupabaseAuthToken(null);
+        set({ currentUserId: null, viewAsRole: null });
+      },
 
       addUser: async (u) => {
         const users = get().users;

@@ -16,10 +16,42 @@ export const SUPABASE_ENABLED = Boolean(
   url && anonKey && import.meta.env.VITE_USE_SUPABASE === "true",
 );
 
+// ── Custom JWT for RLS ──────────────────────────────────────────────────────
+// หลัง login สำเร็จ authStore จะเรียก setSupabaseAuthToken(jwt)
+// ทุก request จาก supabase client จะส่ง JWT นี้แทน anon key
+// → Supabase RLS เห็น auth.role() = 'authenticated' และ auth.jwt() ->> 'app_role'
+let _authToken: string | null = null;
+
+export function setSupabaseAuthToken(token: string | null): void {
+  _authToken = token;
+}
+
+export function getSupabaseAuthToken(): string | null {
+  return _authToken;
+}
+
 // ถ้ายังไม่ได้ตั้งค่า env จะคืนค่า null แทนการ throw
 // ทำให้แอปยังรันได้ด้วย mock data
 export const supabase: SupabaseClient | null = SUPABASE_ENABLED
-  ? createClient(url!, anonKey!)
+  ? createClient(url!, anonKey!, {
+      global: {
+        // Custom fetch: inject JWT token ทุก request อัตโนมัติ
+        // ถ้ายังไม่มี JWT (ก่อน login) → ใช้ anon key ตามปกติ (สำหรับ app_users bootstrap)
+        fetch: (input: RequestInfo | URL, init: RequestInit = {}) => {
+          if (_authToken) {
+            const headers = new Headers(init.headers);
+            headers.set("Authorization", `Bearer ${_authToken}`);
+            return fetch(input, { ...init, headers });
+          }
+          return fetch(input, init);
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    })
   : null;
 
 if (!SUPABASE_ENABLED && import.meta.env.DEV) {
