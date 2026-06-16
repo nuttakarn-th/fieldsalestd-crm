@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCRM, BU_TYPES, REQUIREMENT_TAGS, type BUType, type Urgency } from "@/store/crmStore";
+import { useCRM, BU_TYPES, REQUIREMENT_TAGS, SOURCES, type BUType, type Urgency, type Source } from "@/store/crmStore";
 import { useCurrentUser } from "@/store/authStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   const [name,      setName]      = useState("");
   const [phone,     setPhone]     = useState("");
   const [buType,    setBuType]    = useState<BUType>("ทัวร์ต่างประเทศ");
+  const [source,    setSource]    = useState<Source>("Field Sale");
   const [tags,      setTags]      = useState<string[]>([]);
   const [urgency,   setUrgency]   = useState<Urgency>("Cold");
   const [note,      setNote]      = useState("");
@@ -59,7 +60,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
 
   const reset = () => {
     setName(""); setPhone(""); setBuType("ทัวร์ต่างประเทศ");
-    setTags([]); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false);
+    setTags([]); setSource("Field Sale"); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false);
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
@@ -76,7 +77,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
         phone: phone.trim(),
         company: "",
         line_id: "",
-        source: "Field Sale",
+        source,
         segment: "B2C Individual",
         note: note.trim() || undefined,
         created_by: rep,
@@ -165,15 +166,26 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
               </div>
             </div>
 
-            {/* ประเภทบริการ */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ประเภทบริการ</label>
-              <Select value={buType} onValueChange={(v) => setBuType(v as BUType)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {BU_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            {/* ประเภทบริการ + ช่องทางที่มา */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ประเภทบริการ</label>
+                <Select value={buType} onValueChange={(v) => setBuType(v as BUType)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {BU_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">ช่องทางที่มา</label>
+                <Select value={source} onValueChange={(v) => setSource(v as Source)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Requirement Tags */}
