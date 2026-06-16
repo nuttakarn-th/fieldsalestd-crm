@@ -231,10 +231,10 @@ export function ChatWidget() {
               const isFirstInGroup = !prevMsg || prevMsg.author !== m.author;
               const isLastInGroup = !nextMsg || nextMsg.author !== m.author;
               const initial = (m.author?.[0] ?? "?").toUpperCase();
-              // กำหนด border-radius ตาม position ในกลุ่ม
+              // bubble tail: มุมล่างด้านใน "ตัด" เพื่อทำ tail effect บนข้อความสุดท้ายของกลุ่ม
               const bubbleRadius = isMe
-                ? `rounded-2xl rounded-br-${isLastInGroup ? "sm" : "2xl"} rounded-tr-${isFirstInGroup ? "2xl" : "2xl"}`
-                : `rounded-2xl rounded-bl-${isLastInGroup ? "sm" : "2xl"}`;
+                ? `rounded-2xl ${isLastInGroup ? "rounded-br-sm" : ""}`
+                : `rounded-2xl ${isLastInGroup ? "rounded-bl-sm" : ""}`;
 
               return (
                 <div key={m.id} className={`group flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} ${isFirstInGroup ? "mt-3" : "mt-0.5"}`}>
@@ -253,7 +253,7 @@ export function ChatWidget() {
                         className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold text-white select-none ${isLastInGroup ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                         style={{
                           background: isMe
-                            ? "linear-gradient(135deg, #ec4899, #f97316)"
+                            ? "linear-gradient(135deg, #7C3AED, #5B21B6)"
                             : `linear-gradient(135deg, hsl(${(hashStr(m.author) * 47) % 360}, 60%, 45%), hsl(${(hashStr(m.author) * 47 + 40) % 360}, 55%, 35%))`,
                         }}
                       >
@@ -281,11 +281,11 @@ export function ChatWidget() {
                       </div>
                     )}
 
-                    {/* Message bubble */}
+                    {/* Message bubble — ตัวเอง: purple | คนอื่น: gray */}
                     <div className={`px-3 py-2 text-sm leading-relaxed ${bubbleRadius} ${
                       isMe
-                        ? "bg-[#4338ca] text-white"
-                        : "bg-[#f1f1f1] dark:bg-muted text-foreground"
+                        ? "bg-[#7C3AED] text-white"
+                        : "bg-[#EBEBEB] dark:bg-muted text-foreground"
                     }`}>
                       {m.image_url && (
                         <img src={m.image_url} alt="แนบรูป" className="rounded-xl mb-1 max-w-full max-h-48 object-cover" />
