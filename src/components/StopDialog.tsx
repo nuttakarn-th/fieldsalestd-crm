@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,13 +36,15 @@ interface Props {
 }
 
 export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, title = "เพิ่มจุดเยี่ยม" }: Props) {
-  // narrow selector: ดึงแค่ field ที่ใช้ใน dropdown — ลด re-render เมื่อ note/tier/spend เปลี่ยน
+  // ── Stable selector ──────────────────────────────────────────────────────────
+  // Zustand v5 ไม่รองรับ equalityFn เป็น arg ที่ 2 → .map() สร้าง array ใหม่ทุก render → #185
+  // แก้: useShallow บน raw array ก่อน แล้วค่อย .map() ผ่าน useMemo
+  // ──────────────────────────────────────────────────────────────────────────────
   type CustOpt = { customer_id: string; full_name: string; company: string };
-  const eqCustOpts = (a: CustOpt[], b: CustOpt[]) =>
-    a.length === b.length && a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name);
-  const customers = useCRM(
-    (s) => s.customers.map((c): CustOpt => ({ customer_id: c.customer_id, full_name: c.full_name, company: c.company })),
-    eqCustOpts,
+  const rawCustomers = useCRM(useShallow((s) => s.customers));
+  const customers = useMemo(
+    () => rawCustomers.map((c): CustOpt => ({ customer_id: c.customer_id, full_name: c.full_name, company: c.company })),
+    [rawCustomers],
   );
   const addStop = useCRM((s) => s.addStop);
   const addRoute = useCRM((s) => s.addRoute);
