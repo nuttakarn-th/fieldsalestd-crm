@@ -723,8 +723,8 @@ export const useCRM = create<CRMState>()(
       const routesQ = supabase
         .from("route_plans")
         .select("*, route_stops (*)")
-        .gte("route_date", thirtyDaysAgo)
-        .order("route_date", { ascending: false })
+        .gte("date", thirtyDaysAgo)
+        .order("date", { ascending: false })
         .limit(60);
 
       // Sales: กรองเฉพาะข้อมูลของตัวเอง
