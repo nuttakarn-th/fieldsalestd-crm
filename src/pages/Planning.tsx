@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Link } from "react-router-dom";
-import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Clock, Lock, Eye, GripVertical, CheckCircle2, Timer } from "lucide-react";
+import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronLeft, ChevronRight, Navigation, Clock, Lock, Eye, GripVertical, CheckCircle2, Timer } from "lucide-react";
 import { TimeInput24, nowHHMM } from "@/components/TimeInput24";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -146,18 +146,40 @@ export default function Planning() {
             <p className="text-sm text-muted-foreground">วางแผนเส้นทางเยี่ยมลูกค้ารายวัน — เพิ่มจุดได้ไม่จำกัด</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="h-10">
-                <CalendarIcon className="w-4 h-4 mr-2" />
-                {format(date, "EEE d MMM yyyy")}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* ── Day navigator: ◀ [date picker] ▶ [วันนี้] ── */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline" size="icon" className="h-10 w-10"
+              onClick={() => setDate((d) => { const p = new Date(d); p.setDate(p.getDate() - 1); return p; })}
+              title="วันก่อนหน้า"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 min-w-[160px]">
+                  <CalendarIcon className="w-4 h-4 mr-2 shrink-0" />
+                  {format(date, "EEE d MMM yyyy")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className={cn("p-3 pointer-events-auto")} />
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="outline" size="icon" className="h-10 w-10"
+              onClick={() => setDate((d) => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; })}
+              title="วันถัดไป"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            {dateKey !== ymd(new Date()) && (
+              <Button variant="ghost" size="sm" className="h-10 text-xs text-muted-foreground" onClick={() => setDate(new Date())}>
+                วันนี้
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus className={cn("p-3 pointer-events-auto")} />
-            </PopoverContent>
-          </Popover>
+            )}
+          </div>
           <Button onClick={openCreateRoute} className="bg-gradient-pink text-accent-foreground hover:opacity-90">
             <Plus className="w-4 h-4 mr-2" /> สร้าง Route
           </Button>
