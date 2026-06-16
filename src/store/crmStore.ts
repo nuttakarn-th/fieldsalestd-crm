@@ -1464,18 +1464,20 @@ export const useCRM = create<CRMState>()(
         //
         // สิ่งที่ persist (core fields เท่านั้น):
         //   routes + stops (ไม่เอา data URL) → Mission ยังทำต่อได้หลัง refresh
-        //   currentRep → จำการเลือก rep ไว้
         //   customers: เก็บแค่ core fields ที่ใช้บ่อย
         //              ตัด: transfer_logs (JSON array ใหญ่), note ยาวๆ
         //              → โหลด full detail เมื่อเปิด CustomerDetail
         //   leads, targets → เก็บเต็ม (ขนาดไม่ใหญ่)
         //
         // สิ่งที่ไม่ persist:
+        //   currentRep → ไม่ persist เพื่อป้องกัน: Sales user login แล้ว persist ชื่อ
+        //                ลง localStorage → Manager login บน browser เดิม → โหลดค่าเก่า
+        //                มา → เห็นข้อมูลแค่ Sales คนก่อน แทนที่จะเห็นภาพรวมทีม
+        //                แก้: ให้ AppLayout.tsx set currentRep ตาม role ทุกครั้ง login
         //   contentTemplates → base64 PNG ~500KB-2MB/ชิ้น → overflow localStorage
         //   chatMessages / teamNotifications → limit ไม่ให้บวม
         //   contentPosts, quotations → ดึงจาก Supabase
         // ──────────────────────────────────────────────────────────────────
-        currentRep: state.currentRep,
         // customers: เก็บแค่ core fields ที่ใช้แสดงในรายการ/ค้นหา
         // field หนักอย่าง transfer_logs / note โหลดจาก Supabase เมื่อเปิด detail
         customers: state.customers.map((c) => ({

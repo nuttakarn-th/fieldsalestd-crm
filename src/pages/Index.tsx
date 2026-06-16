@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Users, KanbanSquare, DollarSign, TrendingUp, Trophy, BarChart3, AlertCircle, Target } from "lucide-react";
+import { Users, KanbanSquare, DollarSign, TrendingUp, Trophy, BarChart3, AlertCircle, Target, Building2 } from "lucide-react";
 import { useCRM, formatTHB, LEAD_STATUSES, LOST_REASONS } from "@/store/crmStore";
 import { useActiveSalesNames } from "@/store/authStore";
 import { Link } from "react-router-dom";
@@ -20,6 +20,15 @@ export default function Index() {
   const repScoped = useMemo(
     () => (currentRep === "All" ? leads : leads.filter((l) => l.assigned_to === currentRep)),
     [leads, currentRep],
+  );
+
+  // ── Customer count scoped by rep ──────────────────────────────────────────
+  // แสดงใน Dashboard card "ลูกค้าในระบบ" — แยกให้ชัดว่า Lead ≠ ลูกค้า
+  const scopedCustomers = useMemo(
+    () => currentRep === "All"
+      ? customers
+      : customers.filter((c) => c.created_by === currentRep || c.transferred_to === currentRep || c.transferred_from === currentRep),
+    [customers, currentRep],
   );
 
   // Apply date range: closed leads use closed_date; active leads use next_followup_date.
@@ -73,10 +82,11 @@ export default function Index() {
   }, [currentRep, leads, targets, monthKey]);
 
   const cards = [
-    { label: "Lead ที่รับผิดชอบ", value: metrics.totalLeads, icon: Users, color: "text-primary bg-primary/10" },
-    { label: "มูลค่า Pipeline", value: formatTHB(metrics.pipeline), icon: KanbanSquare, color: "text-warning-foreground bg-warning/20" },
-    { label: "ยอดขายสำเร็จ (Won)", value: formatTHB(metrics.revenue), icon: DollarSign, color: "text-success bg-success/15" },
-    { label: "Win Rate", value: `${metrics.winRate}%`, icon: TrendingUp, color: "text-accent bg-accent/15" },
+    { label: "ลูกค้าในระบบ", value: scopedCustomers.length, icon: Building2, color: "text-indigo-600 bg-indigo-100 dark:text-indigo-300 dark:bg-indigo-900/40", sub: "รายชื่อใน CRM" },
+    { label: "Lead ที่รับผิดชอบ", value: metrics.totalLeads, icon: Users, color: "text-primary bg-primary/10", sub: `ช่วง ${range.label}` },
+    { label: "มูลค่า Pipeline", value: formatTHB(metrics.pipeline), icon: KanbanSquare, color: "text-warning-foreground bg-warning/20", sub: "" },
+    { label: "ยอดขายสำเร็จ (Won)", value: formatTHB(metrics.revenue), icon: DollarSign, color: "text-success bg-success/15", sub: "" },
+    { label: "Win Rate", value: `${metrics.winRate}%`, icon: TrendingUp, color: "text-accent bg-accent/15", sub: "" },
   ];
 
   return (
@@ -95,12 +105,13 @@ export default function Index() {
         />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {cards.map((c) => (
-          <div key={c.label} className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[150px] gap-2">
-            <div className={`p-2.5 rounded-lg ${c.color}`}><c.icon className="w-5 h-5" /></div>
-            <p className="text-xs text-muted-foreground font-medium">{c.label}</p>
-            <p className="text-3xl md:text-4xl font-extrabold leading-none break-all">{c.value}</p>
+          <div key={c.label} className="bg-card rounded-xl border p-4 shadow-soft flex flex-col items-center justify-center text-center min-h-[130px] gap-1.5">
+            <div className={`p-2 rounded-lg ${c.color}`}><c.icon className="w-4 h-4" /></div>
+            <p className="text-xs text-muted-foreground font-medium leading-tight">{c.label}</p>
+            <p className="text-2xl md:text-3xl font-extrabold leading-none break-all">{c.value}</p>
+            {c.sub && <p className="text-[10px] text-muted-foreground/70">{c.sub}</p>}
           </div>
         ))}
       </div>
