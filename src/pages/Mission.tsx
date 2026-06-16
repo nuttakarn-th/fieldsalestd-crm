@@ -321,9 +321,8 @@ export default function Mission() {
                     <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
-                    className="h-8 px-3 text-xs text-muted-foreground border-dashed hover:text-destructive hover:border-destructive"
+                    className="h-8 px-3 text-xs bg-destructive hover:bg-destructive/90 text-white"
                     onClick={() => {
                       cancelStop(route.route_id, activeStop.stop_id);
                       setActiveStopId(null);
