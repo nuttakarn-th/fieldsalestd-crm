@@ -479,6 +479,7 @@ interface CRMState {
   reorderStops: (routeId: string, orderedStopIds: string[]) => void;
   skipStop: (routeId: string, stopId: string, targetDate: string) => void;
   startStop: (routeId: string, stopId: string) => void;
+  cancelStop: (routeId: string, stopId: string) => void;
   completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number) => void;
 }
 
@@ -1427,6 +1428,10 @@ export const useCRM = create<CRMState>()(
   startStop: (routeId, stopId) => {
     const now = new Date().toISOString();
     get().updateStop(routeId, stopId, { status: "in_progress", started_at: now });
+  },
+  cancelStop: (routeId, stopId) => {
+    // รีเซ็ต in_progress → planned (เผลอกด "ทำ Mission")
+    get().updateStop(routeId, stopId, { status: "planned", started_at: undefined });
   },
   completeStop: (routeId, stopId, note, photoName, photoUrl, lat, lng) => {
     const route = get().routes.find((r) => r.route_id === routeId);

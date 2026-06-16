@@ -24,6 +24,7 @@ export default function Mission() {
   const navigate = useNavigate();
   const route = useCRM((s) => s.routes.find((r) => r.route_id === routeId));
   const startStop = useCRM((s) => s.startStop);
+  const cancelStop = useCRM((s) => s.cancelStop);
   const completeStop = useCRM((s) => s.completeStop);
   const skipStop = useCRM((s) => s.skipStop);
   const loadRouteFromSupabase = useCRM((s) => s.loadRouteFromSupabase);
@@ -312,12 +313,26 @@ export default function Mission() {
                   <p className="text-xs text-muted-foreground">เวลาที่ใช้</p>
                   <p className="text-4xl font-bold tabular-nums text-primary tracking-tight">{fmtDuration(activeElapsed)}</p>
                 </div>
-                <Button
-                  className="bg-success text-success-foreground hover:opacity-90 h-11 px-5 shrink-0"
-                  onClick={() => { setCompleteOpen(activeStop); setCompleteNote(activeStop.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
-                </Button>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <Button
+                    className="bg-success text-success-foreground hover:opacity-90 h-10 px-5"
+                    onClick={() => { setCompleteOpen(activeStop); setCompleteNote(activeStop.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 text-xs text-muted-foreground border-dashed hover:text-destructive hover:border-destructive"
+                    onClick={() => {
+                      cancelStop(route.route_id, activeStop.stop_id);
+                      setActiveStopId(null);
+                      toast.info("ยกเลิก Mission แล้ว — กลับสู่สถานะรอดำเนินการ");
+                    }}
+                  >
+                    <X className="w-3 h-3 mr-1" /> ยกเลิก
+                  </Button>
+                </div>
               </div>
               {activeStop.note && <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">📝 {activeStop.note}</p>}
             </div>
