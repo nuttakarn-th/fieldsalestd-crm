@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Link } from "react-router-dom";
 import { CalendarIcon, MapPin, Plus, Route, Trash2, ChevronRight, Navigation, Clock, Lock, Eye, GripVertical, CheckCircle2, Timer } from "lucide-react";
 import { TimeInput24, nowHHMM } from "@/components/TimeInput24";
@@ -33,13 +34,16 @@ function ymd(d: Date) {
 export default function Planning() {
   const currentRep = useCRM((s) => s.currentRep);
   const routes = useCRM((s) => s.routes);
-  // narrow selector: ดึงแค่ field ที่ใช้ใน dropdown — ลด re-render เมื่อ note/tier/spend เปลี่ยน
+  // ── Stable selector ──────────────────────────────────────────────────────────
+  // Zustand v5 ไม่รองรับ equalityFn เป็น arg ที่ 2 → selector .map() สร้าง array ใหม่ทุก render
+  // → Zustand เห็นว่า state เปลี่ยน → re-render → loop → React #185
+  // แก้: useShallow บน raw array ก่อน แล้วค่อย .map() ผ่าน useMemo
+  // ──────────────────────────────────────────────────────────────────────────────
   type CustOpt = { customer_id: string; full_name: string; company: string };
-  const eqCustOpts = (a: CustOpt[], b: CustOpt[]) =>
-    a.length === b.length && a.every((x, i) => x.customer_id === b[i].customer_id && x.full_name === b[i].full_name);
-  const customers = useCRM(
-    (s) => s.customers.map((c): CustOpt => ({ customer_id: c.customer_id, full_name: c.full_name, company: c.company })),
-    eqCustOpts,
+  const rawCustomers = useCRM(useShallow((s) => s.customers));
+  const customers = useMemo(
+    () => rawCustomers.map((c): CustOpt => ({ customer_id: c.customer_id, full_name: c.full_name, company: c.company })),
+    [rawCustomers],
   );
   const addRoute = useCRM((s) => s.addRoute);
   const addStop = useCRM((s) => s.addStop);
