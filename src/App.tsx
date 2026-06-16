@@ -10,6 +10,7 @@ import { useSiteSettings } from "@/store/siteSettingsStore";
 import { useServices } from "@/store/serviceStore";
 import { ChatRealtimeSync } from "@/components/ChatRealtimeSync";
 import { DataRealtimeSync } from "@/components/DataRealtimeSync";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import AppLayout from "./components/AppLayout";
 import Index from "./pages/Index.tsx";
 import Hub from "./pages/Hub.tsx";
@@ -130,7 +131,7 @@ const App = () => (
             <Route path="vip"         element={<AudienceVIPList />} />
             <Route path="interest"    element={<AudienceInterestSegment />} />
           </Route>
-          <Route path="/app" element={<RouteGuard><AppLayout /></RouteGuard>}>
+          <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
             <Route path="customers" element={<Customers />} />

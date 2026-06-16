@@ -12,7 +12,7 @@ import {
   useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
   type Source, type SalesRep, type BUType, type Urgency, type LeadCategory,
 } from "@/store/crmStore";
-import { useActiveSalesNames, useCurrentUser } from "@/store/authStore";
+import { useActiveSalesNames, useAuth } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 
 const SERVICE_INTERESTS = [
@@ -34,7 +34,11 @@ export function CustomerLeadDialog({
   onOpenChange: (v: boolean) => void;
   prefilledCustomerId?: string;
 }) {
-  const currentUser = useCurrentUser();
+  // ใช้ primitive selector แทน useCurrentUser() object
+  // เพื่อป้องกัน useEffect([currentUser]) re-run ทุกครั้ง users array replace (Zustand v5)
+  const currentUserFullName = useAuth(
+    (s) => s.users.find((u) => u.user_id === s.currentUserId)?.full_name ?? null
+  );
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const addCustomer = useCRM((s) => s.addCustomer);
@@ -87,10 +91,10 @@ export function CustomerLeadDialog({
 
   useEffect(() => {
     if (open) {
-      const me = currentUser?.full_name ?? (currentRep !== "All" ? currentRep : "");
+      const me = currentUserFullName ?? (currentRep !== "All" ? currentRep : "");
       if (me) setOwner(me as SalesRep);
     }
-  }, [open, currentRep, currentUser]);
+  }, [open, currentRep, currentUserFullName]);
 
   // Pre-fill existing customer when launched from CustomerDetail page
   useEffect(() => {
