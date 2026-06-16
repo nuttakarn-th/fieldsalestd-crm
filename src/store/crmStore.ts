@@ -119,6 +119,8 @@ export interface RouteStop {
   field_photo_url?: string;
   lat?: number;
   lng?: number;
+  contact_name?: string;   // ชื่อผู้ประสานงาน (ไม่บังคับ)
+  stop_urgency?: Urgency;  // Cold/Warm/Hot (ไม่บังคับ)
 }
 export interface RoutePlan {
   route_id: string;
@@ -480,7 +482,7 @@ interface CRMState {
   skipStop: (routeId: string, stopId: string, targetDate: string) => void;
   startStop: (routeId: string, stopId: string) => void;
   cancelStop: (routeId: string, stopId: string) => void;
-  completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number) => void;
+  completeStop: (routeId: string, stopId: string, note?: string, photoName?: string, photoUrl?: string, lat?: number, lng?: number, contactName?: string, stopUrgency?: Urgency) => void;
 }
 
 export const useCRM = create<CRMState>()(
@@ -1433,7 +1435,7 @@ export const useCRM = create<CRMState>()(
     // รีเซ็ต in_progress → planned (เผลอกด "ทำ Mission")
     get().updateStop(routeId, stopId, { status: "planned", started_at: undefined });
   },
-  completeStop: (routeId, stopId, note, photoName, photoUrl, lat, lng) => {
+  completeStop: (routeId, stopId, note, photoName, photoUrl, lat, lng, contactName, stopUrgency) => {
     const route = get().routes.find((r) => r.route_id === routeId);
     const stop = route?.stops.find((s) => s.stop_id === stopId);
     if (!stop) return;
@@ -1450,6 +1452,8 @@ export const useCRM = create<CRMState>()(
       field_photo_url: photoUrl ?? stop.field_photo_url,
       lat: lat ?? stop.lat,
       lng: lng ?? stop.lng,
+      contact_name: contactName || stop.contact_name,
+      stop_urgency: stopUrgency ?? stop.stop_urgency,
     });
     const missionNotif: TeamNotification = {
       id: `n${Date.now()}`,

@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer, ChevronLeft, ChevronRight, CalendarClock } from "lucide-react";
+import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer, ChevronLeft, ChevronRight, CalendarClock, ImageDown } from "lucide-react";
 import { fmtDateTime } from "@/lib/dateUtils";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export default function SalesFollower() {
   const overallRate = totals.planned ? Math.round((totals.completed / totals.planned) * 100) : 0;
 
   /* ── Route Report PDF (A4 รายบุคคล) ── */
-  const downloadRouteReportPDF = useCallback(() => {
+  const downloadReport = useCallback((mode: 'pdf' | 'jpg' = 'pdf') => {
     if (!reportRep || reportItems.length === 0) return;
     const win = window.open("", "_blank");
     if (!win) return;
@@ -154,7 +154,11 @@ export default function SalesFollower() {
             <td><span class="ptag">${s.purpose || "-"}</span></td>
             <td class="tc">${timeStr}</td>
             <td class="tc dc">${s.duration_min ?? 0}น.</td>
-            <td class="nc">${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}</td>
+            <td class="nc">
+              ${s.stop_urgency ? `<span class="utag ${s.stop_urgency.toLowerCase()}">${s.stop_urgency === "Hot" ? "🔴" : s.stop_urgency === "Warm" ? "🟡" : "🔵"} ${s.stop_urgency}</span>` : ""}
+              ${s.contact_name ? `<span class="ctag">👤 ${s.contact_name}</span><br>` : ""}
+              ${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}
+            </td>
           </tr>`;
       });
 
@@ -183,7 +187,7 @@ export default function SalesFollower() {
         </div>`;
     });
 
-    win.document.write(`<!DOCTYPE html><html lang="th"><head>
+    const htmlContent = `<!DOCTYPE html><html lang="th"><head>
       <meta charset="utf-8">
       <title>${fileTitle}</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -230,8 +234,13 @@ export default function SalesFollower() {
         .pa{font-size:6.5pt;color:#94a3b8}
         .ptag{background:#ede9fe;color:#5b21b6;border-radius:3px;padding:1px 5px;font-size:7pt;font-weight:600;white-space:nowrap}
         .dc{color:#7c3aed;font-weight:700;white-space:nowrap}
-        .nc{font-size:7.5pt;color:#374151;font-style:italic;line-height:1.25}
+        .nc{font-size:7.5pt;color:#374151;font-style:italic;line-height:1.4}
         .nd{color:#cbd5e1;font-style:normal}
+        .utag{display:inline-block;border-radius:3px;padding:1px 4px;font-size:6pt;font-weight:700;margin-right:2px;font-style:normal}
+        .utag.hot{background:#fee2e2;color:#991b1b}
+        .utag.warm{background:#fef3c7;color:#92400e}
+        .utag.cold{background:#dbeafe;color:#1e40af}
+        .ctag{font-size:6.5pt;color:#475569;font-style:normal}
         /* Footer */
         .footer{margin-top:14px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:7pt;color:#94a3b8}
         @media print{body{padding:6px 10px}@page{size:A4;margin:10mm 8mm}.day-block{page-break-inside:avoid}}
@@ -265,10 +274,41 @@ export default function SalesFollower() {
         <span>Field Sale CRM · ${exportDateStr}</span>
       </div>
 
-    </body></html>`);
-    win.document.close();
-    setTimeout(() => win.print(), 600);
+    </body></html>`;
+
+    if (mode === 'pdf') {
+      win.document.write(htmlContent);
+      win.document.close();
+      setTimeout(() => win.print(), 600);
+    } else {
+      // JPG mode: render HTML, capture with html2canvas, download as JPEG
+      win.document.write(htmlContent);
+      win.document.close();
+      const script = win.document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.onload = () => {
+        setTimeout(() => {
+          (win as any).html2canvas(win.document.body, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            windowWidth: 900,
+          }).then((canvas: HTMLCanvasElement) => {
+            const link = win.document.createElement('a');
+            link.download = `${fileTitle}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.92);
+            link.click();
+            setTimeout(() => win.close(), 800);
+          });
+        }, 800);
+      };
+      win.document.head.appendChild(script);
+    }
   }, [reportRep, reportItems, range]);
+
+  const downloadRouteReportPDF = useCallback(() => downloadReport('pdf'), [downloadReport]);
+  const downloadRouteReportJPG = useCallback(() => downloadReport('jpg'), [downloadReport]);
 
   /* ── Export PDF (print window) ── */
   const exportPDF = useCallback(() => {
@@ -322,7 +362,11 @@ export default function SalesFollower() {
         <td class="tc mono">${dateStr}</td>
         <td class="tc mono">${timeStr}</td>
         <td class="tc" style="color:#7c3aed;font-weight:700;white-space:nowrap">${fmtMin(s.duration_min ?? 0)}</td>
-        <td class="note-cell">${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}</td>
+        <td class="note-cell">
+          ${s.stop_urgency ? `<span class="utag ${s.stop_urgency.toLowerCase()}">${s.stop_urgency === "Hot" ? "🔴" : s.stop_urgency === "Warm" ? "🟡" : "🔵"} ${s.stop_urgency}</span> ` : ""}
+          ${s.contact_name ? `<span class="ctag">👤 ${s.contact_name}</span> ` : ""}
+          ${s.note ? `"${s.note}"` : "<span class='nd'>—</span>"}
+        </td>
       </tr>`;
     }).join("");
 
@@ -368,6 +412,11 @@ export default function SalesFollower() {
         .mono{font-size:7pt;color:#475569}
         .note-cell{font-size:7pt;color:#374151;font-style:italic;line-height:1.2}
         .nd{color:#cbd5e1;font-style:normal}
+        .utag{display:inline-block;border-radius:3px;padding:1px 4px;font-size:6pt;font-weight:700;margin-right:2px}
+        .utag.hot{background:#fee2e2;color:#991b1b}
+        .utag.warm{background:#fef3c7;color:#92400e}
+        .utag.cold{background:#dbeafe;color:#1e40af}
+        .ctag{font-size:6.5pt;color:#475569;font-style:normal;margin-right:2px}
         /* ── Footer ── */
         .footer{margin-top:12px;padding-top:7px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:6.5pt;color:#94a3b8}
         @media print{body{padding:6px 10px}@page{size:A4;margin:10mm 8mm}}
@@ -637,9 +686,19 @@ export default function SalesFollower() {
                 <li key={s.stop_id} className="flex items-start gap-3 p-3 rounded-lg border bg-background">
                   <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{s.place_name}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold truncate">{s.place_name}</p>
+                      {s.stop_urgency && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                          s.stop_urgency === "Hot" ? "bg-red-100 text-red-700"
+                          : s.stop_urgency === "Warm" ? "bg-amber-100 text-amber-700"
+                          : "bg-blue-100 text-blue-700"
+                        }`}>{s.stop_urgency === "Hot" ? "🔴" : s.stop_urgency === "Warm" ? "🟡" : "🔵"} {s.stop_urgency}</span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       {s.routeDate} · {s.completed_at ? fmtDateTime(s.completed_at).split(" ")[1] : "-"} · {s.duration_min ?? 0} นาที
+                      {s.contact_name && <span className="ml-2">👤 {s.contact_name}</span>}
                     </p>
                     {s.note && <p className="text-xs italic text-muted-foreground mt-0.5">"{s.note}"</p>}
                   </div>
@@ -648,15 +707,26 @@ export default function SalesFollower() {
             </ol>
           </div>
           <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
-            <Button
-              variant="default"
-              onClick={downloadRouteReportPDF}
-              disabled={reportItems.length === 0}
-              className="gap-2 bg-primary hover:bg-primary/90"
-            >
-              <Printer className="w-4 h-4" />
-              Download PDF
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                onClick={downloadRouteReportPDF}
+                disabled={reportItems.length === 0}
+                className="gap-2 bg-primary hover:bg-primary/90"
+              >
+                <Printer className="w-4 h-4" />
+                Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                onClick={downloadRouteReportJPG}
+                disabled={reportItems.length === 0}
+                className="gap-2"
+              >
+                <ImageDown className="w-4 h-4" />
+                Download JPG
+              </Button>
+            </div>
             <Button variant="outline" onClick={() => setReportRep(null)}>ปิด</Button>
           </DialogFooter>
         </DialogContent>
@@ -717,10 +787,15 @@ export default function SalesFollower() {
                         )}
                       </div>
 
-                      {/* สถานที่ + ประเภท */}
+                      {/* สถานที่ + ประเภท + ผู้ประสานงาน */}
                       <div className="min-w-0 pl-1">
                         <p className="font-semibold text-sm truncate leading-tight">{s.place_name}</p>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-[14px] mt-0.5">{s.purpose}</Badge>
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-[14px]">{s.purpose}</Badge>
+                          {s.contact_name && (
+                            <span className="text-[10px] text-muted-foreground">👤 {s.contact_name}</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Sales rep */}
@@ -734,10 +809,19 @@ export default function SalesFollower() {
                       {/* ระยะเวลา */}
                       <span className="text-[11px] text-muted-foreground tabular-nums">{s.duration_min ?? 0} นาที</span>
 
-                      {/* บันทึก */}
-                      <p className="text-[11px] text-muted-foreground italic truncate pr-2">
-                        {s.note ? `"${s.note}"` : <span className="not-italic opacity-30">—</span>}
-                      </p>
+                      {/* บันทึก + ความสนใจ */}
+                      <div className="text-[11px] text-muted-foreground pr-2 min-w-0">
+                        {s.stop_urgency && (
+                          <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded mr-1 ${
+                            s.stop_urgency === "Hot" ? "bg-red-100 text-red-700"
+                            : s.stop_urgency === "Warm" ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-100 text-blue-700"
+                          }`}>{s.stop_urgency === "Hot" ? "🔴" : s.stop_urgency === "Warm" ? "🟡" : "🔵"} {s.stop_urgency}</span>
+                        )}
+                        <span className="italic truncate">
+                          {s.note ? `"${s.note}"` : <span className="not-italic opacity-30">—</span>}
+                        </span>
+                      </div>
                     </li>
                   );
                 })}

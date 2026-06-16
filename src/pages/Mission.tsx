@@ -33,6 +33,8 @@ export default function Mission() {
   const [now, setNow] = useState(Date.now());
   const [completeOpen, setCompleteOpen] = useState<RouteStop | null>(null);
   const [completeNote, setCompleteNote] = useState("");
+  const [completeContact, setCompleteContact] = useState("");
+  const [completeUrgency, setCompleteUrgency] = useState<"Cold" | "Warm" | "Hot" | "">("");
   const [fieldPhoto, setFieldPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoSize, setPhotoSize] = useState<number>(0);
@@ -117,10 +119,14 @@ export default function Mission() {
       route.route_id, completeOpen.stop_id,
       completeNote, fieldPhoto?.name, photoPreview ?? undefined,
       gps?.lat, gps?.lng,
+      completeContact || undefined,
+      completeUrgency || undefined,
     );
     toast.success(`เสร็จสิ้น: ${completeOpen.place_name}`);
     setCompleteOpen(null);
     setCompleteNote("");
+    setCompleteContact("");
+    setCompleteUrgency("");
     setFieldPhoto(null);
     setPhotoPreview(null);
     setPhotoSize(0);
@@ -212,7 +218,7 @@ export default function Mission() {
                             <Button
                               size="sm"
                               className="h-7 text-xs px-2.5 bg-success text-success-foreground"
-                              onClick={() => { setCompleteOpen(s); setCompleteNote(s.note ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
+                              onClick={() => { setCompleteOpen(s); setCompleteNote(s.note ?? ""); setCompleteContact(s.contact_name ?? ""); setCompleteUrgency(s.stop_urgency ?? ""); setFieldPhoto(null); setPhotoPreview(null); setGps(null); }}
                             >
                               <CheckCircle2 className="w-3 h-3 mr-1" /> Complete
                             </Button>
@@ -443,6 +449,41 @@ export default function Mission() {
           <DialogHeader><DialogTitle>Complete: {completeOpen?.place_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">บันทึกผลการเยี่ยมก่อนปิดงานนี้</p>
+
+            {/* ── ผู้ประสานงาน + ความสนใจ (ไม่บังคับ) ── */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ผู้ประสานงาน <span className="font-normal normal-case">(ไม่บังคับ)</span></Label>
+                <Input
+                  value={completeContact}
+                  onChange={(e) => setCompleteContact(e.target.value)}
+                  placeholder="ชื่อคนที่เจอ..."
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ความสนใจ <span className="font-normal normal-case">(ไม่บังคับ)</span></Label>
+                <div className="flex gap-1.5">
+                  {(["Cold", "Warm", "Hot"] as const).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setCompleteUrgency(completeUrgency === u ? "" : u)}
+                      className={`flex-1 h-9 rounded-md text-xs font-semibold border transition-all ${
+                        completeUrgency === u
+                          ? u === "Hot" ? "bg-red-100 text-red-700 border-red-400"
+                            : u === "Warm" ? "bg-amber-100 text-amber-700 border-amber-400"
+                            : "bg-blue-100 text-blue-700 border-blue-400"
+                          : "bg-muted text-muted-foreground border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {u === "Hot" ? "🔴" : u === "Warm" ? "🟡" : "🔵"} {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <VoiceTextarea rows={4} placeholder="สรุปการพูดคุย / ความสนใจของลูกค้า / Next step..."
               value={completeNote} onChange={(e) => setCompleteNote(e.target.value)} />
             <div className="space-y-2">
