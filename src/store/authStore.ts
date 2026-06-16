@@ -42,6 +42,8 @@ export type ThemeMode = "day" | "night";
 interface AuthState {
   users: AppUser[];
   currentUserId: string | null;
+  jwtToken: string | null;      // custom JWT สำหรับ Supabase RLS (persisted)
+  jwtExpiresAt: number | null;  // Unix timestamp (seconds)
   theme: ThemeMode;
   viewAsRole: AppRole | null; // Admin can preview other roles
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
@@ -93,6 +95,8 @@ export const useAuth = create<AuthState>()(
     (set, get) => ({
       users: [ADMIN_USER],
       currentUserId: null,
+      jwtToken: null,
+      jwtExpiresAt: null,
       theme: "day",
       viewAsRole: null,
 
@@ -118,21 +122,23 @@ export const useAuth = create<AuthState>()(
         set({ currentUserId: u.user_id, viewAsRole: null });
 
         // ── ขอ custom JWT จาก Edge Function เพื่อใช้กับ Supabase RLS ──────────
+        // AWAIT (ไม่ใช่ .then()) → JWT set ก่อน return → ลด race condition กับ loadAll
         // JWT นี้ทำให้ auth.role() = 'authenticated' + auth.jwt() ->> 'app_role' ใน RLS policies
-        // ถ้า Edge Function ยังไม่ deploy หรือ error → app ยังทำงานได้ปกติ (fallback anon key)
         if (SUPABASE_ENABLED && supabase) {
-          supabase.functions.invoke("sign-jwt", {
-            body: { user_id: u.user_id, password },
-          }).then(({ data, error }) => {
-            if (error) {
-              console.warn("[auth] sign-jwt failed (RLS fallback to anon):", error.message);
-              return;
-            }
-            if (data?.access_token) {
-              setSupabaseAuthToken(data.access_token);
+          try {
+            const { data: jwtData, error: jwtErr } = await supabase.functions.invoke("sign-jwt", {
+              body: { user_id: u.user_id, password },
+            });
+            if (jwtErr) {
+              console.warn("[auth] sign-jwt failed (RLS fallback to anon):", jwtErr.message);
+            } else if (jwtData?.access_token) {
+              setSupabaseAuthToken(jwtData.access_token);
+              set({ jwtToken: jwtData.access_token, jwtExpiresAt: jwtData.expires_at ?? null });
               console.info("[auth] JWT set — RLS active");
             }
-          });
+          } catch (e) {
+            console.warn("[auth] sign-jwt exception:", e);
+          }
         }
 
         return { ok: true };
@@ -140,7 +146,7 @@ export const useAuth = create<AuthState>()(
 
       logout: () => {
         setSupabaseAuthToken(null);
-        set({ currentUserId: null, viewAsRole: null });
+        set({ currentUserId: null, viewAsRole: null, jwtToken: null, jwtExpiresAt: null });
       },
 
       addUser: async (u) => {
@@ -359,6 +365,21 @@ export const useAuth = create<AuthState>()(
             if (!existingUsernames.has(seed.username.toLowerCase())) {
               state.users.push(seed);
             }
+          }
+        }
+        // ── Restore JWT จาก localStorage เพื่อให้ RLS ทำงานทันทีหลัง page refresh ──
+        // ต้องทำก่อน SupabaseSync.loadAll() วิ่ง (onRehydrateStorage runs synchronously)
+        if (state?.jwtToken && state?.jwtExpiresAt) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          if (state.jwtExpiresAt > nowSec + 60) {
+            // JWT ยังไม่หมดอายุ (อย่างน้อย 60 วิ เหลืออยู่) → restore
+            setSupabaseAuthToken(state.jwtToken);
+            console.info("[auth] JWT restored from localStorage — RLS active");
+          } else {
+            // หมดอายุ → clear (ต้อง login ใหม่)
+            state.jwtToken = null;
+            state.jwtExpiresAt = null;
+            console.info("[auth] JWT expired — cleared (re-login required)");
           }
         }
       },

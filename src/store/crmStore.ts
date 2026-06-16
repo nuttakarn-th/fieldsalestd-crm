@@ -815,22 +815,43 @@ export const useCRM = create<CRMState>()(
       const finalRoutes: RoutePlan[] = [...mergedRoutes, ...localOnlyRoutes];
       // ─────────────────────────────────────────────────────────────────────
 
+      // ── Guard: อัปเดตเฉพาะตารางที่ query สำเร็จ (ไม่มี error) ───────────────
+      // ป้องกัน RLS block (ไม่มี JWT) → ได้ error → data = null → ?? [] เขียนทับ local data ด้วย []
+      // ถ้า query error → เก็บ local state ไว้ก่อน (ดีกว่าโชว์ว่าง)
       const updates: Partial<CRMState> = {
-        customers: (customers.data ?? []) as Customer[],
-        leads: (leads.data ?? []) as Lead[],
-        targets: (targets.data ?? []) as MonthlyTarget[],
-        quotations: (quotations.data ?? []) as QuotationDoc[],
-        routes: finalRoutes,
-        chatMessages: (chats.data ?? []) as ChatMessage[],
-        teamNotifications: (notifs.data ?? []) as TeamNotification[],
+        routes: finalRoutes, // routes ใช้ smart merge อยู่แล้ว — ปลอดภัย
       };
-      if (customers.data?.length) loadedSummary.push(`customers ${customers.data.length}`);
-      if (leads.data?.length) loadedSummary.push(`leads ${leads.data.length}`);
-      if (targets.data?.length) loadedSummary.push(`targets ${targets.data.length}`);
-      if (quotations.data?.length) loadedSummary.push(`quotations ${quotations.data.length}`);
+      if (!customers.error && customers.data !== null) {
+        updates.customers = customers.data as Customer[];
+        if (customers.data.length) loadedSummary.push(`customers ${customers.data.length}`);
+      } else if (customers.error) {
+        console.warn("[supabase] customers blocked (RLS?) — keeping local data:", customers.error.message);
+      }
+      if (!leads.error && leads.data !== null) {
+        updates.leads = leads.data as Lead[];
+        if (leads.data.length) loadedSummary.push(`leads ${leads.data.length}`);
+      } else if (leads.error) {
+        console.warn("[supabase] leads blocked — keeping local:", leads.error.message);
+      }
+      if (!targets.error && targets.data !== null) {
+        updates.targets = targets.data as MonthlyTarget[];
+        if (targets.data.length) loadedSummary.push(`targets ${targets.data.length}`);
+      }
+      if (!quotations.error && quotations.data !== null) {
+        updates.quotations = quotations.data as QuotationDoc[];
+        if (quotations.data.length) loadedSummary.push(`quotations ${quotations.data.length}`);
+      }
       if (finalRoutes.length) loadedSummary.push(`routes ${finalRoutes.length}`);
-      if (chats.data?.length) loadedSummary.push(`chats ${chats.data.length}`);
-      if (notifs.data?.length) loadedSummary.push(`notifications ${notifs.data.length}`);
+      if (!chats.error && chats.data !== null) {
+        updates.chatMessages = chats.data as ChatMessage[];
+        if (chats.data.length) loadedSummary.push(`chats ${chats.data.length}`);
+      } else if (chats.error) {
+        console.warn("[supabase] chat_messages blocked — keeping local:", chats.error.message);
+      }
+      if (!notifs.error && notifs.data !== null) {
+        updates.teamNotifications = notifs.data as TeamNotification[];
+        if (notifs.data.length) loadedSummary.push(`notifications ${notifs.data.length}`);
+      }
       set(updates);
       // eslint-disable-next-line no-console
       console.info(loadedSummary.length > 0

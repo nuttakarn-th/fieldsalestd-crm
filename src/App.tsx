@@ -79,12 +79,22 @@ function SupabaseSync() {
   const loadUsers = useAuth((s) => s.loadUsersFromSupabase);
   const loadSettings = useSiteSettings((s) => s.loadFromSupabase);
   const loadServices = useServices((s) => s.loadFromSupabase);
+  // Watch JWT — re-load ข้อมูลทั้งหมดเมื่อ JWT เปลี่ยน (หลัง login หรือหลัง rehydrate)
+  // แก้ปัญหา: SupabaseSync วิ่งครั้งเดียวตอน mount → JWT ยังไม่มี → RLS block → ข้อมูลว่าง
+  const jwtToken = useAuth((s) => s.jwtToken);
+
+  // Mount: โหลด users + settings + services (ไม่ต้องการ JWT)
   useEffect(() => {
-    loadAll();
     loadUsers();
     loadSettings();
     loadServices();
-  }, [loadAll, loadUsers, loadSettings, loadServices]);
+  }, [loadUsers, loadSettings, loadServices]);
+
+  // JWT เปลี่ยน (ตอน login หรือ restore จาก localStorage) → reload ข้อมูลที่ต้อง auth
+  useEffect(() => {
+    loadAll();
+  }, [loadAll, jwtToken]);
+
   return null;
 }
 
