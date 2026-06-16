@@ -171,6 +171,12 @@ export const useAuth = create<AuthState>()(
       },
 
       updateUser: (id, patch) => {
+        // ── ดักจับการเปลี่ยนชื่อ ก่อน update state ────────────────────────────
+        const oldUser = get().users.find((u) => u.user_id === id);
+        const oldName = oldUser?.full_name;
+        const newName = (patch as any).full_name?.trim() as string | undefined;
+        const nameChanged = !!(newName && oldName && newName !== oldName);
+
         set({
           users: get().users.map((u) =>
             u.user_id === id
@@ -185,6 +191,7 @@ export const useAuth = create<AuthState>()(
               : u,
           ),
         });
+
         if (SUPABASE_ENABLED && supabase) {
           const { password: newPwd, ...safePatch } = patch as any;
           if (newPwd !== undefined) {
@@ -201,6 +208,38 @@ export const useAuth = create<AuthState>()(
             supabase.from("app_users").update(safePatch).eq("user_id", id).then(({ error }) => {
               if (error) console.error("[supabase] update user ล้มเหลว:", error);
             });
+          }
+
+          // ── Cascade rename ทั่วระบบ ─────────────────────────────────────────
+          // ถ้าเปลี่ยน full_name → sync ชื่อใหม่ไปยัง sales_reps
+          // Supabase ON UPDATE CASCADE จะอัปเดต:
+          //   customers(created_by, transferred_to, transferred_from)
+          //   leads(assigned_to), monthly_targets(rep)
+          //   route_plans(rep), quotations(rep)
+          // chat_messages.author ไม่มี FK → อัปเดตแยก
+          if (nameChanged) {
+            (async () => {
+              // 1. Update sales_reps.name → CASCADE ทำงานอัตโนมัติ
+              const { error: repErr } = await supabase
+                .from("sales_reps")
+                .update({ name: newName })
+                .eq("name", oldName);
+              if (repErr) console.error("[rename] sales_reps update ล้มเหลว:", repErr);
+              else console.log(`[rename] sales_reps: "${oldName}" → "${newName}" ✅ (CASCADE triggered)`);
+
+              // 2. Update chat_messages.author (plain TEXT, ไม่มี FK)
+              const { error: chatErr } = await supabase
+                .from("chat_messages")
+                .update({ author: newName })
+                .eq("author", oldName);
+              if (chatErr) console.error("[rename] chat_messages update ล้มเหลว:", chatErr);
+
+              // 3. Sync in-memory crmStore state ทันที (dynamic import ป้องกัน circular dep)
+              const { useCRM } = await import("@/store/crmStore");
+              useCRM.getState().renameRepInMemory(oldName!, newName!);
+
+              console.log(`[rename] ✅ เปลี่ยนชื่อ "${oldName}" → "${newName}" ทั่วระบบเรียบร้อย`);
+            })();
           }
         }
       },

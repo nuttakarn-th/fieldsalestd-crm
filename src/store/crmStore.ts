@@ -454,6 +454,9 @@ interface CRMState {
   markNotificationsRead: () => void;
   dismissNotification: (id: string) => void;
   clearAllNotifications: () => void;
+  /** เมื่อ admin เปลี่ยนชื่อ user → อัปเดต in-memory state ทั้งหมดทันที
+   *  (Supabase ON UPDATE CASCADE จัดการ DB แล้ว — นี่แค่ sync RAM) */
+  renameRepInMemory: (oldName: SalesRep, newName: SalesRep) => void;
   setCurrentRep: (r: SalesRep | "All") => void;
   loadCustomersFromSupabase: () => Promise<void>;
   loadAllFromSupabase: () => Promise<void>;
@@ -625,6 +628,47 @@ export const useCRM = create<CRMState>()(
       });
     }
   },
+
+  renameRepInMemory: (oldName, newName) => {
+    // อัปเดต in-memory state ทันทีหลัง Supabase CASCADE เสร็จ
+    // ครอบคลุมทุก field ที่เก็บชื่อ user แบบ denormalized
+    const s = get();
+    set({
+      customers: s.customers.map((c) => ({
+        ...c,
+        created_by:      c.created_by === oldName ? newName : c.created_by,
+        transferred_to:  c.transferred_to === oldName ? newName : c.transferred_to,
+        transferred_from: c.transferred_from === oldName ? newName : c.transferred_from,
+      })),
+      leads: s.leads.map((l) => ({
+        ...l,
+        assigned_to: l.assigned_to === oldName ? newName : l.assigned_to,
+      })),
+      targets: s.targets.map((t) => ({
+        ...t,
+        rep: t.rep === oldName ? newName : t.rep,
+      })),
+      routes: s.routes.map((r) => ({
+        ...r,
+        rep: r.rep === oldName ? newName : r.rep,
+      })),
+      chatMessages: s.chatMessages.map((m) => ({
+        ...m,
+        author: (m.author as string) === oldName
+          ? (newName as ChatAuthor)
+          : m.author,
+        mentions: m.mentions?.map((mn) =>
+          (mn as string) === oldName ? (newName as ChatAuthor) : mn,
+        ),
+      })),
+      teamNotifications: s.teamNotifications.map((n) => ({
+        ...n,
+        sales: n.sales === oldName ? newName : n.sales,
+      })),
+      currentRep: s.currentRep === oldName ? newName : s.currentRep,
+    });
+  },
+
   setCurrentRep: (r) => set({ currentRep: r }),
 
   loadCustomersFromSupabase: async () => {
