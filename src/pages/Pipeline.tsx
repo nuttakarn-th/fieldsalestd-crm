@@ -60,10 +60,12 @@ export default function Pipeline() {
     setStatusOpen(null);
   };
 
-  const visible = useMemo(
-    () => (currentRep === "All" ? leads : leads.filter((l) => l.assigned_to === currentRep)),
-    [leads, currentRep],
-  );
+  const visible = useMemo(() => {
+    const customerIds = new Set(customers.map((c) => c.customer_id));
+    const base = currentRep === "All" ? leads : leads.filter((l) => l.assigned_to === currentRep);
+    // กรอง leads ที่ customer ถูกลบออกไปแล้ว (ไม่แสดง "(ลูกค้าถูกลบ)")
+    return base.filter((l) => customerIds.has(l.customer_id));
+  }, [leads, customers, currentRep]);
 
   const grouped = useMemo(() => {
     const map: Record<LeadStatus, Lead[]> = {
