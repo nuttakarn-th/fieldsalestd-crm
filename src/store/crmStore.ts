@@ -698,6 +698,16 @@ export const useCRM = create<CRMState>()(
 
   loadAllFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
+    // ── Double-load guard ────────────────────────────────────────────────────
+    // jwtToken เปลี่ยน 2 ครั้งเร็วๆ กัน (mount → rehydrate) → ป้องกันยิงซ้ำใน 5 วินาที
+    const now = Date.now();
+    const last = (get() as any)._lastLoadedAt ?? 0;
+    if (now - last < 5_000) {
+      console.info("[supabase] loadAll skipped (debounce 5s)");
+      return;
+    }
+    (set as any)({ _lastLoadedAt: now });
+    // ────────────────────────────────────────────────────────────────────────
     try {
       // ── กำหนด window วันที่สำหรับ route (30 วันล่าสุด) ──────────────────
       const d = new Date();
@@ -722,7 +732,7 @@ export const useCRM = create<CRMState>()(
         "transfer_logs,created_at";
 
       const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(500);
-      const leadsQ = supabase.from("leads").select("*");
+      const leadsQ = supabase.from("leads").select("*").order("created_at", { ascending: false }).limit(500);
       const routesQ = supabase
         .from("route_plans")
         .select("*, route_stops (*)")
@@ -735,16 +745,31 @@ export const useCRM = create<CRMState>()(
       const leadsFiltered = isSalesOnly ? leadsQ.eq("assigned_to", currentUser?.full_name ?? "") : leadsQ;
       const routesFiltered = isSalesOnly ? routesQ.eq("rep", currentUser?.full_name ?? "") : routesQ;
 
-      const [customers, leads, targets, quotations, routes, chats, notifs] = await Promise.all([
+      // ── โหลด 2 รอบ: critical data ก่อน → secondary ตาม ────────────────────
+      // รอบ 1 (critical): customers + leads + targets → Dashboard แสดงเลยทันที
+      const [customers, leads, targets] = await Promise.all([
         custFiltered,
         leadsFiltered,
         supabase.from("monthly_targets").select("*"),
+      ]);
+
+      // อัปเดต critical data ทันที (Dashboard เห็นตัวเลขเลย ไม่ต้องรอ routes/chat)
+      const loadedSummary: string[] = [];
+      const criticalUpdates: Partial<CRMState> = {};
+      if (!customers.error && customers.data) criticalUpdates.customers = customers.data as Customer[];
+      if (!leads.error && leads.data)         criticalUpdates.leads     = leads.data     as Lead[];
+      if (!targets.error && targets.data)     criticalUpdates.targets   = targets.data   as MonthlyTarget[];
+      if (Object.keys(criticalUpdates).length) set(criticalUpdates);
+      if (customers.data?.length) loadedSummary.push(`customers ${customers.data.length}`);
+      if (leads.data?.length)     loadedSummary.push(`leads ${leads.data.length}`);
+
+      // รอบ 2 (secondary): routes + chat + notifs + quotations (ไม่บล็อก Dashboard)
+      const [quotations, routes, chats, notifs] = await Promise.all([
         supabase.from("quotations").select("*").order("created_at", { ascending: false }),
         routesFiltered,
         supabase.from("chat_messages").select("*").order("created_at", { ascending: true }).limit(200),
         supabase.from("team_notifications").select("*").order("created_at", { ascending: false }).limit(100),
       ]);
-      const loadedSummary: string[] = [];
       if (customers.error) console.error("[supabase] load customers error:", customers.error);
       if (leads.error) console.error("[supabase] load leads error:", leads.error);
       if (targets.error) console.error("[supabase] load targets error:", targets.error);
@@ -818,28 +843,14 @@ export const useCRM = create<CRMState>()(
       const finalRoutes: RoutePlan[] = [...mergedRoutes, ...localOnlyRoutes];
       // ─────────────────────────────────────────────────────────────────────
 
-      // ── Guard: อัปเดตเฉพาะตารางที่ query สำเร็จ (ไม่มี error) ───────────────
-      // ป้องกัน RLS block (ไม่มี JWT) → ได้ error → data = null → ?? [] เขียนทับ local data ด้วย []
-      // ถ้า query error → เก็บ local state ไว้ก่อน (ดีกว่าโชว์ว่าง)
+      // ── Guard: อัปเดต secondary data (routes/chat/notifs/quotations) ──────────
+      // customers/leads/targets set ไปแล้วใน criticalUpdates ด้านบน
+      if (customers.error) console.warn("[supabase] customers blocked (RLS?) — keeping local data:", customers.error.message);
+      if (leads.error)     console.warn("[supabase] leads blocked — keeping local:", leads.error.message);
+
       const updates: Partial<CRMState> = {
         routes: finalRoutes, // routes ใช้ smart merge อยู่แล้ว — ปลอดภัย
       };
-      if (!customers.error && customers.data !== null) {
-        updates.customers = customers.data as Customer[];
-        if (customers.data.length) loadedSummary.push(`customers ${customers.data.length}`);
-      } else if (customers.error) {
-        console.warn("[supabase] customers blocked (RLS?) — keeping local data:", customers.error.message);
-      }
-      if (!leads.error && leads.data !== null) {
-        updates.leads = leads.data as Lead[];
-        if (leads.data.length) loadedSummary.push(`leads ${leads.data.length}`);
-      } else if (leads.error) {
-        console.warn("[supabase] leads blocked — keeping local:", leads.error.message);
-      }
-      if (!targets.error && targets.data !== null) {
-        updates.targets = targets.data as MonthlyTarget[];
-        if (targets.data.length) loadedSummary.push(`targets ${targets.data.length}`);
-      }
       if (!quotations.error && quotations.data !== null) {
         updates.quotations = quotations.data as QuotationDoc[];
         if (quotations.data.length) loadedSummary.push(`quotations ${quotations.data.length}`);
