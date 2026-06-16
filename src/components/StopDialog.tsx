@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { ChevronDown, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,15 +57,43 @@ export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, tit
   const [customerId, setCustomerId] = useState("none");
   const [note, setNote] = useState("");
 
+  // Customer search combobox
+  const [custOpen, setCustOpen] = useState(false);
+  const [custSearch, setCustSearch] = useState("");
+  const custRef = useRef<HTMLDivElement>(null);
+
   const isToday = autoCreateForDate === ymdToday();
   const minTime = isToday ? nowHHMM() : undefined;
 
   useEffect(() => {
     if (open) {
       const defaultTime = isToday ? nowHHMM() : "09:00";
-      setPurpose(PURPOSES[0]); setTime(defaultTime); setPlace(""); setAddress(""); setCustomerId("none"); setNote("");
+      setPurpose(PURPOSES[0]); setTime(defaultTime); setPlace(""); setAddress("");
+      setCustomerId("none"); setNote(""); setCustOpen(false); setCustSearch("");
     }
   }, [open, isToday]);
+
+  // ปิด dropdown เมื่อ click นอก
+  useEffect(() => {
+    if (!custOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (custRef.current && !custRef.current.contains(e.target as Node)) {
+        setCustOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [custOpen]);
+
+  const filteredCustomers = useMemo(() => {
+    const q = custSearch.toLowerCase().trim();
+    if (!q) return customers.slice(0, 40);
+    return customers.filter(
+      (c) => c.full_name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q)
+    ).slice(0, 40);
+  }, [customers, custSearch]);
+
+  const selectedCustomer = customers.find((c) => c.customer_id === customerId);
 
   const isOffice = purpose === "Office Day";
 
@@ -121,15 +150,74 @@ export function StopDialog({ open, onClose, routeId, autoCreateForDate, rep, tit
               <div><Label>ที่อยู่</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} /></div>
               <div>
                 <Label>ลูกค้า (ถ้ามี)</Label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="เลือกลูกค้า..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— ไม่ระบุ —</SelectItem>
-                    {customers.slice(0, 50).map((c) => (
-                      <SelectItem key={c.customer_id} value={c.customer_id}>{c.full_name} {c.company !== "-" && `· ${c.company}`}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div ref={custRef} className="relative">
+                  {/* Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => { setCustOpen((v) => !v); setCustSearch(""); }}
+                    className="w-full flex items-center justify-between h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background hover:bg-accent/30 transition-colors"
+                  >
+                    <span className={selectedCustomer ? "text-foreground" : "text-muted-foreground"}>
+                      {selectedCustomer
+                        ? `${selectedCustomer.full_name}${selectedCustomer.company !== "-" ? ` · ${selectedCustomer.company}` : ""}`
+                        : "— ไม่ระบุ —"}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 opacity-50 transition-transform ${custOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* Dropdown */}
+                  {custOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg overflow-hidden">
+                      {/* Search input */}
+                      <div className="p-2 border-b bg-background">
+                        <Input
+                          autoFocus
+                          value={custSearch}
+                          onChange={(e) => setCustSearch(e.target.value)}
+                          placeholder="🔍 พิมพ์ค้นหาชื่อลูกค้า..."
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      {/* List */}
+                      <div className="max-h-52 overflow-y-auto py-1">
+                        {/* ไม่ระบุ option */}
+                        <button
+                          type="button"
+                          onClick={() => { setCustomerId("none"); setCustOpen(false); }}
+                          className={`w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${customerId === "none" ? "bg-accent/50" : ""}`}
+                        >
+                          {customerId === "none" && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                          <span className={`${customerId === "none" ? "ml-0" : "ml-5"} text-muted-foreground`}>— ไม่ระบุ —</span>
+                        </button>
+
+                        {/* Customer items */}
+                        {filteredCustomers.map((c) => (
+                          <button
+                            key={c.customer_id}
+                            type="button"
+                            onClick={() => { setCustomerId(c.customer_id); setCustOpen(false); }}
+                            className={`w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${customerId === c.customer_id ? "bg-accent/50" : ""}`}
+                          >
+                            {customerId === c.customer_id
+                              ? <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                              : <span className="w-3.5 shrink-0" />
+                            }
+                            <span className="truncate">
+                              {c.full_name}
+                              {c.company !== "-" && (
+                                <span className="text-muted-foreground text-xs ml-1.5">· {c.company}</span>
+                              )}
+                            </span>
+                          </button>
+                        ))}
+
+                        {filteredCustomers.length === 0 && (
+                          <p className="px-3 py-3 text-sm text-muted-foreground text-center">ไม่พบลูกค้าที่ค้นหา</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}
