@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCRM, type RouteStop } from "@/store/crmStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
+import { QuickLeadDialog } from "@/components/QuickLeadDialog";
 import { toast } from "sonner";
 import { compressImage, getCurrentPosition, type GeoPoint } from "@/lib/imageCompression";
 
@@ -44,6 +45,7 @@ export default function Mission() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [quickLeadOpen, setQuickLeadOpen] = useState(false);
   const [skipTarget, setSkipTarget] = useState<RouteStop | null>(null);
   const [skipDate, setSkipDate] = useState("");
 
@@ -519,16 +521,31 @@ export default function Mission() {
               </div>
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setCompleteOpen(null); setNewCustOpen(true); }}>
-              <UserPlus className="w-4 h-4 mr-2" /> + ลูกค้าใหม่ก่อนปิด
-            </Button>
-            <Button onClick={handleComplete} className="bg-success text-success-foreground">ปิดงานจุดนี้</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none text-xs"
+                onClick={() => { setCompleteOpen(null); setNewCustOpen(true); }}
+              >
+                <UserPlus className="w-3.5 h-3.5 mr-1.5" /> + ลูกค้าฉบับเต็ม
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 sm:flex-none text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
+                onClick={() => { setCompleteOpen(null); setQuickLeadOpen(true); }}
+              >
+                <UserPlus className="w-3.5 h-3.5 mr-1.5" /> + ลูกค้าด่วน
+              </Button>
+            </div>
+            <Button onClick={handleComplete} className="bg-success text-success-foreground w-full sm:w-auto">ปิดงานจุดนี้</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <CustomerLeadDialog open={newCustOpen} onOpenChange={setNewCustOpen} />
+      <QuickLeadDialog open={quickLeadOpen} onOpenChange={setQuickLeadOpen} />
     </div>
   );
 }
