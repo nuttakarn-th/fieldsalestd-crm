@@ -5,16 +5,33 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 // ===== Tour =====
 export type TourCategory = "International Tour" | "Domestic" | "Incentive";
 
+export const CANCEL_REASONS = [
+  "กรุ๊ปไม่เต็ม",
+  "สายการบินยกเลิก",
+  "ปัญหาวีซ่า",
+  "เลื่อนวันเดินทาง",
+  "เหตุสุดวิสัย",
+  "ปัญหาประเทศปลายทาง",
+  "อื่นๆ",
+] as const;
+export type CancelReason = typeof CANCEL_REASONS[number];
+
 /** Period เดินทางของทัวร์ 1 โปรแกรม — เช่น HQO-TFU06-EU มีหลาย period */
 export interface TourPeriod {
   period_id: string;        // uuid ภายใน (ไม่ใช่ PK ใน DB)
-  travel_date: string;      // เช่น "26-31 ก.ค. 2569" (text ยืดหยุ่น)
+  start_date?: string;      // ISO "2026-07-26" — เลือกจาก date picker
+  end_date?: string;        // ISO "2026-07-31"
+  nights?: number;          // คืน (auto-calc จาก start/end_date)
+  days?: number;            // วัน (nights + 1)
+  travel_date: string;      // display text เช่น "26-31 ก.ค. 2569" (auto-gen หรือ custom)
   price_per_seat: number;
   total_seats: number;      // ที่นั่งทั้งหมดของ period นี้
   quota: number;            // ที่นั่งว่างของ period นี้
   airline_code?: string;    // เช่น "FD", "TG"
   project?: string;         // โครงการ (ถ้ามี)
   note?: string;            // หมายเหตุเฉพาะ period
+  cancelled?: boolean;      // period ถูกยกเลิก
+  cancel_reason?: string;   // เหตุผลการยกเลิก
 }
 
 export interface TourItem {
