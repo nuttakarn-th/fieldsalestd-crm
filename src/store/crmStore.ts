@@ -853,10 +853,17 @@ export const useCRM = create<CRMState>()(
 
       // เก็บ routes ที่มีใน local แต่ยังไม่อยู่ใน Supabase (pending sync)
       // เฉพาะ "real" routes (timestamp ID) — ทิ้ง seeded data เก่า
+      // v128 fix: ตรวจ timestamp ใน route_id — เก็บเฉพาะที่สร้างใน 10 นาทีล่าสุด
+      // (routes เก่าที่ไม่อยู่ใน Supabase = ถูกลบไปแล้ว ไม่ใช่ pending sync)
       const supaIds = new Set(mergedRoutes.map((r) => r.route_id));
-      const localOnlyRoutes = currentRoutes.filter(
-        (r) => !supaIds.has(r.route_id) && isRealRoute(r.route_id),
-      );
+      const TEN_MIN_AGO = Date.now() - 10 * 60 * 1_000;
+      const localOnlyRoutes = currentRoutes.filter((r) => {
+        if (!isRealRoute(r.route_id)) return false;
+        if (supaIds.has(r.route_id)) return false;
+        // route_id format: "R" + Date.now() + seq → extract timestamp
+        const ts = parseInt(r.route_id.slice(1), 10);
+        return ts > TEN_MIN_AGO; // เก็บเฉพาะที่เพิ่งสร้าง < 10 นาที
+      });
       if (localOnlyRoutes.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(`[supabase] พบ ${localOnlyRoutes.length} route ที่ยังไม่ sync — เก็บไว้ก่อน`);
