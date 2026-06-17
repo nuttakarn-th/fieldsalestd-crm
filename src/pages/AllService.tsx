@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/store/authStore";
 import { canEditServices } from "@/config/roleMenus";
 import {
   useServices,
+  CANCEL_REASONS,
   type TourCategory,
   type TourPeriod,
   type SeatMaterial,
@@ -175,17 +176,20 @@ const blankTourForm = () => ({
   code: "", city: "", country: "",
   startDate: "", returnDate: "",
   days: "", nights: "",
-  price_per_seat: "",
   note: "",
-  total_seats: "",
 });
 const blankPeriodForm = () => ({
-  travel_date: "",
+  start_date: "",
+  end_date: "",
+  nights: "",
+  days: "",
   price_per_seat: "",
   total_seats: "",
   airline_code: "",
   project: "",
   note: "",
+  cancelled: false,
+  cancel_reason: "",
 });
 
 function TourSection({ canEdit }: { canEdit: boolean }) {
@@ -246,28 +250,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const dur = parseDuration(t.duration); const per = parsePeriod(t.period);
     setForm({ category: t.category, code: t.code, city: t.city, country: t.country,
       startDate: per.startDate, returnDate: per.returnDate, days: dur.days, nights: dur.nights,
-      price_per_seat: String(t.price_per_seat), note: t.note ?? "", total_seats: String(t.total_seats) });
+      note: t.note ?? "" });
     setOpen(true);
   };
   const submit = () => {
     if (!form.code || !form.city) { toast.error("กรุณากรอกรหัสและชื่อเมือง"); return; }
     const days = Number(form.days || 0); const nights = Number(form.nights || 0);
     const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
-    const period = form.startDate && form.returnDate
-      ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}` : "";
-    const newTotalSeats = Number(form.total_seats || 0);
     if (editId) {
-      const existing = tours.find((x) => x.id === editId);
-      const hasPeriods = (existing?.periods?.length ?? 0) > 0;
-      const seatDiff = existing && !hasPeriods ? newTotalSeats - existing.total_seats : 0;
-      const newQuota = existing && !hasPeriods ? Math.max(0, existing.quota + seatDiff) : (existing?.quota ?? newTotalSeats);
       updateTour(editId, { category: form.category, code: form.code, city: form.city, country: form.country,
-        period, duration, price_per_seat: Number(form.price_per_seat || 0), note: form.note,
-        ...(!hasPeriods ? { total_seats: newTotalSeats, quota: newQuota } : {}) });
+        duration, note: form.note });
     } else {
       addTour({ category: form.category, code: form.code, city: form.city, country: form.country,
-        period, duration, price_per_seat: Number(form.price_per_seat || 0), note: form.note,
-        total_seats: newTotalSeats, quota: newTotalSeats, periods: [] });
+        period: "", duration, price_per_seat: 0, note: form.note,
+        total_seats: 0, quota: 0, periods: [] });
     }
     toast.success(editId ? "อัปเดตโปรแกรมแล้ว" : "เพิ่มโปรแกรมใหม่แล้ว"); setOpen(false);
   };
@@ -279,16 +275,41 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   };
   const openEditPeriod = (tourId: string, p: TourPeriod) => {
     setPTourId(tourId); setPEditId(p.period_id);
-    setPForm({ travel_date: p.travel_date, price_per_seat: String(p.price_per_seat),
-      total_seats: String(p.total_seats), airline_code: p.airline_code ?? "",
-      project: p.project ?? "", note: p.note ?? "" });
+    setPForm({
+      start_date: p.start_date ?? "",
+      end_date: p.end_date ?? "",
+      nights: String(p.nights ?? ""),
+      days: String(p.days ?? ""),
+      price_per_seat: String(p.price_per_seat),
+      total_seats: String(p.total_seats),
+      airline_code: p.airline_code ?? "",
+      project: p.project ?? "",
+      note: p.note ?? "",
+      cancelled: p.cancelled ?? false,
+      cancel_reason: p.cancel_reason ?? "",
+    });
     setPOpen(true);
   };
+  const genTravelDate = (start: string, end: string, d: string, n: string) => {
+    if (!start) return "";
+    const thStart = fmtThai(start);
+    const thEnd = end ? fmtThai(end) : "";
+    const label = thEnd && thEnd !== thStart ? `${thStart} – ${thEnd}` : thStart;
+    const dur = (d || n) ? ` (${d || "?"}วัน ${n || "?"}คืน)` : "";
+    return `${label}${dur}`;
+  };
+
   const submitPeriod = () => {
-    if (!pForm.travel_date) { toast.error("ระบุวันเดินทาง"); return; }
+    if (!pForm.start_date) { toast.error("ระบุวันที่เดินทาง"); return; }
+    if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
     const seats = Number(pForm.total_seats || 0);
+    const travelDate = genTravelDate(pForm.start_date, pForm.end_date, pForm.days, pForm.nights);
     const payload: Omit<TourPeriod, "period_id"> = {
-      travel_date: pForm.travel_date,
+      start_date: pForm.start_date,
+      end_date: pForm.end_date || undefined,
+      nights: pForm.nights ? Number(pForm.nights) : undefined,
+      days: pForm.days ? Number(pForm.days) : undefined,
+      travel_date: travelDate,
       price_per_seat: Number(pForm.price_per_seat || 0),
       total_seats: seats,
       quota: pEditId
@@ -297,6 +318,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       airline_code: pForm.airline_code || undefined,
       project: pForm.project || undefined,
       note: pForm.note || undefined,
+      cancelled: pForm.cancelled || undefined,
+      cancel_reason: pForm.cancelled ? (pForm.cancel_reason || undefined) : undefined,
     };
     if (pEditId) {
       updatePeriod(pTourId, pEditId, payload);
@@ -307,6 +330,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     }
     setPOpen(false);
   };
+
+  // Auto-calc days/nights when period start/end date changes
+  React.useEffect(() => {
+    if (pForm.start_date && pForm.end_date) {
+      const s = new Date(pForm.start_date); const e = new Date(pForm.end_date);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e >= s) {
+        const nights = Math.round((e.getTime() - s.getTime()) / 86400000);
+        setPForm((f) => ({ ...f, nights: String(nights), days: String(nights + 1) }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pForm.start_date, pForm.end_date]);
 
   const exportData = useMemo(() =>
     tours.map((t) => ({ category: t.category, code: t.code, city: t.city, country: t.country,
@@ -420,7 +455,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <table className="w-full text-xs">
                             <thead className="bg-muted/60 text-muted-foreground">
                               <tr>
-                                <th className="px-3 py-2 text-left pl-10">วันเดินทาง</th>
+                                <th className="px-3 py-2 text-left pl-10 w-8">สถานะ</th>
+                                <th className="px-3 py-2 text-left">วันเดินทาง</th>
                                 <th className="px-3 py-2 text-right">ราคา/ที่นั่ง</th>
                                 <th className="px-3 py-2 text-left">ที่นั่ง / โควต้า</th>
                                 <th className="px-3 py-2 text-left">สายการบิน</th>
@@ -430,19 +466,46 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                              {t.periods!.map((p) => (
-                                <tr key={p.period_id} className="hover:bg-muted/50">
-                                  <td className="px-3 py-2 pl-10 font-medium">{p.travel_date}</td>
+                              {t.periods!.map((p) => {
+                                const isCancelled = p.cancelled;
+                                const isFull = !isCancelled && p.quota === 0;
+                                const rowCls = isCancelled
+                                  ? "bg-destructive/5 opacity-70 line-through-none"
+                                  : isFull ? "bg-amber-50 dark:bg-amber-950/20" : "hover:bg-muted/50";
+                                return (
+                                <tr key={p.period_id} className={rowCls}>
+                                  {/* Status badge */}
+                                  <td className="px-3 py-2 pl-10">
+                                    {isCancelled ? (
+                                      <span className="inline-flex flex-col items-center gap-0.5">
+                                        <span className="text-[10px] font-bold text-destructive leading-tight">❌</span>
+                                        <span className="text-[9px] text-destructive/80 leading-tight max-w-[52px] text-center truncate" title={p.cancel_reason}>{p.cancel_reason || "ยกเลิก"}</span>
+                                      </span>
+                                    ) : isFull ? (
+                                      <span className="text-[10px] font-bold text-amber-600">🔴 FULL</span>
+                                    ) : (
+                                      <span className="text-[10px] text-green-600 font-semibold">✅</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 font-medium">
+                                    <div>{p.travel_date}</div>
+                                    {(p.days || p.nights) && (
+                                      <div className="text-[10px] text-muted-foreground">{p.days}วัน {p.nights}คืน</div>
+                                    )}
+                                  </td>
                                   <td className="px-3 py-2 text-right font-bold">{p.price_per_seat.toLocaleString()}</td>
                                   <td className="px-3 py-2">
-                                    <PeriodQuotaBar quota={p.quota} total_seats={p.total_seats} canEdit={canEdit} tourId={t.id} periodId={p.period_id} />
+                                    {isCancelled
+                                      ? <span className="text-[10px] text-muted-foreground">—</span>
+                                      : <PeriodQuotaBar quota={p.quota} total_seats={p.total_seats} canEdit={canEdit} tourId={t.id} periodId={p.period_id} />
+                                    }
                                   </td>
                                   <td className="px-3 py-2 text-muted-foreground">{p.airline_code || "—"}</td>
                                   <td className="px-3 py-2 text-muted-foreground">{p.project || "—"}</td>
                                   <td className="px-3 py-2 text-muted-foreground">{p.note || "—"}</td>
                                   {canEdit && (
                                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-3 h-3" /></Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก period" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-3 h-3" /></Button>
                                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
                                         const booked = p.total_seats - p.quota;
                                         if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; }
@@ -451,7 +514,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     </td>
                                   )}
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -509,15 +573,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <span className="text-xs text-muted-foreground shrink-0">คืน</span>
                 </div>
               </div>
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-muted-foreground">
-                  ราคา / ที่นั่ง / วันเดินทาง (Legacy — ใช้เมื่อไม่มี Period)
-                </label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div><label className="text-[10px]">ราคา/ที่นั่ง (default)</label><Input type="number" min={0} value={form.price_per_seat} onChange={(e) => setForm({ ...form, price_per_seat: e.target.value })} placeholder="25900" /></div>
-                  <div><label className="text-[10px]">ที่นั่งทั้งหมด (default)</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="20" /></div>
-                </div>
-              </div>
+
               <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ (program level)</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ซากุระบาน / เดินทางโดยรถบัส" /></div>
             </div>
             <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
@@ -533,44 +589,111 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
       {/* ── Period Dialog ── */}
       <Dialog open={pOpen} onOpenChange={setPOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
               {pEditId ? "แก้ไข Period" : "เพิ่ม Period ใหม่"}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
+              <span className="text-xs font-normal text-muted-foreground bg-muted rounded px-2 py-0.5">
                 {tours.find((t) => t.id === pTourId)?.code}
               </span>
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="text-xs font-semibold">วันเดินทาง *</label>
-              <Input value={pForm.travel_date} onChange={(e) => setPForm({ ...pForm, travel_date: e.target.value })} placeholder="เช่น 26-31 ก.ค. 2569" />
+
+          <div className="space-y-4">
+            {/* Date pickers */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold">วันเดินทาง *</label>
+                <Input type="date" value={pForm.start_date} onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">วันกลับ *</label>
+                <Input type="date" value={pForm.end_date} onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-semibold">ราคา/ที่นั่ง</label>
-              <Input type="number" min={0} value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
+
+            {/* Auto-calc display */}
+            {pForm.start_date && pForm.end_date && pForm.days && (
+              <div className="bg-primary/8 border border-primary/20 rounded-lg px-3 py-2 flex items-center gap-3">
+                <CalendarDays className="w-4 h-4 text-primary shrink-0" />
+                <div className="text-sm">
+                  <span className="font-semibold text-primary">{pForm.days} วัน {pForm.nights} คืน</span>
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    {fmtThai(pForm.start_date)} – {fmtThai(pForm.end_date)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Price & Seats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold">ราคา/ที่นั่ง (฿) *</label>
+                <Input type="number" min={0} value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">จำนวนที่นั่งทั้งหมด *</label>
+                <Input type="number" min={0} value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">โค้ดสายการบิน</label>
+                <Input value={pForm.airline_code} onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
+              </div>
+              <div>
+                <label className="text-xs font-semibold">โครงการ / Campaign</label>
+                <Input value={pForm.project} onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="โครงการ / campaign" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs font-semibold">หมายเหตุ</label>
+                <Input value={pForm.note} onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-semibold">ที่นั่งทั้งหมด</label>
-              <Input type="number" min={0} value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold">โค้ดสายการบิน</label>
-              <Input value={pForm.airline_code} onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
-            </div>
-            <div>
-              <label className="text-xs font-semibold">โครงการ</label>
-              <Input value={pForm.project} onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="โครงการ / campaign" />
-            </div>
-            <div className="col-span-2">
-              <label className="text-xs font-semibold">หมายเหตุ</label>
-              <Input value={pForm.note} onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
-            </div>
+
+            {/* Cancel section — edit mode only */}
+            {pEditId && (
+              <div className={`border rounded-lg p-3 space-y-2 ${pForm.cancelled ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold flex items-center gap-1.5">
+                    <XCircle className="w-3.5 h-3.5 text-destructive" />
+                    สถานะ Period
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPForm((f) => ({ ...f, cancelled: !f.cancelled, cancel_reason: f.cancelled ? "" : f.cancel_reason }))}
+                    className={`text-xs px-3 py-1 rounded-full font-semibold border transition-colors ${
+                      pForm.cancelled
+                        ? "bg-destructive text-destructive-foreground border-destructive"
+                        : "bg-background border-border hover:border-destructive/50 hover:text-destructive"
+                    }`}
+                  >
+                    {pForm.cancelled ? "❌ ยกเลิกแล้ว" : "✅ เปิดอยู่"}
+                  </button>
+                </div>
+                {pForm.cancelled && (
+                  <div>
+                    <label className="text-xs text-muted-foreground">เหตุผลการยกเลิก *</label>
+                    <Select value={pForm.cancel_reason} onValueChange={(v) => setPForm({ ...pForm, cancel_reason: v })}>
+                      <SelectTrigger className="mt-1 border-destructive/30">
+                        <SelectValue placeholder="เลือกเหตุผล..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CANCEL_REASONS.map((r) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setPOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submitPeriod} className="bg-gradient-primary text-primary-foreground">บันทึก</Button>
+            <Button onClick={submitPeriod} className={pForm.cancelled ? "bg-destructive text-destructive-foreground" : "bg-gradient-primary text-primary-foreground"}>
+              บันทึก
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -783,200 +906,4 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [f, setF] = useState({ name: "", city: "", country: "", note: "" });
-  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "" }); setOpen(true); };
-  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
-
-  const exportData = useMemo(() => items.map((i) => ({ name: i.name, city: i.city, country: i.country, note: i.note ?? "" })), [items]);
-  const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ name: String(row.name ?? ""), city: String(row.city ?? ""), country: String(row.country ?? ""), note: String(row.note ?? "") }));
-    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
-  };
-
-  return (
-    <SimpleTable
-      title="โรงแรม (Unlimited)"
-      cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ"]}
-      rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-"] }))}
-      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
-      importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
-      dialog={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}โรงแรม</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><label className="text-xs font-semibold">ชื่อโรงแรม</label><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">เมือง</label><Input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      }
-    />
-  );
-}
-
-/* ---- Visa ---- */
-const VISA_FIELDS: ExcelField[] = [
-  { key: "visa_type", header: "ประเภทวีซ่า", example: "TR",       required: true },
-  { key: "country",   header: "ประเทศ",       example: "ญี่ปุ่น", required: true },
-  { key: "note",      header: "หมายเหตุ",     example: "" },
-];
-
-function VisaSection({ canEdit }: { canEdit: boolean }) {
-  const items = useServices((s) => s.visas);
-  const add = useServices((s) => s.addVisa);
-  const update = useServices((s) => s.updateVisa);
-  const del = useServices((s) => s.deleteVisa);
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "" });
-  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "" }); setOpen(true); };
-  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
-  const VISA_DESC: Record<VisaType, string> = {
-    "TR": "วีซ่าท่องเที่ยว", "TS": "วีซ่าผ่านทาง", "Non-Immigrant": "วีซ่าทำงาน/ธุรกิจ",
-    "O": "วีซ่าคู่สมรส", "ED": "วีซ่าการศึกษา", "O-A": "วีซ่าเกษียณอายุ (O-A)", "O-X": "วีซ่าเกษียณอายุ (O-X)",
-  };
-
-  const exportData = useMemo(() => items.map((i) => ({ visa_type: i.visa_type, country: i.country, note: i.note ?? "" })), [items]);
-  const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ visa_type: (row.visa_type as VisaType) || "TR", country: String(row.country ?? ""), note: String(row.note ?? "") }));
-    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
-  };
-
-  return (
-    <SimpleTable
-      title="Visa (Unlimited)"
-      cols={["ประเภท", "ประเทศ", "หมายเหตุ"]}
-      rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-"] }))}
-      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
-      importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
-      dialog={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"} Visa</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold">ประเภท</label>
-                <Select value={f.visa_type} onValueChange={(v) => setF({ ...f, visa_type: v as VisaType })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{VISA_TYPES.map((v) => <SelectItem key={v} value={v}>{v} · {VISA_DESC[v]}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
-              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      }
-    />
-  );
-}
-
-/* ---- Insurance ---- */
-const INSURANCE_FIELDS: ExcelField[] = [
-  { key: "plan_name", header: "ชื่อแผน", example: "แผน A",           required: true },
-  { key: "coverage",  header: "วงเงิน",  example: "1,000,000 THB" },
-  { key: "price",     header: "ราคา",    example: "350",             type: "number" },
-  { key: "note",      header: "หมายเหตุ",example: "" },
-];
-
-function InsuranceSection({ canEdit }: { canEdit: boolean }) {
-  const items = useServices((s) => s.insurances);
-  const add = useServices((s) => s.addInsurance);
-  const update = useServices((s) => s.updateInsurance);
-  const del = useServices((s) => s.deleteInsurance);
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [f, setF] = useState({ plan_name: "", coverage: "", price: "", note: "" });
-  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "" }); setOpen(true); };
-  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "" }); setOpen(true); };
-  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
-
-  const exportData = useMemo(() => items.map((i) => ({ plan_name: i.plan_name, coverage: i.coverage, price: i.price, note: i.note ?? "" })), [items]);
-  const handleImport = (rows: Record<string, unknown>[]) => {
-    rows.forEach((row) => add({ plan_name: String(row.plan_name ?? ""), coverage: String(row.coverage ?? ""), price: Number(row.price ?? 0), note: String(row.note ?? "") }));
-    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
-  };
-
-  return (
-    <SimpleTable
-      title="ประกันการเดินทาง (Unlimited)"
-      cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ"]}
-      rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-"] }))}
-      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
-      importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
-      dialog={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}ประกัน</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><label className="text-xs font-semibold">ชื่อแผน</label><Input value={f.plan_name} onChange={(e) => setF({ ...f, plan_name: e.target.value })} /></div>
-              <div><label className="text-xs font-semibold">วงเงิน</label><Input value={f.coverage} onChange={(e) => setF({ ...f, coverage: e.target.value })} placeholder="1,000,000 THB" /></div>
-              <div><label className="text-xs font-semibold">ราคา</label><Input type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="350" /></div>
-              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      }
-    />
-  );
-}
-
-/* ========= Reusable simple table ========= */
-interface SimpleTableProps {
-  title: string;
-  cols: string[];
-  rows: { id: string; cells: React.ReactNode[] }[];
-  canEdit: boolean;
-  onAdd: () => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  dialog: React.ReactNode;
-  importExport?: React.ReactNode;
-}
-function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog, importExport }: SimpleTableProps) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm text-muted-foreground">{title} · {rows.length} รายการ</p>
-        <div className="flex items-center gap-2">
-          {importExport}
-          {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
-        </div>
-      </div>
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                {cols.map((c) => <th key={c} className="p-3 text-left">{c}</th>)}
-                {canEdit && <th className="p-3"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/30">
-                  {r.cells.map((c, i) => <td key={i} className="p-3">{c}</td>)}
-                  {canEdit && (
-                    <td className="p-3 text-right whitespace-nowrap">
-                      <Button size="icon" variant="ghost" onClick={() => onEdit(r.id)}><Pencil className="w-4 h-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("ลบรายการนี้?")) onDelete(r.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {dialog}
-    </div>
-  );
-}
+  const openAdd = () => { setEditId(null); setF({ name: "", city: "", co
