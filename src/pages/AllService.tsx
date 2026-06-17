@@ -906,4 +906,200 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [f, setF] = useState({ name: "", city: "", country: "", note: "" });
-  const openAdd = () => { setEditId(null); setF({ name: "", city: "", co
+  const openAdd = () => { setEditId(null); setF({ name: "", city: "", country: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ name: x.name, city: x.city, country: x.country, note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.name) { toast.error("ใส่ชื่อโรงแรม"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+
+  const exportData = useMemo(() => items.map((i) => ({ name: i.name, city: i.city, country: i.country, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ name: String(row.name ?? ""), city: String(row.city ?? ""), country: String(row.country ?? ""), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
+  };
+
+  return (
+    <SimpleTable
+      title="โรงแรม (Unlimited)"
+      cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-"] }))}
+      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
+      dialog={
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}โรงแรม</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><label className="text-xs font-semibold">ชื่อโรงแรม</label><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+              <div><label className="text-xs font-semibold">เมือง</label><Input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></div>
+              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
+              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      }
+    />
+  );
+}
+
+/* ---- Visa ---- */
+const VISA_FIELDS: ExcelField[] = [
+  { key: "visa_type", header: "ประเภทวีซ่า", example: "TR",       required: true },
+  { key: "country",   header: "ประเทศ",       example: "ญี่ปุ่น", required: true },
+  { key: "note",      header: "หมายเหตุ",     example: "" },
+];
+
+function VisaSection({ canEdit }: { canEdit: boolean }) {
+  const items = useServices((s) => s.visas);
+  const add = useServices((s) => s.addVisa);
+  const update = useServices((s) => s.updateVisa);
+  const del = useServices((s) => s.deleteVisa);
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [f, setF] = useState({ visa_type: "TR" as VisaType, country: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ visa_type: "TR", country: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ visa_type: x.visa_type, country: x.country, note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.country) { toast.error("ใส่ประเทศ"); return; } editId ? update(editId, f) : add(f); toast.success("บันทึกแล้ว"); setOpen(false); };
+  const VISA_DESC: Record<VisaType, string> = {
+    "TR": "วีซ่าท่องเที่ยว", "TS": "วีซ่าผ่านทาง", "Non-Immigrant": "วีซ่าทำงาน/ธุรกิจ",
+    "O": "วีซ่าคู่สมรส", "ED": "วีซ่าการศึกษา", "O-A": "วีซ่าเกษียณอายุ (O-A)", "O-X": "วีซ่าเกษียณอายุ (O-X)",
+  };
+
+  const exportData = useMemo(() => items.map((i) => ({ visa_type: i.visa_type, country: i.country, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ visa_type: (row.visa_type as VisaType) || "TR", country: String(row.country ?? ""), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
+  };
+
+  return (
+    <SimpleTable
+      title="Visa (Unlimited)"
+      cols={["ประเภท", "ประเทศ", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-"] }))}
+      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
+      dialog={
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"} Visa</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold">ประเภท</label>
+                <Select value={f.visa_type} onValueChange={(v) => setF({ ...f, visa_type: v as VisaType })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{VISA_TYPES.map((v) => <SelectItem key={v} value={v}>{v} · {VISA_DESC[v]}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></div>
+              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      }
+    />
+  );
+}
+
+/* ---- Insurance ---- */
+const INSURANCE_FIELDS: ExcelField[] = [
+  { key: "plan_name", header: "ชื่อแผน", example: "แผน A",           required: true },
+  { key: "coverage",  header: "วงเงิน",  example: "1,000,000 THB" },
+  { key: "price",     header: "ราคา",    example: "350",             type: "number" },
+  { key: "note",      header: "หมายเหตุ",example: "" },
+];
+
+function InsuranceSection({ canEdit }: { canEdit: boolean }) {
+  const items = useServices((s) => s.insurances);
+  const add = useServices((s) => s.addInsurance);
+  const update = useServices((s) => s.updateInsurance);
+  const del = useServices((s) => s.deleteInsurance);
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [f, setF] = useState({ plan_name: "", coverage: "", price: "", note: "" });
+  const openAdd = () => { setEditId(null); setF({ plan_name: "", coverage: "", price: "", note: "" }); setOpen(true); };
+  const openEdit = (id: string) => { const x = items.find((i) => i.id === id); if (!x) return; setEditId(id); setF({ plan_name: x.plan_name, coverage: x.coverage, price: String(x.price), note: x.note ?? "" }); setOpen(true); };
+  const submit = () => { if (!f.plan_name) { toast.error("ใส่ชื่อแผน"); return; } const p = { ...f, price: Number(f.price || 0) }; editId ? update(editId, p) : add(p); toast.success("บันทึกแล้ว"); setOpen(false); };
+
+  const exportData = useMemo(() => items.map((i) => ({ plan_name: i.plan_name, coverage: i.coverage, price: i.price, note: i.note ?? "" })), [items]);
+  const handleImport = (rows: Record<string, unknown>[]) => {
+    rows.forEach((row) => add({ plan_name: String(row.plan_name ?? ""), coverage: String(row.coverage ?? ""), price: Number(row.price ?? 0), note: String(row.note ?? "") }));
+    toast.success(`นำเข้า ${rows.length} รายการแล้ว`);
+  };
+
+  return (
+    <SimpleTable
+      title="ประกันการเดินทาง (Unlimited)"
+      cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ"]}
+      rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-"] }))}
+      canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
+      dialog={
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{editId ? "แก้ไข" : "เพิ่ม"}ประกัน</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2"><label className="text-xs font-semibold">ชื่อแผน</label><Input value={f.plan_name} onChange={(e) => setF({ ...f, plan_name: e.target.value })} /></div>
+              <div><label className="text-xs font-semibold">วงเงิน</label><Input value={f.coverage} onChange={(e) => setF({ ...f, coverage: e.target.value })} placeholder="1,000,000 THB" /></div>
+              <div><label className="text-xs font-semibold">ราคา</label><Input type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} placeholder="350" /></div>
+              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button><Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      }
+    />
+  );
+}
+
+/* ========= Reusable simple table ========= */
+interface SimpleTableProps {
+  title: string;
+  cols: string[];
+  rows: { id: string; cells: React.ReactNode[] }[];
+  canEdit: boolean;
+  onAdd: () => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  dialog: React.ReactNode;
+  importExport?: React.ReactNode;
+}
+function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog, importExport }: SimpleTableProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm text-muted-foreground">{title} · {rows.length} รายการ</p>
+        <div className="flex items-center gap-2">
+          {importExport}
+          {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
+        </div>
+      </div>
+      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground">
+              <tr>
+                {cols.map((c) => <th key={c} className="p-3 text-left">{c}</th>)}
+                {canEdit && <th className="p-3"></th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-muted/30">
+                  {r.cells.map((c, i) => <td key={i} className="p-3">{c}</td>)}
+                  {canEdit && (
+                    <td className="p-3 text-right whitespace-nowrap">
+                      <Button size="icon" variant="ghost" onClick={() => onEdit(r.id)}><Pencil className="w-4 h-4" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("ลบรายการนี้?")) onDelete(r.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {dialog}
+    </div>
+  );
+}
