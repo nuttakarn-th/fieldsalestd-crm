@@ -720,7 +720,7 @@ export const useCRM = create<CRMState>()(
       // Sales เห็นแค่ข้อมูลตัวเอง | Manager/Admin เห็นทั้งทีม
       const authState = useAuth.getState();
       const currentUser = authState.users.find((u) => u.user_id === authState.currentUserId);
-      const isSalesOnly = currentUser?.role === "Sales";
+      const isSalesOnly = currentUser?.role === "Sales" || currentUser?.role === "OB Co-ordinator";
       const isManager  = currentUser?.role === "Sales Manager";
       // OB Co-ordinator full_names — ใช้ block Manager ไม่ให้เห็น OB data (app-level double-layer)
       const obUserNames = new Set(
