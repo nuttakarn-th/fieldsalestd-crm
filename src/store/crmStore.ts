@@ -721,6 +721,13 @@ export const useCRM = create<CRMState>()(
       const authState = useAuth.getState();
       const currentUser = authState.users.find((u) => u.user_id === authState.currentUserId);
       const isSalesOnly = currentUser?.role === "Sales";
+      const isManager  = currentUser?.role === "Sales Manager";
+      // OB Co-ordinator full_names — ใช้ block Manager ไม่ให้เห็น OB data (app-level double-layer)
+      const obUserNames = new Set(
+        authState.users
+          .filter((u) => u.role === "OB Co-ordinator")
+          .map((u) => u.full_name)
+      );
       // JSON.stringify ใส่ "" รอบชื่อ → รองรับชื่อที่มีเว้นวรรค เช่น "โดนัท สาวงาม"
       const repFilter = JSON.stringify(currentUser?.full_name ?? "");
 
@@ -759,6 +766,19 @@ export const useCRM = create<CRMState>()(
       if (!customers.error && customers.data) criticalUpdates.customers = customers.data as Customer[];
       if (!leads.error && leads.data)         criticalUpdates.leads     = leads.data     as Lead[];
       if (!targets.error && targets.data)     criticalUpdates.targets   = targets.data   as MonthlyTarget[];
+      // Sales Manager: กรอง OB Co-ordinator data ออก (app-level double-layer — RLS กรองที่ DB แล้ว)
+      if (isManager && obUserNames.size > 0) {
+        if (criticalUpdates.customers) {
+          criticalUpdates.customers = criticalUpdates.customers.filter(
+            (c) => !obUserNames.has(c.created_by)
+          );
+        }
+        if (criticalUpdates.leads) {
+          criticalUpdates.leads = criticalUpdates.leads.filter(
+            (l) => !obUserNames.has(l.assigned_to)
+          );
+        }
+      }
       if (Object.keys(criticalUpdates).length) set(criticalUpdates);
       if (customers.data?.length) loadedSummary.push(`customers ${customers.data.length}`);
       if (leads.data?.length)     loadedSummary.push(`leads ${leads.data.length}`);
@@ -848,11 +868,18 @@ export const useCRM = create<CRMState>()(
       if (customers.error) console.warn("[supabase] customers blocked (RLS?) — keeping local data:", customers.error.message);
       if (leads.error)     console.warn("[supabase] leads blocked — keeping local:", leads.error.message);
 
+      // Sales Manager: กรอง OB data ออกจาก routes + quotations
+      const safeRoutes = (isManager && obUserNames.size > 0)
+        ? finalRoutes.filter((r) => !obUserNames.has(r.rep))
+        : finalRoutes;
       const updates: Partial<CRMState> = {
-        routes: finalRoutes, // routes ใช้ smart merge อยู่แล้ว — ปลอดภัย
+        routes: safeRoutes, // routes ใช้ smart merge อยู่แล้ว — ปลอดภัย
       };
       if (!quotations.error && quotations.data !== null) {
-        updates.quotations = quotations.data as QuotationDoc[];
+        const rawQuotations = quotations.data as QuotationDoc[];
+        updates.quotations = (isManager && obUserNames.size > 0)
+          ? rawQuotations.filter((q) => !obUserNames.has(q.rep))
+          : rawQuotations;
         if (quotations.data.length) loadedSummary.push(`quotations ${quotations.data.length}`);
       }
       if (finalRoutes.length) loadedSummary.push(`routes ${finalRoutes.length}`);
