@@ -10,7 +10,7 @@
  */
 import { useEffect } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { useCRM, type Customer, type Lead, type RouteStop, type StopStatus } from "@/store/crmStore";
+import { useCRM, type Customer, type Lead, type RouteStop, type StopStatus, type RoutePlan } from "@/store/crmStore";
 import { useDeleteRequests, type DeleteRequest } from "@/store/deleteRequestStore";
 import { useAuth } from "@/store/authStore";
 import { toast } from "sonner";
@@ -190,6 +190,38 @@ export function DataRealtimeSync() {
       )
       .subscribe();
 
+    // ── route_plans channel ──────────────────────────────────────────────────
+    // ฟัง DELETE → ลบ route ออกจาก store ทุก browser ทันทีเมื่อ Sales ลบ Mission
+    // ฟัง INSERT → เพิ่ม route ใหม่ (Sales เพิ่ม route แล้ว Manager เห็นทันที)
+    const routePlansChannel = supabase
+      .channel("route_plans_realtime")
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "route_plans" },
+        (payload) => {
+          const deleted = payload.old as { route_id: string };
+          if (!deleted.route_id) return;
+          useCRM.setState((s) => ({
+            routes: s.routes.filter((r) => r.route_id !== deleted.route_id),
+          }));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "route_plans" },
+        (payload) => {
+          // INSERT ถูก handle โดย loadRouteFromSupabase แล้วเมื่อ Sales เพิ่ม
+          // แต่ Manager ยังไม่รู้ → เพิ่มเข้า store (stops จะตามมาจาก route_stops channel)
+          const newRoute = payload.new as RoutePlan;
+          if (!newRoute.route_id) return;
+          const { routes } = useCRM.getState();
+          if (!routes.some((r) => r.route_id === newRoute.route_id)) {
+            useCRM.setState({ routes: [{ ...newRoute, stops: [] }, ...routes] });
+          }
+        }
+      )
+      .subscribe();
+
     // ── route_stops channel ───────────────────────────────────────────────────
     // Manager เห็น Sales complete stop แบบ real-time ทันที ไม่ต้อง refresh
     // Sales 2 คนทำ mission พร้อมกันก็ไม่ชนกัน (STATUS_RANK local wins)
@@ -266,6 +298,7 @@ export function DataRealtimeSync() {
       supabase.removeChannel(leadsChannel);
       supabase.removeChannel(notifChannel);
       supabase.removeChannel(deleteReqChannel);
+      supabase.removeChannel(routePlansChannel);
       supabase.removeChannel(routeStopsChannel);
     };
   }, [isManager, currentUserName]);
