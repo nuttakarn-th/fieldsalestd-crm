@@ -47,6 +47,8 @@ export interface TourItem {
   total_seats: number;      // aggregate หรือ legacy value
   quota: number;            // aggregate หรือ legacy value
   periods?: TourPeriod[];   // NEW — multi-period (Option B)
+  pdf_url?: string;         // URL ไฟล์ PDF โปรแกรมทัวร์ใน Supabase Storage
+  is_published?: boolean;   // แสดงในหน้า Package Program หรือไม่
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
@@ -111,6 +113,13 @@ interface ServiceState {
   addInsurance: (i: Omit<InsuranceItem, "id">) => void;
   updateInsurance: (id: string, p: Partial<InsuranceItem>) => void;
   deleteInsurance: (id: string) => void;
+
+  /** อัปโหลด PDF โปรแกรมทัวร์ไป Supabase Storage แล้วบันทึก pdf_url */
+  uploadTourPDF: (tourId: string, file: File) => Promise<string | null>;
+  /** ลบ PDF และล้าง pdf_url + is_published */
+  deleteTourPDF: (tourId: string) => Promise<void>;
+  /** เปิด/ปิด แสดงในหน้า Package Program */
+  togglePublish: (tourId: string, value: boolean) => void;
 
   loadFromSupabase: () => Promise<void>;
 }
@@ -226,6 +235,43 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, quota: updated.quota });
+      },
+
+      // ── Tour PDF + Publish ──────────────────────────────────────────────────
+      uploadTourPDF: async (tourId, file) => {
+        if (!SUPABASE_ENABLED || !supabase) return null;
+        const ext  = file.name.split(".").pop() ?? "pdf";
+        const path = `${tourId}/${Date.now()}.${ext}`;
+        const { data, error } = await supabase.storage
+          .from("tour-pdfs")
+          .upload(path, file, { contentType: "application/pdf", upsert: true });
+        if (error || !data) { console.error("[supabase] upload tour PDF ล้มเหลว:", error); return null; }
+        const { data: urlData } = supabase.storage.from("tour-pdfs").getPublicUrl(data.path);
+        const pdf_url = urlData.publicUrl;
+        set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, pdf_url } : x) });
+        sbUpdate("tours", tourId, { pdf_url });
+        return pdf_url;
+      },
+
+      deleteTourPDF: async (tourId) => {
+        if (!SUPABASE_ENABLED || !supabase) return;
+        const tour = get().tours.find((x) => x.id === tourId);
+        if (tour?.pdf_url) {
+          // path = ส่วนหลัง bucket URL
+          const prefix = `/storage/v1/object/public/tour-pdfs/`;
+          const idx    = tour.pdf_url.indexOf(prefix);
+          if (idx !== -1) {
+            const objPath = tour.pdf_url.slice(idx + prefix.length);
+            await supabase.storage.from("tour-pdfs").remove([objPath]);
+          }
+        }
+        set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, pdf_url: undefined, is_published: false } : x) });
+        sbUpdate("tours", tourId, { pdf_url: null, is_published: false });
+      },
+
+      togglePublish: (tourId, value) => {
+        set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, is_published: value } : x) });
+        sbUpdate("tours", tourId, { is_published: value });
       },
 
       // ── Car ──

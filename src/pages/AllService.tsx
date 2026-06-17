@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,9 +201,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const addTour     = useServices((s) => s.addTour);
   const updateTour  = useServices((s) => s.updateTour);
   const deleteTour  = useServices((s) => s.deleteTour);
-  const addPeriod    = useServices((s) => s.addPeriod);
-  const updatePeriod = useServices((s) => s.updatePeriod);
-  const deletePeriod = useServices((s) => s.deletePeriod);
+  const addPeriod      = useServices((s) => s.addPeriod);
+  const updatePeriod   = useServices((s) => s.updatePeriod);
+  const deletePeriod   = useServices((s) => s.deletePeriod);
+  const uploadTourPDF  = useServices((s) => s.uploadTourPDF);
+  const deleteTourPDF  = useServices((s) => s.deleteTourPDF);
+  const togglePublish  = useServices((s) => s.togglePublish);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   // ── program dialog ──
   const [open, setOpen]       = useState(false);
@@ -477,6 +481,61 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       {/* Actions */}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {/* PDF indicator (always visible if has pdf) */}
+                          {t.pdf_url && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                              {t.is_published ? "🌐 Live" : "PDF"}
+                            </span>
+                          )}
+                          {/* PDF Upload / Remove */}
+                          {t.pdf_url ? (
+                            <Button
+                              size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF"
+                              onClick={async () => {
+                                if (!confirm("ลบ PDF และยกเลิกการแสดงในเว็บ?")) return;
+                                await deleteTourPDF(t.id);
+                                toast.success("ลบ PDF แล้ว");
+                              }}
+                            ><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          ) : (
+                            <>
+                              <input
+                                id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0]; e.target.value = "";
+                                  if (!file) return;
+                                  if (file.size > 20 * 1024 * 1024) { toast.error("ไฟล์ใหญ่เกิน 20 MB"); return; }
+                                  setUploadingId(t.id);
+                                  const url = await uploadTourPDF(t.id, file);
+                                  setUploadingId(null);
+                                  if (url) toast.success("อัปโหลด PDF สำเร็จ"); else toast.error("อัปโหลดล้มเหลว");
+                                }}
+                              />
+                              <Button
+                                size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF โปรแกรม"
+                                disabled={uploadingId === t.id}
+                                onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}
+                              >
+                                {uploadingId === t.id
+                                  ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                  : <FileUp className="w-3.5 h-3.5" />}
+                              </Button>
+                            </>
+                          )}
+                          {/* Publish toggle — เปิดได้เฉพาะเมื่อมี PDF */}
+                          <Button
+                            size="icon" variant="ghost" className="h-7 w-7"
+                            title={t.is_published ? "ซ่อนจากหน้าเว็บ" : "แสดงในหน้าเว็บ"}
+                            disabled={!t.pdf_url}
+                            onClick={() => {
+                              togglePublish(t.id, !t.is_published);
+                              toast.success(t.is_published ? "ซ่อนจากหน้า Package แล้ว" : "แสดงในหน้า Package แล้ว");
+                            }}
+                          >
+                            {t.is_published
+                              ? <Globe className="w-3.5 h-3.5 text-green-600" />
+                              : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
                             const booked = t.total_seats - t.quota;

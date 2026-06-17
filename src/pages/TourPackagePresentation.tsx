@@ -34,6 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useSiteSettings, type TourPackageItem, type TourPackageBanner, type SocialLink, type PhoneEntry } from "@/store/siteSettingsStore";
 import { applyOgMeta } from "@/lib/ogMeta";
 import { useCurrentUser } from "@/store/authStore";
+import { useServices } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
@@ -2098,8 +2099,39 @@ export default function TourPackagePresentation() {
   const user      = useCurrentUser();
   const canEdit   = !!user && (["Admin", "Sales Manager", "OB Co-ordinator", "Marketing"] as string[]).includes(user.role);
 
-  const packages         = settings.tourPackages ?? [];
+  const manualPackages     = settings.tourPackages ?? [];
   const tourPackageBanners = settings.tourPackageBanners ?? [];
+
+  // ── Published tours จาก Stock (is_published=true + pdf_url) ──────────────
+  const allTours = useServices((s) => s.tours);
+  const publishedTours = useMemo((): TourPackageItem[] =>
+    allTours
+      .filter((t) => t.is_published && t.pdf_url)
+      .map((t) => {
+        const continentFound = WORLD_COUNTRIES.find((w) => w.name === t.country)?.continent ?? "เอเชีย";
+        const continent = t.category === "Domestic" ? "ไทย" : continentFound;
+        const priceStr  = t.periods?.length
+          ? `฿${t.periods[0].price_per_seat.toLocaleString()}`
+          : t.price_per_seat ? `฿${t.price_per_seat.toLocaleString()}` : "";
+        return {
+          id:          `tour_${t.id}`,   // prefix เพื่อแยกออกจาก manual
+          title:       t.city,
+          duration:    t.duration,
+          continent,
+          country:     t.country,
+          city:        t.city,
+          tourTypes:   [t.category],
+          pdfUrl:      t.pdf_url!,
+          pdfName:     `${t.code}.pdf`,
+          description: priceStr ? `${t.code} • ${priceStr}` : t.code,
+          isHighlight: false,
+          uploadedAt:  new Date().toISOString(),
+        } satisfies TourPackageItem;
+      }),
+  [allTours]);
+
+  // รวม manual + published tours (manual มาก่อน)
+  const packages = useMemo(() => [...manualPackages, ...publishedTours], [manualPackages, publishedTours]);
 
   // ── OG Meta injection ─────────────────────────────────────────────────────
   useEffect(() => {
