@@ -4,18 +4,32 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 // ===== Tour =====
 export type TourCategory = "International Tour" | "Domestic" | "Incentive";
+
+/** Period เดินทางของทัวร์ 1 โปรแกรม — เช่น HQO-TFU06-EU มีหลาย period */
+export interface TourPeriod {
+  period_id: string;        // uuid ภายใน (ไม่ใช่ PK ใน DB)
+  travel_date: string;      // เช่น "26-31 ก.ค. 2569" (text ยืดหยุ่น)
+  price_per_seat: number;
+  total_seats: number;      // ที่นั่งทั้งหมดของ period นี้
+  quota: number;            // ที่นั่งว่างของ period นี้
+  airline_code?: string;    // เช่น "FD", "TG"
+  project?: string;         // โครงการ (ถ้ามี)
+  note?: string;            // หมายเหตุเฉพาะ period
+}
+
 export interface TourItem {
   id: string;
   category: TourCategory;
   code: string;
   city: string;
   country: string;
-  period: string;
+  period: string;           // legacy — ใช้เมื่อ periods[] ว่าง
   duration: string;
-  price_per_seat: number;
+  price_per_seat: number;   // legacy — ใช้เมื่อ periods[] ว่าง
   note?: string;
-  total_seats: number;  // ที่นั่งทั้งหมด (คงที่ — ตั้งตอน Admin เพิ่มทัวร์)
-  quota: number;        // ที่นั่งว่างเหลืออยู่ (ลดอัตโนมัติเมื่อ Closed Won)
+  total_seats: number;      // aggregate หรือ legacy value
+  quota: number;            // aggregate หรือ legacy value
+  periods?: TourPeriod[];   // NEW — multi-period (Option B)
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
@@ -48,8 +62,18 @@ interface ServiceState {
   addTour: (t: Omit<TourItem, "id">) => void;
   updateTour: (id: string, p: Partial<TourItem>) => void;
   deleteTour: (id: string) => void;
-  /** ปรับที่นั่งว่าง: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
+  /** ปรับที่นั่งว่าง (legacy — tour ที่ไม่มี periods[]): delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
   adjustQuota: (tourId: string, delta: number) => void;
+
+  // ── Period CRUD ──
+  /** เพิ่ม period ใหม่ให้โปรแกรม */
+  addPeriod: (tourId: string, p: Omit<TourPeriod, "period_id">) => void;
+  /** แก้ไข period ที่มีอยู่ */
+  updatePeriod: (tourId: string, periodId: string, p: Partial<Omit<TourPeriod, "period_id">>) => void;
+  /** ลบ period */
+  deletePeriod: (tourId: string, periodId: string) => void;
+  /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
+  adjustPeriodQuota: (tourId: string, periodId: string, delta: number) => void;
 
   addCar: (c: Omit<CarItem, "id">) => void;
   updateCar: (id: string, p: Partial<CarItem>) => void;
@@ -126,6 +150,65 @@ export const useServices = create<ServiceState>()(
         const newQuota = Math.max(0, tour.quota + delta);
         set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, quota: newQuota } : x) });
         sbUpdate("tours", tourId, { quota: newQuota });
+      },
+
+      // ── Period CRUD ──────────────────────────────────────────────────────────
+      addPeriod: (tourId, p) => {
+        const period: TourPeriod = { ...p, period_id: uid() };
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = [...(t.periods ?? []), period];
+          // aggregate top-level quota/total_seats จาก periods ทั้งหมด
+          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          return { ...t, periods, total_seats: totalSeats, quota };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+      },
+
+      updatePeriod: (tourId, periodId, p) => {
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = (t.periods ?? []).map((x) =>
+            x.period_id === periodId ? { ...x, ...p } : x
+          );
+          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          return { ...t, periods, total_seats: totalSeats, quota };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+      },
+
+      deletePeriod: (tourId, periodId) => {
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = (t.periods ?? []).filter((x) => x.period_id !== periodId);
+          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          return { ...t, periods, total_seats: totalSeats, quota };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+      },
+
+      adjustPeriodQuota: (tourId, periodId, delta) => {
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = (t.periods ?? []).map((x) => {
+            if (x.period_id !== periodId) return x;
+            return { ...x, quota: Math.max(0, x.quota + delta) };
+          });
+          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          return { ...t, periods, quota };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, quota: updated.quota });
       },
 
       // ── Car ──
@@ -216,12 +299,17 @@ export const useServices = create<ServiceState>()(
           ]);
           const updates: Partial<ServiceState> = {};
           if (tours.data) {
-            // backward compat: ถ้า total_seats ยังไม่มีใน DB → ใช้ quota เป็น total_seats
-            updates.tours = (tours.data as (TourItem & { quota?: number })[]).map((t) => ({
-              ...t,
-              total_seats: t.total_seats > 0 ? t.total_seats : (t.quota ?? 0),
-              quota: t.quota ?? 0,
-            }));
+            updates.tours = (tours.data as (TourItem & { quota?: number })[]).map((t) => {
+              const periods: TourPeriod[] = Array.isArray(t.periods) ? t.periods : [];
+              // aggregate top-level fields จาก periods ถ้ามี — ไม่งั้นใช้ legacy value
+              const totalSeats = periods.length > 0
+                ? periods.reduce((s, p) => s + p.total_seats, 0)
+                : (t.total_seats > 0 ? t.total_seats : (t.quota ?? 0));
+              const quota = periods.length > 0
+                ? periods.reduce((s, p) => s + p.quota, 0)
+                : (t.quota ?? 0);
+              return { ...t, periods, total_seats: totalSeats, quota };
+            });
           }
           if (cars.data)       updates.cars       = cars.data       as CarItem[];
           if (flights.data)    updates.flights    = flights.data    as FlightItem[];

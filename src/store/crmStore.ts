@@ -75,6 +75,7 @@ export interface Lead {
   scope: TripScope;
   program: string;
   tour_id?: string;       // FK → TourItem.id (มีเฉพาะทัวร์ที่เลือกจาก All Service)
+  period_id?: string;     // FK → TourPeriod.period_id (ระบุ period ที่เลือก)
   pax_count: number;
   travel_month: string;
   tour_type: string;
@@ -1197,13 +1198,21 @@ export const useCRM = create<CRMState>()(
     // ── Auto-deduct / restore tour quota ──
     const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
     if (isTour && lead.tour_id) {
-      const { adjustQuota } = useServices.getState();
+      const { adjustQuota, adjustPeriodQuota } = useServices.getState();
       if (status === "Closed Won" && prevStatus !== "Closed Won") {
-        // ปิดดีลทัวร์ → ตัดที่นั่งออก
-        adjustQuota(lead.tour_id, -lead.pax_count);
+        if (lead.period_id) {
+          // ปิดดีลทัวร์ multi-period → ตัดที่นั่ง period ที่ระบุ
+          adjustPeriodQuota(lead.tour_id, lead.period_id, -lead.pax_count);
+        } else {
+          adjustQuota(lead.tour_id, -lead.pax_count);
+        }
       } else if (prevStatus === "Closed Won" && status !== "Closed Won") {
-        // ยกเลิกดีลที่เคย Won → คืนที่นั่งกลับ
-        adjustQuota(lead.tour_id, +lead.pax_count);
+        if (lead.period_id) {
+          // ยกเลิกดีลที่เคย Won → คืนที่นั่ง period กลับ
+          adjustPeriodQuota(lead.tour_id, lead.period_id, +lead.pax_count);
+        } else {
+          adjustQuota(lead.tour_id, +lead.pax_count);
+        }
       }
     }
 

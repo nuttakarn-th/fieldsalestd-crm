@@ -73,7 +73,8 @@ export function CustomerLeadDialog({
   // --- Lead fields ---
   const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
   const [intProgram, setIntProgram] = useState("__custom__");
-  const [tourId, setTourId] = useState<string | undefined>(undefined); // FK → TourItem.id
+  const [tourId, setTourId]   = useState<string | undefined>(undefined); // FK → TourItem.id
+  const [periodId, setPeriodId] = useState<string | undefined>(undefined); // FK → TourPeriod.period_id
   const [carServiceId, setCarServiceId] = useState("__custom__");
   const [flightServiceId, setFlightServiceId] = useState("__custom__");
   const [intNote, setIntNote] = useState("");
@@ -139,7 +140,7 @@ export function CustomerLeadDialog({
   const reset = () => {
     setMode("new"); setExistingId(""); setFullName(""); setCompany(""); setPhone(""); setLineId("");
     setEmail(""); setProvince(""); setBirthday(""); setInterests([]); setMeetingNote("");
-    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setTourId(undefined); setIntNote("");
+    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined); setIntNote("");
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setDomProvince(""); setCarDetail(""); setFlightDetail(""); setPax("2"); setQuotedPrice("");
     setUrgency("Warm"); setNextFollowUp(new Date().toISOString().split("T")[0]);
@@ -184,6 +185,7 @@ export function CustomerLeadDialog({
       scope: buType === "ทัวร์ภายในประเทศ" ? "Domestic" : "International",
       program,
       tour_id: tourId,
+      period_id: periodId,
       pax_count: parseInt(pax) || 1,
       travel_month: travelMonth,
       tour_type: tourType,
@@ -297,7 +299,7 @@ export function CustomerLeadDialog({
             <>
               <Label>โปรแกรมทัวร์ <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span></Label>
               <Select value={intProgram} onValueChange={(v) => {
-                setIntProgram(v);
+                setIntProgram(v); setPeriodId(undefined);
                 if (v !== "__custom__") {
                   const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
                   setTourId(t?.id);
@@ -323,6 +325,29 @@ export function CustomerLeadDialog({
                   <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
                 </SelectContent>
               </Select>
+              {/* Period selector — แสดงเมื่อทัวร์ที่เลือกมี periods[] */}
+              {tourId && (() => {
+                const selectedTour = tours.find((x) => x.id === tourId);
+                const periods = selectedTour?.periods ?? [];
+                if (periods.length === 0) return null;
+                return (
+                  <div>
+                    <Label className="text-xs">เลือกวันเดินทาง (Period) *</Label>
+                    <Select value={periodId ?? "__none__"} onValueChange={(v) => setPeriodId(v === "__none__" ? undefined : v)}>
+                      <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
+                        {periods.map((p) => (
+                          <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
+                            {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
+                            {p.quota === 0 ? " 🔴 FULL" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
               {intProgram === "__custom__" && (
                 <Textarea placeholder="ระบุโปรแกรมที่ต้องการ..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
               )}
@@ -337,7 +362,7 @@ export function CustomerLeadDialog({
             <>
               <Label>โปรแกรมทัวร์ในประเทศ</Label>
               <Select value={intProgram} onValueChange={(v) => {
-                setIntProgram(v);
+                setIntProgram(v); setPeriodId(undefined);
                 if (v !== "__custom__") {
                   const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
                   setTourId(t?.id);
@@ -353,6 +378,29 @@ export function CustomerLeadDialog({
                   <SelectItem value="__custom__">📝 ระบุจังหวัด/รายละเอียดเอง...</SelectItem>
                 </SelectContent>
               </Select>
+              {/* Period selector Domestic */}
+              {tourId && (() => {
+                const selectedTour = tours.find((x) => x.id === tourId);
+                const periods = selectedTour?.periods ?? [];
+                if (periods.length === 0) return null;
+                return (
+                  <div>
+                    <Label className="text-xs">เลือกวันเดินทาง (Period)</Label>
+                    <Select value={periodId ?? "__none__"} onValueChange={(v) => setPeriodId(v === "__none__" ? undefined : v)}>
+                      <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
+                        {periods.map((p) => (
+                          <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
+                            {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
+                            {p.quota === 0 ? " 🔴 FULL" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()}
               {intProgram === "__custom__" && (
                 <Input value={domProvince} onChange={(e) => setDomProvince(e.target.value)} placeholder="เช่น เชียงใหม่ 3 วัน 2 คืน" />
               )}

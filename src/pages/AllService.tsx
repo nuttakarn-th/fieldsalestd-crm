@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { canEditServices } from "@/config/roleMenus";
 import {
   useServices,
   type TourCategory,
+  type TourPeriod,
   type SeatMaterial,
   type VisaType,
 } from "@/store/serviceStore";
@@ -23,7 +24,7 @@ const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
-// ── Quota Progress Bar (เฉพาะ Tour) ──
+// ── Quota Progress Bar (legacy tour ที่ไม่มี periods[]) ──
 function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; total_seats: number; canEdit: boolean; tourId: string }) {
   const adjustQuota = useServices((s) => s.adjustQuota);
   const [adjusting, setAdjusting] = useState(false);
@@ -33,11 +34,7 @@ function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; tota
 
   const booked = total_seats - quota;
   const pct = Math.round((quota / total_seats) * 100);
-  const barColor = quota === 0
-    ? "bg-destructive"
-    : pct <= 20
-    ? "bg-amber-500"
-    : "bg-success";
+  const barColor = quota === 0 ? "bg-destructive" : pct <= 20 ? "bg-amber-500" : "bg-success";
 
   return (
     <div className="min-w-[110px] space-y-0.5">
@@ -52,42 +49,69 @@ function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; tota
         <span className="text-[10px] text-muted-foreground">จอง {booked} ที่</span>
         {quota === 0 && <span className="text-[10px] font-bold text-destructive">FULL</span>}
       </div>
-      {/* Admin ±adjust */}
       {canEdit && !adjusting && (
-        <button
-          className="text-[10px] text-primary hover:underline"
-          onClick={() => setAdjusting(true)}
-        >ปรับที่นั่ง ±</button>
+        <button className="text-[10px] text-primary hover:underline" onClick={() => setAdjusting(true)}>ปรับที่นั่ง ±</button>
       )}
       {canEdit && adjusting && (
         <div className="flex items-center gap-1 mt-1">
-          <button
-            className="w-5 h-5 rounded border text-xs flex items-center justify-center hover:bg-muted"
-            onClick={() => { adjustQuota(tourId, -1); }}
-          ><Minus className="w-3 h-3" /></button>
-          <Input
-            type="number"
-            className="h-5 w-14 text-[10px] px-1"
-            placeholder="±"
-            value={delta}
-            onChange={(e) => setDelta(e.target.value)}
-          />
-          <Button
-            size="sm"
-            className="h-5 text-[10px] px-2"
-            onClick={() => {
-              const d = parseInt(delta);
-              if (!isNaN(d) && d !== 0) {
-                adjustQuota(tourId, d);
-                toast.success(`ปรับที่นั่ง ${d > 0 ? "+" : ""}${d} แล้ว`);
-              }
-              setDelta("");
-              setAdjusting(false);
-            }}
-          >ตกลง</Button>
-          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1" onClick={() => { setDelta(""); setAdjusting(false); }}>
-            ✕
-          </Button>
+          <button className="w-5 h-5 rounded border text-xs flex items-center justify-center hover:bg-muted" onClick={() => adjustQuota(tourId, -1)}>
+            <Minus className="w-3 h-3" />
+          </button>
+          <Input type="number" className="h-5 w-14 text-[10px] px-1" placeholder="±" value={delta} onChange={(e) => setDelta(e.target.value)} />
+          <Button size="sm" className="h-5 text-[10px] px-2" onClick={() => {
+            const d = parseInt(delta);
+            if (!isNaN(d) && d !== 0) { adjustQuota(tourId, d); toast.success(`ปรับที่นั่ง ${d > 0 ? "+" : ""}${d} แล้ว`); }
+            setDelta(""); setAdjusting(false);
+          }}>ตกลง</Button>
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1" onClick={() => { setDelta(""); setAdjusting(false); }}>✕</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Period Quota Bar (inline สำหรับ period sub-table) ──
+function PeriodQuotaBar({ quota, total_seats, canEdit, tourId, periodId }: {
+  quota: number; total_seats: number; canEdit: boolean; tourId: string; periodId: string;
+}) {
+  const adjustPeriodQuota = useServices((s) => s.adjustPeriodQuota);
+  const [adjusting, setAdjusting] = useState(false);
+  const [delta, setDelta] = useState("");
+
+  if (total_seats === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  const booked = total_seats - quota;
+  const pct = Math.round((quota / total_seats) * 100);
+  const barColor = quota === 0 ? "bg-destructive" : pct <= 20 ? "bg-amber-500" : "bg-success";
+
+  return (
+    <div className="min-w-[100px] space-y-0.5">
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span className="font-semibold text-foreground">ว่าง {quota}</span>
+        <span>/{total_seats}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground">จอง {booked}</span>
+        {quota === 0 && <span className="text-[10px] font-bold text-destructive">FULL</span>}
+      </div>
+      {canEdit && !adjusting && (
+        <button className="text-[10px] text-primary hover:underline" onClick={() => setAdjusting(true)}>ปรับ ±</button>
+      )}
+      {canEdit && adjusting && (
+        <div className="flex items-center gap-1 mt-1">
+          <button className="w-5 h-5 rounded border text-xs flex items-center justify-center hover:bg-muted"
+            onClick={() => adjustPeriodQuota(tourId, periodId, -1)}>
+            <Minus className="w-3 h-3" />
+          </button>
+          <Input type="number" className="h-5 w-12 text-[10px] px-1" placeholder="±" value={delta} onChange={(e) => setDelta(e.target.value)} />
+          <Button size="sm" className="h-5 text-[10px] px-2" onClick={() => {
+            const d = parseInt(delta);
+            if (!isNaN(d) && d !== 0) { adjustPeriodQuota(tourId, periodId, d); toast.success(`ปรับ ${d > 0 ? "+" : ""}${d}`); }
+            setDelta(""); setAdjusting(false);
+          }}>OK</Button>
+          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1" onClick={() => { setDelta(""); setAdjusting(false); }}>✕</Button>
         </div>
       )}
     </div>
@@ -145,45 +169,58 @@ const TOUR_FIELDS: ExcelField[] = [
   { key: "note",          header: "หมายเหตุ",          example: "ซากุระบาน" },
 ];
 
+// ── blank form helpers ──────────────────────────────────────────────────────
+const blankTourForm = () => ({
+  category: "International Tour" as TourCategory,
+  code: "", city: "", country: "",
+  startDate: "", returnDate: "",
+  days: "", nights: "",
+  price_per_seat: "",
+  note: "",
+  total_seats: "",
+});
+const blankPeriodForm = () => ({
+  travel_date: "",
+  price_per_seat: "",
+  total_seats: "",
+  airline_code: "",
+  project: "",
+  note: "",
+});
+
 function TourSection({ canEdit }: { canEdit: boolean }) {
-  const tours = useServices((s) => s.tours);
-  const addTour = useServices((s) => s.addTour);
-  const updateTour = useServices((s) => s.updateTour);
-  const deleteTour = useServices((s) => s.deleteTour);
+  const tours       = useServices((s) => s.tours);
+  const addTour     = useServices((s) => s.addTour);
+  const updateTour  = useServices((s) => s.updateTour);
+  const deleteTour  = useServices((s) => s.deleteTour);
+  const addPeriod    = useServices((s) => s.addPeriod);
+  const updatePeriod = useServices((s) => s.updatePeriod);
+  const deletePeriod = useServices((s) => s.deletePeriod);
 
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    category: "International Tour" as TourCategory,
-    code: "", city: "", country: "",
-    startDate: "", returnDate: "",
-    days: "", nights: "",
-    price_per_seat: "",
-    note: "",
-    total_seats: "",
-  });
+  // ── program dialog ──
+  const [open, setOpen]       = useState(false);
+  const [editId, setEditId]   = useState<string | null>(null);
+  const [form, setForm]       = useState(blankTourForm());
 
-  const blankForm = () => ({
-    category: "International Tour" as TourCategory,
-    code: "", city: "", country: "",
-    startDate: "", returnDate: "",
-    days: "", nights: "",
-    price_per_seat: "",
-    note: "",
-    total_seats: "",
-  });
+  // ── period dialog ──
+  const [pOpen, setPOpen]         = useState(false);
+  const [pTourId, setPTourId]     = useState<string>("");
+  const [pEditId, setPEditId]     = useState<string | null>(null); // period_id
+  const [pForm, setPForm]         = useState(blankPeriodForm());
+
+  // ── expanded programs ──
+  const [expanded, setExpanded]   = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   const parseDuration = (s: string) => {
-    const dMatch = s.match(/(\d+)\s*วัน/);
-    const nMatch = s.match(/(\d+)\s*คืน/);
+    const dMatch = s.match(/(\d+)\s*วัน/); const nMatch = s.match(/(\d+)\s*คืน/);
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
   };
-
   const parsePeriod = (p: string) => {
     const m = p.match(/(\d{4}-\d{2}-\d{2}).*?(\d{4}-\d{2}-\d{2})/);
     return { startDate: m?.[1] ?? "", returnDate: m?.[2] ?? "" };
   };
-
   const fmtThai = (iso: string): string => {
     if (!iso) return "";
     try { return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }); }
@@ -192,8 +229,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   React.useEffect(() => {
     if (form.startDate && form.returnDate) {
-      const s = new Date(form.startDate);
-      const r = new Date(form.returnDate);
+      const s = new Date(form.startDate); const r = new Date(form.returnDate);
       if (!isNaN(s.getTime()) && !isNaN(r.getTime()) && r >= s) {
         const nights = Math.round((r.getTime() - s.getTime()) / 86400000);
         setForm((f) => ({ ...f, days: String(nights + 1), nights: String(nights) }));
@@ -202,77 +238,87 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.startDate, form.returnDate]);
 
-  const openAdd = () => { setEditId(null); setForm(blankForm()); setOpen(true); };
+  // ── program open/submit ──
+  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
-    const dur = parseDuration(t.duration);
-    const per = parsePeriod(t.period);
-    setForm({
-      category: t.category, code: t.code, city: t.city, country: t.country,
-      startDate: per.startDate, returnDate: per.returnDate,
-      days: dur.days, nights: dur.nights,
-      price_per_seat: String(t.price_per_seat),
-      note: t.note ?? "",
-      total_seats: String(t.total_seats),
-    });
+    const dur = parseDuration(t.duration); const per = parsePeriod(t.period);
+    setForm({ category: t.category, code: t.code, city: t.city, country: t.country,
+      startDate: per.startDate, returnDate: per.returnDate, days: dur.days, nights: dur.nights,
+      price_per_seat: String(t.price_per_seat), note: t.note ?? "", total_seats: String(t.total_seats) });
     setOpen(true);
   };
-
   const submit = () => {
     if (!form.code || !form.city) { toast.error("กรุณากรอกรหัสและชื่อเมือง"); return; }
-    const days = Number(form.days || 0);
-    const nights = Number(form.nights || 0);
+    const days = Number(form.days || 0); const nights = Number(form.nights || 0);
     const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
     const period = form.startDate && form.returnDate
-      ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}`
-      : "";
+      ? `${fmtThai(form.startDate)} - ${fmtThai(form.returnDate)} | ${form.startDate} ถึง ${form.returnDate}` : "";
     const newTotalSeats = Number(form.total_seats || 0);
-
     if (editId) {
       const existing = tours.find((x) => x.id === editId);
-      // ถ้า total_seats เพิ่มขึ้น → เพิ่ม quota ตามส่วนต่าง
-      const seatDiff = existing ? newTotalSeats - existing.total_seats : 0;
-      const newQuota = existing ? Math.max(0, existing.quota + seatDiff) : newTotalSeats;
-      updateTour(editId, {
-        category: form.category, code: form.code, city: form.city, country: form.country,
-        period, duration,
-        price_per_seat: Number(form.price_per_seat || 0),
-        note: form.note,
-        total_seats: newTotalSeats,
-        quota: newQuota,
-      });
+      const hasPeriods = (existing?.periods?.length ?? 0) > 0;
+      const seatDiff = existing && !hasPeriods ? newTotalSeats - existing.total_seats : 0;
+      const newQuota = existing && !hasPeriods ? Math.max(0, existing.quota + seatDiff) : (existing?.quota ?? newTotalSeats);
+      updateTour(editId, { category: form.category, code: form.code, city: form.city, country: form.country,
+        period, duration, price_per_seat: Number(form.price_per_seat || 0), note: form.note,
+        ...(!hasPeriods ? { total_seats: newTotalSeats, quota: newQuota } : {}) });
     } else {
-      addTour({
-        category: form.category, code: form.code, city: form.city, country: form.country,
-        period, duration,
-        price_per_seat: Number(form.price_per_seat || 0),
-        note: form.note,
-        total_seats: newTotalSeats,
-        quota: newTotalSeats, // เริ่มต้น quota = total_seats (ยังว่างทั้งหมด)
-      });
+      addTour({ category: form.category, code: form.code, city: form.city, country: form.country,
+        period, duration, price_per_seat: Number(form.price_per_seat || 0), note: form.note,
+        total_seats: newTotalSeats, quota: newTotalSeats, periods: [] });
     }
-    toast.success(editId ? "อัปเดตทัวร์แล้ว" : "เพิ่มทัวร์ใหม่แล้ว");
-    setOpen(false);
+    toast.success(editId ? "อัปเดตโปรแกรมแล้ว" : "เพิ่มโปรแกรมใหม่แล้ว"); setOpen(false);
+  };
+
+  // ── period open/submit ──
+  const openAddPeriod = (tourId: string) => {
+    setPTourId(tourId); setPEditId(null); setPForm(blankPeriodForm()); setPOpen(true);
+    setExpanded((prev) => new Set([...prev, tourId])); // auto-expand
+  };
+  const openEditPeriod = (tourId: string, p: TourPeriod) => {
+    setPTourId(tourId); setPEditId(p.period_id);
+    setPForm({ travel_date: p.travel_date, price_per_seat: String(p.price_per_seat),
+      total_seats: String(p.total_seats), airline_code: p.airline_code ?? "",
+      project: p.project ?? "", note: p.note ?? "" });
+    setPOpen(true);
+  };
+  const submitPeriod = () => {
+    if (!pForm.travel_date) { toast.error("ระบุวันเดินทาง"); return; }
+    const seats = Number(pForm.total_seats || 0);
+    const payload: Omit<TourPeriod, "period_id"> = {
+      travel_date: pForm.travel_date,
+      price_per_seat: Number(pForm.price_per_seat || 0),
+      total_seats: seats,
+      quota: pEditId
+        ? (tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId)?.quota ?? seats)
+        : seats,
+      airline_code: pForm.airline_code || undefined,
+      project: pForm.project || undefined,
+      note: pForm.note || undefined,
+    };
+    if (pEditId) {
+      updatePeriod(pTourId, pEditId, payload);
+      toast.success("อัปเดต period แล้ว");
+    } else {
+      addPeriod(pTourId, payload);
+      toast.success("เพิ่ม period ใหม่แล้ว");
+    }
+    setPOpen(false);
   };
 
   const exportData = useMemo(() =>
-    tours.map((t) => ({
-      category: t.category, code: t.code, city: t.city, country: t.country,
-      price_per_seat: t.price_per_seat, total_seats: t.total_seats, note: t.note ?? "",
-    })), [tours]);
-
+    tours.map((t) => ({ category: t.category, code: t.code, city: t.city, country: t.country,
+      price_per_seat: t.price_per_seat, total_seats: t.total_seats, note: t.note ?? "" })), [tours]);
   const handleImport = (rows: Record<string, unknown>[]) => {
     rows.forEach((row) => {
       const seats = Number(row.total_seats ?? 0);
-      addTour({
-        category: (row.category as TourCategory) || "International Tour",
+      addTour({ category: (row.category as TourCategory) || "International Tour",
         code: String(row.code ?? ""), city: String(row.city ?? ""),
         country: String(row.country ?? ""), period: "", duration: "",
         price_per_seat: Number(row.price_per_seat ?? 0),
-        total_seats: seats, quota: seats,
-        note: String(row.note ?? ""),
-      });
+        total_seats: seats, quota: seats, note: String(row.note ?? ""), periods: [] });
     });
     toast.success(`นำเข้า ${rows.length} ทัวร์แล้ว`);
   };
@@ -282,15 +328,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImport} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
         </div>
       </div>
+
       {TOUR_CATS.map((cat) => {
         const items = tours.filter((t) => t.category === cat);
         if (items.length === 0) return null;
@@ -300,49 +345,137 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               <Badge className="bg-primary text-primary-foreground">{cat}</Badge>
               <span className="text-xs text-muted-foreground">{items.length} โปรแกรม</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-muted-foreground">
-                  <tr>
-                    <th className="p-2 text-left">รหัส</th>
-                    <th className="p-2 text-left">เมือง / ประเทศ</th>
-                    <th className="p-2 text-left">ช่วงเวลา</th>
-                    <th className="p-2 text-left">ระยะเวลา</th>
-                    <th className="p-2 text-right">ราคา/ที่นั่ง</th>
-                    <th className="p-2 text-left">หมายเหตุ</th>
-                    <th className="p-2 text-left">ที่นั่ง / โควต้า</th>
-                    {canEdit && <th className="p-2"></th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {items.map((t) => (
-                    <tr key={t.id} className="hover:bg-muted/30">
-                      <td className="p-2 font-mono text-xs">{t.code}</td>
-                      <td className="p-2"><div className="font-semibold">{t.city}</div><div className="text-xs text-muted-foreground">{t.country}</div></td>
-                      <td className="p-2 text-xs">{t.period}</td>
-                      <td className="p-2 text-xs">{t.duration}</td>
-                      <td className="p-2 text-right font-bold">{t.price_per_seat.toLocaleString()}</td>
-                      <td className="p-2 text-xs text-muted-foreground">{t.note || "-"}</td>
-                      <td className="p-2">
-                        <QuotaBar quota={t.quota} total_seats={t.total_seats} canEdit={canEdit} tourId={t.id} />
-                      </td>
-                      {canEdit && (
-                        <td className="p-2 text-right whitespace-nowrap">
-                          <Button size="icon" variant="ghost" onClick={() => openEdit(t.id)}><Pencil className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => {
-                            const booked = t.total_seats - t.quota;
-                            if (booked > 0) {
-                              toast.error(`ไม่สามารถลบได้ มีที่นั่งถูกจองแล้ว ${booked} ที่`);
-                              return;
-                            }
-                            if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); }
-                          }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y">
+              {items.map((t) => {
+                const hasPeriods = (t.periods?.length ?? 0) > 0;
+                const isExpanded = expanded.has(t.id);
+                // สรุปราคาจาก periods
+                const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
+                const priceLabel = hasPeriods
+                  ? (Math.min(...prices) === Math.max(...prices)
+                    ? `${Math.min(...prices).toLocaleString()}`
+                    : `${Math.min(...prices).toLocaleString()} – ${Math.max(...prices).toLocaleString()}`)
+                  : t.price_per_seat.toLocaleString();
+
+                return (
+                  <div key={t.id}>
+                    {/* ── Program Row ── */}
+                    <div className={`flex items-center gap-2 p-2 hover:bg-muted/30 ${isExpanded ? "bg-primary/5" : ""}`}>
+                      {/* expand toggle */}
+                      <button
+                        className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted shrink-0"
+                        onClick={() => toggleExpand(t.id)}
+                        title={hasPeriods ? (isExpanded ? "ซ่อน periods" : "ดู periods") : "ไม่มี period"}
+                      >
+                        {hasPeriods
+                          ? (isExpanded ? <ChevronDown className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />)
+                          : <span className="w-4 h-4 block" />}
+                      </button>
+
+                      <div className="flex-1 min-w-0 grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto_auto_auto] items-center gap-3 text-sm">
+                        <div>
+                          <div className="font-mono text-xs font-semibold">{t.code}</div>
+                          <div className="text-[10px] text-muted-foreground">{t.duration}</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold truncate">{t.city}</div>
+                          <div className="text-xs text-muted-foreground">{t.country}</div>
+                        </div>
+                        {/* period count badge หรือ legacy period text */}
+                        <div className="text-xs text-muted-foreground">
+                          {hasPeriods
+                            ? <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary">
+                                <CalendarDays className="w-3 h-3" />{t.periods!.length} period
+                              </Badge>
+                            : <span className="line-clamp-1 max-w-[140px]">{t.period || "—"}</span>}
+                        </div>
+                        <div className="text-right font-bold text-sm">{priceLabel} <span className="text-[10px] font-normal text-muted-foreground">฿</span></div>
+                        <div>
+                          {hasPeriods
+                            ? <div className="text-xs text-muted-foreground text-right">รวม {t.total_seats} / ว่าง {t.quota}</div>
+                            : <QuotaBar quota={t.quota} total_seats={t.total_seats} canEdit={canEdit} tourId={t.id} />}
+                        </div>
+                        {canEdit && (
+                          <div className="flex items-center gap-0.5 justify-end">
+                            {hasPeriods
+                              ? <Button size="sm" variant="outline" className="h-7 text-[10px] px-2" onClick={() => openAddPeriod(t.id)}>
+                                  <Plus className="w-3 h-3 mr-0.5" />Period
+                                </Button>
+                              : null}
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                              const booked = t.total_seats - t.quota;
+                              if (booked > 0) { toast.error(`ไม่สามารถลบได้ มีที่นั่งถูกจองแล้ว ${booked} ที่`); return; }
+                              if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); }
+                            }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Period Sub-Table ── */}
+                    {hasPeriods && isExpanded && (
+                      <div className="bg-muted/30 border-t">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/60 text-muted-foreground">
+                              <tr>
+                                <th className="px-3 py-2 text-left pl-10">วันเดินทาง</th>
+                                <th className="px-3 py-2 text-right">ราคา/ที่นั่ง</th>
+                                <th className="px-3 py-2 text-left">ที่นั่ง / โควต้า</th>
+                                <th className="px-3 py-2 text-left">สายการบิน</th>
+                                <th className="px-3 py-2 text-left">โครงการ</th>
+                                <th className="px-3 py-2 text-left">หมายเหตุ</th>
+                                {canEdit && <th className="px-3 py-2" />}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/50">
+                              {t.periods!.map((p) => (
+                                <tr key={p.period_id} className="hover:bg-muted/50">
+                                  <td className="px-3 py-2 pl-10 font-medium">{p.travel_date}</td>
+                                  <td className="px-3 py-2 text-right font-bold">{p.price_per_seat.toLocaleString()}</td>
+                                  <td className="px-3 py-2">
+                                    <PeriodQuotaBar quota={p.quota} total_seats={p.total_seats} canEdit={canEdit} tourId={t.id} periodId={p.period_id} />
+                                  </td>
+                                  <td className="px-3 py-2 text-muted-foreground">{p.airline_code || "—"}</td>
+                                  <td className="px-3 py-2 text-muted-foreground">{p.project || "—"}</td>
+                                  <td className="px-3 py-2 text-muted-foreground">{p.note || "—"}</td>
+                                  {canEdit && (
+                                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-3 h-3" /></Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                        const booked = p.total_seats - p.quota;
+                                        if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; }
+                                        if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); }
+                                      }}><Trash2 className="w-3 h-3 text-destructive" /></Button>
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {canEdit && (
+                          <div className="px-4 py-2 border-t border-border/50">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-primary hover:text-primary" onClick={() => openAddPeriod(t.id)}>
+                              <Plus className="w-3 h-3 mr-1" /> เพิ่ม Period ใหม่
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── No-periods: Add Period button ── */}
+                    {!hasPeriods && canEdit && (
+                      <div className="pl-9 pb-2">
+                        <Button size="sm" variant="ghost" className="h-6 text-[10px] text-muted-foreground hover:text-primary px-2" onClick={() => openAddPeriod(t.id)}>
+                          <CalendarDays className="w-3 h-3 mr-1" /> เพิ่ม Period
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -351,9 +484,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">ยังไม่มีโปรแกรมทัวร์</div>
       )}
 
+      {/* ── Program Dialog ── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editId ? "แก้ไขทัวร์" : "เพิ่มทัวร์ใหม่"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? "แก้ไขโปรแกรม" : "เพิ่มโปรแกรมทัวร์ใหม่"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <label className="text-xs font-semibold">ประเภท</label>
@@ -363,37 +497,80 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="HQO-KMG04-DR" /></div>
-              <div>
-                <label className="text-xs font-semibold">จำนวนที่นั่งทั้งหมด</label>
-                <Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="เช่น 40" />
-                {editId && (() => {
-                  const t = tours.find((x) => x.id === editId);
-                  return t ? <p className="text-[10px] text-muted-foreground mt-0.5">ปัจจุบันว่าง {t.quota} / {t.total_seats} ที่นั่ง · จอง {t.total_seats - t.quota} ที่</p> : null;
-                })()}
-              </div>
-              <div><label className="text-xs font-semibold">ชื่อเมือง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="คุนหมิง โหลวผิง" /></div>
+              <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="HQO-TFU06-EU" /></div>
+              <div><label className="text-xs font-semibold">ชื่อเมือง / เส้นทาง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="เฉิงตู 3 อุทยาน" /></div>
               <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="จีน" /></div>
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                <div><label className="text-xs font-semibold">วันที่เดินทาง</label><Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></div>
-                <div><label className="text-xs font-semibold">วันที่กลับ</label><Input type="date" value={form.returnDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, returnDate: e.target.value })} /></div>
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-semibold">ระยะเวลา <span className="text-[10px] text-muted-foreground">(คำนวณอัตโนมัติ — แก้เองได้)</span></label>
+              <div>
+                <label className="text-xs font-semibold">ระยะเวลา</label>
                 <div className="flex items-center gap-1.5">
-                  <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="4" className="w-full" />
+                  <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="6" className="w-full" />
                   <span className="text-xs text-muted-foreground shrink-0">วัน</span>
-                  <Input type="number" min={0} value={form.nights} onChange={(e) => setForm({ ...form, nights: e.target.value })} placeholder="3" className="w-full" />
+                  <Input type="number" min={0} value={form.nights} onChange={(e) => setForm({ ...form, nights: e.target.value })} placeholder="5" className="w-full" />
                   <span className="text-xs text-muted-foreground shrink-0">คืน</span>
                 </div>
               </div>
-              <div><label className="text-xs font-semibold">ราคา/ที่นั่ง</label><Input type="number" min={0} value={form.price_per_seat} onChange={(e) => setForm({ ...form, price_per_seat: e.target.value })} placeholder="25900" /></div>
-              <div><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ซากุระบาน" /></div>
+              <div className="col-span-2">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  ราคา / ที่นั่ง / วันเดินทาง (Legacy — ใช้เมื่อไม่มี Period)
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div><label className="text-[10px]">ราคา/ที่นั่ง (default)</label><Input type="number" min={0} value={form.price_per_seat} onChange={(e) => setForm({ ...form, price_per_seat: e.target.value })} placeholder="25900" /></div>
+                  <div><label className="text-[10px]">ที่นั่งทั้งหมด (default)</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="20" /></div>
+                </div>
+              </div>
+              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ (program level)</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ซากุระบาน / เดินทางโดยรถบัส" /></div>
             </div>
+            <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
+              💡 หลังเพิ่มโปรแกรมแล้ว กดปุ่ม "+ Period" เพื่อเพิ่มวันเดินทางและราคาแต่ละรอบ
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
             <Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Period Dialog ── */}
+      <Dialog open={pOpen} onOpenChange={setPOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {pEditId ? "แก้ไข Period" : "เพิ่ม Period ใหม่"}
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {tours.find((t) => t.id === pTourId)?.code}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="text-xs font-semibold">วันเดินทาง *</label>
+              <Input value={pForm.travel_date} onChange={(e) => setPForm({ ...pForm, travel_date: e.target.value })} placeholder="เช่น 26-31 ก.ค. 2569" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold">ราคา/ที่นั่ง</label>
+              <Input type="number" min={0} value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold">ที่นั่งทั้งหมด</label>
+              <Input type="number" min={0} value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold">โค้ดสายการบิน</label>
+              <Input value={pForm.airline_code} onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
+            </div>
+            <div>
+              <label className="text-xs font-semibold">โครงการ</label>
+              <Input value={pForm.project} onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="โครงการ / campaign" />
+            </div>
+            <div className="col-span-2">
+              <label className="text-xs font-semibold">หมายเหตุ</label>
+              <Input value={pForm.note} onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPOpen(false)}>ยกเลิก</Button>
+            <Button onClick={submitPeriod} className="bg-gradient-primary text-primary-foreground">บันทึก</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
