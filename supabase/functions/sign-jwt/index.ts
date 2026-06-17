@@ -90,9 +90,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sign JWT ด้วย SUPABASE_JWT_SECRET
+    // Sign JWT ด้วย APP_JWT_SECRET (Legacy JWT Secret จาก Supabase Settings > JWT Keys)
     // JWT claims ที่ RLS อ่านได้ผ่าน auth.jwt() ->> 'app_role'
-    const jwtSecret = new TextEncoder().encode(Deno.env.get("SUPABASE_JWT_SECRET")!);
+    const jwtSecretStr = Deno.env.get("APP_JWT_SECRET");
+    if (!jwtSecretStr) {
+      console.error("[sign-jwt] APP_JWT_SECRET is not set — add it via Supabase Dashboard > Edge Functions > Secrets");
+      return new Response(JSON.stringify({ error: "JWT secret not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const jwtSecret = new TextEncoder().encode(jwtSecretStr);
     const expiresAt = Math.floor(Date.now() / 1000) + 8 * 60 * 60; // 8 ชั่วโมง
 
     const accessToken = await new SignJWT({
