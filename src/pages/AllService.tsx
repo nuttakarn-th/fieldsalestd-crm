@@ -836,7 +836,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           )}
                           <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; if (booked > 0) { toast.error(`มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ โปรแกรมนี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบโปรแกรมนี้หรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
                         </div>
                       )}
                     </div>
@@ -884,7 +884,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             )}
                             <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; if (booked > 0) { toast.error(`มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบ?")) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบหรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
                           </div>
                         )}
                       </div>
@@ -979,7 +979,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   )}
                                   <div className="ml-auto flex items-center gap-0.5">
                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-4 h-4" /></Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { const booked = p.total_seats - p.quota; if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive/70" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { const booked = p.total_seats - p.quota; const ok = booked > 0 ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`) : confirm("ลบ Period นี้?"); if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive/70" /></Button>
                                   </div>
                                 </div>
                               )}
@@ -1226,8 +1226,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     </Button>
                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
                                       const booked = p.total_seats - p.quota;
-                                      if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; }
-                                      if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); }
+                                      const ok = booked > 0
+                                        ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`)
+                                        : confirm("ลบ Period นี้?");
+                                      if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
                                     }}>
                                       <Trash2 className="w-3 h-3 text-destructive/70" />
                                     </Button>
