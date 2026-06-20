@@ -92,6 +92,7 @@ interface ServiceState {
   hotels: HotelItem[];
   visas: VisaItem[];
   insurances: InsuranceItem[];
+  isLoadingTours: boolean;
 
   addTour: (t: Omit<TourItem, "id">) => void;
   updateTour: (id: string, p: Partial<TourItem>) => void;
@@ -137,6 +138,8 @@ interface ServiceState {
   togglePublish: (tourId: string, value: boolean) => void;
 
   loadFromSupabase: () => Promise<void>;
+  /** Subscribe Supabase Realtime สำหรับ tours table — คืน unsubscribe fn */
+  subscribeToursRealtime: () => () => void;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -169,6 +172,7 @@ export const useServices = create<ServiceState>()(
       hotels: [],
       visas: [],
       insurances: [],
+      isLoadingTours: false,
 
       // ── Tour ──
       addTour: (t) => {
@@ -366,6 +370,7 @@ export const useServices = create<ServiceState>()(
 
       loadFromSupabase: async () => {
         if (!SUPABASE_ENABLED || !supabase) return;
+        set({ isLoadingTours: true });
         try {
           const [tours, cars, flights, hotels, visas, insurances] = await Promise.all([
             supabase.from("tours").select("*"),
@@ -406,7 +411,30 @@ export const useServices = create<ServiceState>()(
           if (summary) console.info(`[supabase] โหลด services: ${summary}`);
         } catch (e) {
           console.error("[supabase] load services ล้มเหลว:", e);
+        } finally {
+          set({ isLoadingTours: false });
         }
+      },
+
+      subscribeToursRealtime: () => {
+        if (!SUPABASE_ENABLED || !supabase) return () => {};
+        let debounceTimer: ReturnType<typeof setTimeout>;
+        const channel = supabase
+          .channel("tours-realtime")
+          .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => {
+            // debounce 600ms เพื่อไม่ให้ reload ซ้ำเร็วเกินไปเมื่อมีหลาย event
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+              get().loadFromSupabase();
+            }, 600);
+          })
+          .subscribe((status) => {
+            console.info("[supabase] tours realtime:", status);
+          });
+        return () => {
+          clearTimeout(debounceTimer);
+          supabase.removeChannel(channel);
+        };
       },
     }),
     { name: "stdtour-services-v4" },

@@ -225,17 +225,28 @@ const TOUR_TYPE_CHIPS = [
 
 /* ========= Tour ========= */
 const TOUR_FIELDS: ExcelField[] = [
-  { key: "category",      header: "ประเภท",               example: "International Tour" },
-  { key: "code",          header: "รหัสทัวร์",            example: "HQO-KMG04", required: true },
-  { key: "city",          header: "เมือง / เส้นทาง",     example: "คุนหมิง",    required: true },
-  { key: "country",       header: "ประเทศ",               example: "จีน" },
-  { key: "start_date",    header: "วันเดินทาง (YYYY-MM-DD)", example: "2026-07-01" },
-  { key: "end_date",      header: "วันกลับ (YYYY-MM-DD)", example: "2026-07-06" },
-  { key: "price_per_seat",header: "ราคา/ที่นั่ง (฿)",    example: "25900", type: "number" as const },
-  { key: "total_seats",   header: "จำนวนที่นั่ง",        example: "20",    type: "number" as const },
-  { key: "airline_code",  header: "สายการบิน",           example: "FD" },
-  { key: "project",       header: "โครงการ / Campaign",  example: "" },
-  { key: "note",          header: "หมายเหตุ",             example: "ซากุระบาน" },
+  { key: "category",       header: "ประเภท",                    example: "International Tour" },
+  { key: "code",           header: "รหัสทัวร์",                 example: "HQO-KMG04", required: true },
+  { key: "city",           header: "เมือง / เส้นทาง",          example: "คุนหมิง",   required: true },
+  { key: "country",        header: "ประเทศ",                    example: "จีน" },
+  { key: "start_date",     header: "วันเดินทาง (YYYY-MM-DD)",  example: "2026-07-01" },
+  { key: "end_date",       header: "วันกลับ (YYYY-MM-DD)",     example: "2026-07-06" },
+  { key: "nights",         header: "จำนวนคืน",                 example: "5",         type: "number" as const },
+  { key: "days",           header: "จำนวนวัน",                 example: "6",         type: "number" as const },
+  { key: "price_per_seat", header: "ราคา/ที่นั่ง (฿)",         example: "25900",     type: "number" as const },
+  { key: "special_price",  header: "ราคาพิเศษ (฿)",            example: "23900",     type: "number" as const },
+  { key: "total_seats",    header: "จำนวนที่นั่ง",             example: "20",        type: "number" as const },
+  { key: "airline_code",   header: "สายการบิน",                example: "FD" },
+  { key: "freeday",        header: "Free Day (TRUE/FALSE)",     example: "FALSE" },
+  { key: "shopping",       header: "ลงร้าน (TRUE/FALSE)",      example: "FALSE" },
+  { key: "all_in",         header: "จอง จ่าย จบ (TRUE/FALSE)", example: "FALSE" },
+  { key: "vat7",           header: "รวม VAT7% (TRUE/FALSE)",   example: "FALSE" },
+  { key: "cancelled",      header: "ยกเลิก (TRUE/FALSE)",      example: "FALSE" },
+  { key: "cancel_reason",  header: "เหตุผลยกเลิก",             example: "" },
+  { key: "project",        header: "โครงการ / Campaign",       example: "" },
+  { key: "footnote",       header: "หมายเหตุย่อ",              example: "" },
+  { key: "tags",           header: "Tag (คั่นด้วย ,)",          example: "ครอบครัว,ธรรมชาติ" },
+  { key: "note",           header: "หมายเหตุ",                 example: "ซากุระบาน" },
 ];
 
 // ── blank form helpers ──────────────────────────────────────────────────────
@@ -278,18 +289,26 @@ const blankPeriodForm = () => ({
 });
 
 function TourSection({ canEdit }: { canEdit: boolean }) {
-  const tours       = useServices((s) => s.tours);
-  const addTour     = useServices((s) => s.addTour);
-  const updateTour  = useServices((s) => s.updateTour);
-  const deleteTour  = useServices((s) => s.deleteTour);
-  const addPeriod      = useServices((s) => s.addPeriod);
-  const updatePeriod   = useServices((s) => s.updatePeriod);
-  const deletePeriod   = useServices((s) => s.deletePeriod);
-  const uploadTourPDF      = useServices((s) => s.uploadTourPDF);
-  const deleteTourPDF      = useServices((s) => s.deleteTourPDF);
-  const togglePublish      = useServices((s) => s.togglePublish);
-  const adjustPeriodQuota  = useServices((s) => s.adjustPeriodQuota);
+  const tours                  = useServices((s) => s.tours);
+  const isLoadingTours         = useServices((s) => s.isLoadingTours);
+  const addTour                = useServices((s) => s.addTour);
+  const updateTour             = useServices((s) => s.updateTour);
+  const deleteTour             = useServices((s) => s.deleteTour);
+  const addPeriod              = useServices((s) => s.addPeriod);
+  const updatePeriod           = useServices((s) => s.updatePeriod);
+  const deletePeriod           = useServices((s) => s.deletePeriod);
+  const uploadTourPDF          = useServices((s) => s.uploadTourPDF);
+  const deleteTourPDF          = useServices((s) => s.deleteTourPDF);
+  const togglePublish          = useServices((s) => s.togglePublish);
+  const adjustPeriodQuota      = useServices((s) => s.adjustPeriodQuota);
+  const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  // ── Subscribe Supabase Realtime เมื่อ component mount ──
+  useEffect(() => {
+    const unsub = subscribeToursRealtime();
+    return unsub;
+  }, [subscribeToursRealtime]);
 
   // ── program dialog ──
   const [open, setOpen]       = useState(false);
@@ -514,34 +533,106 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       if (periods.length > 0) {
         periods.forEach((p) => {
           rows.push({
-            category: t.category, code: t.code, city: t.city, country: t.country,
-            start_date: p.start_date ?? "", end_date: p.end_date ?? "",
-            price_per_seat: p.price_per_seat, total_seats: p.total_seats,
-            airline_code: p.airline_code ?? "", project: p.project ?? "",
-            note: p.note ?? t.note ?? "",
+            category:      t.category,
+            code:          t.code,
+            city:          t.city,
+            country:       t.country,
+            start_date:    p.start_date ?? "",
+            end_date:      p.end_date ?? "",
+            nights:        p.nights ?? "",
+            days:          p.days ?? "",
+            price_per_seat: p.price_per_seat,
+            special_price: p.special_price ?? "",
+            total_seats:   p.total_seats,
+            airline_code:  p.airline_code ?? "",
+            freeday:       p.freeday ? "TRUE" : "FALSE",
+            shopping:      p.shopping ? "TRUE" : "FALSE",
+            all_in:        p.all_in ? "TRUE" : "FALSE",
+            vat7:          p.vat7 ? "TRUE" : "FALSE",
+            cancelled:     p.cancelled ? "TRUE" : "FALSE",
+            cancel_reason: p.cancel_reason ?? "",
+            project:       p.project ?? "",
+            footnote:      p.footnote ?? "",
+            tags:          (p.tags ?? []).join(", "),
+            note:          p.note ?? t.note ?? "",
           });
         });
       } else {
         rows.push({
-          category: t.category, code: t.code, city: t.city, country: t.country,
-          start_date: "", end_date: "",
-          price_per_seat: t.price_per_seat, total_seats: t.total_seats,
-          airline_code: "", project: "", note: t.note ?? "",
+          category:      t.category,
+          code:          t.code,
+          city:          t.city,
+          country:       t.country,
+          start_date:    "", end_date:  "",
+          nights:        "", days:      "",
+          price_per_seat: t.price_per_seat,
+          special_price: "",
+          total_seats:   t.total_seats,
+          airline_code:  "", freeday: "FALSE", shopping: "FALSE",
+          all_in: "FALSE", vat7: "FALSE", cancelled: "FALSE",
+          cancel_reason: "", project: "", footnote: "", tags: "",
+          note: t.note ?? "",
         });
       }
     });
     return rows;
   }, [tours]);
   const handleImport = (rows: Record<string, unknown>[]) => {
+    const parseBool = (v: unknown) => String(v).toUpperCase() === "TRUE";
+    let created = 0; let updated = 0;
     rows.forEach((row) => {
-      const seats = Number(row.total_seats ?? 0);
-      addTour({ category: (row.category as TourCategory) || "International Tour",
-        code: String(row.code ?? ""), city: String(row.city ?? ""),
-        country: String(row.country ?? ""), period: "", duration: "",
-        price_per_seat: Number(row.price_per_seat ?? 0),
-        total_seats: seats, quota: seats, note: String(row.note ?? ""), periods: [] });
+      const code = String(row.code ?? "").trim();
+      const existing = tours.find((t) => t.code === code);
+      const hasPeriodData = !!(row.start_date || row.price_per_seat);
+      if (existing && hasPeriodData) {
+        // upsert period into existing tour
+        const seats = Number(row.total_seats ?? 0);
+        addPeriod(existing.id, {
+          start_date:    String(row.start_date ?? ""),
+          end_date:      String(row.end_date ?? ""),
+          nights:        row.nights ? Number(row.nights) : undefined,
+          days:          row.days   ? Number(row.days)   : undefined,
+          travel_date:   String(row.start_date ?? ""),
+          price_per_seat: Number(row.price_per_seat ?? 0),
+          special_price: row.special_price ? Number(row.special_price) : undefined,
+          total_seats:   seats,
+          quota:         seats,
+          airline_code:  String(row.airline_code ?? "") || undefined,
+          project:       String(row.project ?? "") || undefined,
+          footnote:      String(row.footnote ?? "") || undefined,
+          note:          String(row.note ?? "") || undefined,
+          freeday:       parseBool(row.freeday),
+          shopping:      parseBool(row.shopping),
+          all_in:        parseBool(row.all_in),
+          vat7:          parseBool(row.vat7),
+          cancelled:     parseBool(row.cancelled),
+          cancel_reason: String(row.cancel_reason ?? "") || undefined,
+          tags:          row.tags ? String(row.tags).split(",").map((s) => s.trim()).filter(Boolean) : [],
+        });
+        updated++;
+      } else if (!existing) {
+        // create new tour (without period — period may come in next rows)
+        const seats = Number(row.total_seats ?? 0);
+        addTour({
+          category:       (row.category as TourCategory) || "International Tour",
+          code,
+          title:          String(row.city ?? ""),
+          city:           String(row.city ?? ""),
+          country:        String(row.country ?? ""),
+          continent:      detectContinent(String(row.country ?? "")),
+          period:         "",
+          duration:       "",
+          price_per_seat: Number(row.price_per_seat ?? 0),
+          total_seats:    seats,
+          quota:          seats,
+          note:           String(row.note ?? ""),
+          periods:        [],
+        });
+        created++;
+      }
     });
-    toast.success(`นำเข้า ${rows.length} ทัวร์แล้ว`);
+    const msg = [created && `สร้างใหม่ ${created} ทัวร์`, updated && `เพิ่ม ${updated} Period`].filter(Boolean).join(", ");
+    toast.success(`Import สำเร็จ — ${msg}`);
   };
 
   // ── filter options (computed from store) ──
@@ -610,6 +701,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-0 -mx-4 sm:-mx-6">
+      {/* ── CSS keyframe animations ── */}
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(-5px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .anim-slide-down { animation: slideDown 0.25s ease-out; }
+        .anim-fade-in    { animation: fadeInUp 0.18s ease-out both; }
+        .anim-filter     { animation: slideDown 0.2s ease-out; }
+      `}</style>
       {/* ── FILTER BAR (non-sticky) ── */}
       <div className="bg-white border-b px-4 py-2.5 space-y-2">
 
@@ -632,7 +737,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
         {/* ── MOBILE: expandable filter panel ── */}
         {filterOpen && (
-          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-gray-100 mt-1">
+          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-gray-100 mt-1 anim-filter">
             <div className="grid grid-cols-2 gap-2">
               <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="กลุ่มทัวร์" /></SelectTrigger>
@@ -753,7 +858,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       {/* ── HEADER ACTIONS BAR ── */}
       <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b bg-white">
         <div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            {isLoadingTours && (
+              <span className="inline-flex items-center gap-1 text-xs text-blue-500 font-medium">
+                <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin inline-block" />
+                กำลังโหลด...
+              </span>
+            )}
             รวม <span className="font-semibold text-foreground">{filteredTours.length}</span>
             {hasFilter && <span className="text-muted-foreground"> / {tours.length}</span>} โปรแกรม
             {hasFilter && <span className="ml-1.5 text-[11px] text-amber-600 font-medium">(กรองอยู่)</span>}
@@ -963,9 +1074,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {hasPeriods && isExpanded && (<>
 
                     {/* ════ MOBILE period cards (< sm) ════ */}
-                    <div className="sm:hidden border-t" style={{background: "#FAFAFA"}}>
+                    <div className="sm:hidden border-t anim-slide-down" style={{background: "#FAFAFA"}}>
                       <div className="p-3 space-y-2">
-                        {t.periods!.map((p) => {
+                        {t.periods!.map((p, pIdx) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
                           const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
@@ -978,7 +1089,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
                           return (
                             <div key={pid}
-                              className={`rounded-xl border overflow-hidden ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                              className={`rounded-xl border overflow-hidden anim-fade-in ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                              style={{animationDelay: `${pIdx * 35}ms`}}
                               style={{borderLeftWidth:"4px", borderLeftColor: statusColor, borderColor:`${statusColor}30`, background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white"}}
                             >
                               {/* Top: date + status */}
@@ -1075,7 +1187,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     </div>
 
                     {/* ════ DESKTOP period table (sm+) ════ */}
-                    <div className="hidden sm:block border-t" style={{background: "#FAFAFA"}}>
+                    <div className="hidden sm:block border-t anim-slide-down" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
                         {/* v142: w-full — stretch to fill container width */}
                         <div className="flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
@@ -1126,7 +1238,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           if (periodSort.field === 'price') return dir * (a.price_per_seat - b.price_per_seat);
                           if (periodSort.field === 'quota') return dir * (a.quota - b.quota);
                           return 0;
-                        }).map((p) => {
+                        }).map((p, pIdx) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
                           const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
@@ -1145,8 +1257,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <React.Fragment key={pid}>
                               {/* Period Card */}
                               <div
-                                className={`rounded-xl overflow-hidden border ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                                className={`rounded-xl overflow-hidden border anim-fade-in ${hasPending ? "ring-1 ring-amber-300" : ""}`}
                                 style={{
+                                  animationDelay: `${pIdx * 35}ms`,
                                   borderColor: `${statusColor}30`,
                                   borderLeftWidth: "4px",
                                   borderLeftColor: statusColor,
@@ -1432,8 +1545,29 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
       {/* Empty state */}
       {filteredTours.length === 0 && (
-        <div className="p-8 text-center text-muted-foreground bg-white border-t">
-          {tours.length === 0 ? "ยังไม่มีโปรแกรมทัวร์" : "ไม่พบโปรแกรมที่ตรงกับตัวกรอง — ลองล้างตัวกรอง"}
+        <div className="py-14 flex flex-col items-center gap-3 bg-white border-t anim-fade-in">
+          {tours.length === 0 ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{background:"#F5F3FF"}}>
+                <PackageSearch className="w-7 h-7" style={{color:"#7C3AED"}} />
+              </div>
+              <p className="text-base font-semibold text-gray-700">ยังไม่มีโปรแกรมทัวร์</p>
+              <p className="text-sm text-gray-400">เริ่มต้นด้วยการเพิ่มโปรแกรมทัวร์แรกของคุณ</p>
+              {canEdit && (
+                <button onClick={openAdd} className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity" style={{background:"#16A34A"}}>
+                  <Plus className="w-4 h-4" /> เพิ่มโปรแกรมทัวร์แรก
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{background:"#FFF7ED"}}>
+                <Search className="w-7 h-7" style={{color:"#EA580C"}} />
+              </div>
+              <p className="text-base font-semibold text-gray-700">ไม่พบโปรแกรมที่ตรงกับตัวกรอง</p>
+              <button onClick={clearFilters} className="text-sm text-orange-600 hover:text-orange-700 underline">ล้างตัวกรองทั้งหมด</button>
+            </>
+          )}
         </div>
       )}
 
