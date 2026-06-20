@@ -971,6 +971,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           const bookedCount = p.total_seats - currentQuota;
                           const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
                           const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const hasPromo = !!p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat;
                           const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
                           return (
                             <div key={pid}
