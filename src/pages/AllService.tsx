@@ -673,22 +673,31 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       {/* ── SECTIONS ── */}
       {(
         [
-          { label: "ทัวร์ต่างประเทศ (International)", items: intlTours, color: "#16A34A", bg: "#F0FDF4", textColor: "#15803D" },
-          { label: "ทัวร์ในประเทศ (Domestic)",        items: domTours,  color: "#F59E0B", bg: "#FFFBEB", textColor: "#B45309" },
-          { label: "Incentive",                        items: incTours,  color: "#7C3AED", bg: "#F5F3FF", textColor: "#6D28D9" },
+          { labelTh: "ทัวร์ต่างประเทศ", labelEn: "International Tours", items: intlTours, color: "#16A34A", bg: "#ECFDF5", textColor: "#065F46", Icon: Plane },
+          { labelTh: "ทัวร์ในประเทศ",   labelEn: "Domestic Tours",      items: domTours,  color: "#F59E0B", bg: "#FFFBEB", textColor: "#92400E", Icon: MapPinned },
+          { labelTh: "Incentive",        labelEn: "Incentive & Group",    items: incTours,  color: "#7C3AED", bg: "#F5F3FF", textColor: "#4C1D95", Icon: FileBadge },
         ] as const
-      ).map(({ label, items, color, bg, textColor }) =>
+      ).map(({ labelTh, labelEn, items, color, bg, textColor, Icon }) =>
         items.length === 0 ? null : (
-          <div key={label}>
-            {/* Section Divider */}
-            <div className="flex items-center gap-3 px-4 py-2 border-y" style={{background: bg, borderColor: `${color}30`}}>
-              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background: color}} />
-              <span className="text-sm font-semibold" style={{color: textColor}}>{label}</span>
-              <span className="text-xs" style={{color: textColor, opacity: 0.7}}>{items.length} โปรแกรม</span>
+          <div key={labelTh} className="mb-6">
+            {/* ── Section Header Card ── */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 mx-4 sm:mx-6 mt-4 rounded-2xl" style={{background: bg, border: `1.5px solid ${color}30`}}>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm" style={{background: color}}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-bold text-base leading-tight" style={{color: textColor}}>{labelTh}</div>
+                  <div className="text-xs font-medium mt-0.5" style={{color: textColor, opacity: 0.65}}>{labelEn}</div>
+                </div>
+              </div>
+              <span className="text-sm font-bold px-3 py-1.5 rounded-full text-white shadow-sm" style={{background: color}}>
+                {items.length} โปรแกรม
+              </span>
             </div>
 
             {/* Tour Cards */}
-            <div className="divide-y bg-white">
+            <div className="space-y-3 px-4 sm:px-6 mt-3">
               {items.map((t) => {
                 const hasPeriods = (t.periods?.length ?? 0) > 0;
                 const isExpanded = expanded.has(t.id);
@@ -701,100 +710,66 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   : `฿${priceMin.toLocaleString()} – ฿${priceMax.toLocaleString()}`;
 
                 return (
-                  <div key={t.id} className="border-l-4 transition-colors" style={{borderLeftColor: color}}>
+                  <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row ── */}
-                    <div className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/70"}`} style={isExpanded ? {background: `${bg}`} : undefined}>
-                      {/* Expand toggle */}
-                      <button
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-white shrink-0 transition-colors disabled:opacity-25"
-                        onClick={() => toggleExpand(t.id)}
-                        disabled={!hasPeriods}
-                      >
-                        {hasPeriods
-                          ? (isExpanded
-                            ? <ChevronDown className="w-3.5 h-3.5" style={{color}} />
-                            : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />)
-                          : <span className="w-3.5 h-3.5 block" />}
-                      </button>
+                    <div className={`group flex items-center gap-2 px-4 py-3 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
 
-                      {/* Code badge */}
-                      <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{background: `${color}18`, color}}>
-                        {t.code}
-                      </span>
-
-                      {/* Duration pill */}
-                      {t.duration && (
-                        <span className="text-[10px] text-white px-2 py-0.5 rounded-full shrink-0 font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
-                          {t.duration}
-                        </span>
-                      )}
-
-                      {/* Title / City + Country + Continent + Tags */}
+                      {/* Name | Duration | Code */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span className="font-semibold text-sm leading-tight">{t.title ?? t.city}</span>
-                          {t.country && (
-                            <span className="text-[11px] text-muted-foreground">{
-                              (t.countries ?? []).length > 1
-                                ? (t.countries ?? []).join(", ")
-                                : t.country
-                            }</span>
-                          )}
+                        <div className="flex items-center gap-0 flex-wrap">
+                          <span className="font-bold text-sm text-gray-900 mr-2">{t.title ?? t.city}</span>
+                          {t.duration && <>
+                            <span className="text-gray-300 mr-2">|</span>
+                            <span className="text-sm text-gray-500 mr-2 whitespace-nowrap">{t.duration}</span>
+                          </>}
+                          <span className="text-gray-300 mr-2">|</span>
+                          <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
                           {t.continent && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                              style={{background: "#EFF6FF", color: "#2563EB"}}>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background: `${color}15`, color}}>
                               {t.continent}
                             </span>
                           )}
                         </div>
-                        {/* title ≠ city → show city as subtitle */}
                         {t.title && t.city && t.city !== t.title && (
-                          <div className="text-[10px] text-muted-foreground truncate">{t.city}</div>
+                          <div className="text-[11px] text-gray-400 truncate mt-0.5">{t.city}</div>
                         )}
                         {(t.tour_types ?? []).length > 0 && (
-                          <div className="flex gap-1 mt-0.5 flex-wrap">
-                            {(t.tour_types ?? []).slice(0, 3).map((tag) => (
-                              <span key={tag} className="text-[9px] px-1.5 py-0 rounded border"
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {(t.tour_types ?? []).slice(0, 4).map((tag) => (
+                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
                                 style={{borderColor: `${color}40`, color}}>
                                 {tag}
                               </span>
                             ))}
-                            {(t.tour_types ?? []).length > 3 && (
-                              <span className="text-[9px] text-muted-foreground">+{(t.tour_types ?? []).length - 3}</span>
-                            )}
                           </div>
                         )}
                       </div>
 
-                      {/* Period count */}
-                      {hasPeriods ? (
-                        <Badge variant="outline" className="text-[10px] gap-1 shrink-0 font-semibold" style={{borderColor: `${color}60`, color}}>
-                          <CalendarDays className="w-3 h-3" />{t.periods!.length} Period
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic shrink-0">ยังไม่มี period</span>
-                      )}
+                      {/* Period count badge */}
+                      <button
+                        onClick={() => hasPeriods && toggleExpand(t.id)}
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs transition-colors"
+                        style={hasPeriods
+                          ? {borderColor: `${color}50`, color, background: `${color}10`}
+                          : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                        title={hasPeriods ? "คลิกเพื่อดู Period" : "ยังไม่มี period"}
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี Period"}
+                        {hasPeriods && (isExpanded
+                          ? <ChevronDown className="w-3 h-3 ml-0.5" />
+                          : <ChevronRight className="w-3 h-3 ml-0.5" />)}
+                      </button>
 
-                      {/* Price */}
-                      <span className="text-sm font-bold shrink-0" style={{color}}>{priceLabel}</span>
-
-                      {/* Quota summary */}
-                      {hasPeriods && (
-                        <div className="text-[10px] text-muted-foreground shrink-0 text-right leading-snug">
-                          <div className="font-medium text-foreground">{t.periods!.reduce((s, p) => s + p.total_seats, 0)} ที่นั่ง</div>
-                          <div>ว่าง {activePeriods.reduce((s, p) => s + p.quota, 0)}</div>
-                        </div>
-                      )}
-
-                      {/* + Period shortcut */}
+                      {/* + เพิ่ม Period */}
                       {canEdit && (
                         <button
                           onClick={() => openAddPeriod(t.id)}
-                          className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border border-dashed transition-colors opacity-0 group-hover:opacity-100"
-                          style={{borderColor: `${color}50`, color: `${color}90`}}
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90"
+                          style={{background: "#EC4899"}}
                           title="เพิ่ม Period"
                         >
-                          <Plus className="w-2.5 h-2.5" /> Period
+                          <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
                         </button>
                       )}
 
@@ -848,7 +823,26 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
                     {/* ── Period Table ── */}
                     {hasPeriods && isExpanded && (
-                      <div className="border-t overflow-x-auto" style={{background: `${color}04`}}>
+                      <div className="border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
+                        {/* Column Headers */}
+                        <div className="flex items-center gap-2 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
+                          <div className="w-5 shrink-0" />
+                          <div className="min-w-[148px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</div>
+                          <div className="w-[72px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">วัน/คืน</div>
+                          <div className="w-7 text-center shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Promo</div>
+                          <div className="w-8 shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">เดินทาง</div>
+                          <div className="w-[68px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Freeday</div>
+                          <div className="w-[60px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ลงร้าน</div>
+                          <div className="w-[90px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">จองจ่ายจบ</div>
+                          <div className="w-[52px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vat7%</div>
+                          <div className="w-[76px] text-right shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ราคา (฿)</div>
+                          <div className="w-[180px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Book / โควต้า</div>
+                          <div className="w-[62px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">+/-</div>
+                          <div className="w-7 shrink-0" />
+                          <div className="w-7 shrink-0" />
+                          <div className="min-w-[92px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">สถานะ</div>
+                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[52px]" />}
+                        </div>
                         {t.periods!.map((p) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
@@ -910,7 +904,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 {/* 6. FREEDAY chip */}
                                 <div className="w-[68px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
                                   {p.freeday
-                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#7C3AED"}}>Freeday</span>
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#0D9488"}}>Freeday</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
@@ -937,7 +931,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
                                 {/* 10. ราคา */}
                                 <div className="w-[76px] text-right shrink-0">
-                                  <span className="font-bold text-sm" style={{color: "#16A34A"}}>{p.price_per_seat.toLocaleString()}</span>
+                                  <span className="font-bold text-sm" style={{color: "#EC4899"}}>{p.price_per_seat.toLocaleString()}</span>
                                   <span className="text-[10px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
@@ -1019,15 +1013,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 <div className="min-w-[92px] shrink-0">
                                   {isCancelled ? (
                                     <div>
-                                      <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold" style={{background: "#EF4444"}}>ยกเลิก</span>
-                                      {p.cancel_reason && <div className="text-[9px] mt-0.5" style={{color: "#EF4444"}}>*{p.cancel_reason}</div>}
+                                      <div className="text-sm font-bold" style={{color: "#EF4444"}}>ยกเลิก</div>
+                                      {p.cancel_reason && <div className="text-[10px] mt-0.5" style={{color: "#EF4444"}}>*{p.cancel_reason}</div>}
                                     </div>
                                   ) : isFullDisplay ? (
-                                    <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold" style={{background: "#6B7280"}}>ปิดกรุ๊ป</span>
+                                    <span className="text-sm font-semibold text-gray-500">ปิดกรุ๊ป</span>
                                   ) : (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap" style={{borderColor: "#16A34A", color: "#16A34A"}}>
-                                      ว่าง {currentQuota}
-                                    </span>
+                                    <span className="text-sm font-semibold" style={{color: "#16A34A"}}>ว่าง</span>
                                   )}
                                 </div>
 
