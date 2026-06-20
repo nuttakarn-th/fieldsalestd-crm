@@ -835,24 +835,23 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {/* ── Period Table ── */}
                     {hasPeriods && isExpanded && (
                       <div className="border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
-                        {/* Column Headers */}
-                        <div className="flex items-center gap-2 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
+                        {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
+                        <div className="flex items-center gap-2 pl-7 pr-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
-                          <div className="min-w-[118px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Period</div>
-                          <div className="w-[58px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">วัน/คืน</div>
-                          <div className="w-6 text-center shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Promo</div>
-                          <div className="w-8 shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">เดินทาง</div>
-                          {/* separator gap */}
+                          <div className="min-w-[120px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Period</div>
+                          <div className="w-[62px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
+                          <div className="w-9 shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Promo</div>
+                          <div className="w-10 shrink-0 text-[8px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-3 shrink-0" />
-                          <div className="w-[52px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">Freeday</div>
-                          <div className="w-[44px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">ลงร้าน</div>
-                          <div className="w-[70px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">จองจ่ายจบ</div>
-                          <div className="w-[38px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">Vat7%</div>
-                          <div className="w-[62px] text-right shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">ราคา (฿)</div>
-                          <div className="w-[148px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Book / โควต้า</div>
-                          <div className="w-[54px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">+/-</div>
-                          <div className="w-[58px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">บันทึก</div>
-                          <div className="w-[72px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">สถานะ</div>
+                          <div className="w-[54px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Freeday</div>
+                          <div className="w-[46px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">ลงร้าน</div>
+                          <div className="w-[74px] shrink-0 text-[8px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">จองจ่ายจบ</div>
+                          <div className="w-10 shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
+                          <div className="w-[66px] text-right shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">ราคา (฿)</div>
+                          <div className="w-[148px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Book / โควต้า</div>
+                          <div className="w-[50px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
+                          <div className="w-[58px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
+                          <div className="w-[74px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
                         </div>
                         {/* Period Cards */}
@@ -902,7 +901,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 3. Badge วัน/คืน */}
-                                <div className="w-[58px] shrink-0 flex justify-center">
+                                <div className="w-[62px] shrink-0 flex justify-center">
                                   {(p.days || p.nights) ? (
                                     <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
                                       {p.days}วัน {p.nights}คืน
@@ -911,12 +910,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 4. PROMO */}
-                                <div className="w-6 text-center shrink-0 leading-none">
+                                <div className="w-9 text-center shrink-0 leading-none">
                                   {p.promo ? <span title="มีโปรโมชั่น" className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
                                 </div>
 
                                 {/* 5. Airline */}
-                                <div className="w-8 shrink-0 text-[11px] font-mono text-gray-600 text-center">
+                                <div className="w-10 shrink-0 text-[11px] font-mono text-gray-600 text-center">
                                   {p.airline_code || <span className="text-gray-200">–</span>}
                                 </div>
 
@@ -926,35 +925,35 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 6. FREEDAY chip */}
-                                <div className="w-[52px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-[54px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.freeday
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#7C3AED"}}>Freeday</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 7. ลงร้าน chip */}
-                                <div className="w-[44px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-[46px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.shopping
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#F59E0B"}}>ลงร้าน</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 8. จอง จ่าย จบ chip */}
-                                <div className="w-[70px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-[74px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.all_in
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#16A34A"}}>จอง จ่าย จบ</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 9. VAT7% chip */}
-                                <div className="w-[38px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-10 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.vat7
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#2563EB"}}>Vat7%</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 10. ราคา */}
-                                <div className="w-[62px] text-right shrink-0">
+                                <div className="w-[66px] text-right shrink-0">
                                   <span className="font-bold text-sm" style={{color: "#EC4899"}}>{p.price_per_seat.toLocaleString()}</span>
                                   <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
                                 </div>
@@ -984,7 +983,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
                                 {/* 12. −/+ buttons (+ เพิ่มลูกค้า = ลด quota, − ลดลูกค้า = เพิ่ม quota) */}
                                 {!isCancelled && canEdit ? (
-                                  <div className="flex items-center gap-1 shrink-0 w-[54px]">
+                                  <div className="flex items-center gap-1 shrink-0 w-[50px]">
                                     <button
                                       className="w-6 h-6 rounded-full text-white flex items-center justify-center transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
                                       style={{background: "#1F2937"}}
@@ -1008,7 +1007,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       <Plus className="w-3 h-3" />
                                     </button>
                                   </div>
-                                ) : <div className="w-[54px] shrink-0" />}
+                                ) : <div className="w-[50px] shrink-0" />}
 
                                 {/* 13 & 14. Save / Cancel pending */}
                                 <div className="flex items-center gap-0.5 w-[58px] shrink-0">
@@ -1035,7 +1034,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 15. สถานะ — badge */}
-                                <div className="w-[72px] shrink-0 flex justify-center">
+                                <div className="w-[74px] shrink-0 flex justify-center">
                                   {isCancelled ? (
                                     <span className="inline-flex flex-col items-center">
                                       <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
