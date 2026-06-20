@@ -507,33 +507,33 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
           </div>
-          <Select value={filterCat} onValueChange={(v) => setFilterCat(v as TourCategory | "")}>
+          <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
             <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">กลุ่มทั้งหมด</SelectItem>
+              <SelectItem value="__all__">กลุ่มทั้งหมด</SelectItem>
               {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterCountry} onValueChange={setFilterCountry}>
+          <Select value={filterCountry || "__all__"} onValueChange={(v) => setFilterCountry(v === "__all__" ? "" : v)}>
             <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="ประเทศทั้งหมด" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">ประเทศทั้งหมด</SelectItem>
+              <SelectItem value="__all__">ประเทศทั้งหมด</SelectItem>
               {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as "" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+          <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
             <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="สถานะทั้งหมด" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">สถานะทั้งหมด</SelectItem>
+              <SelectItem value="__all__">สถานะทั้งหมด</SelectItem>
               <SelectItem value="ว่าง">ว่าง</SelectItem>
               <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
               <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filterAirline} onValueChange={setFilterAirline}>
+          <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
             <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">ทั้งหมด</SelectItem>
+              <SelectItem value="__all__">ทั้งหมด</SelectItem>
               {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
