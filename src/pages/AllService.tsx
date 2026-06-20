@@ -258,6 +258,7 @@ const blankPeriodForm = () => ({
   end_date: "",
   nights: "",
   days: "",
+  manualNights: false,   // true = user overrode auto-calc
   price_per_seat: "",
   special_price: "",        // ราคาพิเศษ — เมื่อกรอก 🔥 auto-on
   total_seats: "",
@@ -425,6 +426,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       end_date: p.end_date ?? "",
       nights: String(p.nights ?? ""),
       days: String(p.days ?? ""),
+      manualNights: false,   // reset to auto on open; user can override
       price_per_seat: String(p.price_per_seat),
       special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
@@ -492,8 +494,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setPOpen(false);
   };
 
-  // Auto-calc days/nights when period start/end date changes
+  // Auto-calc days/nights when period start/end date changes — skipped if user overrode manually
   React.useEffect(() => {
+    if (pForm.manualNights) return;   // user is in manual mode — don't overwrite
     if (pForm.start_date && pForm.end_date) {
       const s = new Date(pForm.start_date); const e = new Date(pForm.end_date);
       if (!isNaN(s.getTime()) && !isNaN(e.getTime()) && e >= s) {
@@ -502,7 +505,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pForm.start_date, pForm.end_date]);
+  }, [pForm.start_date, pForm.end_date, pForm.manualNights]);
 
   const exportData = useMemo(() => {
     const rows: Record<string, unknown>[] = [];
@@ -1705,12 +1708,53 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 </div>
               </div>
 
-              {/* Auto-calc */}
+              {/* Auto-calc + Manual override */}
               {pForm.start_date && pForm.end_date && pForm.days ? (
-                <div className="flex items-center gap-2 bg-primary/8 border border-primary/20 rounded-lg px-2.5 py-1.5">
-                  <CalendarDays className="w-3 h-3 text-primary shrink-0" />
-                  <span className="text-xs font-semibold text-primary">{pForm.days} วัน {pForm.nights} คืน</span>
-                  <span className="text-[10px] text-muted-foreground">{fmtThai(pForm.start_date)} – {fmtThai(pForm.end_date)}</span>
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-300 bg-amber-50/60" : "border-primary/20 bg-primary/8"}`}>
+                  <CalendarDays className={`w-3 h-3 shrink-0 ${pForm.manualNights ? "text-amber-500" : "text-primary"}`} />
+                  {/* วัน — inline editable */}
+                  <div className="flex items-center gap-0.5">
+                    <input
+                      type="number" min={1} max={30}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-white focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      value={pForm.days}
+                      onChange={(e) => {
+                        const d = Number(e.target.value);
+                        if (d > 0) setPForm((f) => ({ ...f, days: String(d), nights: String(Math.max(0, d - 1)), manualNights: true }));
+                      }}
+                    />
+                    <span className={`text-xs font-semibold ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}>วัน</span>
+                  </div>
+                  {/* คืน — inline editable */}
+                  <div className="flex items-center gap-0.5">
+                    <input
+                      type="number" min={0} max={30}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-white focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      value={pForm.nights}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (n >= 0) setPForm((f) => ({ ...f, nights: String(n), days: String(n + 1), manualNights: true }));
+                      }}
+                    />
+                    <span className={`text-xs font-semibold ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}>คืน</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground flex-1 truncate">{fmtThai(pForm.start_date)} – {fmtThai(pForm.end_date)}</span>
+                  {/* badge + reset */}
+                  {pForm.manualNights ? (
+                    <button
+                      type="button"
+                      title="รีเซ็ตเป็นการคำนวณอัตโนมัติ"
+                      onClick={() => setPForm((f) => {
+                        // recalc
+                        const s = new Date(f.start_date); const e2 = new Date(f.end_date);
+                        const n = (!isNaN(s.getTime()) && !isNaN(e2.getTime())) ? Math.round((e2.getTime() - s.getTime()) / 86400000) : 0;
+                        return { ...f, nights: String(n), days: String(n + 1), manualNights: false };
+                      })}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 shrink-0 whitespace-nowrap"
+                    >✏️ Manual · ↺ Auto</button>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/60 shrink-0 whitespace-nowrap">Auto</span>
+                  )}
                 </div>
               ) : (
                 <div className="h-7 rounded-lg border border-dashed border-gray-200 flex items-center justify-center">
