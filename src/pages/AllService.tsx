@@ -1068,10 +1068,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     </div>
 
                     {/* ════ DESKTOP period table (sm+) ════ */}
-                    <div className="hidden sm:block border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
+                    <div className="hidden sm:block border-t" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
-                        {/* v141: tighter header row */}
-                        <div className="flex items-center gap-1 pl-7 pr-4 py-1 border-b min-w-max select-none" style={{background: "#F3F4F6"}}>
+                        {/* v142: w-full — stretch to fill container width */}
+                        <div className="flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
                           {/* Period — w-[165px] + 2-digit year in data row */}
                           <div
@@ -1103,9 +1103,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
                           <div className="w-[60px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
+                          <div className="flex-1" />{/* fill remaining width */}
                         </div>
-                        {/* Period Cards */}
-                        <div className="px-3 py-1.5 space-y-1 w-max">
+                        {/* Period Cards — w-full stretches to container */}
+                        <div className="px-3 py-1.5 space-y-1 w-full">
                         {[...t.periods!].sort((a, b) => {
                           const dir = periodSort.dir === 'asc' ? 1 : -1;
                           if (periodSort.field === 'date')  return dir * ((a.start_date || '') < (b.start_date || '') ? -1 : 1);
@@ -1136,7 +1137,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white",
                                 }}
                               >
-                                <div className="flex items-center gap-1 px-3 py-1 min-w-max">
+                                <div className="flex items-center gap-1 px-3 py-1 w-full">
                                 {/* 1. Expand → footnote */}
                                 <button
                                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
@@ -1325,6 +1326,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     </Button>
                                   </div>
                                 )}
+                                <div className="flex-1" />{/* fill remaining width */}
                                 </div>
                               {/* Footnote — inside card */}
                               {isFootnoteOpen && (
