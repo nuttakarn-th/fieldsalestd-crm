@@ -836,23 +836,27 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {hasPeriods && isExpanded && (
                       <div className="border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
                         {/* Column Headers */}
-                        <div className="flex items-center gap-1.5 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
+                        <div className="flex items-center gap-2 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
-                          <div className="min-w-[126px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</div>
-                          <div className="w-[62px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">วัน/คืน</div>
-                          <div className="w-7 text-center shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Promo</div>
-                          <div className="w-8 shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">เดินทาง</div>
-                          <div className="w-[52px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Freeday</div>
-                          <div className="w-[48px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ลงร้าน</div>
-                          <div className="w-[76px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">จองจ่ายจบ</div>
-                          <div className="w-[44px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vat7%</div>
-                          <div className="w-[65px] text-right shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ราคา (฿)</div>
-                          <div className="w-[150px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Book / โควต้า</div>
-                          <div className="w-[54px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">+/-</div>
-                          <div className="w-[58px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">บันทึก</div>
-                          <div className="min-w-[76px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">สถานะ</div>
-                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[52px]" />}
+                          <div className="min-w-[118px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Period</div>
+                          <div className="w-[58px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">วัน/คืน</div>
+                          <div className="w-6 text-center shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Promo</div>
+                          <div className="w-8 shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">เดินทาง</div>
+                          {/* separator gap */}
+                          <div className="w-3 shrink-0" />
+                          <div className="w-[52px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">Freeday</div>
+                          <div className="w-[44px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">ลงร้าน</div>
+                          <div className="w-[70px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">จองจ่ายจบ</div>
+                          <div className="w-[38px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">Vat7%</div>
+                          <div className="w-[62px] text-right shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">ราคา (฿)</div>
+                          <div className="w-[148px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap">Book / โควต้า</div>
+                          <div className="w-[54px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">+/-</div>
+                          <div className="w-[58px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">บันทึก</div>
+                          <div className="w-[72px] shrink-0 text-[10px] font-medium text-gray-400 whitespace-nowrap text-center">สถานะ</div>
+                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
                         </div>
+                        {/* Period Cards */}
+                        <div className="px-3 py-2 space-y-1.5 min-w-max">
                         {t.periods!.map((p) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
@@ -862,17 +866,22 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           const isFootnoteOpen = expandedPeriods.has(pid);
                           const bookedCount = p.total_seats - currentQuota;
                           const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
-                          const barColor = isCancelled ? "#EF4444" : "#16A34A";
+                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
 
                           return (
                             <React.Fragment key={pid}>
-                              {/* Period Row */}
+                              {/* Period Card */}
                               <div
-                                className={`flex items-center gap-1.5 px-3 py-2 border-b text-sm min-w-max ${hasPending ? "ring-inset ring-1 ring-amber-200" : ""}`}
-                                style={isCancelled
-                                  ? {background: "#FFF1F2", borderLeft: "3px solid #EF4444"}
-                                  : hasPending ? {background: "#FFFBEB"} : {background: "white"}}
+                                className={`rounded-xl overflow-hidden border ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                                style={{
+                                  borderColor: `${statusColor}30`,
+                                  borderLeftWidth: "4px",
+                                  borderLeftColor: statusColor,
+                                  background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white",
+                                }}
                               >
+                                <div className="flex items-center gap-2 px-3 py-1.5 min-w-max">
                                 {/* 1. Expand → footnote */}
                                 <button
                                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
@@ -885,15 +894,15 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </button>
 
                                 {/* 2. Period date range */}
-                                <div className="min-w-[126px] shrink-0">
-                                  <div className={`text-xs font-semibold leading-snug ${isCancelled ? "line-through opacity-60" : ""}`}>
+                                <div className="min-w-[118px] shrink-0">
+                                  <div className={`text-xs font-semibold whitespace-nowrap ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}>
                                     {p.start_date ? fmtThai(p.start_date) : p.travel_date}
                                     {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
                                   </div>
                                 </div>
 
                                 {/* 3. Badge วัน/คืน */}
-                                <div className="w-[62px] shrink-0">
+                                <div className="w-[58px] shrink-0 flex justify-center">
                                   {(p.days || p.nights) ? (
                                     <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
                                       {p.days}วัน {p.nights}คืน
@@ -902,100 +911,106 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 4. PROMO */}
-                                <div className="w-7 text-center shrink-0 text-base leading-none">
-                                  {p.promo ? <span title="มีโปรโมชั่น">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
+                                <div className="w-6 text-center shrink-0 leading-none">
+                                  {p.promo ? <span title="มีโปรโมชั่น" className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
                                 </div>
 
                                 {/* 5. Airline */}
-                                <div className="w-8 shrink-0 text-[11px] font-mono text-gray-600">
+                                <div className="w-8 shrink-0 text-[11px] font-mono text-gray-600 text-center">
                                   {p.airline_code || <span className="text-gray-200">–</span>}
                                 </div>
 
+                                {/* separator — between logistics & features */}
+                                <div className="w-3 shrink-0 flex justify-center">
+                                  <div className="w-px h-5 bg-gray-200" />
+                                </div>
+
                                 {/* 6. FREEDAY chip */}
-                                <div className="w-[52px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[52px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.freeday
-                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#0D9488"}}>Freeday</span>
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#7C3AED"}}>Freeday</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 7. ลงร้าน chip */}
-                                <div className="w-[48px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[44px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.shopping
-                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#F59E0B"}}>ลงร้าน</span>
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#F59E0B"}}>ลงร้าน</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 8. จอง จ่าย จบ chip */}
-                                <div className="w-[76px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[70px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.all_in
-                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#16A34A"}}>จอง จ่าย จบ</span>
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#16A34A"}}>จอง จ่าย จบ</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 9. VAT7% chip */}
-                                <div className="w-[44px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[38px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.vat7
-                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#2563EB"}}>Vat7%</span>
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#2563EB"}}>Vat7%</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 10. ราคา */}
-                                <div className="w-[65px] text-right shrink-0">
+                                <div className="w-[62px] text-right shrink-0">
                                   <span className="font-bold text-sm" style={{color: "#EC4899"}}>{p.price_per_seat.toLocaleString()}</span>
-                                  <span className="text-[10px] text-gray-400 ml-0.5">฿</span>
+                                  <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
-                                {/* 11. Progress bar + BOOK count */}
-                                <div className="w-[150px] shrink-0">
-                                  {isCancelled ? (
-                                    <span className="text-[10px] text-gray-400">—</span>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      <div className="flex justify-between items-baseline">
-                                        <span className={`text-[11px] font-bold ${hasPending ? "text-amber-600" : "text-gray-700"}`}>
-                                          จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
-                                        </span>
-                                        <span className={`text-[11px] font-semibold ${hasPending ? "text-amber-500" : "text-emerald-600"}`}>
-                                          ว่าง {currentQuota}
-                                        </span>
-                                      </div>
-                                      <div className="h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
-                                        <div className="h-full rounded-full transition-all duration-300" style={{width: `${bookedPct}%`, background: barColor}} />
-                                      </div>
-                                      <div className="text-[9px] text-gray-400 text-right">{bookedPct}% จอง</div>
-                                    </div>
-                                  )}
+                                {/* 11. Progress bar — always shown (red when cancelled) */}
+                                <div className="w-[148px] shrink-0">
+                                  <div className="flex justify-between items-center mb-0.5">
+                                    <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
+                                      จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
+                                    </span>
+                                    <span className={`text-[10px] font-semibold ${isCancelled ? "text-red-400" : hasPending ? "text-amber-500" : "text-emerald-600"}`}>
+                                      {isCancelled ? "ยกเลิก" : `ว่าง ${currentQuota}`}
+                                    </span>
+                                  </div>
+                                  <div className="relative h-3.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                    <div
+                                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+                                      style={{width: `${bookedPct}%`, background: barBg}}
+                                    />
+                                    {bookedPct >= 18 && (
+                                      <span className="absolute inset-y-0 left-1.5 flex items-center text-[8px] font-bold text-white">
+                                        {bookedPct}%
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
-                                {/* 12. −/+ buttons */}
+                                {/* 12. −/+ buttons (+ เพิ่มลูกค้า = ลด quota, − ลดลูกค้า = เพิ่ม quota) */}
                                 {!isCancelled && canEdit ? (
                                   <div className="flex items-center gap-1 shrink-0 w-[54px]">
                                     <button
-                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
+                                      className="w-6 h-6 rounded-full text-white flex items-center justify-center transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
                                       style={{background: "#1F2937"}}
-                                      disabled={currentQuota <= 0}
-                                      title="ลดลูกค้า"
+                                      disabled={currentQuota >= p.total_seats}
+                                      title="ลดลูกค้า (คืนที่นั่ง)"
                                       onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#EF4444"; }}
                                       onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
-                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
+                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
                                     >
                                       <Minus className="w-3 h-3" />
                                     </button>
                                     <button
-                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
+                                      className="w-6 h-6 rounded-full text-white flex items-center justify-center transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
                                       style={{background: "#1F2937"}}
-                                      disabled={currentQuota >= p.total_seats}
-                                      title="เพิ่มลูกค้า"
+                                      disabled={currentQuota <= 0}
+                                      title="เพิ่มลูกค้า (ลดที่นั่งว่าง)"
                                       onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#16A34A"; }}
                                       onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
-                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
+                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
                                     >
                                       <Plus className="w-3 h-3" />
                                     </button>
                                   </div>
                                 ) : <div className="w-[54px] shrink-0" />}
 
-                                {/* 13 & 14. Save / Cancel pending — under "บันทึก" column */}
+                                {/* 13 & 14. Save / Cancel pending */}
                                 <div className="flex items-center gap-0.5 w-[58px] shrink-0">
                                   {hasPending ? (
                                     <button
@@ -1019,23 +1034,23 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   ) : <div className="w-7" />}
                                 </div>
 
-                                {/* 15. สถานะ */}
-                                <div className="min-w-[76px] shrink-0">
+                                {/* 15. สถานะ — badge */}
+                                <div className="w-[72px] shrink-0 flex justify-center">
                                   {isCancelled ? (
-                                    <div>
-                                      <div className="text-sm font-bold" style={{color: "#EF4444"}}>ยกเลิก</div>
-                                      {p.cancel_reason && <div className="text-[10px] mt-0.5" style={{color: "#EF4444"}}>*{p.cancel_reason}</div>}
-                                    </div>
+                                    <span className="inline-flex flex-col items-center">
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
+                                      {p.cancel_reason && <span className="text-[9px] text-red-400 mt-0.5 text-center leading-tight max-w-[68px] truncate">*{p.cancel_reason}</span>}
+                                    </span>
                                   ) : isFullDisplay ? (
-                                    <span className="text-sm font-semibold text-gray-500">ปิดกรุ๊ป</span>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
                                   ) : (
-                                    <span className="text-sm font-semibold" style={{color: "#16A34A"}}>ว่าง</span>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>
                                   )}
                                 </div>
 
                                 {/* 16. Actions */}
                                 {canEdit && (
-                                  <div className="flex gap-0.5 shrink-0">
+                                  <div className="flex gap-0.5 shrink-0 w-[44px]">
                                     <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
                                       <Pencil className="w-3 h-3" />
                                     </Button>
@@ -1048,11 +1063,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     </Button>
                                   </div>
                                 )}
-                              </div>
-
-                              {/* Footnote row (แสดงเมื่อกด >) */}
+                                </div>
+                              {/* Footnote — inside card */}
                               {isFootnoteOpen && (
-                                <div className="px-10 py-2 border-b text-xs space-y-1" style={{background: "#F9FAFB"}}>
+                                <div className="px-9 py-2 text-xs space-y-1 border-t" style={{background: "#F9FAFB", borderColor: `${statusColor}20`}}>
                                   {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
                                   {(p.tags ?? []).length > 0 && (
                                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1069,9 +1083,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   )}
                                 </div>
                               )}
+                              </div>{/* end card */}
                             </React.Fragment>
                           );
                         })}
+                        </div>{/* end period cards wrapper */}
 
                         {/* Add Period button */}
                         {canEdit && (
