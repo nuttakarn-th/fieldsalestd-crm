@@ -32,6 +32,14 @@ export interface TourPeriod {
   note?: string;            // หมายเหตุเฉพาะ period
   cancelled?: boolean;      // period ถูกยกเลิก
   cancel_reason?: string;   // เหตุผลการยกเลิก
+  // ── Phase 1+2 UI fields (UI only — ไม่มี DB migration ยัง) ──
+  freeday?: boolean;        // มี free day ในทัวร์
+  shopping?: boolean;       // มี shopping stop
+  all_in?: boolean;         // จอง จ่าย จบ (ราคา all-in)
+  vat7?: boolean;           // ราคารวม VAT 7% แล้ว
+  promo?: boolean;          // มีโปรโมชั่น
+  footnote?: string;        // ข้อความแสดงเมื่อ expand แถว
+  tags?: string[];          // category tags เช่น ["ครอบครัว", "ธรรมชาติ"]
 }
 
 export interface TourItem {

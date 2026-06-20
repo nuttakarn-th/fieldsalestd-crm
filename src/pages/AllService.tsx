@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,11 @@ import type { ExcelField } from "@/lib/excelUtils";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
+const CATEGORY_TAGS = [
+  "Adventure", "City Break", "Wellness", "กิน เที่ยว", "ครอบครัว",
+  "ความงาม", "จีน", "ทะเล", "ธรรมชาติ", "ประวัติศาสตร์",
+  "ประเพณีไทย", "ล่องเรือ", "สายมู", "เกาหลี", "โบราณ", "ไทย",
+];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
 // ── Quota Progress Bar (legacy tour ที่ไม่มี periods[]) ──
@@ -194,6 +199,14 @@ const blankPeriodForm = () => ({
   note: "",
   cancelled: false,
   cancel_reason: "",
+  // Phase 1+2 UI fields
+  freeday: false,
+  shopping: false,
+  all_in: false,
+  vat7: false,
+  promo: false,
+  footnote: "",
+  tags: [] as string[],
 });
 
 function TourSection({ canEdit }: { canEdit: boolean }) {
@@ -204,9 +217,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const addPeriod      = useServices((s) => s.addPeriod);
   const updatePeriod   = useServices((s) => s.updatePeriod);
   const deletePeriod   = useServices((s) => s.deletePeriod);
-  const uploadTourPDF  = useServices((s) => s.uploadTourPDF);
-  const deleteTourPDF  = useServices((s) => s.deleteTourPDF);
-  const togglePublish  = useServices((s) => s.togglePublish);
+  const uploadTourPDF      = useServices((s) => s.uploadTourPDF);
+  const deleteTourPDF      = useServices((s) => s.deleteTourPDF);
+  const togglePublish      = useServices((s) => s.togglePublish);
+  const adjustPeriodQuota  = useServices((s) => s.adjustPeriodQuota);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   // ── program dialog ──
@@ -224,6 +238,23 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [expanded, setExpanded]   = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  // ── inline quota pending edit (per period_id) ──
+  const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
+
+  // ── footnote expand (per period_id) ──
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+  const togglePeriodExpand = (id: string) =>
+    setExpandedPeriods((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  // ── filter state ──
+  const [filterText, setFilterText]       = useState("");
+  const [filterCat, setFilterCat]         = useState<TourCategory | "">("");
+  const [filterCountry, setFilterCountry] = useState("");
+  const [filterAirline, setFilterAirline] = useState("");
+  const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก">("");
+  const [filterPromo, setFilterPromo]     = useState(false);
+  const [filterTags, setFilterTags]       = useState<string[]>([]);
 
   const parseDuration = (s: string) => {
     const dMatch = s.match(/(\d+)\s*วัน/); const nMatch = s.match(/(\d+)\s*คืน/);
@@ -295,6 +326,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       note: p.note ?? "",
       cancelled: p.cancelled ?? false,
       cancel_reason: p.cancel_reason ?? "",
+      freeday: p.freeday ?? false,
+      shopping: p.shopping ?? false,
+      all_in: p.all_in ?? false,
+      vat7: p.vat7 ?? false,
+      promo: p.promo ?? false,
+      footnote: p.footnote ?? "",
+      tags: p.tags ?? [],
     });
     setPOpen(true);
   };
@@ -328,6 +366,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       note: pForm.note || undefined,
       cancelled: pForm.cancelled || undefined,
       cancel_reason: pForm.cancelled ? (pForm.cancel_reason || undefined) : undefined,
+      freeday: pForm.freeday || undefined,
+      shopping: pForm.shopping || undefined,
+      all_in: pForm.all_in || undefined,
+      vat7: pForm.vat7 || undefined,
+      promo: pForm.promo || undefined,
+      footnote: pForm.footnote || undefined,
+      tags: pForm.tags.length > 0 ? pForm.tags : undefined,
     };
     if (pEditId) {
       updatePeriod(pTourId, pEditId, payload);
@@ -388,119 +433,267 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     toast.success(`นำเข้า ${rows.length} ทัวร์แล้ว`);
   };
 
+  // ── filter options (computed from store) ──
+  const allCountries = useMemo(
+    () => [...new Set(tours.map((t) => t.country).filter(Boolean))].sort(),
+    [tours],
+  );
+  const allAirlines = useMemo(() => {
+    const codes = tours.flatMap((t) =>
+      (t.periods ?? []).map((p) => p.airline_code).filter(Boolean) as string[],
+    );
+    return [...new Set(codes)].sort();
+  }, [tours]);
+
+  const filteredTours = useMemo(() => {
+    return tours.filter((t) => {
+      if (filterText) {
+        const q = filterText.toLowerCase();
+        if (
+          !t.city.toLowerCase().includes(q) &&
+          !t.code.toLowerCase().includes(q) &&
+          !t.country.toLowerCase().includes(q)
+        ) return false;
+      }
+      if (filterCat && t.category !== filterCat) return false;
+      if (filterCountry && t.country !== filterCountry) return false;
+      if (filterAirline) {
+        const has = (t.periods ?? []).some((p) => p.airline_code === filterAirline);
+        if (!has) return false;
+      }
+      if (filterStatus) {
+        const periods = t.periods ?? [];
+        if (periods.length > 0) {
+          const has = periods.some((p) => {
+            if (filterStatus === "ยกเลิก") return !!p.cancelled;
+            if (filterStatus === "ปิดกรุ๊ป") return !p.cancelled && p.quota === 0;
+            if (filterStatus === "ว่าง") return !p.cancelled && p.quota > 0;
+            return true;
+          });
+          if (!has) return false;
+        }
+      }
+      if (filterPromo) {
+        const has = (t.periods ?? []).some((p) => p.promo);
+        if (!has) return false;
+      }
+      if (filterTags.length > 0) {
+        const has = (t.periods ?? []).some((p) =>
+          filterTags.every((tag) => (p.tags ?? []).includes(tag)),
+        );
+        if (!has) return false;
+      }
+      return true;
+    });
+  }, [tours, filterText, filterCat, filterCountry, filterAirline, filterStatus, filterPromo, filterTags]);
+
+  const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
+  const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
+  const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
+
+  const hasFilter = !!(filterText || filterCat || filterCountry || filterAirline || filterStatus || filterPromo || filterTags.length);
+  const clearFilters = () => {
+    setFilterText(""); setFilterCat(""); setFilterCountry(""); setFilterAirline("");
+    setFilterStatus(""); setFilterPromo(false); setFilterTags([]);
+  };
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
+    <div className="space-y-0 -mx-4 sm:-mx-6">
+      {/* ── STICKY FILTER BAR ── */}
+      <div className="sticky top-14 z-[100] bg-white border-b px-4 py-2.5 space-y-2" style={{boxShadow: "0 2px 8px rgba(0,0,0,0.06)"}}>
+        {/* Row 1: Search + dropdowns */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[160px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+          </div>
+          <Select value={filterCat} onValueChange={(v) => setFilterCat(v as TourCategory | "")}>
+            <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">กลุ่มทั้งหมด</SelectItem>
+              {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterCountry} onValueChange={setFilterCountry}>
+            <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="ประเทศทั้งหมด" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">ประเทศทั้งหมด</SelectItem>
+              {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as "" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+            <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="สถานะทั้งหมด" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">สถานะทั้งหมด</SelectItem>
+              <SelectItem value="ว่าง">ว่าง</SelectItem>
+              <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
+              <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterAirline} onValueChange={setFilterAirline}>
+            <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">ทั้งหมด</SelectItem>
+              {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <button
+            onClick={() => setFilterPromo((v) => !v)}
+            className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-600"}`}
+            style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
+          >🔥 Promo</button>
+          {hasFilter && (
+            <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md transition-colors">✕ ล้าง</button>
+          )}
+        </div>
+        {/* Row 2: Category tag chips */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {CATEGORY_TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
+              style={filterTags.includes(tag)
+                ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
+                : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+            >{tag}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── HEADER ACTIONS BAR ── */}
+      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b bg-white">
         <div>
-          <p className="text-sm text-muted-foreground">รวม {tours.length} โปรแกรม · International Tour / Domestic / Incentive</p>
+          <p className="text-sm text-muted-foreground">
+            รวม <span className="font-semibold text-foreground">{filteredTours.length}</span>
+            {hasFilter && <span className="text-muted-foreground"> / {tours.length}</span>} โปรแกรม
+            {hasFilter && <span className="ml-1.5 text-[11px] text-amber-600 font-medium">(กรองอยู่)</span>}
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImport} />
-          {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มทัวร์</Button>}
+          {canEdit && (
+            <Button onClick={openAdd} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
+              <Plus className="w-4 h-4 mr-1" /> เพิ่มโปรแกรมทัวร์
+            </Button>
+          )}
         </div>
       </div>
 
-      {TOUR_CATS.map((cat) => {
-        const items = tours.filter((t) => t.category === cat);
-        if (items.length === 0) return null;
-        return (
-          <div key={cat} className="bg-card rounded-xl border shadow-soft overflow-hidden">
-            <div className="p-3 border-b bg-gradient-to-r from-primary/5 to-accent/5 flex items-center gap-2">
-              <Badge className="bg-primary text-primary-foreground">{cat}</Badge>
-              <span className="text-xs text-muted-foreground">{items.length} โปรแกรม</span>
+      {/* ── SECTIONS ── */}
+      {(
+        [
+          { label: "ทัวร์ต่างประเทศ (International)", items: intlTours, color: "#16A34A", bg: "#F0FDF4", textColor: "#15803D" },
+          { label: "ทัวร์ในประเทศ (Domestic)",        items: domTours,  color: "#F59E0B", bg: "#FFFBEB", textColor: "#B45309" },
+          { label: "Incentive",                        items: incTours,  color: "#7C3AED", bg: "#F5F3FF", textColor: "#6D28D9" },
+        ] as const
+      ).map(({ label, items, color, bg, textColor }) =>
+        items.length === 0 ? null : (
+          <div key={label}>
+            {/* Section Divider */}
+            <div className="flex items-center gap-3 px-4 py-2 border-y" style={{background: bg, borderColor: `${color}30`}}>
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background: color}} />
+              <span className="text-sm font-semibold" style={{color: textColor}}>{label}</span>
+              <span className="text-xs" style={{color: textColor, opacity: 0.7}}>{items.length} โปรแกรม</span>
             </div>
-            <div className="divide-y">
+
+            {/* Tour Cards */}
+            <div className="divide-y bg-white">
               {items.map((t) => {
                 const hasPeriods = (t.periods?.length ?? 0) > 0;
                 const isExpanded = expanded.has(t.id);
-                // สรุปราคาจาก periods
+                const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
                 const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
-                const priceLabel = hasPeriods
-                  ? (Math.min(...prices) === Math.max(...prices)
-                    ? `${Math.min(...prices).toLocaleString()}`
-                    : `${Math.min(...prices).toLocaleString()} – ${Math.max(...prices).toLocaleString()}`)
-                  : t.price_per_seat.toLocaleString();
+                const priceMin = prices.length ? Math.min(...prices) : t.price_per_seat;
+                const priceMax = prices.length ? Math.max(...prices) : t.price_per_seat;
+                const priceLabel = priceMin === priceMax
+                  ? `฿${priceMin.toLocaleString()}`
+                  : `฿${priceMin.toLocaleString()} – ฿${priceMax.toLocaleString()}`;
 
                 return (
-                  <div key={t.id}>
-                    {/* ── Program Row ── */}
-                    <div className={`group flex items-center gap-3 px-3 py-2.5 transition-colors ${isExpanded ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-muted/40 border-l-2 border-l-transparent"}`}>
-                      {/* expand toggle */}
+                  <div key={t.id} className="border-l-4 transition-colors" style={{borderLeftColor: color}}>
+                    {/* ── Program Header Row ── */}
+                    <div className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/70"}`} style={isExpanded ? {background: `${bg}`} : undefined}>
+                      {/* Expand toggle */}
                       <button
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-muted shrink-0 transition-colors"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-white shrink-0 transition-colors disabled:opacity-25"
                         onClick={() => toggleExpand(t.id)}
                         disabled={!hasPeriods}
                       >
                         {hasPeriods
-                          ? (isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-primary" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />)
-                          : <span className="w-3.5 h-3.5 block opacity-0" />}
+                          ? (isExpanded
+                            ? <ChevronDown className="w-3.5 h-3.5" style={{color}} />
+                            : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />)
+                          : <span className="w-3.5 h-3.5 block" />}
                       </button>
 
-                      {/* Code + Duration */}
-                      <div className="shrink-0 w-[140px]">
-                        <span className="font-mono text-[11px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">{t.code}</span>
-                        {t.duration && <div className="text-[10px] text-muted-foreground mt-0.5">{t.duration}</div>}
-                      </div>
+                      {/* Code badge */}
+                      <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{background: `${color}18`, color}}>
+                        {t.code}
+                      </span>
 
-                      {/* Destination */}
+                      {/* Duration pill */}
+                      {t.duration && (
+                        <span className="text-[10px] text-white px-2 py-0.5 rounded-full shrink-0 font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
+                          {t.duration}
+                        </span>
+                      )}
+
+                      {/* City + Country */}
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm leading-tight truncate">{t.city}</div>
-                        <div className="text-[11px] text-muted-foreground">{t.country}</div>
+                        <span className="font-semibold text-sm leading-tight">{t.city}</span>
+                        {t.country && <span className="text-[11px] text-muted-foreground ml-2">{t.country}</span>}
                       </div>
 
-                      {/* Period count OR legacy label */}
-                      <div className="shrink-0 w-[110px]">
-                        {hasPeriods ? (
-                          <Badge variant="outline" className="text-[10px] gap-1 border-primary/30 text-primary font-semibold">
-                            <CalendarDays className="w-3 h-3" />{t.periods!.length} Period
-                          </Badge>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground italic">ยังไม่มี period</span>
-                        )}
-                      </div>
+                      {/* Period count */}
+                      {hasPeriods ? (
+                        <Badge variant="outline" className="text-[10px] gap-1 shrink-0 font-semibold" style={{borderColor: `${color}60`, color}}>
+                          <CalendarDays className="w-3 h-3" />{t.periods!.length} Period
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic shrink-0">ยังไม่มี period</span>
+                      )}
 
-                      {/* Price range */}
-                      <div className="shrink-0 w-[100px] text-right">
-                        <span className="font-bold text-sm">{priceLabel}</span>
-                        <span className="text-[10px] text-muted-foreground ml-0.5">฿</span>
-                      </div>
+                      {/* Price */}
+                      <span className="text-sm font-bold shrink-0" style={{color}}>{priceLabel}</span>
 
                       {/* Quota summary */}
-                      <div className="shrink-0 w-[115px]">
-                        {hasPeriods ? (
-                          <div className="text-[11px] leading-snug">
-                            <div className="font-medium">รวม {t.periods!.reduce((s,p)=>s+p.total_seats,0)} ที่</div>
-                            <div className="text-muted-foreground">ว่าง {t.periods!.filter(p=>!p.cancelled).reduce((s,p)=>s+p.quota,0)}</div>
-                          </div>
-                        ) : (
-                          <QuotaBar quota={t.quota} total_seats={t.total_seats} canEdit={canEdit} tourId={t.id} />
-                        )}
-                      </div>
+                      {hasPeriods && (
+                        <div className="text-[10px] text-muted-foreground shrink-0 text-right leading-snug">
+                          <div className="font-medium text-foreground">{t.periods!.reduce((s, p) => s + p.total_seats, 0)} ที่นั่ง</div>
+                          <div>ว่าง {activePeriods.reduce((s, p) => s + p.quota, 0)}</div>
+                        </div>
+                      )}
 
-                      {/* Actions */}
+                      {/* + Period shortcut */}
+                      {canEdit && (
+                        <button
+                          onClick={() => openAddPeriod(t.id)}
+                          className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border border-dashed transition-colors opacity-0 group-hover:opacity-100"
+                          style={{borderColor: `${color}50`, color: `${color}90`}}
+                          title="เพิ่ม Period"
+                        >
+                          <Plus className="w-2.5 h-2.5" /> Period
+                        </button>
+                      )}
+
+                      {/* PDF + Actions */}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {/* PDF indicator (always visible if has pdf) */}
                           {t.pdf_url && (
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
                               {t.is_published ? "🌐 Live" : "PDF"}
                             </span>
                           )}
-                          {/* PDF Upload / Remove */}
                           {t.pdf_url ? (
-                            <Button
-                              size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF"
-                              onClick={async () => {
-                                if (!confirm("ลบ PDF และยกเลิกการแสดงในเว็บ?")) return;
-                                await deleteTourPDF(t.id);
-                                toast.success("ลบ PDF แล้ว");
-                              }}
-                            ><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF"
+                              onClick={async () => { if (!confirm("ลบ PDF และยกเลิกการแสดงในเว็บ?")) return; await deleteTourPDF(t.id); toast.success("ลบ PDF แล้ว"); }}>
+                              <FileX className="w-3.5 h-3.5 text-destructive/70" />
+                            </Button>
                           ) : (
                             <>
-                              <input
-                                id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden"
+                              <input id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden"
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0]; e.target.value = "";
                                   if (!file) return;
@@ -511,30 +704,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   if (url) toast.success("อัปโหลด PDF สำเร็จ"); else toast.error("อัปโหลดล้มเหลว");
                                 }}
                               />
-                              <Button
-                                size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF โปรแกรม"
-                                disabled={uploadingId === t.id}
-                                onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}
-                              >
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF" disabled={uploadingId === t.id}
+                                onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}>
                                 {uploadingId === t.id
                                   ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                   : <FileUp className="w-3.5 h-3.5" />}
                               </Button>
                             </>
                           )}
-                          {/* Publish toggle — เปิดได้เฉพาะเมื่อมี PDF */}
-                          <Button
-                            size="icon" variant="ghost" className="h-7 w-7"
-                            title={t.is_published ? "ซ่อนจากหน้าเว็บ" : "แสดงในหน้าเว็บ"}
-                            disabled={!t.pdf_url}
-                            onClick={() => {
-                              togglePublish(t.id, !t.is_published);
-                              toast.success(t.is_published ? "ซ่อนจากหน้า Package แล้ว" : "แสดงในหน้า Package แล้ว");
-                            }}
-                          >
-                            {t.is_published
-                              ? <Globe className="w-3.5 h-3.5 text-green-600" />
-                              : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title={t.is_published ? "ซ่อนจากหน้าเว็บ" : "แสดงในหน้าเว็บ"} disabled={!t.pdf_url}
+                            onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนจากหน้า Package แล้ว" : "แสดงในหน้า Package แล้ว"); }}>
+                            {t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
@@ -546,94 +726,224 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       )}
                     </div>
 
-                    {/* ── Period Cards ── */}
+                    {/* ── Period Table ── */}
                     {hasPeriods && isExpanded && (
-                      <div className="bg-muted/20 border-t px-4 py-3 space-y-2">
+                      <div className="border-t overflow-x-auto" style={{background: `${color}04`}}>
                         {t.periods!.map((p) => {
+                          const pid = p.period_id;
+                          const hasPending = pendingQuota[pid] !== undefined;
+                          const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
                           const isCancelled = !!p.cancelled;
-                          const isFull = !isCancelled && p.quota === 0;
+                          const isFullDisplay = !isCancelled && currentQuota === 0;
+                          const isFootnoteOpen = expandedPeriods.has(pid);
+                          const bookedCount = p.total_seats - currentQuota;
+                          const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
+                          const barColor = isCancelled ? "#EF4444" : "#16A34A";
+
                           return (
-                            <div key={p.period_id} className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl border text-sm transition-colors ${
-                              isCancelled
-                                ? "border-destructive/20 bg-destructive/5 opacity-75"
-                                : isFull
-                                  ? "border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20"
-                                  : "border-border/60 bg-background hover:border-primary/30 hover:shadow-sm"
-                            }`}>
-                              {/* Status pill */}
-                              <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
-                                isCancelled
-                                  ? "bg-destructive/15 text-destructive"
-                                  : isFull
-                                    ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
-                                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                              }`}>
-                                {isCancelled ? "❌ ยกเลิก" : isFull ? "🔴 เต็ม" : "✅ เปิด"}
-                              </span>
+                            <React.Fragment key={pid}>
+                              {/* Period Row */}
+                              <div
+                                className={`flex items-center gap-2 px-3 py-2 border-b text-sm min-w-max ${hasPending ? "ring-inset ring-1 ring-amber-200" : ""}`}
+                                style={isCancelled
+                                  ? {background: "#FFF1F2", borderLeft: "3px solid #EF4444"}
+                                  : hasPending ? {background: "#FFFBEB"} : {background: "white"}}
+                              >
+                                {/* 1. Expand → footnote */}
+                                <button
+                                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
+                                  onClick={() => togglePeriodExpand(pid)}
+                                  title="แสดง footnote"
+                                >
+                                  {isFootnoteOpen
+                                    ? <ChevronDown className="w-3 h-3" />
+                                    : <ChevronRight className="w-3 h-3" />}
+                                </button>
 
-                              {/* Date range — PRIMARY */}
-                              <div className="flex-1 min-w-0">
-                                <div className={`font-semibold leading-tight ${isCancelled ? "line-through opacity-60" : ""}`}>
-                                  {p.start_date ? fmtThai(p.start_date) : p.travel_date}
-                                  {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
+                                {/* 2. Period date range */}
+                                <div className="min-w-[148px] shrink-0">
+                                  <div className={`text-xs font-semibold leading-snug ${isCancelled ? "line-through opacity-60" : ""}`}>
+                                    {p.start_date ? fmtThai(p.start_date) : p.travel_date}
+                                    {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  {(p.days || p.nights) && (
-                                    <span className="text-[10px] text-muted-foreground">{p.days}วัน {p.nights}คืน</span>
-                                  )}
-                                  {isCancelled && p.cancel_reason && (
-                                    <span className="text-[10px] text-destructive/70">{p.cancel_reason}</span>
+
+                                {/* 3. Badge วัน/คืน */}
+                                <div className="w-[72px] shrink-0">
+                                  {(p.days || p.nights) ? (
+                                    <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
+                                      {p.days}วัน {p.nights}คืน
+                                    </span>
+                                  ) : <span className="text-gray-300 text-[10px]">–</span>}
+                                </div>
+
+                                {/* 4. PROMO */}
+                                <div className="w-7 text-center shrink-0 text-base leading-none">
+                                  {p.promo ? <span title="มีโปรโมชั่น">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
+                                </div>
+
+                                {/* 5. Airline */}
+                                <div className="w-8 shrink-0 text-[11px] font-mono text-gray-600">
+                                  {p.airline_code || <span className="text-gray-200">–</span>}
+                                </div>
+
+                                {/* 6. FREEDAY chip */}
+                                <div className="w-[68px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                  {p.freeday
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#7C3AED"}}>Freeday</span>
+                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                </div>
+
+                                {/* 7. ลงร้าน chip */}
+                                <div className="w-[60px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                  {p.shopping
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#F59E0B"}}>ลงร้าน</span>
+                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                </div>
+
+                                {/* 8. จอง จ่าย จบ chip */}
+                                <div className="w-[90px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                  {p.all_in
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#16A34A"}}>จอง จ่าย จบ</span>
+                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                </div>
+
+                                {/* 9. VAT7% chip */}
+                                <div className="w-[52px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                  {p.vat7
+                                    ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#2563EB"}}>Vat7%</span>
+                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                </div>
+
+                                {/* 10. ราคา */}
+                                <div className="w-[76px] text-right shrink-0">
+                                  <span className="font-bold text-sm" style={{color: "#16A34A"}}>{p.price_per_seat.toLocaleString()}</span>
+                                  <span className="text-[10px] text-gray-400 ml-0.5">฿</span>
+                                </div>
+
+                                {/* 11. Progress bar + BOOK count */}
+                                <div className="w-[120px] shrink-0">
+                                  {isCancelled ? (
+                                    <span className="text-[10px] text-gray-400">—</span>
+                                  ) : (
+                                    <div className="space-y-0.5">
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className={`font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
+                                          {bookedCount}/{p.total_seats}
+                                        </span>
+                                        <span className="text-gray-400">ว่าง {currentQuota}</span>
+                                      </div>
+                                      <div className="h-1.5 rounded-full overflow-hidden" style={{background: "#F3F4F6"}}>
+                                        <div className="h-full rounded-full transition-all" style={{width: `${bookedPct}%`, background: barColor}} />
+                                      </div>
+                                    </div>
                                   )}
                                 </div>
-                              </div>
 
-                              {/* Price */}
-                              <div className="shrink-0 text-right w-[90px]">
-                                <span className="font-bold">{p.price_per_seat.toLocaleString()}</span>
-                                <span className="text-[10px] text-muted-foreground ml-0.5">฿</span>
-                              </div>
+                                {/* 12. +/− buttons */}
+                                {!isCancelled && canEdit ? (
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <button
+                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-opacity disabled:opacity-30"
+                                      style={{background: "#1F2937"}}
+                                      disabled={currentQuota >= p.total_seats}
+                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
+                                    >+</button>
+                                    <button
+                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-opacity disabled:opacity-30"
+                                      style={{background: "#1F2937"}}
+                                      disabled={currentQuota <= 0}
+                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
+                                    >–</button>
+                                  </div>
+                                ) : <div className="w-[52px] shrink-0" />}
 
-                              {/* Quota */}
-                              <div className="shrink-0 w-[120px]">
-                                {isCancelled
-                                  ? <span className="text-[10px] text-muted-foreground">—</span>
-                                  : <PeriodQuotaBar quota={p.quota} total_seats={p.total_seats} canEdit={canEdit} tourId={t.id} periodId={p.period_id} />
-                                }
-                              </div>
+                                {/* 13. บันทึก icon */}
+                                {hasPending ? (
+                                  <button
+                                    className="w-6 h-6 flex items-center justify-center rounded text-green-600 hover:bg-green-50 shrink-0 text-base leading-none"
+                                    title="บันทึกโควต้า"
+                                    onClick={() => {
+                                      const newQ = pendingQuota[pid];
+                                      if (newQ === undefined) return;
+                                      adjustPeriodQuota(t.id, pid, newQ - p.quota);
+                                      setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
+                                      toast.success("อัปเดตโควต้าแล้ว");
+                                    }}
+                                  >💾</button>
+                                ) : <div className="w-6 shrink-0" />}
 
-                              {/* Tags: airline + project + note */}
-                              <div className="flex gap-1 shrink-0">
-                                {p.airline_code && (
-                                  <span className="px-1.5 py-0.5 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 text-[10px] font-mono rounded border border-sky-100 dark:border-sky-900/40">{p.airline_code}</span>
+                                {/* 14. X cancel pending */}
+                                {hasPending ? (
+                                  <button
+                                    className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 shrink-0 text-xs"
+                                    title="ยกเลิก"
+                                    onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
+                                  >✕</button>
+                                ) : <div className="w-6 shrink-0" />}
+
+                                {/* 15. สถานะ */}
+                                <div className="min-w-[92px] shrink-0">
+                                  {isCancelled ? (
+                                    <div>
+                                      <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold" style={{background: "#EF4444"}}>ยกเลิก</span>
+                                      {p.cancel_reason && <div className="text-[9px] mt-0.5" style={{color: "#EF4444"}}>*{p.cancel_reason}</div>}
+                                    </div>
+                                  ) : isFullDisplay ? (
+                                    <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold" style={{background: "#6B7280"}}>ปิดกรุ๊ป</span>
+                                  ) : (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border whitespace-nowrap" style={{borderColor: "#16A34A", color: "#16A34A"}}>
+                                      ว่าง {currentQuota}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* 16. Actions */}
+                                {canEdit && (
+                                  <div className="flex gap-0.5 shrink-0">
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                      const booked = p.total_seats - p.quota;
+                                      if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; }
+                                      if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); }
+                                    }}>
+                                      <Trash2 className="w-3 h-3 text-destructive/70" />
+                                    </Button>
+                                  </div>
                                 )}
-                                {p.project && (
-                                  <span className="px-1.5 py-0.5 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-400 text-[10px] rounded border border-violet-100 dark:border-violet-900/40">{p.project}</span>
-                                )}
-                                {p.note && (
-                                  <span className="px-1.5 py-0.5 bg-muted text-muted-foreground text-[10px] rounded" title={p.note}>📝</span>
-                                )}
                               </div>
 
-                              {/* Actions — show on hover */}
-                              {canEdit && (
-                                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-3.5 h-3.5" /></Button>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                                    const booked = p.total_seats - p.quota;
-                                    if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; }
-                                    if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); }
-                                  }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                              {/* Footnote row (แสดงเมื่อกด >) */}
+                              {isFootnoteOpen && (
+                                <div className="px-10 py-2 border-b text-xs space-y-1" style={{background: "#F9FAFB"}}>
+                                  {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
+                                  {(p.tags ?? []).length > 0 && (
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-gray-400 text-[10px]">Tag:</span>
+                                      {(p.tags ?? []).map((tag) => (
+                                        <span key={tag} className="px-2 py-0.5 bg-white border border-gray-200 rounded-full text-[10px] text-gray-600">{tag}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {p.project && <div className="text-gray-400">โครงการ / Campaign: <span className="text-gray-600">{p.project}</span></div>}
+                                  {p.note && <div className="text-gray-400">*หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
+                                  {!p.footnote && !(p.tags ?? []).length && !p.project && !p.note && (
+                                    <span className="text-gray-300 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
+                                  )}
                                 </div>
                               )}
-                            </div>
+                            </React.Fragment>
                           );
                         })}
 
-                        {/* Add period — dashed card */}
+                        {/* Add Period button */}
                         {canEdit && (
                           <button
                             onClick={() => openAddPeriod(t.id)}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-primary/50 hover:text-primary text-muted-foreground text-xs transition-colors"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-white"
+                            style={{color, borderTop: `1px dashed ${color}30`}}
                           >
                             <Plus className="w-3.5 h-3.5" /> เพิ่ม Period ใหม่
                           </button>
@@ -641,12 +951,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       </div>
                     )}
 
-                    {/* ── No-periods: dashed add button ── */}
+                    {/* No-periods add button */}
                     {!hasPeriods && canEdit && (
                       <div className="px-10 pb-2.5 pt-0">
                         <button
                           onClick={() => openAddPeriod(t.id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-dashed border-primary/30 text-primary/60 hover:text-primary hover:border-primary/60 transition-colors text-[11px] font-medium"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-dashed text-[11px] font-medium transition-colors hover:opacity-80"
+                          style={{borderColor: `${color}50`, color: `${color}90`}}
                         >
                           <CalendarDays className="w-3 h-3" /> เพิ่ม Period แรก
                         </button>
@@ -657,10 +968,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               })}
             </div>
           </div>
-        );
-      })}
-      {tours.length === 0 && (
-        <div className="p-8 text-center text-muted-foreground bg-card border rounded-xl">ยังไม่มีโปรแกรมทัวร์</div>
+        )
+      )}
+
+      {/* Empty state */}
+      {filteredTours.length === 0 && (
+        <div className="p-8 text-center text-muted-foreground bg-white border-t">
+          {tours.length === 0 ? "ยังไม่มีโปรแกรมทัวร์" : "ไม่พบโปรแกรมที่ตรงกับตัวกรอง — ลองล้างตัวกรอง"}
+        </div>
       )}
 
       {/* ── Program Dialog ── */}
@@ -697,7 +1012,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button>
+            <Button onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">บันทึก</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -765,6 +1080,61 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               </div>
             </div>
 
+            {/* ── Chip options ── */}
+            <div className="border rounded-lg p-3 space-y-2.5">
+              <label className="text-xs font-semibold text-muted-foreground">ตัวเลือก Chip (แสดงในตาราง Period)</label>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: "promo"    as const, label: "🔥 Promotion",  color: "#F59E0B" },
+                  { key: "freeday"  as const, label: "Freeday",        color: "#7C3AED" },
+                  { key: "shopping" as const, label: "ลงร้าน",         color: "#F59E0B" },
+                  { key: "all_in"   as const, label: "จอง จ่าย จบ",   color: "#16A34A" },
+                  { key: "vat7"     as const, label: "Vat7%",          color: "#2563EB" },
+                ] as const).map(({ key, label, color }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPForm((f) => ({ ...f, [key]: !f[key] }))}
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
+                    style={pForm[key]
+                      ? {background: color, color: "#fff", borderColor: color}
+                      : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                  >{label}</button>
+                ))}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="text-[10px] text-muted-foreground">Tag ประเภทโปรแกรม</label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {CATEGORY_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setPForm((f) => ({
+                        ...f,
+                        tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
+                      }))}
+                      className="px-2 py-0.5 rounded-full text-[10px] border transition-colors"
+                      style={pForm.tags.includes(tag)
+                        ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
+                        : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                    >{tag}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footnote */}
+              <div>
+                <label className="text-xs font-semibold">Footnote (แสดงเมื่อกด ▶ ขยายแถว)</label>
+                <Input
+                  value={pForm.footnote}
+                  onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))}
+                  placeholder="ข้อมูลเพิ่มเติม เช่น บริษัท ABC ประมาณ 10 ท่าน VIP..."
+                />
+              </div>
+            </div>
+
             {/* Cancel section — edit mode only */}
             {pEditId && (
               <div className={`border rounded-lg p-3 space-y-2 ${pForm.cancelled ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
@@ -806,9 +1176,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submitPeriod} className={pForm.cancelled ? "bg-destructive text-destructive-foreground" : "bg-gradient-primary text-primary-foreground"}>
-              บันทึก
-            </Button>
+            <Button onClick={submitPeriod}
+              style={pForm.cancelled
+                ? {background: "#EF4444", color: "#FFFFFF"}
+                : {background: "#16A34A", color: "#FFFFFF"}}
+              className="hover:opacity-90"
+            >บันทึก</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
