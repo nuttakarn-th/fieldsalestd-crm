@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -321,6 +321,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก">("");
   const [filterPromo, setFilterPromo]     = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
+  const [filterOpen, setFilterOpen]       = useState(false);
 
   const parseDuration = (s: string) => {
     const dMatch = s.match(/(\d+)\s*วัน/); const nMatch = s.match(/(\d+)\s*คืน/);
@@ -588,65 +589,143 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="space-y-0 -mx-4 sm:-mx-6">
-      {/* ── STICKY FILTER BAR ── */}
-      <div className="sticky top-14 z-30 bg-white border-b px-4 py-2.5 space-y-2" style={{boxShadow: "0 2px 8px rgba(0,0,0,0.06)"}}>
-        {/* Row 1: Search + dropdowns */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[160px] max-w-xs">
+      {/* ── FILTER BAR (non-sticky) ── */}
+      <div className="bg-white border-b px-4 py-2.5 space-y-2">
+
+        {/* ── MOBILE: compact search row + filter toggle ── */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+            <Input className="pl-8 h-9 text-sm" placeholder="ค้นหา..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
           </div>
-          <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
-            <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">กลุ่มทั้งหมด</SelectItem>
-              {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterCountry || "__all__"} onValueChange={(v) => setFilterCountry(v === "__all__" ? "" : v)}>
-            <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="ประเทศทั้งหมด" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">ประเทศทั้งหมด</SelectItem>
-              {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
-            <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="สถานะทั้งหมด" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">สถานะทั้งหมด</SelectItem>
-              <SelectItem value="ว่าง">ว่าง</SelectItem>
-              <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
-              <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
-            <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">ทั้งหมด</SelectItem>
-              {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-            </SelectContent>
-          </Select>
           <button
-            onClick={() => setFilterPromo((v) => !v)}
-            className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-600"}`}
-            style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
-          >🔥 Promo</button>
-          {hasFilter && (
-            <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md transition-colors">✕ ล้าง</button>
-          )}
+            onClick={() => setFilterOpen((v) => !v)}
+            className={`h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${(filterOpen || hasFilter) ? "text-white border-gray-800" : "border-gray-200 text-gray-500"}`}
+            style={(filterOpen || hasFilter) ? {background: "#1F2937"} : undefined}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            ตัวกรอง
+            {hasFilter && <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-bold flex items-center justify-center">{[filterCat, filterCountry, filterAirline, filterStatus, filterPromo, ...filterTags].filter(Boolean).length}</span>}
+          </button>
         </div>
-        {/* Row 2: Category tag chips */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {CATEGORY_TAGS.map((tag) => (
+
+        {/* ── MOBILE: expandable filter panel ── */}
+        {filterOpen && (
+          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-gray-100 mt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="กลุ่มทัวร์" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">กลุ่มทั้งหมด</SelectItem>
+                  {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterCountry || "__all__"} onValueChange={(v) => setFilterCountry(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="ประเทศ" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">ทุกประเทศ</SelectItem>
+                  {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="สถานะ" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">ทุกสถานะ</SelectItem>
+                  <SelectItem value="ว่าง">ว่าง</SelectItem>
+                  <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
+                  <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">ทุกสายการบิน</SelectItem>
+                  {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setFilterPromo((v) => !v)}
+                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500"}`}
+                style={filterPromo ? {background: "#F59E0B"} : undefined}
+              >🔥 Promo</button>
+              {hasFilter && (
+                <button onClick={() => { clearFilters(); setFilterOpen(false); }} className="h-8 px-3 text-sm text-red-500 border border-red-200 rounded-lg">✕ ล้างทั้งหมด</button>
+              )}
+            </div>
+            {/* Tag chips on mobile */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {CATEGORY_TAGS.map((tag) => (
+                <button key={tag}
+                  onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
+                  style={filterTags.includes(tag)
+                    ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
+                    : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                >{tag}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── DESKTOP: full filter row ── */}
+        <div className="hidden sm:block space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px] max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+            </div>
+            <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
+              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">กลุ่มทั้งหมด</SelectItem>
+                {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterCountry || "__all__"} onValueChange={(v) => setFilterCountry(v === "__all__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="ประเทศทั้งหมด" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">ประเทศทั้งหมด</SelectItem>
+                {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+              <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="สถานะทั้งหมด" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">สถานะทั้งหมด</SelectItem>
+                <SelectItem value="ว่าง">ว่าง</SelectItem>
+                <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
+                <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">ทั้งหมด</SelectItem>
+                {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <button
-              key={tag}
-              onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
-              style={filterTags.includes(tag)
-                ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
-            >{tag}</button>
-          ))}
+              onClick={() => setFilterPromo((v) => !v)}
+              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-600"}`}
+              style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
+            >🔥 Promo</button>
+            {hasFilter && (
+              <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md transition-colors">✕ ล้าง</button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {CATEGORY_TAGS.map((tag) => (
+              <button key={tag}
+                onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
+                style={filterTags.includes(tag)
+                  ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
+                  : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+              >{tag}</button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -658,13 +737,15 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             {hasFilter && <span className="text-muted-foreground"> / {tours.length}</span>} โปรแกรม
             {hasFilter && <span className="ml-1.5 text-[11px] text-amber-600 font-medium">(กรองอยู่)</span>}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
+          <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImport} />
           {canEdit && (
             <Button onClick={openAdd} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
-              <Plus className="w-4 h-4 mr-1" /> เพิ่มโปรแกรมทัวร์
+              <Plus className="w-4 h-4 mr-1" />
+              <span className="hidden sm:inline">เพิ่มโปรแกรมทัวร์</span>
+              <span className="sm:hidden">เพิ่มทัวร์</span>
             </Button>
           )}
         </div>
@@ -711,123 +792,102 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
-                    {/* ── Program Header Row ── */}
-                    <div className={`flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
-
-                      {/* ▶ Expand chevron (left) */}
-                      <button
-                        className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors"
-                        onClick={() => toggleExpand(t.id)}
-                        title={isExpanded ? "ย่อ" : "ขยาย"}
-                      >
-                        {isExpanded
-                          ? <ChevronDown className="w-4 h-4" />
-                          : <ChevronRight className="w-4 h-4" />}
+                    {/* ── Program Header Row — DESKTOP (sm+) ── */}
+                    <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                      <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors" onClick={() => toggleExpand(t.id)}>
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
-
-                      {/* Name | Duration | Code */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-0 flex-wrap">
                           <span className="font-bold text-sm text-gray-900 mr-2">{t.title ?? t.city}</span>
-                          {t.duration && <>
-                            <span className="text-gray-300 mr-2">|</span>
-                            <span className="text-sm text-gray-500 mr-2 whitespace-nowrap">{t.duration}</span>
-                          </>}
+                          {t.duration && <><span className="text-gray-300 mr-2">|</span><span className="text-sm text-gray-500 mr-2 whitespace-nowrap">{t.duration}</span></>}
                           <span className="text-gray-300 mr-2">|</span>
                           <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
-                          {/* Period count badge — inline after code */}
-                          <button
-                            onClick={() => hasPeriods && toggleExpand(t.id)}
+                          <button onClick={() => hasPeriods && toggleExpand(t.id)}
                             className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
-                            style={hasPeriods
-                              ? {borderColor: "#374151", color: "white", background: "#1F2937"}
-                              : {borderColor: "#E5E7EB", color: "#9CA3AF", background: "#F9FAFB"}}
-                            title={hasPeriods ? "คลิกเพื่อดู Period" : "ยังไม่มี period"}
-                          >
+                            style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
                             {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
-                            {hasPeriods && (isExpanded
-                              ? <ChevronDown className="w-3 h-3 ml-0.5" />
-                              : <ChevronRight className="w-3 h-3 ml-0.5" />)}
+                            {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                           </button>
-                          {t.continent && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background: `${color}15`, color}}>
-                              {t.continent}
-                            </span>
-                          )}
+                          {t.continent && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                         </div>
-                        {t.title && t.city && t.city !== t.title && (
-                          <div className="text-[11px] text-gray-400 truncate mt-0.5">{t.city}</div>
-                        )}
+                        {t.title && t.city && t.city !== t.title && <div className="text-[11px] text-gray-400 truncate mt-0.5">{t.city}</div>}
                         {(t.tour_types ?? []).length > 0 && (
                           <div className="flex gap-1 mt-1 flex-wrap">
                             {(t.tour_types ?? []).slice(0, 4).map((tag) => (
-                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
-                                style={{borderColor: `${color}40`, color}}>
-                                {tag}
-                              </span>
+                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
                             ))}
                           </div>
                         )}
                       </div>
-
-                      {/* + เพิ่ม Period */}
                       {canEdit && (
-                        <button
-                          onClick={() => openAddPeriod(t.id)}
-                          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90"
-                          style={{background: "#EC4899"}}
-                          title="เพิ่ม Period"
-                        >
+                        <button onClick={() => openAddPeriod(t.id)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}}>
                           <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
                         </button>
                       )}
-
-                      {/* PDF + Actions */}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0">
-                          {t.pdf_url && (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
-                              {t.is_published ? "🌐 Live" : "PDF"}
-                            </span>
-                          )}
+                          {t.pdf_url && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{t.is_published ? "🌐 Live" : "PDF"}</span>}
                           {t.pdf_url ? (
-                            <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF"
-                              onClick={async () => { if (!confirm("ลบ PDF และยกเลิกการแสดงในเว็บ?")) return; await deleteTourPDF(t.id); toast.success("ลบ PDF แล้ว"); }}>
-                              <FileX className="w-3.5 h-3.5 text-destructive/70" />
-                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF" onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบ PDF แล้ว"); }}><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
                           ) : (
-                            <>
-                              <input id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0]; e.target.value = "";
-                                  if (!file) return;
-                                  if (file.size > 20 * 1024 * 1024) { toast.error("ไฟล์ใหญ่เกิน 20 MB"); return; }
-                                  setUploadingId(t.id);
-                                  const url = await uploadTourPDF(t.id, file);
-                                  setUploadingId(null);
-                                  if (url) toast.success("อัปโหลด PDF สำเร็จ"); else toast.error("อัปโหลดล้มเหลว");
-                                }}
-                              />
-                              <Button size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF" disabled={uploadingId === t.id}
-                                onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}>
-                                {uploadingId === t.id
-                                  ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                  : <FileUp className="w-3.5 h-3.5" />}
-                              </Button>
-                            </>
+                            <><input id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; if (file.size > 20*1024*1024) { toast.error("ไฟล์ใหญ่เกิน 20 MB"); return; } setUploadingId(t.id); const url = await uploadTourPDF(t.id, file); setUploadingId(null); if (url) toast.success("อัปโหลด PDF สำเร็จ"); else toast.error("อัปโหลดล้มเหลว"); }} />
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF" disabled={uploadingId===t.id} onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}>{uploadingId===t.id ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}</Button></>
                           )}
-                          <Button size="icon" variant="ghost" className="h-7 w-7" title={t.is_published ? "ซ่อนจากหน้าเว็บ" : "แสดงในหน้าเว็บ"} disabled={!t.pdf_url}
-                            onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนจากหน้า Package แล้ว" : "แสดงในหน้า Package แล้ว"); }}>
-                            {t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}
-                          </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                            const booked = t.total_seats - t.quota;
-                            if (booked > 0) { toast.error(`ไม่สามารถลบได้ มีที่นั่งถูกจองแล้ว ${booked} ที่`); return; }
-                            if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); }
-                          }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; if (booked > 0) { toast.error(`มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบทัวร์นี้?")) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
                         </div>
                       )}
+                    </div>
+
+                    {/* ── Program Header Row — MOBILE (< sm) ── */}
+                    <div className={`sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                      {/* Top row: expand + name + period badge */}
+                      <div className="flex items-start gap-2 px-3 pt-2.5 pb-1">
+                        <button className="mt-0.5 w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400" onClick={() => toggleExpand(t.id)}>
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-base text-gray-900 leading-snug">{t.title ?? t.city}</span>
+                            <button onClick={() => hasPeriods && toggleExpand(t.id)}
+                              className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px]"
+                              style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
+                              {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
+                              {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500 flex-wrap">
+                            {t.duration && <span className="whitespace-nowrap">{t.duration}</span>}
+                            <span className="text-gray-300">|</span>
+                            <span className="font-mono font-bold whitespace-nowrap" style={{color}}>{t.code}</span>
+                            {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Bottom row: action buttons */}
+                      <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-0.5 flex-wrap">
+                        {canEdit && (
+                          <button onClick={() => openAddPeriod(t.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-semibold" style={{background:"#EC4899"}}>
+                            <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
+                          </button>
+                        )}
+                        {canEdit && (
+                          <div className="flex items-center gap-0.5 ml-auto">
+                            {t.pdf_url && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{t.is_published ? "🌐" : "PDF"}</span>}
+                            {t.pdf_url ? (
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบแล้ว"); }}><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                            ) : (
+                              <><input id={`pdf-upload-mob-${t.id}`} type="file" accept="application/pdf" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; setUploadingId(t.id); const url = await uploadTourPDF(t.id, file); setUploadingId(null); if (url) toast.success("อัปโหลดสำเร็จ"); else toast.error("ล้มเหลว"); }} />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" disabled={uploadingId===t.id} onClick={() => document.getElementById(`pdf-upload-mob-${t.id}`)?.click()}>{uploadingId===t.id ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}</Button></>
+                            )}
+                            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; if (booked > 0) { toast.error(`มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบ?")) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* ── Period Table ── */}
