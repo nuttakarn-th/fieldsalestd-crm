@@ -1090,6 +1090,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ร้าน</div>
                           <div className="w-[62px] shrink-0 text-[10px] font-semibold text-gray-500 tracking-wide whitespace-nowrap text-center">จอง จ่าย จบ</div>
                           <div className="w-[40px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
+                          {/* separator VAT7% | ราคา */}
+                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
                           {/* ราคา — clickable sort */}
                           <div
                             className="w-[80px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
@@ -1097,8 +1099,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
                           {/* separator ราคา | Book */}
-                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center" />
-                          {/* Book/โควต้า — flex-1 fills remaining space, max-w to keep bar readable */}
+                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+                          {/* Book/โควต้า — flex-1 fills remaining space */}
                           <div
                             className="flex-1 min-w-[120px] max-w-[220px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('quota')}
@@ -1106,8 +1108,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           >Book/โควต้า{sortIcon('quota')}</div>
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
-                          <div className="w-[60px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
-                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px] ml-auto" />}
+                          {/* สถานะ + actions — ml-auto กลุ่มนี้ชิดขวาสุด */}
+                          <div className="ml-auto flex items-center gap-1 shrink-0">
+                            <div className="w-[70px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
+                            {canEdit && <div className="w-[44px]" />}
+                          </div>
                         </div>
                         {/* Period Cards — w-full stretches to container */}
                         <div className="px-3 py-1.5 space-y-1 w-full">
@@ -1219,6 +1224,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
+                                {/* separator VAT7% | ราคา */}
+                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+
                                 {/* 10. ราคา — 2-line เมื่อมี promo */}
                                 <div className="w-[80px] text-right shrink-0 flex flex-col items-end leading-tight">
                                   {hasPromo ? (
@@ -1249,7 +1257,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* separator ราคา | Book */}
-                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center" />
+                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
 
                                 {/* 11. Progress bar — flex-1 matches header, fills remaining space */}
                                 <div className="flex-1 min-w-[120px] max-w-[220px]">
@@ -1328,37 +1336,37 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   ) : <div className="w-7" />}
                                 </div>
 
-                                {/* 15. สถานะ — badge */}
-                                <div className="w-[60px] shrink-0 flex justify-center">
-                                  {isCancelled ? (
-                                    <span className="inline-flex flex-col items-center">
-                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
-                                      {p.cancel_reason && <span className="text-[9px] text-red-400 mt-0.5 text-center leading-tight max-w-[54px] truncate">*{p.cancel_reason}</span>}
-                                    </span>
-                                  ) : isFullDisplay ? (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>
+                                {/* 15+16. สถานะ + Actions — ml-auto กลุ่มชิดขวาสุด */}
+                                <div className="ml-auto flex items-center gap-1 shrink-0">
+                                  <div className="w-[70px] flex justify-center">
+                                    {isCancelled ? (
+                                      <span className="inline-flex flex-col items-center">
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
+                                        {p.cancel_reason && <span className="text-[9px] text-red-400 mt-0.5 text-center leading-tight max-w-[60px] truncate">*{p.cancel_reason}</span>}
+                                      </span>
+                                    ) : isFullDisplay ? (
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>
+                                    )}
+                                  </div>
+                                  {canEdit && (
+                                    <div className="flex gap-0.5 shrink-0 w-[44px]">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
+                                        <Pencil className="w-3 h-3" />
+                                      </Button>
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                        const booked = p.total_seats - p.quota;
+                                        const ok = booked > 0
+                                          ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`)
+                                          : confirm("ลบ Period นี้?");
+                                        if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
+                                      }}>
+                                        <Trash2 className="w-3 h-3 text-destructive/70" />
+                                      </Button>
+                                    </div>
                                   )}
                                 </div>
-
-                                {/* 16. Actions — ml-auto pushes to far right */}
-                                {canEdit && (
-                                  <div className="flex gap-0.5 shrink-0 w-[44px] ml-auto">
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
-                                      <Pencil className="w-3 h-3" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
-                                      const booked = p.total_seats - p.quota;
-                                      const ok = booked > 0
-                                        ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`)
-                                        : confirm("ลบ Period นี้?");
-                                      if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
-                                    }}>
-                                      <Trash2 className="w-3 h-3 text-destructive/70" />
-                                    </Button>
-                                  </div>
-                                )}
                                 </div>
                               {/* Footnote — inside card */}
                               {isFootnoteOpen && (
