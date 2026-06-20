@@ -712,7 +712,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row ── */}
-                    <div className={`group flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
 
                       {/* ▶ Expand chevron (left) */}
                       <button
@@ -784,7 +784,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
                       {/* PDF + Actions */}
                       {canEdit && (
-                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-0.5 shrink-0">
                           {t.pdf_url && (
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
                               {t.is_published ? "🌐 Live" : "PDF"}
@@ -852,8 +852,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[74px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
                         </div>
-                        {/* Period Cards */}
-                        <div className="px-3 py-2 space-y-1.5 min-w-max">
+                        {/* Period Cards — w-max locks wrapper to content-width so cards don't stretch to full layout width */}
+                        <div className="px-3 py-2 space-y-1.5 w-max">
                         {t.periods!.map((p) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
