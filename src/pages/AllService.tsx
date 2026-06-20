@@ -1093,6 +1093,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             onClick={() => togglePeriodSort('price')}
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
+                          {/* separator ราคา | Book */}
+                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center" />
                           {/* Book/โควต้า — flex-1 fills remaining space, max-w to keep bar readable */}
                           <div
                             className="flex-1 min-w-[120px] max-w-[220px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
@@ -1102,7 +1104,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
                           <div className="w-[60px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
-                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
+                          {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px] ml-auto" />}
                         </div>
                         {/* Period Cards — w-full stretches to container */}
                         <div className="px-3 py-1.5 space-y-1 w-full">
@@ -1219,6 +1221,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
+                                {/* separator ราคา | Book */}
+                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center" />
+
                                 {/* 11. Progress bar — flex-1 matches header, fills remaining space */}
                                 <div className="flex-1 min-w-[120px] max-w-[220px]">
                                   <div className="flex justify-between items-center mb-0.5">
@@ -1310,9 +1315,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   )}
                                 </div>
 
-                                {/* 16. Actions */}
+                                {/* 16. Actions — ml-auto pushes to far right */}
                                 {canEdit && (
-                                  <div className="flex gap-0.5 shrink-0 w-[44px]">
+                                  <div className="flex gap-0.5 shrink-0 w-[44px] ml-auto">
                                     <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
                                       <Pencil className="w-3 h-3" />
                                     </Button>
