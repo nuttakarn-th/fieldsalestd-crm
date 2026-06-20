@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { toast } from "sonner";
 import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
 
@@ -475,7 +476,7 @@ interface CRMState {
   setTarget: (month: string, rep: SalesRep, patch: Partial<Omit<MonthlyTarget, "month" | "rep">>) => void;
   addRoute: (rep: SalesRep, date: string, title: string) => string;
   updateRoute: (id: string, patch: Partial<Omit<RoutePlan, "route_id" | "stops">>) => void;
-  deleteRoute: (id: string) => void;
+  deleteRoute: (id: string) => Promise<void>;
   addStop: (routeId: string, stop: Omit<RouteStop, "stop_id" | "route_id" | "seq" | "status">) => void;
   updateStop: (routeId: string, stopId: string, patch: Partial<RouteStop>) => void;
   deleteStop: (routeId: string, stopId: string) => void;
@@ -1268,13 +1269,19 @@ export const useCRM = create<CRMState>()(
       });
     }
   },
-  deleteRoute: (id) => {
+  deleteRoute: async (id) => {
+    // Optimistic remove จาก local state ก่อน
+    const backup = get().routes.find((r) => r.route_id === id);
     set({ routes: get().routes.filter((r) => r.route_id !== id) });
     if (SUPABASE_ENABLED && supabase) {
       // CASCADE delete จะลบ stops อัตโนมัติ
-      supabase.from("route_plans").delete().eq("route_id", id).then(({ error }) => {
-        if (error) console.error("[supabase] delete route ล้มเหลว:", error);
-      });
+      const { error } = await supabase.from("route_plans").delete().eq("route_id", id);
+      if (error) {
+        // Rollback: คืน route กลับถ้า Supabase delete ล้มเหลว
+        if (backup) set({ routes: [...get().routes, backup] });
+        console.error("[supabase] delete route ล้มเหลว:", error);
+        toast.error("ลบ Route ล้มเหลว — กรุณา Login ใหม่แล้วลองอีกครั้ง");
+      }
     }
   },
   addStop: (routeId, stop) => {

@@ -210,7 +210,14 @@ export default function Planning() {
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">Route ID: {r.route_id}</p>
                     </div>
-                    <Button size="icon" variant="ghost" className="shrink-0 w-7 h-7 mt-0.5" onClick={() => { deleteRoute(r.route_id); toast.success("ลบ Route แล้ว"); }}>
+                    <Button size="icon" variant="ghost" className="shrink-0 w-7 h-7 mt-0.5" onClick={async () => {
+                      if (!confirm("ลบ Route นี้?")) return;
+                      await deleteRoute(r.route_id);
+                      // toast ขึ้นเฉพาะเมื่อ route หายออกจาก store (deleteRoute จะ rollback ถ้า Supabase fail)
+                      if (!useCRM.getState().routes.some((x) => x.route_id === r.route_id)) {
+                        toast.success("ลบ Route แล้ว");
+                      }
+                    }}>
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />
                     </Button>
                   </div>
