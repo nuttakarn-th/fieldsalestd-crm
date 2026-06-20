@@ -323,6 +323,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
 
+  // ── period sort state ──
+  const [periodSort, setPeriodSort] = useState<{field: 'date'|'price'|'quota'; dir: 'asc'|'desc'}>({field: 'date', dir: 'asc'});
+  const togglePeriodSort = (field: 'date'|'price'|'quota') =>
+    setPeriodSort((prev) => prev.field === field ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' });
+  const sortIcon = (field: 'date'|'price'|'quota') =>
+    periodSort.field === field ? (periodSort.dir === 'asc' ? ' ↑' : ' ↓') : '';
+
   const parseDuration = (s: string) => {
     const dMatch = s.match(/(\d+)\s*วัน/); const nMatch = s.match(/(\d+)\s*คืน/);
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
@@ -751,6 +758,54 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         </div>
       </div>
 
+      {/* ── STOCK SUMMARY BAR ── */}
+      {(() => {
+        const stats = filteredTours.reduce(
+          (acc, t) => {
+            (t.periods ?? []).forEach((p) => {
+              if (!p.cancelled) {
+                acc.totalSeats += p.total_seats;
+                acc.booked    += p.total_seats - p.quota;
+                acc.available += p.quota;
+                acc.periods   += 1;
+              }
+            });
+            return acc;
+          },
+          { totalSeats: 0, booked: 0, available: 0, periods: 0 }
+        );
+        if (stats.periods === 0) return null;
+        const pct = stats.totalSeats > 0 ? Math.round((stats.booked / stats.totalSeats) * 100) : 0;
+        return (
+          <div className="hidden sm:flex items-center gap-4 px-6 py-2 border-b bg-gray-50 flex-wrap">
+            <span className="text-[11px] text-gray-500 font-medium">📊 ภาพรวม Stock</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-gray-500">ที่นั่งทั้งหมด</span>
+              <span className="text-[12px] font-bold text-gray-800">{stats.totalSeats.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#EC4899"}} />
+              <span className="text-[11px] text-gray-500">จองแล้ว</span>
+              <span className="text-[12px] font-bold" style={{color:"#EC4899"}}>{stats.booked.toLocaleString()}</span>
+              <span className="text-[10px] text-gray-400">({pct}%)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#16A34A"}} />
+              <span className="text-[11px] text-gray-500">ว่าง</span>
+              <span className="text-[12px] font-bold" style={{color:"#16A34A"}}>{stats.available.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] text-gray-400">| {stats.periods} Period ที่เปิดอยู่</span>
+            </div>
+            <div className="flex-1 max-w-[160px]">
+              <div className="h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                <div className="h-full rounded-full" style={{width:`${pct}%`, background:"#EC4899"}} />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── SECTIONS ── */}
       {(
         [
@@ -834,9 +889,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <><input id={`pdf-upload-${t.id}`} type="file" accept="application/pdf" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; if (file.size > 20*1024*1024) { toast.error("ไฟล์ใหญ่เกิน 20 MB"); return; } setUploadingId(t.id); const url = await uploadTourPDF(t.id, file); setUploadingId(null); if (url) toast.success("อัปโหลด PDF สำเร็จ"); else toast.error("อัปโหลดล้มเหลว"); }} />
                             <Button size="icon" variant="ghost" className="h-7 w-7" title="อัปโหลด PDF" disabled={uploadingId===t.id} onClick={() => document.getElementById(`pdf-upload-${t.id}`)?.click()}>{uploadingId===t.id ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}</Button></>
                           )}
-                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ โปรแกรมนี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบโปรแกรมนี้หรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} title={t.is_published ? "ซ่อนจากเว็บ (กดเพื่อปิด)" : "แสดงบนเว็บ (กดเพื่อเปิด)"} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="แก้ไขโปรแกรม" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบโปรแกรม" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ โปรแกรมนี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบโปรแกรมนี้หรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
                         </div>
                       )}
                     </div>
@@ -1007,27 +1062,48 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {/* ════ DESKTOP period table (sm+) ════ */}
                     <div className="hidden sm:block border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
-                        <div className="flex items-center gap-2 pl-7 pr-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
+                        <div className="flex items-center gap-2 pl-7 pr-4 py-1.5 border-b min-w-max select-none" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
-                          <div className="min-w-[120px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Period</div>
-                          <div className="w-[62px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
-                          <div className="w-9 shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Promo</div>
-                          <div className="w-10 shrink-0 text-[8px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
+                          {/* Period — clickable sort */}
+                          <div
+                            className="min-w-[118px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => togglePeriodSort('date')}
+                            title="เรียงตามวันเดินทาง"
+                          >Period{sortIcon('date')}</div>
+                          <div className="w-[62px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
+                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Promo</div>
+                          <div className="w-10 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สายการบิน</div>
                           <div className="w-3 shrink-0" />
-                          <div className="w-[54px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Freeday</div>
-                          <div className="w-[46px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">ลงร้าน</div>
-                          <div className="w-[74px] shrink-0 text-[8px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">จองจ่ายจบ</div>
-                          <div className="w-10 shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
-                          <div className="w-[66px] text-right shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">ราคา (฿)</div>
-                          <div className="w-[148px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Book / โควต้า</div>
-                          <div className="w-[50px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
-                          <div className="w-[58px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
-                          <div className="w-[74px] shrink-0 text-[9px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
+                          <div className="w-[54px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Freeday</div>
+                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ลงร้าน</div>
+                          <div className="w-[74px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">จองจ่ายจบ</div>
+                          <div className="w-10 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
+                          {/* ราคา — clickable sort */}
+                          <div
+                            className="w-[66px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => togglePeriodSort('price')}
+                            title="เรียงตามราคา"
+                          >ราคา (฿){sortIcon('price')}</div>
+                          {/* Book/โควต้า — clickable sort */}
+                          <div
+                            className="w-[148px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => togglePeriodSort('quota')}
+                            title="เรียงตามที่นั่งว่าง"
+                          >Book / โควต้า{sortIcon('quota')}</div>
+                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
+                          <div className="w-[58px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
+                          <div className="w-[74px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
                         </div>
                         {/* Period Cards — w-max locks wrapper to content-width so cards don't stretch to full layout width */}
                         <div className="px-3 py-2 space-y-1.5 w-max">
-                        {t.periods!.map((p) => {
+                        {[...t.periods!].sort((a, b) => {
+                          const dir = periodSort.dir === 'asc' ? 1 : -1;
+                          if (periodSort.field === 'date')  return dir * ((a.start_date || '') < (b.start_date || '') ? -1 : 1);
+                          if (periodSort.field === 'price') return dir * (a.price_per_seat - b.price_per_seat);
+                          if (periodSort.field === 'quota') return dir * (a.quota - b.quota);
+                          return 0;
+                        }).map((p) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
                           const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
@@ -1135,9 +1211,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
                                       จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
                                     </span>
-                                    <span className={`text-[10px] font-semibold ${isCancelled ? "text-red-400" : hasPending ? "text-amber-500" : "text-emerald-600"}`}>
-                                      {isCancelled ? "ยกเลิก" : `ว่าง ${currentQuota}`}
-                                    </span>
+                                    {!isCancelled && (
+                                      <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-500" : "text-emerald-600"}`}>
+                                        ว่าง {currentQuota}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="relative h-3.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
                                     <div
