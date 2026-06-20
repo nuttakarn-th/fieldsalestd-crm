@@ -1093,9 +1093,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             onClick={() => togglePeriodSort('price')}
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
-                          {/* Book/โควต้า — clickable sort */}
+                          {/* Book/โควต้า — flex-1 fills all remaining space */}
                           <div
-                            className="w-[115px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
+                            className="flex-1 min-w-[100px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('quota')}
                             title="เรียงตามที่นั่งว่าง"
                           >Book/โควต้า{sortIcon('quota')}</div>
@@ -1103,7 +1103,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
                           <div className="w-[60px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
-                          <div className="flex-1" />{/* fill remaining width */}
                         </div>
                         {/* Period Cards — w-full stretches to container */}
                         <div className="px-3 py-1.5 space-y-1 w-full">
@@ -1218,8 +1217,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
-                                {/* 11. Progress bar — always shown (red when cancelled) */}
-                                <div className="w-[115px] shrink-0">
+                                {/* 11. Progress bar — flex-1 matches header, fills remaining space */}
+                                <div className="flex-1 min-w-[100px]">
                                   <div className="flex justify-between items-center mb-0.5">
                                     <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
                                       จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
@@ -1326,7 +1325,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     </Button>
                                   </div>
                                 )}
-                                <div className="flex-1" />{/* fill remaining width */}
                                 </div>
                               {/* Footnote — inside card */}
                               {isFootnoteOpen && (
