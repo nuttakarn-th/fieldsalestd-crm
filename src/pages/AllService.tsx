@@ -697,7 +697,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             </div>
 
             {/* Tour Cards */}
-            <div className="space-y-3 px-4 sm:px-6 mt-3">
+            <div className="space-y-2 px-4 sm:px-6 mt-3">
               {items.map((t) => {
                 const hasPeriods = (t.periods?.length ?? 0) > 0;
                 const isExpanded = expanded.has(t.id);
@@ -712,7 +712,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row ── */}
-                    <div className={`group flex items-center gap-2 px-4 py-3 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`group flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
 
                       {/* ▶ Expand chevron (left) */}
                       <button
@@ -735,6 +735,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           </>}
                           <span className="text-gray-300 mr-2">|</span>
                           <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
+                          {/* Period count badge — inline after code */}
+                          <button
+                            onClick={() => hasPeriods && toggleExpand(t.id)}
+                            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
+                            style={hasPeriods
+                              ? {borderColor: "#374151", color: "white", background: "#1F2937"}
+                              : {borderColor: "#E5E7EB", color: "#9CA3AF", background: "#F9FAFB"}}
+                            title={hasPeriods ? "คลิกเพื่อดู Period" : "ยังไม่มี period"}
+                          >
+                            {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
+                            {hasPeriods && (isExpanded
+                              ? <ChevronDown className="w-3 h-3 ml-0.5" />
+                              : <ChevronRight className="w-3 h-3 ml-0.5" />)}
+                          </button>
                           {t.continent && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background: `${color}15`, color}}>
                               {t.continent}
@@ -755,22 +769,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           </div>
                         )}
                       </div>
-
-                      {/* Period count badge — dark/black */}
-                      <button
-                        onClick={() => hasPeriods && toggleExpand(t.id)}
-                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs transition-colors"
-                        style={hasPeriods
-                          ? {borderColor: "#374151", color: "white", background: "#1F2937"}
-                          : {borderColor: "#E5E7EB", color: "#9CA3AF", background: "#F9FAFB"}}
-                        title={hasPeriods ? "คลิกเพื่อดู Period" : "ยังไม่มี period"}
-                      >
-                        <CalendarDays className="w-3.5 h-3.5" />
-                        {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี Period"}
-                        {hasPeriods && (isExpanded
-                          ? <ChevronDown className="w-3 h-3 ml-0.5" />
-                          : <ChevronRight className="w-3 h-3 ml-0.5" />)}
-                      </button>
 
                       {/* + เพิ่ม Period */}
                       {canEdit && (
