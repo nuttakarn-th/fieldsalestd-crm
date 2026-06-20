@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, UserPlus, UserMinus } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -714,6 +714,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {/* ── Program Header Row ── */}
                     <div className={`group flex items-center gap-2 px-4 py-3 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
 
+                      {/* ▶ Expand chevron (left) */}
+                      <button
+                        className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors"
+                        onClick={() => toggleExpand(t.id)}
+                        title={isExpanded ? "ย่อ" : "ขยาย"}
+                      >
+                        {isExpanded
+                          ? <ChevronDown className="w-4 h-4" />
+                          : <ChevronRight className="w-4 h-4" />}
+                      </button>
+
                       {/* Name | Duration | Code */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-0 flex-wrap">
@@ -745,13 +756,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                         )}
                       </div>
 
-                      {/* Period count badge */}
+                      {/* Period count badge — dark/black */}
                       <button
                         onClick={() => hasPeriods && toggleExpand(t.id)}
                         className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs transition-colors"
                         style={hasPeriods
-                          ? {borderColor: `${color}50`, color, background: `${color}10`}
-                          : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                          ? {borderColor: "#374151", color: "white", background: "#1F2937"}
+                          : {borderColor: "#E5E7EB", color: "#9CA3AF", background: "#F9FAFB"}}
                         title={hasPeriods ? "คลิกเพื่อดู Period" : "ยังไม่มี period"}
                       >
                         <CalendarDays className="w-3.5 h-3.5" />
@@ -825,22 +836,21 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {hasPeriods && isExpanded && (
                       <div className="border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
                         {/* Column Headers */}
-                        <div className="flex items-center gap-2 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
-                          <div className="w-5 shrink-0" />
-                          <div className="min-w-[148px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</div>
-                          <div className="w-[72px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">วัน/คืน</div>
+                        <div className="flex items-center gap-1.5 px-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
+                          <div className="w-6 shrink-0" />
+                          <div className="min-w-[126px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</div>
+                          <div className="w-[62px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">วัน/คืน</div>
                           <div className="w-7 text-center shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Promo</div>
                           <div className="w-8 shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">เดินทาง</div>
-                          <div className="w-[68px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Freeday</div>
-                          <div className="w-[60px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ลงร้าน</div>
-                          <div className="w-[90px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">จองจ่ายจบ</div>
-                          <div className="w-[52px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vat7%</div>
-                          <div className="w-[76px] text-right shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ราคา (฿)</div>
-                          <div className="w-[180px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Book / โควต้า</div>
-                          <div className="w-[62px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">+/-</div>
-                          <div className="w-7 shrink-0" />
-                          <div className="w-7 shrink-0" />
-                          <div className="min-w-[92px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">สถานะ</div>
+                          <div className="w-[52px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Freeday</div>
+                          <div className="w-[48px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ลงร้าน</div>
+                          <div className="w-[76px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">จองจ่ายจบ</div>
+                          <div className="w-[44px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vat7%</div>
+                          <div className="w-[65px] text-right shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">ราคา (฿)</div>
+                          <div className="w-[150px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Book / โควต้า</div>
+                          <div className="w-[54px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">+/-</div>
+                          <div className="w-[58px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">บันทึก</div>
+                          <div className="min-w-[76px] shrink-0 text-[10px] font-bold text-gray-400 uppercase tracking-wider">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[52px]" />}
                         </div>
                         {t.periods!.map((p) => {
@@ -858,14 +868,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <React.Fragment key={pid}>
                               {/* Period Row */}
                               <div
-                                className={`flex items-center gap-2 px-3 py-2 border-b text-sm min-w-max ${hasPending ? "ring-inset ring-1 ring-amber-200" : ""}`}
+                                className={`flex items-center gap-1.5 px-3 py-2 border-b text-sm min-w-max ${hasPending ? "ring-inset ring-1 ring-amber-200" : ""}`}
                                 style={isCancelled
                                   ? {background: "#FFF1F2", borderLeft: "3px solid #EF4444"}
                                   : hasPending ? {background: "#FFFBEB"} : {background: "white"}}
                               >
                                 {/* 1. Expand → footnote */}
                                 <button
-                                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
+                                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
                                   onClick={() => togglePeriodExpand(pid)}
                                   title="แสดง footnote"
                                 >
@@ -875,7 +885,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </button>
 
                                 {/* 2. Period date range */}
-                                <div className="min-w-[148px] shrink-0">
+                                <div className="min-w-[126px] shrink-0">
                                   <div className={`text-xs font-semibold leading-snug ${isCancelled ? "line-through opacity-60" : ""}`}>
                                     {p.start_date ? fmtThai(p.start_date) : p.travel_date}
                                     {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
@@ -883,7 +893,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 3. Badge วัน/คืน */}
-                                <div className="w-[72px] shrink-0">
+                                <div className="w-[62px] shrink-0">
                                   {(p.days || p.nights) ? (
                                     <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
                                       {p.days}วัน {p.nights}คืน
@@ -902,41 +912,41 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 6. FREEDAY chip */}
-                                <div className="w-[68px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[52px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
                                   {p.freeday
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#0D9488"}}>Freeday</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 7. ลงร้าน chip */}
-                                <div className="w-[60px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[48px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
                                   {p.shopping
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#F59E0B"}}>ลงร้าน</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 8. จอง จ่าย จบ chip */}
-                                <div className="w-[90px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[76px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
                                   {p.all_in
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#16A34A"}}>จอง จ่าย จบ</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 9. VAT7% chip */}
-                                <div className="w-[52px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
+                                <div className="w-[44px] shrink-0" style={{opacity: isCancelled ? 0.4 : 1}}>
                                   {p.vat7
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold" style={{background: "#2563EB"}}>Vat7%</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 10. ราคา */}
-                                <div className="w-[76px] text-right shrink-0">
+                                <div className="w-[65px] text-right shrink-0">
                                   <span className="font-bold text-sm" style={{color: "#EC4899"}}>{p.price_per_seat.toLocaleString()}</span>
                                   <span className="text-[10px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
                                 {/* 11. Progress bar + BOOK count */}
-                                <div className="w-[180px] shrink-0">
+                                <div className="w-[150px] shrink-0">
                                   {isCancelled ? (
                                     <span className="text-[10px] text-gray-400">—</span>
                                   ) : (
@@ -957,22 +967,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   )}
                                 </div>
 
-                                {/* 12. +/− buttons */}
+                                {/* 12. −/+ buttons */}
                                 {!isCancelled && canEdit ? (
-                                  <div className="flex items-center gap-1 shrink-0">
+                                  <div className="flex items-center gap-1 shrink-0 w-[54px]">
                                     <button
-                                      className="group relative w-7 h-7 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110"
-                                      style={{background: "#1F2937"}}
-                                      disabled={currentQuota >= p.total_seats}
-                                      title="เพิ่มลูกค้า"
-                                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#16A34A"; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
-                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
-                                    >
-                                      <UserPlus className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      className="group relative w-7 h-7 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110"
+                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
                                       style={{background: "#1F2937"}}
                                       disabled={currentQuota <= 0}
                                       title="ลดลูกค้า"
@@ -980,37 +979,48 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
                                       onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
                                     >
-                                      <UserMinus className="w-3.5 h-3.5" />
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110 shrink-0"
+                                      style={{background: "#1F2937"}}
+                                      disabled={currentQuota >= p.total_seats}
+                                      title="เพิ่มลูกค้า"
+                                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#16A34A"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
+                                      onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
+                                    >
+                                      <Plus className="w-3 h-3" />
                                     </button>
                                   </div>
-                                ) : <div className="w-[62px] shrink-0" />}
+                                ) : <div className="w-[54px] shrink-0" />}
 
-                                {/* 13. Save icon */}
-                                {hasPending ? (
-                                  <button
-                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 shrink-0 transition-colors border border-green-200"
-                                    title="บันทึกโควต้า"
-                                    onClick={() => {
-                                      const newQ = pendingQuota[pid];
-                                      if (newQ === undefined) return;
-                                      adjustPeriodQuota(t.id, pid, newQ - p.quota);
-                                      setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
-                                      toast.success("อัปเดตโควต้าแล้ว");
-                                    }}
-                                  ><Save className="w-3.5 h-3.5" /></button>
-                                ) : <div className="w-7 shrink-0" />}
-
-                                {/* 14. X cancel pending */}
-                                {hasPending ? (
-                                  <button
-                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 shrink-0 transition-colors border border-gray-200"
-                                    title="ยกเลิกการแก้ไข"
-                                    onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
-                                  ><X className="w-3.5 h-3.5" /></button>
-                                ) : <div className="w-7 shrink-0" />}
+                                {/* 13 & 14. Save / Cancel pending — under "บันทึก" column */}
+                                <div className="flex items-center gap-0.5 w-[58px] shrink-0">
+                                  {hasPending ? (
+                                    <button
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors border border-green-200"
+                                      title="บันทึกโควต้า"
+                                      onClick={() => {
+                                        const newQ = pendingQuota[pid];
+                                        if (newQ === undefined) return;
+                                        adjustPeriodQuota(t.id, pid, newQ - p.quota);
+                                        setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
+                                        toast.success("อัปเดตโควต้าแล้ว");
+                                      }}
+                                    ><Save className="w-3.5 h-3.5" /></button>
+                                  ) : <div className="w-7" />}
+                                  {hasPending ? (
+                                    <button
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors border border-gray-200"
+                                      title="ยกเลิกการแก้ไข"
+                                      onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
+                                    ><X className="w-3.5 h-3.5" /></button>
+                                  ) : <div className="w-7" />}
+                                </div>
 
                                 {/* 15. สถานะ */}
-                                <div className="min-w-[92px] shrink-0">
+                                <div className="min-w-[76px] shrink-0">
                                   {isCancelled ? (
                                     <div>
                                       <div className="text-sm font-bold" style={{color: "#EF4444"}}>ยกเลิก</div>
