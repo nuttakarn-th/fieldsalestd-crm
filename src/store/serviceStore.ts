@@ -57,6 +57,12 @@ export interface TourItem {
   periods?: TourPeriod[];   // NEW — multi-period (Option B)
   pdf_url?: string;         // URL ไฟล์ PDF โปรแกรมทัวร์ใน Supabase Storage
   is_published?: boolean;   // แสดงในหน้า Package Program หรือไม่
+  // ── Phase 3 fields (UI-only ก่อน, ไม่มี DB migration ยัง) ──
+  title?: string;           // ชื่อเต็มโปรแกรม เช่น "ยุโรป 6 ประเทศ สวิส ฝรั่งเศส"
+  countries?: string[];     // รองรับหลายประเทศ (จีน, ญี่ปุ่น ...)
+  continent?: string;       // ทวีป (auto-calc จากประเทศ)
+  tour_types?: string[];    // ประเภททัวร์ chips เช่น ["ครอบครัว", "Premium"]
+  description?: string;    // คำอธิบายโปรแกรม
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, UserPlus, UserMinus } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,6 +164,65 @@ export default function AllService() {
   );
 }
 
+/* ─── Country → Continent lookup ─── */
+const CONTINENT_MAP: Record<string, string> = {
+  // เอเชียตะวันออก
+  "จีน":"เอเชีย","ญี่ปุ่น":"เอเชีย","เกาหลีใต้":"เอเชีย","เกาหลี":"เอเชีย",
+  "ไต้หวัน":"เอเชีย","ฮ่องกง":"เอเชีย","มองโกเลีย":"เอเชีย",
+  // เอเชียตะวันออกเฉียงใต้
+  "สิงคโปร์":"เอเชีย","มาเลเซีย":"เอเชีย","อินโดนีเซีย":"เอเชีย",
+  "เวียดนาม":"เอเชีย","กัมพูชา":"เอเชีย","ลาว":"เอเชีย","พม่า":"เอเชีย",
+  "เมียนมา":"เอเชีย","ฟิลิปปินส์":"เอเชีย","บรูไน":"เอเชีย","บาหลี":"เอเชีย",
+  // เอเชียใต้
+  "อินเดีย":"เอเชีย","เนปาล":"เอเชีย","ศรีลังกา":"เอเชีย","ภูฏาน":"เอเชีย","มัลดีฟส์":"เอเชีย",
+  // เอเชียกลาง
+  "คาซัคสถาน":"เอเชียกลาง","อุซเบกิสถาน":"เอเชียกลาง","คีร์กีซสถาน":"เอเชียกลาง",
+  // ยุโรปตะวันตก
+  "ฝรั่งเศส":"ยุโรป","สวิตเซอร์แลนด์":"ยุโรป","อิตาลี":"ยุโรป","เยอรมนี":"ยุโรป",
+  "สเปน":"ยุโรป","อังกฤษ":"ยุโรป","สหราชอาณาจักร":"ยุโรป","ออสเตรีย":"ยุโรป",
+  "เนเธอร์แลนด์":"ยุโรป","เบลเยียม":"ยุโรป","โปรตุเกส":"ยุโรป","กรีซ":"ยุโรป",
+  "ตุรกี":"ยุโรป","สาธารณรัฐเช็ก":"ยุโรป","ฮังการี":"ยุโรป","โปแลนด์":"ยุโรป",
+  "นอร์เวย์":"ยุโรป","สวีเดน":"ยุโรป","ฟินแลนด์":"ยุโรป","เดนมาร์ก":"ยุโรป",
+  "ไอร์แลนด์":"ยุโรป","ไอซ์แลนด์":"ยุโรป","รัสเซีย":"ยุโรป","โครเอเชีย":"ยุโรป",
+  "สโลวีเนีย":"ยุโรป","มอลตา":"ยุโรป","สกอตแลนด์":"ยุโรป","โรมาเนีย":"ยุโรป",
+  "บัลแกเรีย":"ยุโรป","เซอร์เบีย":"ยุโรป","แอลเบเนีย":"ยุโรป","มอนเตเนโกร":"ยุโรป",
+  // ตะวันออกกลาง
+  "ดูไบ":"ตะวันออกกลาง","UAE":"ตะวันออกกลาง","สหรัฐอาหรับเอมิเรตส์":"ตะวันออกกลาง",
+  "อิสราเอล":"ตะวันออกกลาง","จอร์แดน":"ตะวันออกกลาง","ซาอุดีอาระเบีย":"ตะวันออกกลาง",
+  "โอมาน":"ตะวันออกกลาง","กาตาร์":"ตะวันออกกลาง","คูเวต":"ตะวันออกกลาง","บาห์เรน":"ตะวันออกกลาง",
+  // แอฟริกา
+  "อียิปต์":"แอฟริกา","โมร็อกโก":"แอฟริกา","แอฟริกาใต้":"แอฟริกา",
+  "แทนซาเนีย":"แอฟริกา","เคนยา":"แอฟริกา","มาดากัสการ์":"แอฟริกา",
+  "เอธิโอเปีย":"แอฟริกา","ซิมบับเว":"แอฟริกา","กานา":"แอฟริกา",
+  // อเมริกา
+  "อเมริกา":"อเมริกา","สหรัฐอเมริกา":"อเมริกา","USA":"อเมริกา",
+  "แคนาดา":"อเมริกา","เม็กซิโก":"อเมริกา","เปรู":"อเมริกาใต้",
+  "บราซิล":"อเมริกาใต้","อาร์เจนตินา":"อเมริกาใต้","ชิลี":"อเมริกาใต้",
+  "โคลอมเบีย":"อเมริกาใต้","โบลิเวีย":"อเมริกาใต้",
+  // โอเชียเนีย
+  "ออสเตรเลีย":"โอเชียเนีย","นิวซีแลนด์":"โอเชียเนีย","ฟิจิ":"โอเชียเนีย","วานูอาตู":"โอเชียเนีย",
+  // ภายในประเทศ
+  "ไทย":"ภายในประเทศ","Thailand":"ภายในประเทศ",
+};
+const detectContinent = (country: string) => CONTINENT_MAP[country?.trim()] ?? "";
+
+const POPULAR_COUNTRIES = [
+  "จีน","ญี่ปุ่น","เกาหลีใต้","ไต้หวัน","ฮ่องกง","สิงคโปร์","มาเลเซีย",
+  "เวียดนาม","กัมพูชา","อินโดนีเซีย","ฟิลิปปินส์","อินเดีย","เนปาล",
+  "ศรีลังกา","ภูฏาน","มัลดีฟส์","พม่า","ลาว",
+  "ฝรั่งเศส","สวิตเซอร์แลนด์","อิตาลี","เยอรมนี","สเปน","สหราชอาณาจักร",
+  "ออสเตรีย","เนเธอร์แลนด์","กรีซ","ตุรกี","โปรตุเกส","สาธารณรัฐเช็ก",
+  "ฮังการี","นอร์เวย์","สวีเดน","ฟินแลนด์","ไอซ์แลนด์","โครเอเชีย","มอลตา",
+  "ดูไบ","สหรัฐอาหรับเอมิเรตส์","จอร์แดน","อิสราเอล","อียิปต์","โมร็อกโก",
+  "แอฟริกาใต้","เคนยา","สหรัฐอเมริกา","แคนาดา","เม็กซิโก","เปรู","บราซิล",
+  "ออสเตรเลีย","นิวซีแลนด์","คาซัคสถาน","อุซเบกิสถาน","มองโกเลีย","ไทย",
+];
+
+const TOUR_TYPE_CHIPS = [
+  "ครอบครัว","Premium","กิน เที่ยว","Wellness","ธรรมชาติ",
+  "City Break","Adventure","Honeymoon","บริษัท","Shopping","Luxury","ประวัติศาสตร์","ทะเล",
+];
+
 /* ========= Tour ========= */
 const TOUR_FIELDS: ExcelField[] = [
   { key: "category",      header: "ประเภท",               example: "International Tour" },
@@ -182,10 +241,17 @@ const TOUR_FIELDS: ExcelField[] = [
 // ── blank form helpers ──────────────────────────────────────────────────────
 const blankTourForm = () => ({
   category: "International Tour" as TourCategory,
-  code: "", city: "", country: "",
-  startDate: "", returnDate: "",
+  code: "",
+  title: "",       // ชื่อโปรแกรมทัวร์เต็ม
+  city: "",        // เมือง / จุดเด่น
+  country: "",     // ประเทศหลัก
+  country2: "",    // ประเทศที่ 2
   days: "", nights: "",
+  tourTypes: [] as string[], // chip tags
+  customType: "",  // พิมพ์ประเภทเพิ่มเติม
+  description: "", // คำอธิบาย
   note: "",
+  startDate: "", returnDate: "",  // unused in new dialog — kept for useEffect
 });
 const blankPeriodForm = () => ({
   start_date: "",
@@ -286,23 +352,46 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
-    const dur = parseDuration(t.duration); const per = parsePeriod(t.period);
-    setForm({ category: t.category, code: t.code, city: t.city, country: t.country,
-      startDate: per.startDate, returnDate: per.returnDate, days: dur.days, nights: dur.nights,
-      note: t.note ?? "" });
+    const dur = parseDuration(t.duration);
+    setForm({
+      category: t.category,
+      code: t.code,
+      title: t.title ?? t.city,
+      city: t.title ? t.city : "",  // if has title, city = highlights; else city is the name
+      country: t.country,
+      country2: (t.countries ?? [])[1] ?? "",
+      days: dur.days, nights: dur.nights,
+      tourTypes: t.tour_types ?? [],
+      customType: "",
+      description: t.description ?? "",
+      note: t.note ?? "",
+      startDate: "", returnDate: "",
+    });
     setOpen(true);
   };
   const submit = () => {
-    if (!form.code || !form.city) { toast.error("กรุณากรอกรหัสและชื่อเมือง"); return; }
+    if (!form.title && !form.city) { toast.error("กรุณากรอกชื่อโปรแกรมทัวร์"); return; }
     const days = Number(form.days || 0); const nights = Number(form.nights || 0);
     const duration = days || nights ? `${days} วัน ${nights} คืน` : "";
+    const countries = [form.country, form.country2].filter(Boolean) as string[];
+    const continent = detectContinent(form.country);
+    const payload = {
+      category: form.category,
+      code: form.code,
+      city: form.title || form.city,
+      title: form.title || undefined,
+      country: form.country,
+      countries: countries.length > 0 ? countries : undefined,
+      continent: continent || undefined,
+      duration,
+      note: form.note || undefined,
+      tour_types: form.tourTypes.length > 0 ? form.tourTypes : undefined,
+      description: form.description || undefined,
+    };
     if (editId) {
-      updateTour(editId, { category: form.category, code: form.code, city: form.city, country: form.country,
-        duration, note: form.note });
+      updateTour(editId, payload);
     } else {
-      addTour({ category: form.category, code: form.code, city: form.city, country: form.country,
-        period: "", duration, price_per_seat: 0, note: form.note,
-        total_seats: 0, quota: 0, periods: [] });
+      addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [] });
     }
     toast.success(editId ? "อัปเดตโปรแกรมแล้ว" : "เพิ่มโปรแกรมใหม่แล้ว"); setOpen(false);
   };
@@ -500,7 +589,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   return (
     <div className="space-y-0 -mx-4 sm:-mx-6">
       {/* ── STICKY FILTER BAR ── */}
-      <div className="sticky top-14 z-[100] bg-white border-b px-4 py-2.5 space-y-2" style={{boxShadow: "0 2px 8px rgba(0,0,0,0.06)"}}>
+      <div className="sticky top-14 z-30 bg-white border-b px-4 py-2.5 space-y-2" style={{boxShadow: "0 2px 8px rgba(0,0,0,0.06)"}}>
         {/* Row 1: Search + dropdowns */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[160px] max-w-xs">
@@ -640,10 +729,41 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                         </span>
                       )}
 
-                      {/* City + Country */}
+                      {/* Title / City + Country + Continent + Tags */}
                       <div className="flex-1 min-w-0">
-                        <span className="font-semibold text-sm leading-tight">{t.city}</span>
-                        {t.country && <span className="text-[11px] text-muted-foreground ml-2">{t.country}</span>}
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="font-semibold text-sm leading-tight">{t.title ?? t.city}</span>
+                          {t.country && (
+                            <span className="text-[11px] text-muted-foreground">{
+                              (t.countries ?? []).length > 1
+                                ? (t.countries ?? []).join(", ")
+                                : t.country
+                            }</span>
+                          )}
+                          {t.continent && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                              style={{background: "#EFF6FF", color: "#2563EB"}}>
+                              {t.continent}
+                            </span>
+                          )}
+                        </div>
+                        {/* title ≠ city → show city as subtitle */}
+                        {t.title && t.city && t.city !== t.title && (
+                          <div className="text-[10px] text-muted-foreground truncate">{t.city}</div>
+                        )}
+                        {(t.tour_types ?? []).length > 0 && (
+                          <div className="flex gap-1 mt-0.5 flex-wrap">
+                            {(t.tour_types ?? []).slice(0, 3).map((tag) => (
+                              <span key={tag} className="text-[9px] px-1.5 py-0 rounded border"
+                                style={{borderColor: `${color}40`, color}}>
+                                {tag}
+                              </span>
+                            ))}
+                            {(t.tour_types ?? []).length > 3 && (
+                              <span className="text-[9px] text-muted-foreground">+{(t.tour_types ?? []).length - 3}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Period count */}
@@ -822,46 +942,59 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 11. Progress bar + BOOK count */}
-                                <div className="w-[120px] shrink-0">
+                                <div className="w-[180px] shrink-0">
                                   {isCancelled ? (
                                     <span className="text-[10px] text-gray-400">—</span>
                                   ) : (
-                                    <div className="space-y-0.5">
-                                      <div className="flex justify-between text-[10px]">
-                                        <span className={`font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
-                                          {bookedCount}/{p.total_seats}
+                                    <div className="space-y-1">
+                                      <div className="flex justify-between items-baseline">
+                                        <span className={`text-[11px] font-bold ${hasPending ? "text-amber-600" : "text-gray-700"}`}>
+                                          จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
                                         </span>
-                                        <span className="text-gray-400">ว่าง {currentQuota}</span>
+                                        <span className={`text-[11px] font-semibold ${hasPending ? "text-amber-500" : "text-emerald-600"}`}>
+                                          ว่าง {currentQuota}
+                                        </span>
                                       </div>
-                                      <div className="h-1.5 rounded-full overflow-hidden" style={{background: "#F3F4F6"}}>
-                                        <div className="h-full rounded-full transition-all" style={{width: `${bookedPct}%`, background: barColor}} />
+                                      <div className="h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                        <div className="h-full rounded-full transition-all duration-300" style={{width: `${bookedPct}%`, background: barColor}} />
                                       </div>
+                                      <div className="text-[9px] text-gray-400 text-right">{bookedPct}% จอง</div>
                                     </div>
                                   )}
                                 </div>
 
                                 {/* 12. +/− buttons */}
                                 {!isCancelled && canEdit ? (
-                                  <div className="flex items-center gap-0.5 shrink-0">
+                                  <div className="flex items-center gap-1 shrink-0">
                                     <button
-                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-opacity disabled:opacity-30"
+                                      className="group relative w-7 h-7 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110"
                                       style={{background: "#1F2937"}}
                                       disabled={currentQuota >= p.total_seats}
+                                      title="เพิ่มลูกค้า"
+                                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#16A34A"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
                                       onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
-                                    >+</button>
+                                    >
+                                      <UserPlus className="w-3.5 h-3.5" />
+                                    </button>
                                     <button
-                                      className="w-6 h-6 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-opacity disabled:opacity-30"
+                                      className="group relative w-7 h-7 rounded-full text-white text-sm flex items-center justify-center font-bold leading-none transition-all duration-150 disabled:opacity-30 hover:scale-110"
                                       style={{background: "#1F2937"}}
                                       disabled={currentQuota <= 0}
+                                      title="ลดลูกค้า"
+                                      onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#EF4444"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
                                       onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
-                                    >–</button>
+                                    >
+                                      <UserMinus className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
-                                ) : <div className="w-[52px] shrink-0" />}
+                                ) : <div className="w-[62px] shrink-0" />}
 
-                                {/* 13. บันทึก icon */}
+                                {/* 13. Save icon */}
                                 {hasPending ? (
                                   <button
-                                    className="w-6 h-6 flex items-center justify-center rounded text-green-600 hover:bg-green-50 shrink-0 text-base leading-none"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 shrink-0 transition-colors border border-green-200"
                                     title="บันทึกโควต้า"
                                     onClick={() => {
                                       const newQ = pendingQuota[pid];
@@ -870,17 +1003,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
                                       toast.success("อัปเดตโควต้าแล้ว");
                                     }}
-                                  >💾</button>
-                                ) : <div className="w-6 shrink-0" />}
+                                  ><Save className="w-3.5 h-3.5" /></button>
+                                ) : <div className="w-7 shrink-0" />}
 
                                 {/* 14. X cancel pending */}
                                 {hasPending ? (
                                   <button
-                                    className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-gray-100 shrink-0 text-xs"
-                                    title="ยกเลิก"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 shrink-0 transition-colors border border-gray-200"
+                                    title="ยกเลิกการแก้ไข"
                                     onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
-                                  >✕</button>
-                                ) : <div className="w-6 shrink-0" />}
+                                  ><X className="w-3.5 h-3.5" /></button>
+                                ) : <div className="w-7 shrink-0" />}
 
                                 {/* 15. สถานะ */}
                                 <div className="min-w-[92px] shrink-0">
@@ -980,39 +1113,238 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
       {/* ── Program Dialog ── */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{editId ? "แก้ไขโปรแกรม" : "เพิ่มโปรแกรมทัวร์ใหม่"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold">ประเภท</label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as TourCategory })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-semibold">รหัสทัวร์</label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="HQO-TFU06-EU" /></div>
-              <div><label className="text-xs font-semibold">ชื่อเมือง / เส้นทาง</label><Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="เฉิงตู 3 อุทยาน" /></div>
-              <div><label className="text-xs font-semibold">ประเทศ</label><Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="จีน" /></div>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <PackageSearch className="w-4 h-4" style={{color: "#7C3AED"}} />
+              {editId ? "แก้ไขโปรแกรมทัวร์" : "เพิ่มโปรแกรมทัวร์ใหม่"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="overflow-y-auto max-h-[70vh] pr-1 space-y-4">
+
+            {/* ── ชื่อโปรแกรม + รหัส ── */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs font-semibold">ชื่อโปรแกรมทัวร์ *</label>
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="เช่น ยุโรป 6 ประเทศ สวิส ฝรั่งเศส"
+                  className="mt-0.5"
+                />
+              </div>
               <div>
-                <label className="text-xs font-semibold">ระยะเวลา</label>
-                <div className="flex items-center gap-1.5">
-                  <Input type="number" min={0} value={form.days} onChange={(e) => setForm({ ...form, days: e.target.value })} placeholder="6" className="w-full" />
-                  <span className="text-xs text-muted-foreground shrink-0">วัน</span>
-                  <Input type="number" min={0} value={form.nights} onChange={(e) => setForm({ ...form, nights: e.target.value })} placeholder="5" className="w-full" />
-                  <span className="text-xs text-muted-foreground shrink-0">คืน</span>
+                <label className="text-xs font-semibold">รหัสทัวร์</label>
+                <Input
+                  value={form.code}
+                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                  placeholder="HQO-TFU06-EU"
+                  className="mt-0.5 font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            {/* ── ระยะเวลา ── */}
+            <div>
+              <label className="text-xs font-semibold">ระยะเวลา</label>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Input type="number" min={0} value={form.days}
+                  onChange={(e) => setForm((f) => ({ ...f, days: e.target.value }))}
+                  placeholder="6" className="w-20 text-center" />
+                <span className="text-xs text-muted-foreground">วัน</span>
+                <Input type="number" min={0} value={form.nights}
+                  onChange={(e) => setForm((f) => ({ ...f, nights: e.target.value }))}
+                  placeholder="5" className="w-20 text-center" />
+                <span className="text-xs text-muted-foreground">คืน</span>
+                {(form.days || form.nights) && (
+                  <span className="text-xs font-semibold px-2 py-1 rounded-full text-white ml-1" style={{background: "#7C3AED"}}>
+                    {form.days || 0} วัน {form.nights || 0} คืน
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* ── ประเภทการเดินทาง ── */}
+            <div>
+              <label className="text-xs font-semibold">ประเภทการเดินทาง *</label>
+              <div className="flex gap-2 mt-1">
+                {([
+                  { value: "International Tour" as TourCategory, label: "✈️ ต่างประเทศ" },
+                  { value: "Domestic"           as TourCategory, label: "🏠 ภายในประเทศ" },
+                  { value: "Incentive"          as TourCategory, label: "🎯 Incentive" },
+                ] as const).map(({ value, label }) => (
+                  <button
+                    key={value} type="button"
+                    onClick={() => setForm((f) => ({ ...f, category: value }))}
+                    className="flex-1 py-2 rounded-xl text-sm font-semibold border-2 transition-all"
+                    style={form.category === value
+                      ? {background: "#7C3AED", color: "#fff", borderColor: "#7C3AED"}
+                      : {borderColor: "#E5E7EB", color: "#6B7280"}}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── ประเทศ ── */}
+            <div>
+              <label className="text-xs font-semibold">ประเทศ</label>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                  <Input
+                    className="pl-8"
+                    value={form.country}
+                    onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
+                    placeholder="ค้นหาประเทศ..."
+                    list="country-list"
+                  />
+                  <datalist id="country-list">
+                    {POPULAR_COUNTRIES.map((c) => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
+                {form.country && detectContinent(form.country) && (
+                  <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{background: "#EFF6FF", color: "#2563EB"}}>
+                    🌍 {detectContinent(form.country)}
+                  </span>
+                )}
               </div>
 
-              <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ (program level)</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ซากุระบาน / เดินทางโดยรถบัส" /></div>
+              {/* ประเทศที่ 2 */}
+              {form.country2 !== undefined && (
+                <div className="mt-2">
+                  {form.country2 === "" ? (
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, country2: " " }))}
+                      className="text-xs font-medium flex items-center gap-1 transition-colors"
+                      style={{color: "#7C3AED"}}
+                    >
+                      <Plus className="w-3 h-3" /> เพิ่มประเทศที่ 2
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <Input
+                          className="pl-8"
+                          value={form.country2.trim()}
+                          onChange={(e) => setForm((f) => ({ ...f, country2: e.target.value }))}
+                          placeholder="ประเทศที่ 2..."
+                          list="country-list-2"
+                          autoFocus
+                        />
+                        <datalist id="country-list-2">
+                          {POPULAR_COUNTRIES.map((c) => <option key={c} value={c} />)}
+                        </datalist>
+                      </div>
+                      {form.country2.trim() && detectContinent(form.country2.trim()) && (
+                        <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                          style={{background: "#EFF6FF", color: "#2563EB"}}>
+                          🌍 {detectContinent(form.country2.trim())}
+                        </span>
+                      )}
+                      <button type="button"
+                        onClick={() => setForm((f) => ({ ...f, country2: "" }))}
+                        className="shrink-0 text-gray-400 hover:text-red-500 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* ── เมือง / จุดเด่น ── */}
+            <div>
+              <label className="text-xs font-semibold">เมือง / จุดเด่น</label>
+              <Input
+                className="mt-0.5"
+                value={form.city}
+                onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                placeholder="โตเกียว, เซอร์แมท, ลูเซิร์น..."
+              />
+            </div>
+
+            {/* ── ประเภททัวร์ chips ── */}
+            <div>
+              <label className="text-xs font-semibold">ประเภททัวร์</label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {TOUR_TYPE_CHIPS.map((chip) => (
+                  <button
+                    key={chip} type="button"
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      tourTypes: f.tourTypes.includes(chip)
+                        ? f.tourTypes.filter((c) => c !== chip)
+                        : [...f.tourTypes, chip],
+                    }))}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                    style={form.tourTypes.includes(chip)
+                      ? {background: "#7C3AED", color: "#fff", borderColor: "#7C3AED"}
+                      : {borderColor: "#D1D5DB", color: "#6B7280"}}
+                  >{chip}</button>
+                ))}
+                {/* custom types already added */}
+                {form.tourTypes.filter((t) => !TOUR_TYPE_CHIPS.includes(t)).map((t) => (
+                  <button key={t} type="button"
+                    onClick={() => setForm((f) => ({ ...f, tourTypes: f.tourTypes.filter((c) => c !== t) }))}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium border flex items-center gap-1"
+                    style={{background: "#1F2937", color: "#fff", borderColor: "#1F2937"}}>
+                    {t} <X className="w-2.5 h-2.5" />
+                  </button>
+                ))}
+              </div>
+              {/* เพิ่มประเภทเอง */}
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <Input
+                  className="h-7 text-xs"
+                  value={form.customType}
+                  onChange={(e) => setForm((f) => ({ ...f, customType: e.target.value }))}
+                  placeholder="พิมพ์ประเภทเพิ่มเติม..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && form.customType.trim()) {
+                      e.preventDefault();
+                      const val = form.customType.trim();
+                      if (!form.tourTypes.includes(val))
+                        setForm((f) => ({ ...f, tourTypes: [...f.tourTypes, val], customType: "" }));
+                    }
+                  }}
+                />
+                <Button type="button" size="icon" variant="outline" className="h-7 w-7 shrink-0"
+                  onClick={() => {
+                    const val = form.customType.trim();
+                    if (val && !form.tourTypes.includes(val))
+                      setForm((f) => ({ ...f, tourTypes: [...f.tourTypes, val], customType: "" }));
+                  }}>
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* ── คำอธิบายเพิ่มเติม ── */}
+            <div>
+              <label className="text-xs font-semibold">คำอธิบายเพิ่มเติม</label>
+              <textarea
+                className="w-full mt-0.5 text-sm border rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Highlight หรือรายละเอียดย่อของโปรแกรม..."
+              />
+            </div>
+
             <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
               💡 หลังเพิ่มโปรแกรมแล้ว กดปุ่ม "+ Period" เพื่อเพิ่มวันเดินทางและราคาแต่ละรอบ
             </p>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">บันทึก</Button>
+            <Button onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
+              <Save className="w-3.5 h-3.5 mr-1.5" />บันทึกโปรแกรม
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
