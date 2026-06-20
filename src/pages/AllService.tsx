@@ -869,8 +869,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       {/* Bottom row: action buttons */}
                       <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-0.5 flex-wrap">
                         {canEdit && (
-                          <button onClick={() => openAddPeriod(t.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white text-xs font-semibold" style={{background:"#EC4899"}}>
-                            <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
+                          <button onClick={() => openAddPeriod(t.id)} className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}} title="เพิ่ม Period">
+                            <Plus className="w-5 h-5" />
                           </button>
                         )}
                         {canEdit && (
@@ -890,9 +890,122 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                       </div>
                     </div>
 
-                    {/* ── Period Table ── */}
-                    {hasPeriods && isExpanded && (
-                      <div className="border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
+                    {/* ── Period Section (Mobile + Desktop) ── */}
+                    {hasPeriods && isExpanded && (<>
+
+                    {/* ════ MOBILE period cards (< sm) ════ */}
+                    <div className="sm:hidden border-t" style={{background: "#FAFAFA"}}>
+                      <div className="p-3 space-y-2">
+                        {t.periods!.map((p) => {
+                          const pid = p.period_id;
+                          const hasPending = pendingQuota[pid] !== undefined;
+                          const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
+                          const isCancelled = !!p.cancelled;
+                          const isFullDisplay = !isCancelled && currentQuota === 0;
+                          const bookedCount = p.total_seats - currentQuota;
+                          const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
+                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          return (
+                            <div key={pid}
+                              className={`rounded-xl border overflow-hidden ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                              style={{borderLeftWidth:"4px", borderLeftColor: statusColor, borderColor:`${statusColor}30`, background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white"}}
+                            >
+                              {/* Top: date + status */}
+                              <div className="flex items-start justify-between px-3 pt-2.5 pb-1">
+                                <div className="flex-1 min-w-0 pr-2">
+                                  <div className={`text-sm font-bold leading-snug ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}>
+                                    {p.start_date ? fmtThai(p.start_date) : p.travel_date}
+                                    {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
+                                  </div>
+                                  {/* Chips row */}
+                                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                                    {(p.days || p.nights) && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#1F2937"}}>{p.days}วัน {p.nights}คืน</span>}
+                                    {p.airline_code && <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{p.airline_code}</span>}
+                                    {p.promo && <span className="text-xs">🔥</span>}
+                                    {p.freeday && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#7C3AED"}}>Freeday</span>}
+                                    {p.shopping && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#F59E0B"}}>ลงร้าน</span>}
+                                    {p.all_in && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#16A34A"}}>จบ</span>}
+                                    {p.vat7 && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#2563EB"}}>Vat7%</span>}
+                                  </div>
+                                </div>
+                                <div className="shrink-0 mt-0.5">
+                                  {isCancelled ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
+                                   : isFullDisplay ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
+                                   : <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>}
+                                </div>
+                              </div>
+                              {/* Price + progress bar */}
+                              <div className="flex items-center gap-3 px-3 pb-2.5">
+                                <span className="font-bold text-base shrink-0 leading-none" style={{color:"#EC4899"}}>{p.price_per_seat.toLocaleString()}฿</span>
+                                <div className="flex-1">
+                                  <div className="flex justify-between text-[10px] mb-1">
+                                    <span className={`font-semibold ${hasPending ? "text-amber-600" : "text-gray-500"}`}>จอง {bookedCount}/{p.total_seats}</span>
+                                    <span className={`font-semibold ${isCancelled ? "text-red-400" : hasPending ? "text-amber-500" : "text-emerald-600"}`}>{isCancelled ? "ยกเลิก" : `ว่าง ${currentQuota}`}</span>
+                                  </div>
+                                  <div className="relative h-3.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                                    <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{width:`${bookedPct}%`, background: barBg}} />
+                                    {bookedPct >= 20 && <span className="absolute inset-y-0 left-1.5 flex items-center text-[8px] font-bold text-white">{bookedPct}%</span>}
+                                  </div>
+                                </div>
+                              </div>
+                              {/* Actions row (canEdit) */}
+                              {canEdit && (
+                                <div className="flex items-center gap-2 px-3 py-2 border-t" style={{borderColor:`${statusColor}15`, background:"#F9FAFB"}}>
+                                  {!isCancelled && (
+                                    <>
+                                      <button disabled={currentQuota >= p.total_seats}
+                                        onClick={() => setPendingQuota((prev) => ({...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats)}))}
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-base disabled:opacity-30 transition-colors"
+                                        style={{background:"#EF4444"}}
+                                      ><Minus className="w-4 h-4" /></button>
+                                      <span className="text-sm font-bold text-gray-700 min-w-[28px] text-center">{currentQuota}</span>
+                                      <button disabled={currentQuota <= 0}
+                                        onClick={() => setPendingQuota((prev) => ({...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0)}))}
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-base disabled:opacity-30 transition-colors"
+                                        style={{background:"#16A34A"}}
+                                      ><Plus className="w-4 h-4" /></button>
+                                      {hasPending && (
+                                        <>
+                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; adjustPeriodQuota(t.id, pid, newQ - p.quota); setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; }); toast.success("อัปเดตโควต้าแล้ว"); }}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-green-600 border border-green-200 bg-white"
+                                          ><Save className="w-4 h-4" /></button>
+                                          <button onClick={() => setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; })}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 border border-gray-200 bg-white"
+                                          ><X className="w-4 h-4" /></button>
+                                        </>
+                                      )}
+                                    </>
+                                  )}
+                                  <div className="ml-auto flex items-center gap-0.5">
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-4 h-4" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { const booked = p.total_seats - p.quota; if (booked > 0) { toast.error(`ลบไม่ได้ มีที่จองแล้ว ${booked} ที่`); return; } if (confirm("ลบ period นี้?")) { deletePeriod(t.id, p.period_id); toast.success("ลบ period แล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive/70" /></Button>
+                                  </div>
+                                </div>
+                              )}
+                              {/* footnote/tags */}
+                              {(p.footnote || (p.tags ?? []).length > 0 || p.project || p.note) && (
+                                <div className="px-3 py-2 text-xs space-y-1 border-t" style={{background:"#F9FAFB", borderColor:`${statusColor}15`}}>
+                                  {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
+                                  {(p.tags ?? []).length > 0 && <div className="flex gap-1 flex-wrap">{(p.tags ?? []).map((tg) => <span key={tg} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{tg}</span>)}</div>}
+                                  {p.project && <div className="text-gray-400">โครงการ: <span className="text-gray-600">{p.project}</span></div>}
+                                  {p.note && <div className="text-gray-400">หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Add Period (mobile) */}
+                      {canEdit && (
+                        <button onClick={() => openAddPeriod(t.id)} className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-colors hover:bg-white" style={{color, borderTop:`1px dashed ${color}30`}}>
+                          <Plus className="w-4 h-4" /> เพิ่ม Period ใหม่
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ════ DESKTOP period table (sm+) ════ */}
+                    <div className="hidden sm:block border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
                         <div className="flex items-center gap-2 pl-7 pr-4 py-1.5 border-b min-w-max" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
@@ -1156,8 +1269,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <Plus className="w-3.5 h-3.5" /> เพิ่ม Period ใหม่
                           </button>
                         )}
-                      </div>
-                    )}
+                      </div>{/* end desktop table */}
+                    </>)}
 
                     {/* No-periods add button */}
                     {!hasPeriods && canEdit && (
