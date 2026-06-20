@@ -259,6 +259,7 @@ const blankPeriodForm = () => ({
   nights: "",
   days: "",
   price_per_seat: "",
+  special_price: "",        // ราคาพิเศษ — เมื่อกรอก 🔥 auto-on
   total_seats: "",
   airline_code: "",
   project: "",
@@ -425,6 +426,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       nights: String(p.nights ?? ""),
       days: String(p.days ?? ""),
       price_per_seat: String(p.price_per_seat),
+      special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
       airline_code: p.airline_code ?? "",
       project: p.project ?? "",
@@ -462,6 +464,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       days: pForm.days ? Number(pForm.days) : undefined,
       travel_date: travelDate,
       price_per_seat: Number(pForm.price_per_seat || 0),
+      special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
       quota: pEditId
         ? (tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId)?.quota ?? seats)
@@ -579,7 +582,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         }
       }
       if (filterPromo) {
-        const has = (t.periods ?? []).some((p) => p.promo);
+        const has = (t.periods ?? []).some((p) => p.promo || (!!p.special_price && p.special_price < p.price_per_seat));
         if (!has) return false;
       }
       if (filterTags.length > 0) {
@@ -985,7 +988,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                                     {(p.days || p.nights) && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#1F2937"}}>{p.days}วัน {p.nights}คืน</span>}
                                     {p.airline_code && <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{p.airline_code}</span>}
-                                    {p.promo && <span className="text-xs">🔥</span>}
+                                    {hasPromo && <span className="text-xs">🔥</span>}
                                     {p.freeday && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#7C3AED"}}>Freeday</span>}
                                     {p.shopping && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#F59E0B"}}>ลงร้าน</span>}
                                     {p.all_in && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#16A34A"}}>จบ</span>}
@@ -1089,7 +1092,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[40px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
                           {/* ราคา — clickable sort */}
                           <div
-                            className="w-[60px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            className="w-[80px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('price')}
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
@@ -1125,6 +1128,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
                           const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
                           const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          // Promo — auto when special_price is set and less than normal price
+                          const hasPromo = !!p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat;
+                          const discount = hasPromo ? p.price_per_seat - p.special_price! : 0;
 
                           return (
                             <React.Fragment key={pid}>
@@ -1170,9 +1176,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   ) : <span className="text-gray-300 text-[10px]">–</span>}
                                 </div>
 
-                                {/* 4. PROMO */}
+                                {/* 4. PROMO — auto when special_price set */}
                                 <div className="w-8 text-center shrink-0 leading-none">
-                                  {p.promo ? <span title="มีโปรโมชั่น" className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
+                                  {hasPromo ? <span title={`ราคาพิเศษ ลด ${discount.toLocaleString()} บาท`} className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
                                 </div>
 
                                 {/* 5. เดินทาง (airline code) */}
@@ -1213,12 +1219,33 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
-                                {/* 10. ราคา — สีตามสถานะ: เขียว=ว่าง, แดง=ยกเลิก, เทา=ปิดกรุ๊ป */}
-                                <div className="w-[60px] text-right shrink-0">
-                                  <span className="font-bold text-sm" style={{
-                                    color: isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A"
-                                  }}>{p.price_per_seat.toLocaleString()}</span>
-                                  <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
+                                {/* 10. ราคา — 2-line เมื่อมี promo */}
+                                <div className="w-[80px] text-right shrink-0 flex flex-col items-end leading-tight">
+                                  {hasPromo ? (
+                                    <>
+                                      {/* ราคาพิเศษ */}
+                                      <div className="flex items-baseline gap-0.5">
+                                        <span className="font-bold text-sm" style={{color: isCancelled ? "#EF4444" : "#EA580C"}}>
+                                          {p.special_price!.toLocaleString()}
+                                        </span>
+                                        <span className="text-[9px] text-orange-400">฿</span>
+                                      </div>
+                                      {/* ราคาปกติ (ขีดฆ่า) */}
+                                      <div className="flex items-baseline gap-0.5">
+                                        <span className="text-[9px] text-gray-400 line-through">{p.price_per_seat.toLocaleString()}</span>
+                                        <span className="text-[8px] text-gray-300">฿</span>
+                                      </div>
+                                      {/* ลดไป X บาท */}
+                                      <span className="text-[8px] font-semibold text-orange-500">-{discount.toLocaleString()} บาท</span>
+                                    </>
+                                  ) : (
+                                    <div className="flex items-baseline gap-0.5">
+                                      <span className="font-bold text-sm" style={{
+                                        color: isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A"
+                                      }}>{p.price_per_seat.toLocaleString()}</span>
+                                      <span className="text-[9px] text-gray-400">฿</span>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* separator ราคา | Book */}
@@ -1685,7 +1712,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               {/* ราคา + ที่นั่ง */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ราคา/ที่นั่ง (฿) *</label>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ราคาปกติ (฿) *</label>
                   <Input className="h-8 text-xs mt-0.5" type="number" min={0}
                     value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
                 </div>
@@ -1694,6 +1721,36 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <Input className="h-8 text-xs mt-0.5" type="number" min={0}
                     value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
                 </div>
+              </div>
+
+              {/* ราคาพิเศษ (optional — auto-trigger 🔥) */}
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                  ราคาพิเศษ (฿)
+                  {pForm.special_price && Number(pForm.special_price) > 0 && Number(pForm.special_price) < Number(pForm.price_per_seat) && (
+                    <span className="ml-1.5 text-orange-500">🔥 auto</span>
+                  )}
+                </label>
+                <div className="relative mt-0.5">
+                  <Input
+                    className={`h-8 text-xs pr-8 ${pForm.special_price && Number(pForm.special_price) < Number(pForm.price_per_seat) ? "border-orange-300 bg-orange-50/40 focus-visible:ring-orange-300" : ""}`}
+                    type="number" min={0}
+                    value={pForm.special_price}
+                    onChange={(e) => setPForm({ ...pForm, special_price: e.target.value })}
+                    placeholder="ว่างเปล่า = ไม่มีโปรโมชั่น"
+                  />
+                  {pForm.special_price && Number(pForm.special_price) > 0 && Number(pForm.special_price) < Number(pForm.price_per_seat) && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm">🔥</span>
+                  )}
+                </div>
+                {pForm.special_price && pForm.price_per_seat && Number(pForm.special_price) < Number(pForm.price_per_seat) && (
+                  <p className="text-[9px] text-orange-500 mt-0.5">
+                    ลด {(Number(pForm.price_per_seat) - Number(pForm.special_price)).toLocaleString()} บาท จากราคาปกติ {Number(pForm.price_per_seat).toLocaleString()} บาท
+                  </p>
+                )}
+                {pForm.special_price && pForm.price_per_seat && Number(pForm.special_price) >= Number(pForm.price_per_seat) && (
+                  <p className="text-[9px] text-red-400 mt-0.5">⚠ ราคาพิเศษต้องน้อยกว่าราคาปกติ</p>
+                )}
               </div>
 
               {/* สายการบิน + Campaign */}
@@ -1725,8 +1782,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               <div>
                 <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ตัวเลือก Chip</label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {/* 🔥 Promotion ไม่มีในนี้ — แสดงอัตโนมัติจากราคาพิเศษ */}
                   {([
-                    { key: "promo"    as const, label: "🔥 Promotion", color: "#F59E0B" },
                     { key: "freeday"  as const, label: "Freeday",       color: "#7C3AED" },
                     { key: "shopping" as const, label: "ลงร้าน",        color: "#F59E0B" },
                     { key: "all_in"   as const, label: "จอง จ่าย จบ",  color: "#16A34A" },

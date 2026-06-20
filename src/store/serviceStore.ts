@@ -37,7 +37,8 @@ export interface TourPeriod {
   shopping?: boolean;       // มี shopping stop
   all_in?: boolean;         // จอง จ่าย จบ (ราคา all-in)
   vat7?: boolean;           // ราคารวม VAT 7% แล้ว
-  promo?: boolean;          // มีโปรโมชั่น
+  promo?: boolean;          // มีโปรโมชั่น (legacy)
+  special_price?: number;   // ราคาพิเศษ — เมื่อกรอก icon 🔥 แสดงอัตโนมัติ
   footnote?: string;        // ข้อความแสดงเมื่อ expand แถว
   tags?: string[];          // category tags เช่น ["ครอบครัว", "ธรรมชาติ"]
 }
