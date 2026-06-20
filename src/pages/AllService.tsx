@@ -1070,8 +1070,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {/* ════ DESKTOP period table (sm+) ════ */}
                     <div className="hidden sm:block border-t overflow-x-auto" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
-                        {/* v140: compact header — gap-1, shorter widths, no horizontal scroll */}
-                        <div className="flex items-center gap-1 pl-7 pr-4 py-1.5 border-b min-w-max select-none" style={{background: "#F3F4F6"}}>
+                        {/* v141: tighter header row */}
+                        <div className="flex items-center gap-1 pl-7 pr-4 py-1 border-b min-w-max select-none" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
                           {/* Period — w-[165px] + 2-digit year in data row */}
                           <div
@@ -1104,8 +1104,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           <div className="w-[60px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                           {canEdit && <div className="flex gap-0.5 shrink-0 w-[44px]" />}
                         </div>
-                        {/* Period Cards — w-max locks wrapper to content-width so cards don't stretch to full layout width */}
-                        <div className="px-3 py-2 space-y-1.5 w-max">
+                        {/* Period Cards */}
+                        <div className="px-3 py-1.5 space-y-1 w-max">
                         {[...t.periods!].sort((a, b) => {
                           const dir = periodSort.dir === 'asc' ? 1 : -1;
                           if (periodSort.field === 'date')  return dir * ((a.start_date || '') < (b.start_date || '') ? -1 : 1);
@@ -1136,7 +1136,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white",
                                 }}
                               >
-                                <div className="flex items-center gap-1 px-3 py-1.5 min-w-max">
+                                <div className="flex items-center gap-1 px-3 py-1 min-w-max">
                                 {/* 1. Expand → footnote */}
                                 <button
                                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
@@ -1229,13 +1229,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       </span>
                                     )}
                                   </div>
-                                  <div className="relative h-3.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                  <div className="relative h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
                                     <div
                                       className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
                                       style={{width: `${bookedPct}%`, background: barBg}}
                                     />
-                                    {bookedPct >= 18 && (
-                                      <span className="absolute inset-y-0 left-1.5 flex items-center text-[8px] font-bold text-white">
+                                    {bookedPct >= 20 && (
+                                      <span className="absolute inset-y-0 left-1 flex items-center text-[8px] font-bold text-white">
                                         {bookedPct}%
                                       </span>
                                     )}
@@ -1631,9 +1631,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
       {/* ── Period Dialog ── */}
       <Dialog open={pOpen} onOpenChange={setPOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-lg max-h-[88vh] flex flex-col overflow-hidden p-0">
+          {/* Fixed header */}
+          <DialogHeader className="px-5 pt-4 pb-2 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-sm">
               <CalendarDays className="w-4 h-4 text-primary" />
               {pEditId ? "แก้ไข Period" : "เพิ่ม Period ใหม่"}
               <span className="text-xs font-normal text-muted-foreground bg-muted rounded px-2 py-0.5">
@@ -1642,60 +1643,61 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          {/* Scrollable body */}
+          <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
             {/* Date pickers */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs font-semibold">วันเดินทาง *</label>
-                <Input type="date" value={pForm.start_date} onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
+                <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.start_date} onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs font-semibold">วันกลับ *</label>
-                <Input type="date" value={pForm.end_date} onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
+                <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.end_date} onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
               </div>
             </div>
 
             {/* Auto-calc display */}
             {pForm.start_date && pForm.end_date && pForm.days && (
-              <div className="bg-primary/8 border border-primary/20 rounded-lg px-3 py-2 flex items-center gap-3">
-                <CalendarDays className="w-4 h-4 text-primary shrink-0" />
-                <div className="text-sm">
+              <div className="bg-primary/8 border border-primary/20 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                <CalendarDays className="w-3.5 h-3.5 text-primary shrink-0" />
+                <div className="text-xs">
                   <span className="font-semibold text-primary">{pForm.days} วัน {pForm.nights} คืน</span>
-                  <span className="text-muted-foreground ml-2 text-xs">
+                  <span className="text-muted-foreground ml-2">
                     {fmtThai(pForm.start_date)} – {fmtThai(pForm.end_date)}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Price & Seats */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Price, Seats, Airline, Campaign, Note */}
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs font-semibold">ราคา/ที่นั่ง (฿) *</label>
-                <Input type="number" min={0} value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
+                <Input className="h-8 text-xs mt-0.5" type="number" min={0} value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
               </div>
               <div>
-                <label className="text-xs font-semibold">จำนวนที่นั่งทั้งหมด *</label>
-                <Input type="number" min={0} value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
+                <label className="text-xs font-semibold">ที่นั่งทั้งหมด *</label>
+                <Input className="h-8 text-xs mt-0.5" type="number" min={0} value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
               </div>
               <div>
                 <label className="text-xs font-semibold">โค้ดสายการบิน</label>
-                <Input value={pForm.airline_code} onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
+                <Input className="h-8 text-xs mt-0.5" value={pForm.airline_code} onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
               </div>
               <div>
                 <label className="text-xs font-semibold">โครงการ / Campaign</label>
-                <Input value={pForm.project} onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="โครงการ / campaign" />
+                <Input className="h-8 text-xs mt-0.5" value={pForm.project} onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
               </div>
               <div className="col-span-2">
                 <label className="text-xs font-semibold">หมายเหตุ</label>
-                <Input value={pForm.note} onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+                <Input className="h-8 text-xs mt-0.5" value={pForm.note} onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
               </div>
             </div>
 
             {/* ── Chip options ── */}
-            <div className="border rounded-lg p-3 space-y-2.5">
-              <label className="text-xs font-semibold text-muted-foreground">ตัวเลือก Chip (แสดงในตาราง Period)</label>
-              <div className="flex flex-wrap gap-2">
+            <div className="border rounded-lg p-2.5 space-y-2 bg-muted/20">
+              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">ตัวเลือก Chip</label>
+              <div className="flex flex-wrap gap-1.5">
                 {([
                   { key: "promo"    as const, label: "🔥 Promotion",  color: "#F59E0B" },
                   { key: "freeday"  as const, label: "Freeday",        color: "#7C3AED" },
@@ -1707,7 +1709,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     key={key}
                     type="button"
                     onClick={() => setPForm((f) => ({ ...f, [key]: !f[key] }))}
-                    className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors"
+                    className="px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors"
                     style={pForm[key]
                       ? {background: color, color: "#fff", borderColor: color}
                       : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
@@ -1718,7 +1720,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               {/* Tags */}
               <div>
                 <label className="text-[10px] text-muted-foreground">Tag ประเภทโปรแกรม</label>
-                <div className="flex flex-wrap gap-1.5 mt-1">
+                <div className="flex flex-wrap gap-1 mt-1">
                   {CATEGORY_TAGS.map((tag) => (
                     <button
                       key={tag}
@@ -1727,7 +1729,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                         ...f,
                         tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
                       }))}
-                      className="px-2 py-0.5 rounded-full text-[10px] border transition-colors"
+                      className="px-1.5 py-0.5 rounded-full text-[10px] border transition-colors"
                       style={pForm.tags.includes(tag)
                         ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
                         : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
@@ -1740,16 +1742,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               <div>
                 <label className="text-xs font-semibold">Footnote (แสดงเมื่อกด ▶ ขยายแถว)</label>
                 <Input
+                  className="h-8 text-xs mt-0.5"
                   value={pForm.footnote}
                   onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))}
-                  placeholder="ข้อมูลเพิ่มเติม เช่น บริษัท ABC ประมาณ 10 ท่าน VIP..."
+                  placeholder="บริษัท ABC ประมาณ 10 ท่าน VIP..."
                 />
               </div>
             </div>
 
             {/* Cancel section — edit mode only */}
             {pEditId && (
-              <div className={`border rounded-lg p-3 space-y-2 ${pForm.cancelled ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/30"}`}>
+              <div className={`border rounded-lg p-2.5 space-y-1.5 ${pForm.cancelled ? "border-destructive/40 bg-destructive/5" : "border-border bg-muted/20"}`}>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold flex items-center gap-1.5">
                     <XCircle className="w-3.5 h-3.5 text-destructive" />
@@ -1758,7 +1761,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <button
                     type="button"
                     onClick={() => setPForm((f) => ({ ...f, cancelled: !f.cancelled, cancel_reason: f.cancelled ? "" : f.cancel_reason }))}
-                    className={`text-xs px-3 py-1 rounded-full font-semibold border transition-colors ${
+                    className={`text-xs px-3 py-0.5 rounded-full font-semibold border transition-colors ${
                       pForm.cancelled
                         ? "bg-destructive text-destructive-foreground border-destructive"
                         : "bg-background border-border hover:border-destructive/50 hover:text-destructive"
@@ -1771,7 +1774,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <div>
                     <label className="text-xs text-muted-foreground">เหตุผลการยกเลิก *</label>
                     <Select value={pForm.cancel_reason} onValueChange={(v) => setPForm({ ...pForm, cancel_reason: v })}>
-                      <SelectTrigger className="mt-1 border-destructive/30">
+                      <SelectTrigger className="mt-1 h-8 text-xs border-destructive/30">
                         <SelectValue placeholder="เลือกเหตุผล..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -1786,9 +1789,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submitPeriod}
+          {/* Fixed footer */}
+          <DialogFooter className="px-5 py-3 border-t shrink-0 bg-background">
+            <Button variant="outline" size="sm" onClick={() => setPOpen(false)}>ยกเลิก</Button>
+            <Button size="sm" onClick={submitPeriod}
               style={pForm.cancelled
                 ? {background: "#EF4444", color: "#FFFFFF"}
                 : {background: "#16A34A", color: "#FFFFFF"}}
