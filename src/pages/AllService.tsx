@@ -1064,9 +1064,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
                         <div className="flex items-center gap-2 pl-7 pr-4 py-1.5 border-b min-w-max select-none" style={{background: "#F3F4F6"}}>
                           <div className="w-6 shrink-0" />
-                          {/* Period — clickable sort */}
+                          {/* Period — clickable sort, fixed w-[190px] matches data row date column */}
                           <div
-                            className="min-w-[118px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            className="w-[190px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('date')}
                             title="เรียงตามวันเดินทาง"
                           >Period{sortIcon('date')}</div>
@@ -1139,9 +1139,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                     : <ChevronRight className="w-3 h-3" />}
                                 </button>
 
-                                {/* 2. Period date range */}
-                                <div className="min-w-[118px] shrink-0">
-                                  <div className={`text-xs font-semibold whitespace-nowrap ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}>
+                                {/* 2. Period date range — fixed w-[190px] matches header column exactly */}
+                                <div className="w-[190px] shrink-0 overflow-hidden">
+                                  <div
+                                    className={`text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}
+                                    title={`${p.start_date ? fmtThai(p.start_date) : (p.travel_date ?? "")}${p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}`}
+                                  >
                                     {p.start_date ? fmtThai(p.start_date) : p.travel_date}
                                     {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
                                   </div>
