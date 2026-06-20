@@ -1081,21 +1081,21 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           >Period{sortIcon('date')}</div>
                           <div className="w-[56px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
                           <div className="w-8 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">🔥</div>
-                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สายการบิน</div>
+                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-2 shrink-0" />
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">FD</div>
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ร้าน</div>
-                          <div className="w-[44px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">All-in</div>
-                          <div className="w-8 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">VAT</div>
+                          <div className="w-[62px] shrink-0 text-[10px] font-semibold text-gray-500 tracking-wide whitespace-nowrap text-center">จอง จ่าย จบ</div>
+                          <div className="w-[40px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
                           {/* ราคา — clickable sort */}
                           <div
                             className="w-[60px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('price')}
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
-                          {/* Book/โควต้า — flex-1 fills all remaining space */}
+                          {/* Book/โควต้า — flex-1 fills remaining space, max-w to keep bar readable */}
                           <div
-                            className="flex-1 min-w-[100px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
+                            className="flex-1 min-w-[120px] max-w-[220px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
                             onClick={() => togglePeriodSort('quota')}
                             title="เรียงตามที่นั่งว่าง"
                           >Book/โควต้า{sortIcon('quota')}</div>
@@ -1173,7 +1173,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   {p.promo ? <span title="มีโปรโมชั่น" className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
                                 </div>
 
-                                {/* 5. Airline */}
+                                {/* 5. เดินทาง (airline code) */}
                                 <div className="w-9 shrink-0 text-[11px] font-mono text-gray-600 text-center">
                                   {p.airline_code || <span className="text-gray-200">–</span>}
                                 </div>
@@ -1198,27 +1198,29 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 </div>
 
                                 {/* 8. All-in chip */}
-                                <div className="w-[44px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-[62px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.all_in
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="จอง จ่าย จบ" style={{background: "#16A34A"}}>All-in</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 9. VAT chip */}
-                                <div className="w-8 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                <div className="w-[40px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.vat7
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="มีภาษีมูลค่าเพิ่ม 7%" style={{background: "#2563EB"}}>VAT</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
                                 </div>
 
-                                {/* 10. ราคา */}
+                                {/* 10. ราคา — สีตามสถานะ: เขียว=ว่าง, แดง=ยกเลิก, เทา=ปิดกรุ๊ป */}
                                 <div className="w-[60px] text-right shrink-0">
-                                  <span className="font-bold text-sm" style={{color: "#EC4899"}}>{p.price_per_seat.toLocaleString()}</span>
+                                  <span className="font-bold text-sm" style={{
+                                    color: isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A"
+                                  }}>{p.price_per_seat.toLocaleString()}</span>
                                   <span className="text-[9px] text-gray-400 ml-0.5">฿</span>
                                 </div>
 
                                 {/* 11. Progress bar — flex-1 matches header, fills remaining space */}
-                                <div className="flex-1 min-w-[100px]">
+                                <div className="flex-1 min-w-[120px] max-w-[220px]">
                                   <div className="flex justify-between items-center mb-0.5">
                                     <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
                                       จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
