@@ -345,7 +345,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterText, setFilterText]       = useState("");
   const [filterCat, setFilterCat]         = useState<TourCategory | "">("");
   const [filterCountry, setFilterCountry] = useState("");
-  const [filterAirline, setFilterAirline] = useState("");
   const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก">("");
   const [filterPromo, setFilterPromo]     = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
@@ -678,13 +677,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     () => [...new Set(tours.map((t) => t.country).filter(Boolean))].sort(),
     [tours],
   );
-  const allAirlines = useMemo(() => {
-    const codes = tours.flatMap((t) =>
-      (t.periods ?? []).map((p) => p.airline_code).filter(Boolean) as string[],
-    );
-    return [...new Set(codes)].sort();
-  }, [tours]);
-
   const filteredTours = useMemo(() => {
     return tours.filter((t) => {
       if (filterText) {
@@ -697,10 +689,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       }
       if (filterCat && t.category !== filterCat) return false;
       if (filterCountry && t.country !== filterCountry) return false;
-      if (filterAirline) {
-        const has = (t.periods ?? []).some((p) => p.airline_code === filterAirline);
-        if (!has) return false;
-      }
       if (filterStatus) {
         const periods = t.periods ?? [];
         if (periods.length > 0) {
@@ -727,15 +715,15 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterAirline, filterStatus, filterPromo, filterTags]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterPromo, filterTags]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
   const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
 
-  const hasFilter = !!(filterText || filterCat || filterCountry || filterAirline || filterStatus || filterPromo || filterTags.length);
+  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterPromo || filterTags.length);
   const clearFilters = () => {
-    setFilterText(""); setFilterCat(""); setFilterCountry(""); setFilterAirline("");
+    setFilterText(""); setFilterCat(""); setFilterCountry("");
     setFilterStatus(""); setFilterPromo(false); setFilterTags([]);
   };
 
@@ -771,7 +759,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           >
             <SlidersHorizontal className="w-4 h-4" />
             ตัวกรอง
-            {hasFilter && <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-bold flex items-center justify-center">{[filterCat, filterCountry, filterAirline, filterStatus, filterPromo, ...filterTags].filter(Boolean).length}</span>}
+            {hasFilter && <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-bold flex items-center justify-center">{[filterCat, filterCountry, filterStatus, filterPromo, ...filterTags].filter(Boolean).length}</span>}
           </button>
         </div>
 
@@ -800,13 +788,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <SelectItem value="ว่าง">ว่าง</SelectItem>
                   <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
                   <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">ทุกสายการบิน</SelectItem>
-                  {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -863,13 +844,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 <SelectItem value="ว่าง">ว่าง</SelectItem>
                 <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
                 <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterAirline || "__all__"} onValueChange={(v) => setFilterAirline(v === "__all__" ? "" : v)}>
-              <SelectTrigger className="h-8 text-xs w-[110px]"><SelectValue placeholder="สายการบิน" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">ทั้งหมด</SelectItem>
-                {allAirlines.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
             <button
