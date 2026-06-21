@@ -67,12 +67,12 @@ export interface TourItem {
   created_by?: string;      // ชื่อผู้ใช้ที่สร้าง
   updated_by?: string;      // ชื่อผู้ใช้ที่แก้ไขล่าสุด
   updated_at?: string;      // ISO timestamp เมื่อแก้ไขล่าสุด
-  // ── Phase 3 fields (UI-only ก่อน, ไม่มี DB migration ยัง) ──
+  // ── Phase 3 fields (migration 24 — มีใน DB แล้ว) ──
   title?: string;           // ชื่อเต็มโปรแกรม เช่น "ยุโรป 6 ประเทศ สวิส ฝรั่งเศส"
   countries?: string[];     // รองรับหลายประเทศ (จีน, ญี่ปุ่น ...)
   continent?: string;       // ทวีป (auto-calc จากประเทศ)
   tour_types?: string[];    // ประเภททัวร์ chips เช่น ["ครอบครัว", "Premium"]
-  description?: string;    // คำอธิบายโปรแกรม
+  description?: string;     // คำอธิบายโปรแกรม
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====

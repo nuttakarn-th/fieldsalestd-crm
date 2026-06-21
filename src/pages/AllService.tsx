@@ -1012,7 +1012,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row — DESKTOP (sm+) ── */}
-                    <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`group hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
                       <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors" onClick={() => toggleExpand(t.id)}>
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
@@ -1039,16 +1039,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           </div>
                         )}
                         {(t.created_by || t.updated_by) && (
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400 flex-wrap">
-                            {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
-                            {t.updated_by && t.updated_by !== t.created_by && (
-                              <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span>
-                                {t.updated_at && <span className="ml-1 text-gray-300">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
-                              </span>
-                            )}
-                            {t.updated_by && t.updated_by === t.created_by && t.updated_at && (
-                              <span>· อัปเดต <span className="text-gray-300">{new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span></span>
-                            )}
+                          <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-150 overflow-hidden">
+                            <div className="min-h-0 flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
+                              {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
+                              {t.updated_by && t.updated_by !== t.created_by && (
+                                <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span>
+                                  {t.updated_at && <span className="ml-1 text-gray-300">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
+                                </span>
+                              )}
+                              {t.updated_by && t.updated_by === t.created_by && t.updated_at && (
+                                <span>· อัปเดต <span className="text-gray-300">{new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span></span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1074,7 +1076,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     </div>
 
                     {/* ── Program Header Row — MOBILE (< sm) ── */}
-                    <div className={`sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`group sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
                       {/* Top row: expand + name + period badge */}
                       <div className="flex items-start gap-2 px-3 pt-2.5 pb-1">
                         <button className="mt-0.5 w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400" onClick={() => toggleExpand(t.id)}>
@@ -1096,11 +1098,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
                           {(t.created_by || t.updated_by) && (
-                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-400 flex-wrap">
-                              {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
-                              {t.updated_by && t.updated_by !== t.created_by && (
-                                <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span></span>
-                              )}
+                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-150 overflow-hidden">
+                              <div className="min-h-0 flex items-center gap-1.5 text-[10px] text-gray-400 flex-wrap">
+                                {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
+                                {t.updated_by && t.updated_by !== t.created_by && (
+                                  <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span></span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
