@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCurrentUser } from "@/store/authStore";
 import { canEditServices } from "@/config/roleMenus";
@@ -1012,7 +1013,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row — DESKTOP (sm+) ── */}
-                    <div className={`group hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
                       <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors" onClick={() => toggleExpand(t.id)}>
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
@@ -1031,29 +1032,51 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           {t.continent && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                         </div>
                         {t.title && t.city && t.city !== t.title && <div className="text-[11px] text-gray-400 truncate mt-0.5">{t.city}</div>}
-                        {(t.tour_types ?? []).length > 0 && (
-                          <div className="flex gap-1 mt-1 flex-wrap">
-                            {(t.tour_types ?? []).slice(0, 4).map((tag) => (
-                              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full border font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
-                            ))}
-                          </div>
-                        )}
-                        {(t.created_by || t.updated_by) && (
-                          <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-150 overflow-hidden">
-                            <div className="min-h-0 flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
-                              {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
-                              {t.updated_by && t.updated_by !== t.created_by && (
-                                <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span>
-                                  {t.updated_at && <span className="ml-1 text-gray-300">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
-                                </span>
-                              )}
-                              {t.updated_by && t.updated_by === t.created_by && t.updated_at && (
-                                <span>· อัปเดต <span className="text-gray-300">{new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span></span>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
+                      {/* ℹ Info popover — tags + description + audit */}
+                      {((t.tour_types ?? []).length > 0 || t.description || t.created_by || t.updated_by) && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="ข้อมูลเพิ่มเติม">
+                              <Info className="w-3.5 h-3.5 text-gray-400" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent align="end" className="w-60 p-3 space-y-2.5 text-xs">
+                            {t.continent && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-400 shrink-0">ทวีป</span>
+                                <span className="font-semibold px-2 py-0.5 rounded-full text-[10px]" style={{background:`${color}15`,color}}>{t.continent}</span>
+                              </div>
+                            )}
+                            {(t.tour_types ?? []).length > 0 && (
+                              <div>
+                                <div className="text-gray-400 mb-1">ประเภทโปรแกรม</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {(t.tour_types ?? []).map((tag) => (
+                                    <span key={tag} className="px-2 py-0.5 rounded-full border text-[10px] font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {t.description && (
+                              <div>
+                                <div className="text-gray-400 mb-0.5">คำอธิบาย</div>
+                                <div className="text-gray-700 leading-relaxed">{t.description}</div>
+                              </div>
+                            )}
+                            {(t.created_by || t.updated_by) && (
+                              <div className="pt-2 border-t space-y-0.5 text-[10px] text-gray-400">
+                                {t.created_by && <div>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></div>}
+                                {t.updated_by && (
+                                  <div>แก้ไขล่าสุด <span className="font-medium text-blue-600">{t.updated_by}</span>
+                                    {t.updated_at && <span className="ml-1">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      )}
                       {canEdit && (
                         <button onClick={() => openAddPeriod(t.id)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}}>
                           <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
@@ -1076,7 +1099,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     </div>
 
                     {/* ── Program Header Row — MOBILE (< sm) ── */}
-                    <div className={`group sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
                       {/* Top row: expand + name + period badge */}
                       <div className="flex items-start gap-2 px-3 pt-2.5 pb-1">
                         <button className="mt-0.5 w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400" onClick={() => toggleExpand(t.id)}>
@@ -1097,21 +1120,55 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <span className="text-[11px] font-mono font-semibold text-gray-400 whitespace-nowrap">{t.code}</span>
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
-                          {(t.created_by || t.updated_by) && (
-                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-150 overflow-hidden">
-                              <div className="min-h-0 flex items-center gap-1.5 text-[10px] text-gray-400 flex-wrap">
-                                {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
-                                {t.updated_by && t.updated_by !== t.created_by && (
-                                  <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span></span>
-                                )}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
-                      {/* Bottom row: + Period pill + ⋮ dropdown */}
+                      {/* Bottom row: ℹ info + + Period pill + ⋮ dropdown */}
                       {canEdit && (
                         <div className="flex items-center gap-2 px-3 pb-3 pt-1">
+                          {/* ℹ Info popover */}
+                          {((t.tour_types ?? []).length > 0 || t.description || t.created_by || t.updated_by) && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl shrink-0" title="ข้อมูลเพิ่มเติม">
+                                  <Info className="w-4 h-4 text-gray-400" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-60 p-3 space-y-2.5 text-xs">
+                                {t.continent && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-gray-400">ทวีป</span>
+                                    <span className="font-semibold px-2 py-0.5 rounded-full text-[10px]" style={{background:`${color}15`,color}}>{t.continent}</span>
+                                  </div>
+                                )}
+                                {(t.tour_types ?? []).length > 0 && (
+                                  <div>
+                                    <div className="text-gray-400 mb-1">ประเภทโปรแกรม</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {(t.tour_types ?? []).map((tag) => (
+                                        <span key={tag} className="px-2 py-0.5 rounded-full border text-[10px] font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {t.description && (
+                                  <div>
+                                    <div className="text-gray-400 mb-0.5">คำอธิบาย</div>
+                                    <div className="text-gray-700 leading-relaxed">{t.description}</div>
+                                  </div>
+                                )}
+                                {(t.created_by || t.updated_by) && (
+                                  <div className="pt-2 border-t space-y-0.5 text-[10px] text-gray-400">
+                                    {t.created_by && <div>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></div>}
+                                    {t.updated_by && (
+                                      <div>แก้ไขล่าสุด <span className="font-medium text-blue-600">{t.updated_by}</span>
+                                        {t.updated_at && <span className="ml-1">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </PopoverContent>
+                            </Popover>
+                          )}
                           {/* Primary CTA */}
                           <button
                             onClick={() => openAddPeriod(t.id)}
