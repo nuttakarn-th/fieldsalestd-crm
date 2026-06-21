@@ -353,6 +353,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const sortIcon = (field: 'date'|'price'|'quota') =>
     periodSort.field === field ? (periodSort.dir === 'asc' ? ' ↑' : ' ↓') : '';
 
+  // ── import preview state ──
+  const [importPreviewData, setImportPreviewData] = useState<{
+    rows: Record<string, unknown>[];
+    toCreate: number;
+    toUpdate: number;
+    preview: { code: string; action: "สร้างใหม่" | "เพิ่ม Period" }[];
+  } | null>(null);
+
   const parseDuration = (s: string) => {
     const dMatch = s.match(/(\d+)\s*วัน/); const nMatch = s.match(/(\d+)\s*คืน/);
     return { days: dMatch?.[1] ?? "", nights: nMatch?.[1] ?? "" };
@@ -644,6 +652,22 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     toast.success(`Import สำเร็จ — ${msg}`);
   };
 
+  // ── import preview — แสดง dialog ก่อน import จริง ──
+  const handleImportPreview = (rows: Record<string, unknown>[]) => {
+    const preview = rows.flatMap((row) => {
+      const code = String(row.code ?? "").trim();
+      if (!code) return [];
+      const existing = tours.find((t) => t.code === code);
+      const hasPeriodData = !!(row.start_date || row.price_per_seat);
+      if (existing && hasPeriodData) return [{ code, action: "เพิ่ม Period" as const }];
+      if (!existing) return [{ code, action: "สร้างใหม่" as const }];
+      return [];
+    });
+    const toCreate = preview.filter((x) => x.action === "สร้างใหม่").length;
+    const toUpdate = preview.filter((x) => x.action === "เพิ่ม Period").length;
+    setImportPreviewData({ rows, toCreate, toUpdate, preview });
+  };
+
   // ── filter options (computed from store) ──
   const allCountries = useMemo(
     () => [...new Set(tours.map((t) => t.country).filter(Boolean))].sort(),
@@ -881,7 +905,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImport} />
+          <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} />
           {canEdit && (
             <Button onClick={openAdd} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
               <Plus className="w-4 h-4 mr-1" />
@@ -1008,6 +1032,19 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             ))}
                           </div>
                         )}
+                        {(t.created_by || t.updated_by) && (
+                          <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-400 flex-wrap">
+                            {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
+                            {t.updated_by && t.updated_by !== t.created_by && (
+                              <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span>
+                                {t.updated_at && <span className="ml-1 text-gray-300">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
+                              </span>
+                            )}
+                            {t.updated_by && t.updated_by === t.created_by && t.updated_at && (
+                              <span>· อัปเดต <span className="text-gray-300">{new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span></span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       {canEdit && (
                         <button onClick={() => openAddPeriod(t.id)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}}>
@@ -1053,6 +1090,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             <span className="font-mono font-bold whitespace-nowrap" style={{color}}>{t.code}</span>
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
+                          {(t.created_by || t.updated_by) && (
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-400 flex-wrap">
+                              {t.created_by && <span>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></span>}
+                              {t.updated_by && t.updated_by !== t.created_by && (
+                                <span>· แก้ไขโดย <span className="font-medium text-blue-600">{t.updated_by}</span></span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       {/* Bottom row: action buttons */}
@@ -1249,7 +1294,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                             title="เรียงตามที่นั่งว่าง"
                           >Book/โควต้า{sortIcon('quota')}</div>
                           <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
-                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บันทึก</div>
+                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ข้อมูลเพิ่ม</div>
                           {/* สถานะ + actions — ml-auto กลุ่มนี้ชิดขวาสุด */}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
                             <div className="w-[70px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
@@ -2105,6 +2150,66 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Import Preview Dialog ── */}
+      {importPreviewData && (
+        <Dialog open={!!importPreviewData} onOpenChange={() => setImportPreviewData(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>ตรวจสอบก่อน Import</DialogTitle>
+            </DialogHeader>
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-green-700">{importPreviewData.toCreate}</div>
+                <div className="text-xs text-green-600 mt-1 font-medium">ทัวร์ใหม่จะถูกสร้าง</div>
+              </div>
+              <div className="flex-1 bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-blue-700">{importPreviewData.toUpdate}</div>
+                <div className="text-xs text-blue-600 mt-1 font-medium">Period จะถูกเพิ่มเข้าทัวร์เดิม</div>
+              </div>
+            </div>
+            {importPreviewData.preview.length > 0 && (
+              <div className="max-h-52 overflow-y-auto rounded-lg border text-sm">
+                <table className="w-full">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">รหัสทัวร์</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">การดำเนินการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {importPreviewData.preview.map((row, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-mono font-medium text-gray-800">{row.code}</td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            row.action === "สร้างใหม่" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {row.action}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {importPreviewData.preview.length === 0 && (
+              <div className="text-center py-4 text-sm text-muted-foreground">ไม่พบแถวที่ import ได้ — ตรวจสอบ format ไฟล์อีกครั้ง</div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportPreviewData(null)}>ยกเลิก</Button>
+              <Button
+                disabled={importPreviewData.preview.length === 0}
+                onClick={() => { handleImport(importPreviewData.rows); setImportPreviewData(null); }}
+                style={{background: "#16A34A", color: "#fff"}}
+              >
+                ยืนยัน Import {importPreviewData.rows.length} แถว
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -2167,7 +2272,8 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
         </div>
       </div>
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+      {/* Desktop table — hidden on mobile */}
+      <div className="hidden sm:block bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
@@ -2191,7 +2297,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   <td className="p-3">{c.seat_material}</td>
                   <td className="p-3 text-xs text-muted-foreground">{c.note || "-"}</td>
                   {canEdit && (
-                    <td className="p-3 text-right">
+                    <td className="p-3 text-right whitespace-nowrap">
                       <Button size="icon" variant="ghost" onClick={() => openEdit(c.id)}><Pencil className="w-4 h-4" /></Button>
                       <Button size="icon" variant="ghost" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </td>
@@ -2202,6 +2308,45 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile cards — hidden on sm+ */}
+      <div className="sm:hidden space-y-2">
+        {cars.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground bg-card rounded-xl border">ยังไม่มีรายการ</div>
+        )}
+        {cars.map((c) => (
+          <div key={c.id} className="bg-card rounded-xl border shadow-soft p-3.5">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-base text-gray-900 leading-snug">{c.name}</span>
+                  {c.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{c.type}</span>}
+                  {c.seat_material && c.seat_material !== "ไม่ระบุ" && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{c.seat_material}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                  <div className="flex items-center gap-1">
+                    <Car className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-xs text-gray-600">{c.total_seats} ที่นั่ง</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-bold text-gray-900">฿{c.rate_per_day.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400">/วัน</span>
+                  </div>
+                </div>
+                {c.note && <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{c.note}</p>}
+              </div>
+              {canEdit && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c.id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -2481,7 +2626,8 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
           {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
         </div>
       </div>
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+      {/* Desktop table — hidden on mobile */}
+      <div className="hidden sm:block bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground">
@@ -2506,6 +2652,32 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
             </tbody>
           </table>
         </div>
+      </div>
+      {/* Mobile cards — hidden on sm+ */}
+      <div className="sm:hidden space-y-2">
+        {rows.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground bg-card rounded-xl border">ยังไม่มีรายการ</div>
+        )}
+        {rows.map((r) => (
+          <div key={r.id} className="bg-card rounded-xl border shadow-soft p-3.5">
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0 space-y-1">
+                {r.cells.map((cell, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-[10px] text-muted-foreground font-semibold shrink-0 mt-0.5 min-w-[56px]">{cols[i]}</span>
+                    <span className={`text-sm text-foreground ${i === 0 ? "font-semibold" : ""}`}>{cell}</span>
+                  </div>
+                ))}
+              </div>
+              {canEdit && (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(r.id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { if (confirm("ลบรายการนี้?")) onDelete(r.id); }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
       {dialog}
     </div>
