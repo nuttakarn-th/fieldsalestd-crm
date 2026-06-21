@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCurrentUser } from "@/store/authStore";
 import { canEditServices } from "@/config/roleMenus";
@@ -333,6 +334,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   // ── footnote expand (per period_id) ──
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
+
+  // ── tour type chip collapse (dialog) ──
+  const [showAllChips, setShowAllChips] = useState(false);
   const togglePeriodExpand = (id: string) =>
     setExpandedPeriods((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
@@ -395,7 +399,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   }, [form.startDate, form.returnDate]);
 
   // ── program open/submit ──
-  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setShowAllChips(false); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
@@ -1075,19 +1079,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-base text-gray-900 leading-snug">{t.title ?? t.city}</span>
+                          <div className="flex items-start gap-1.5 flex-wrap">
+                            <span className="font-extrabold text-lg text-gray-900 leading-tight">{t.title ?? t.city}</span>
                             <button onClick={() => hasPeriods && toggleExpand(t.id)}
-                              className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px]"
+                              className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] mt-0.5"
                               style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
                               {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
                               {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                             </button>
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500 flex-wrap">
-                            {t.duration && <span className="whitespace-nowrap">{t.duration}</span>}
-                            <span className="text-gray-300">|</span>
-                            <span className="font-mono font-bold whitespace-nowrap" style={{color}}>{t.code}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            {t.duration && <span className="text-xs text-gray-400 whitespace-nowrap">{t.duration}</span>}
+                            <span className="text-[11px] font-mono font-semibold text-gray-400 whitespace-nowrap">{t.code}</span>
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
                           {(t.created_by || t.updated_by) && (
@@ -1100,28 +1103,54 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           )}
                         </div>
                       </div>
-                      {/* Bottom row: action buttons */}
-                      <div className="flex items-center gap-1.5 px-3 pb-2.5 pt-0.5 flex-wrap">
-                        {canEdit && (
-                          <button onClick={() => openAddPeriod(t.id)} className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}} title="เพิ่ม Period">
-                            <Plus className="w-5 h-5" />
+                      {/* Bottom row: + Period pill + ⋮ dropdown */}
+                      {canEdit && (
+                        <div className="flex items-center gap-2 px-3 pb-3 pt-1">
+                          {/* Primary CTA */}
+                          <button
+                            onClick={() => openAddPeriod(t.id)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-sm transition-opacity hover:opacity-90 flex-1"
+                            style={{background:"#EC4899"}}
+                          >
+                            <Plus className="w-4 h-4" /> เพิ่ม Period
                           </button>
-                        )}
-                        {canEdit && (
-                          <div className="flex items-center gap-0.5 ml-auto">
-                            {t.pdf_url && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{t.is_published ? "🌐" : "PDF"}</span>}
-                            {t.pdf_url ? (
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบแล้ว"); }}><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
-                            ) : (
-                              <><input id={`pdf-upload-mob-${t.id}`} type="file" accept="application/pdf" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; setUploadingId(t.id); const url = await uploadTourPDF(t.id, file); setUploadingId(null); if (url) toast.success("อัปโหลดสำเร็จ"); else toast.error("ล้มเหลว"); }} />
-                              <Button size="icon" variant="ghost" className="h-7 w-7" disabled={uploadingId===t.id} onClick={() => document.getElementById(`pdf-upload-mob-${t.id}`)?.click()}>{uploadingId===t.id ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}</Button></>
-                            )}
-                            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบหรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
-                          </div>
-                        )}
-                      </div>
+                          {/* Secondary actions — ⋮ menu */}
+                          <input id={`pdf-upload-mob-${t.id}`} type="file" accept="application/pdf" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; setUploadingId(t.id); const url = await uploadTourPDF(t.id, file); setUploadingId(null); if (url) toast.success("อัปโหลดสำเร็จ"); else toast.error("ล้มเหลว"); }} />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl shrink-0">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => openEdit(t.id)}>
+                                <Pencil className="w-3.5 h-3.5 mr-2" /> แก้ไขโปรแกรม
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {t.pdf_url ? (
+                                <>
+                                  <DropdownMenuItem onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงบนเว็บแล้ว"); }}>
+                                    {t.is_published ? <GlobeLock className="w-3.5 h-3.5 mr-2 text-amber-500" /> : <Globe className="w-3.5 h-3.5 mr-2 text-green-600" />}
+                                    {t.is_published ? "ซ่อนจากเว็บ" : "แสดงบนเว็บ"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบแล้ว"); }} className="text-destructive focus:text-destructive">
+                                    <FileX className="w-3.5 h-3.5 mr-2" /> ลบ PDF
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem onClick={() => document.getElementById(`pdf-upload-mob-${t.id}`)?.click()} disabled={uploadingId===t.id}>
+                                  {uploadingId===t.id ? <span className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" /> : <FileUp className="w-3.5 h-3.5 mr-2" />}
+                                  อัปโหลด PDF
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด\n\nยืนยันการลบหรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}>
+                                <Trash2 className="w-3.5 h-3.5 mr-2" /> ลบโปรแกรม
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
                     </div>
 
                     {/* ── Period Section (Mobile + Desktop) ── */}
@@ -1817,7 +1846,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             <div>
               <label className="text-xs font-semibold">ประเภททัวร์</label>
               <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {TOUR_TYPE_CHIPS.map((chip) => (
+                {(showAllChips ? TOUR_TYPE_CHIPS : TOUR_TYPE_CHIPS.slice(0, 8)).map((chip) => (
                   <button
                     key={chip} type="button"
                     onClick={() => setForm((f) => ({
@@ -1841,6 +1870,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {t} <X className="w-2.5 h-2.5" />
                   </button>
                 ))}
+                {!showAllChips && TOUR_TYPE_CHIPS.length > 8 && (
+                  <button type="button" onClick={() => setShowAllChips(true)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium border border-dashed transition-all"
+                    style={{borderColor:"#A78BFA", color:"#7C3AED"}}>
+                    +{TOUR_TYPE_CHIPS.length - 8} เพิ่มเติม
+                  </button>
+                )}
+                {showAllChips && (
+                  <button type="button" onClick={() => setShowAllChips(false)}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                    style={{borderColor:"#D1D5DB", color:"#9CA3AF"}}>
+                    ย่อลง
+                  </button>
+                )}
               </div>
               {/* เพิ่มประเภทเอง */}
               <div className="flex items-center gap-1.5 mt-1.5">
@@ -1886,12 +1929,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             </p>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>ยกเลิก</Button>
+            <Button className="flex-1 hover:opacity-90" onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}}>
               <Save className="w-3.5 h-3.5 mr-1.5" />บันทึกโปรแกรม
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
