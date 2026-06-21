@@ -609,69 +609,96 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   }, [tours]);
   const handleImport = (rows: Record<string, unknown>[]) => {
     const parseBool = (v: unknown) => String(v).toUpperCase() === "TRUE";
-    let created = 0; let updated = 0;
+
+    const buildPeriod = (row: Record<string, unknown>) => {
+      const seats = Number(row.total_seats ?? 0);
+      return {
+        start_date:    String(row.start_date ?? ""),
+        end_date:      String(row.end_date ?? ""),
+        nights:        row.nights ? Number(row.nights) : undefined,
+        days:          row.days   ? Number(row.days)   : undefined,
+        travel_date:   String(row.start_date ?? ""),
+        price_per_seat: Number(row.price_per_seat ?? 0),
+        special_price: row.special_price ? Number(row.special_price) : undefined,
+        total_seats:   seats,
+        quota:         seats,
+        airline_code:  String(row.airline_code ?? "") || undefined,
+        project:       String(row.project ?? "") || undefined,
+        footnote:      String(row.footnote ?? "") || undefined,
+        note:          String(row.note ?? "") || undefined,
+        freeday:       parseBool(row.freeday),
+        shopping:      parseBool(row.shopping),
+        all_in:        parseBool(row.all_in),
+        vat7:          parseBool(row.vat7),
+        cancelled:     parseBool(row.cancelled),
+        cancel_reason: String(row.cancel_reason ?? "") || undefined,
+        tags:          row.tags ? String(row.tags).split(",").map((s) => s.trim()).filter(Boolean) : [],
+      };
+    };
+
+    // ── group rows by code ── (แก้ bug: rows เดียวกัน code → สร้างซ้ำ เพราะ store ยัง update ไม่ทัน)
+    const grouped = new Map<string, Record<string, unknown>[]>();
     rows.forEach((row) => {
       const code = String(row.code ?? "").trim();
+      if (!code) return;
+      if (!grouped.has(code)) grouped.set(code, []);
+      grouped.get(code)!.push(row);
+    });
+
+    let created = 0; let periodsAdded = 0;
+
+    grouped.forEach((codeRows, code) => {
       const existing = tours.find((t) => t.code === code);
-      const hasPeriodData = !!(row.start_date || row.price_per_seat);
-      if (existing && hasPeriodData) {
-        // upsert period into existing tour
-        const seats = Number(row.total_seats ?? 0);
-        addPeriod(existing.id, {
-          start_date:    String(row.start_date ?? ""),
-          end_date:      String(row.end_date ?? ""),
-          nights:        row.nights ? Number(row.nights) : undefined,
-          days:          row.days   ? Number(row.days)   : undefined,
-          travel_date:   String(row.start_date ?? ""),
-          price_per_seat: Number(row.price_per_seat ?? 0),
-          special_price: row.special_price ? Number(row.special_price) : undefined,
-          total_seats:   seats,
-          quota:         seats,
-          airline_code:  String(row.airline_code ?? "") || undefined,
-          project:       String(row.project ?? "") || undefined,
-          footnote:      String(row.footnote ?? "") || undefined,
-          note:          String(row.note ?? "") || undefined,
-          freeday:       parseBool(row.freeday),
-          shopping:      parseBool(row.shopping),
-          all_in:        parseBool(row.all_in),
-          vat7:          parseBool(row.vat7),
-          cancelled:     parseBool(row.cancelled),
-          cancel_reason: String(row.cancel_reason ?? "") || undefined,
-          tags:          row.tags ? String(row.tags).split(",").map((s) => s.trim()).filter(Boolean) : [],
-        });
-        updated++;
-      } else if (!existing) {
-        // create new tour (without period — period may come in next rows)
-        const seats = Number(row.total_seats ?? 0);
-        addTour({
-          category:       (row.category as TourCategory) || "International Tour",
+      const firstRow = codeRows[0];
+      const periodRows = codeRows.filter((r) => !!(r.start_date || r.price_per_seat));
+
+      if (!existing) {
+        // สร้างทัวร์ใหม่ครั้งเดียว และรับ ID กลับมาเพื่อ addPeriod ต่อ
+        const seats = Number(firstRow.total_seats ?? 0);
+        const newId = addTour({
+          category:       (firstRow.category as TourCategory) || "International Tour",
           code,
-          title:          String(row.city ?? ""),
-          city:           String(row.city ?? ""),
-          country:        String(row.country ?? ""),
-          continent:      detectContinent(String(row.country ?? "")),
+          title:          String(firstRow.city ?? ""),
+          city:           String(firstRow.city ?? ""),
+          country:        String(firstRow.country ?? ""),
+          continent:      detectContinent(String(firstRow.country ?? "")),
           period:         "",
           duration:       "",
-          price_per_seat: Number(row.price_per_seat ?? 0),
+          price_per_seat: Number(firstRow.price_per_seat ?? 0),
           total_seats:    seats,
           quota:          seats,
-          note:           String(row.note ?? ""),
+          note:           String(firstRow.note ?? ""),
           periods:        [],
         });
         created++;
+        // เพิ่ม periods ทุก row ของ code นี้ โดยใช้ ID ที่เพิ่งสร้าง
+        periodRows.forEach((row) => { addPeriod(newId, buildPeriod(row)); periodsAdded++; });
+      } else {
+        // ทัวร์มีอยู่แล้ว → เพิ่ม period เข้าไป
+        periodRows.forEach((row) => { addPeriod(existing.id, buildPeriod(row)); periodsAdded++; });
       }
     });
-    const msg = [created && `สร้างใหม่ ${created} ทัวร์`, updated && `เพิ่ม ${updated} Period`].filter(Boolean).join(", ");
+    const msg = [
+      created    && `สร้างใหม่ ${created} โปรแกรม`,
+      periodsAdded && `เพิ่ม ${periodsAdded} Period`,
+    ].filter(Boolean).join(", ");
     toast.success(`Import สำเร็จ — ${msg}`);
   };
 
   // ── import preview — แสดง dialog ก่อน import จริง ──
   const handleImportPreview = (rows: Record<string, unknown>[]) => {
+    // seenInBatch ช่วยให้รู้ว่า code นี้เพิ่งเห็นในไฟล์นี้แล้ว (ยังไม่อยู่ใน store)
+    const seenInBatch = new Set<string>();
     const preview = rows.flatMap((row) => {
       const code = String(row.code ?? "").trim();
       if (!code) return [];
-      const existing = tours.find((t) => t.code === code);
-      const hasPeriodData = !!(row.start_date || row.price_per_seat);
+      const existsInStore = !!tours.find((t) => t.code === code);
+      const isNewInBatch  = !existsInStore && !seenInBatch.has(code);
+      // ครั้งแรกของ code ใหม่ = "สร้างใหม่", ครั้งถัดไป = "เพิ่ม Period"
+      const action = (existsInStore || seenInBatch.has(code))
+        ? ("เพิ่ม Period" as const)
+        : ("สร้างใหม่" as const);
+      seenInBatch.add(code);
       const extra = {
         city:           String(row.city ?? row["เมือง / เส้นทาง"] ?? "").trim() || undefined,
         country:        String(row.country ?? row["ประเทศ"] ?? "").trim() || undefined,
@@ -680,11 +707,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         total_seats:    row.total_seats ? Number(row.total_seats) : undefined,
         airline_code:   row.airline_code ? String(row.airline_code).trim() : undefined,
       };
-      if (existing && hasPeriodData) return [{ code, action: "เพิ่ม Period" as const, ...extra }];
-      if (!existing) return [{ code, action: "สร้างใหม่" as const, ...extra }];
-      return [];
+      // ข้ามแถวที่ไม่มีทั้ง code ใหม่ และไม่มี period data (เช่น แถวที่ code ซ้ำและ data ว่าง)
+      const hasPeriodData = !!(row.start_date || row.price_per_seat);
+      if (!isNewInBatch && !hasPeriodData) return [];
+      return [{ code, action, ...extra }];
     });
-    const toCreate = preview.filter((x) => x.action === "สร้างใหม่").length;
+    // นับ unique programs ที่สร้างใหม่ (ไม่นับซ้ำ)
+    const newProgramCodes = new Set(preview.filter((x) => x.action === "สร้างใหม่").map((x) => x.code));
+    const toCreate = newProgramCodes.size;
     const toUpdate = preview.filter((x) => x.action === "เพิ่ม Period").length;
     setImportPreviewData({ rows, toCreate, toUpdate, preview });
   };

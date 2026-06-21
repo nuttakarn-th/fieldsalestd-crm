@@ -103,7 +103,7 @@ interface ServiceState {
   insurances: InsuranceItem[];
   isLoadingTours: boolean;
 
-  addTour: (t: Omit<TourItem, "id">) => void;
+  addTour: (t: Omit<TourItem, "id">) => string;
   updateTour: (id: string, p: Partial<TourItem>) => void;
   deleteTour: (id: string) => void;
   /** ปรับที่นั่งว่าง (legacy — tour ที่ไม่มี periods[]): delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
@@ -186,9 +186,11 @@ export const useServices = create<ServiceState>()(
       // ── Tour ──
       addTour: (t) => {
         const now = new Date().toISOString();
-        const item: TourItem = { ...t, quota: t.total_seats, id: uid(), updated_at: now };
+        const id = uid();
+        const item: TourItem = { ...t, quota: t.total_seats, id, updated_at: now };
         set({ tours: [...get().tours, item] });
         sbInsert("tours", { ...item, created_by: t.created_by, updated_by: t.created_by, updated_at: now });
+        return id;
       },
       updateTour: (id, p) => {
         const now = new Date().toISOString();
