@@ -302,6 +302,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const togglePublish          = useServices((s) => s.togglePublish);
   const adjustPeriodQuota      = useServices((s) => s.adjustPeriodQuota);
   const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
+  const currentUser            = useCurrentUser();
+  const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   // ── Subscribe Supabase Realtime เมื่อ component mount ──
@@ -426,9 +428,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       description: form.description || undefined,
     };
     if (editId) {
-      updateTour(editId, payload);
+      updateTour(editId, { ...payload, updated_by: actorName });
     } else {
-      addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [] });
+      addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [], created_by: actorName, updated_by: actorName });
     }
     toast.success(editId ? "อัปเดตโปรแกรมแล้ว" : "เพิ่มโปรแกรมใหม่แล้ว"); setOpen(false);
   };
@@ -478,6 +480,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
     const seats = Number(pForm.total_seats || 0);
     const travelDate = genTravelDate(pForm.start_date, pForm.end_date, pForm.days, pForm.nights);
+    const now = new Date().toISOString();
+    const existingPeriod = pEditId
+      ? tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId)
+      : undefined;
     const payload: Omit<TourPeriod, "period_id"> = {
       start_date: pForm.start_date,
       end_date: pForm.end_date || undefined,
@@ -487,9 +493,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      quota: pEditId
-        ? (tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId)?.quota ?? seats)
-        : seats,
+      quota: pEditId ? (existingPeriod?.quota ?? seats) : seats,
       airline_code: pForm.airline_code || undefined,
       project: pForm.project || undefined,
       note: pForm.note || undefined,
@@ -502,6 +506,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       promo: pForm.promo || undefined,
       footnote: pForm.footnote || undefined,
       tags: pForm.tags.length > 0 ? pForm.tags : undefined,
+      // ── Audit trail ──
+      updated_by: actorName,
+      updated_at: now,
+      created_by: pEditId ? (existingPeriod?.created_by ?? actorName) : actorName,
+      created_at: pEditId ? (existingPeriod?.created_at ?? now) : now,
     };
     if (pEditId) {
       updatePeriod(pTourId, pEditId, payload);
@@ -1165,13 +1174,30 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   </div>
                                 </div>
                               )}
-                              {/* footnote/tags */}
-                              {(p.footnote || (p.tags ?? []).length > 0 || p.project || p.note) && (
+                              {/* footnote/tags + audit trail */}
+                              {(p.footnote || (p.tags ?? []).length > 0 || p.project || p.note || p.created_by || p.updated_by) && (
                                 <div className="px-3 py-2 text-xs space-y-1 border-t" style={{background:"#F9FAFB", borderColor:`${statusColor}15`}}>
                                   {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
                                   {(p.tags ?? []).length > 0 && <div className="flex gap-1 flex-wrap">{(p.tags ?? []).map((tg) => <span key={tg} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{tg}</span>)}</div>}
                                   {p.project && <div className="text-gray-400">โครงการ: <span className="text-gray-600">{p.project}</span></div>}
                                   {p.note && <div className="text-gray-400">หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
+                                  {/* Audit trail */}
+                                  {(p.created_by || p.updated_by) && (
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 border-t border-gray-100 mt-0.5">
+                                      {p.created_by && (
+                                        <span className="text-[10px] text-gray-400">
+                                          สร้างโดย <span className="font-medium text-gray-600">{p.created_by}</span>
+                                          {p.created_at && <span className="ml-1 text-gray-300">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                        </span>
+                                      )}
+                                      {p.updated_by && (
+                                        <span className="text-[10px] text-gray-400">
+                                          แก้ไขโดย <span className="font-medium text-blue-600">{p.updated_by}</span>
+                                          {p.updated_at && <span className="ml-1 text-gray-300">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1499,9 +1525,29 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                   )}
                                   {p.project && <div className="text-gray-400">โครงการ / Campaign: <span className="text-gray-600">{p.project}</span></div>}
                                   {p.note && <div className="text-gray-400">*หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
-                                  {!p.footnote && !(p.tags ?? []).length && !p.project && !p.note && (
-                                    <span className="text-gray-300 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
-                                  )}
+                                  {/* ── Audit trail ── */}
+                                  <div className="flex items-center gap-3 pt-1 border-t border-gray-100 mt-1 flex-wrap">
+                                    {p.created_by && (
+                                      <span className="text-gray-400">
+                                        สร้างโดย <span className="font-medium text-gray-600">{p.created_by}</span>
+                                        {p.created_at && <span className="ml-1 text-gray-300">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                      </span>
+                                    )}
+                                    {p.updated_by && p.updated_by !== p.created_by && (
+                                      <span className="text-gray-400">
+                                        แก้ไขโดย <span className="font-medium text-blue-600">{p.updated_by}</span>
+                                        {p.updated_at && <span className="ml-1 text-gray-300">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                      </span>
+                                    )}
+                                    {p.updated_by && p.updated_by === p.created_by && p.updated_at && p.updated_at !== p.created_at && (
+                                      <span className="text-gray-400">
+                                        อัปเดตล่าสุด <span className="ml-1 text-gray-300">{new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>
+                                      </span>
+                                    )}
+                                    {!p.created_by && !p.updated_by && (
+                                      <span className="text-gray-300 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
+                                    )}
+                                  </div>
                                 </div>
                               )}
                               </div>{/* end card */}

@@ -41,6 +41,11 @@ export interface TourPeriod {
   special_price?: number;   // ราคาพิเศษ — เมื่อกรอก icon 🔥 แสดงอัตโนมัติ
   footnote?: string;        // ข้อความแสดงเมื่อ expand แถว
   tags?: string[];          // category tags เช่น ["ครอบครัว", "ธรรมชาติ"]
+  // ── Audit trail ──
+  created_by?: string;      // ชื่อผู้ใช้ที่สร้าง period นี้
+  created_at?: string;      // ISO timestamp เมื่อสร้าง
+  updated_by?: string;      // ชื่อผู้ใช้ที่แก้ไขล่าสุด
+  updated_at?: string;      // ISO timestamp เมื่อแก้ไขล่าสุด
 }
 
 export interface TourItem {
@@ -58,6 +63,10 @@ export interface TourItem {
   periods?: TourPeriod[];   // NEW — multi-period (Option B)
   pdf_url?: string;         // URL ไฟล์ PDF โปรแกรมทัวร์ใน Supabase Storage
   is_published?: boolean;   // แสดงในหน้า Package Program หรือไม่
+  // ── Audit trail (tour-level) ──
+  created_by?: string;      // ชื่อผู้ใช้ที่สร้าง
+  updated_by?: string;      // ชื่อผู้ใช้ที่แก้ไขล่าสุด
+  updated_at?: string;      // ISO timestamp เมื่อแก้ไขล่าสุด
   // ── Phase 3 fields (UI-only ก่อน, ไม่มี DB migration ยัง) ──
   title?: string;           // ชื่อเต็มโปรแกรม เช่น "ยุโรป 6 ประเทศ สวิส ฝรั่งเศส"
   countries?: string[];     // รองรับหลายประเทศ (จีน, ญี่ปุ่น ...)
@@ -176,14 +185,16 @@ export const useServices = create<ServiceState>()(
 
       // ── Tour ──
       addTour: (t) => {
-        // quota เริ่มต้น = total_seats (ยังไม่มีคนจอง)
-        const item: TourItem = { ...t, quota: t.total_seats, id: uid() };
+        const now = new Date().toISOString();
+        const item: TourItem = { ...t, quota: t.total_seats, id: uid(), updated_at: now };
         set({ tours: [...get().tours, item] });
-        sbInsert("tours", item);
+        sbInsert("tours", { ...item, created_by: t.created_by, updated_by: t.created_by, updated_at: now });
       },
       updateTour: (id, p) => {
-        set({ tours: get().tours.map((x) => (x.id === id ? { ...x, ...p } : x)) });
-        sbUpdate("tours", id, p);
+        const now = new Date().toISOString();
+        const patch = { ...p, updated_at: now };
+        set({ tours: get().tours.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+        sbUpdate("tours", id, patch);
       },
       deleteTour: (id) => {
         set({ tours: get().tours.filter((x) => x.id !== id) });
