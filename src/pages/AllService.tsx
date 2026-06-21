@@ -362,7 +362,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     rows: Record<string, unknown>[];
     toCreate: number;
     toUpdate: number;
-    preview: { code: string; action: "สร้างใหม่" | "เพิ่ม Period" }[];
+    preview: {
+      code: string;
+      action: "สร้างใหม่" | "เพิ่ม Period";
+      city?: string;
+      country?: string;
+      start_date?: string;
+      price_per_seat?: number;
+      total_seats?: number;
+      airline_code?: string;
+    }[];
   } | null>(null);
 
   const parseDuration = (s: string) => {
@@ -663,8 +672,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       if (!code) return [];
       const existing = tours.find((t) => t.code === code);
       const hasPeriodData = !!(row.start_date || row.price_per_seat);
-      if (existing && hasPeriodData) return [{ code, action: "เพิ่ม Period" as const }];
-      if (!existing) return [{ code, action: "สร้างใหม่" as const }];
+      const extra = {
+        city:           String(row.city ?? row["เมือง / เส้นทาง"] ?? "").trim() || undefined,
+        country:        String(row.country ?? row["ประเทศ"] ?? "").trim() || undefined,
+        start_date:     row.start_date ? String(row.start_date).trim() : undefined,
+        price_per_seat: row.price_per_seat ? Number(row.price_per_seat) : undefined,
+        total_seats:    row.total_seats ? Number(row.total_seats) : undefined,
+        airline_code:   row.airline_code ? String(row.airline_code).trim() : undefined,
+      };
+      if (existing && hasPeriodData) return [{ code, action: "เพิ่ม Period" as const, ...extra }];
+      if (!existing) return [{ code, action: "สร้างใหม่" as const, ...extra }];
       return [];
     });
     const toCreate = preview.filter((x) => x.action === "สร้างใหม่").length;
@@ -2252,7 +2269,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       {/* ── Import Preview Dialog ── */}
       {importPreviewData && (
         <Dialog open={!!importPreviewData} onOpenChange={() => setImportPreviewData(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>ตรวจสอบก่อน Import</DialogTitle>
             </DialogHeader>
@@ -2267,24 +2284,44 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               </div>
             </div>
             {importPreviewData.preview.length > 0 && (
-              <div className="max-h-52 overflow-y-auto rounded-lg border text-sm">
+              <div className="max-h-72 overflow-y-auto rounded-lg border text-xs">
                 <table className="w-full">
-                  <thead className="bg-gray-50 sticky top-0">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">รหัสทัวร์</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">การดำเนินการ</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">สถานะ</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">รหัสทัวร์</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500">เมือง / เส้นทาง</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">ประเทศ</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">วันเดินทาง</th>
+                      <th className="px-2.5 py-2 text-right font-semibold text-gray-500 whitespace-nowrap">ราคา/ที่นั่ง</th>
+                      <th className="px-2.5 py-2 text-right font-semibold text-gray-500 whitespace-nowrap">ที่นั่ง</th>
+                      <th className="px-2.5 py-2 text-center font-semibold text-gray-500 whitespace-nowrap">สายการบิน</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {importPreviewData.preview.map((row, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 font-mono font-medium text-gray-800">{row.code}</td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      <tr key={i} className={`hover:bg-gray-50 ${row.action === "สร้างใหม่" ? "bg-green-50/40" : "bg-blue-50/30"}`}>
+                        <td className="px-2.5 py-1.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
                             row.action === "สร้างใหม่" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
                           }`}>
-                            {row.action}
+                            {row.action === "สร้างใหม่" ? "✦ สร้างใหม่" : "+ Period"}
                           </span>
+                        </td>
+                        <td className="px-2.5 py-1.5 font-mono font-semibold text-gray-800 whitespace-nowrap">{row.code}</td>
+                        <td className="px-2.5 py-1.5 text-gray-700 max-w-[200px] truncate" title={row.city}>{row.city || <span className="text-gray-300">–</span>}</td>
+                        <td className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap">{row.country || <span className="text-gray-300">–</span>}</td>
+                        <td className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap font-mono">
+                          {row.start_date || <span className="text-gray-300">–</span>}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-right text-gray-700 whitespace-nowrap font-medium">
+                          {row.price_per_seat ? `฿${row.price_per_seat.toLocaleString()}` : <span className="text-gray-300">–</span>}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-right text-gray-600 whitespace-nowrap">
+                          {row.total_seats ?? <span className="text-gray-300">–</span>}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-center font-mono text-gray-600">
+                          {row.airline_code || <span className="text-gray-300">–</span>}
                         </td>
                       </tr>
                     ))}
