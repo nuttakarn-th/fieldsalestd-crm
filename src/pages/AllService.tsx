@@ -1161,7 +1161,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     {/* ════ MOBILE period cards (< sm) ════ */}
                     <div className="sm:hidden border-t anim-slide-down" style={{background: "#FAFAFA"}}>
                       <div className="p-3 space-y-2">
-                        {t.periods!.map((p, pIdx) => {
+                        {t.periods!.filter((p) =>
+                          !filterPromo || (typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)
+                        ).map((p, pIdx) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
                           const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
@@ -1334,7 +1336,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                         </div>
                         {/* Period Cards — w-full stretches to container */}
                         <div className="px-3 py-1.5 space-y-1 w-full">
-                        {[...t.periods!].sort((a, b) => {
+                        {[...t.periods!].filter((p) =>
+                          !filterPromo || (typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)
+                        ).sort((a, b) => {
                           const dir = periodSort.dir === 'asc' ? 1 : -1;
                           if (periodSort.field === 'date')  return dir * ((a.start_date || '') < (b.start_date || '') ? -1 : 1);
                           if (periodSort.field === 'price') return dir * (a.price_per_seat - b.price_per_seat);
