@@ -713,7 +713,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         }
       }
       if (filterPromo) {
-        const has = (t.periods ?? []).some((p) => p.promo || (!!p.special_price && p.special_price < p.price_per_seat));
+        const has = (t.periods ?? []).some((p) =>
+          typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat
+        );
         if (!has) return false;
       }
       if (filterTags.length > 0) {
