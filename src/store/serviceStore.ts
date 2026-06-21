@@ -117,7 +117,7 @@ interface ServiceState {
   /** ลบ period */
   deletePeriod: (tourId: string, periodId: string) => void;
   /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
-  adjustPeriodQuota: (tourId: string, periodId: string, delta: number) => void;
+  adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => void;
 
   addCar: (c: Omit<CarItem, "id">) => void;
   updateCar: (id: string, p: Partial<CarItem>) => void;
@@ -252,12 +252,17 @@ export const useServices = create<ServiceState>()(
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
       },
 
-      adjustPeriodQuota: (tourId, periodId, delta) => {
+      adjustPeriodQuota: (tourId, periodId, delta, updatedBy) => {
+        const now = new Date().toISOString();
         const newTours = get().tours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = (t.periods ?? []).map((x) => {
             if (x.period_id !== periodId) return x;
-            return { ...x, quota: Math.max(0, x.quota + delta) };
+            return {
+              ...x,
+              quota: Math.max(0, x.quota + delta),
+              ...(updatedBy ? { updated_by: updatedBy, updated_at: now } : {}),
+            };
           });
           const quota = periods.reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, quota };

@@ -1158,7 +1158,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       ><Plus className="w-4 h-4" /></button>
                                       {hasPending && (
                                         <>
-                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; adjustPeriodQuota(t.id, pid, newQ - p.quota); setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; }); toast.success("อัปเดตโควต้าแล้ว"); }}
+                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName); setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; }); toast.success("อัปเดตโควต้าแล้ว"); }}
                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-green-600 border border-green-200 bg-white"
                                           ><Save className="w-4 h-4" /></button>
                                           <button onClick={() => setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; })}
@@ -1464,7 +1464,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       onClick={() => {
                                         const newQ = pendingQuota[pid];
                                         if (newQ === undefined) return;
-                                        adjustPeriodQuota(t.id, pid, newQ - p.quota);
+                                        adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName);
                                         setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
                                         toast.success("อัปเดตโควต้าแล้ว");
                                       }}
