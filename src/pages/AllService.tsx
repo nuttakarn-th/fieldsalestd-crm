@@ -929,21 +929,30 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           (acc, t) => {
             (t.periods ?? []).forEach((p) => {
               if (!p.cancelled) {
-                acc.totalSeats += p.total_seats;
-                acc.booked    += p.total_seats - p.quota;
-                acc.available += p.quota;
-                acc.periods   += 1;
+                const bookedSeats = p.total_seats - p.quota;
+                acc.totalSeats  += p.total_seats;
+                acc.booked      += bookedSeats;
+                acc.available   += p.quota;
+                acc.periods     += 1;
+                acc.totalValue  += p.total_seats * p.price_per_seat;
+                acc.bookedValue += bookedSeats   * p.price_per_seat;
               }
             });
             return acc;
           },
-          { totalSeats: 0, booked: 0, available: 0, periods: 0 }
+          { totalSeats: 0, booked: 0, available: 0, periods: 0, totalValue: 0, bookedValue: 0 }
         );
         if (stats.periods === 0) return null;
-        const pct = stats.totalSeats > 0 ? Math.round((stats.booked / stats.totalSeats) * 100) : 0;
+        const pct      = stats.totalSeats  > 0 ? Math.round((stats.booked      / stats.totalSeats)  * 100) : 0;
+        const valuePct = stats.totalValue  > 0 ? Math.round((stats.bookedValue / stats.totalValue)  * 100) : 0;
+        const fmtVal   = (v: number) => v >= 1_000_000
+          ? `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)} ล้าน`
+          : v.toLocaleString();
         return (
           <div className="hidden sm:flex items-center gap-4 px-6 py-2 border-b bg-gray-50 flex-wrap">
             <span className="text-[11px] text-gray-500 font-medium">📊 ภาพรวม Stock</span>
+
+            {/* ── ที่นั่ง ── */}
             <div className="flex items-center gap-1">
               <span className="text-[11px] text-gray-500">ที่นั่งทั้งหมด</span>
               <span className="text-[12px] font-bold text-gray-800">{stats.totalSeats.toLocaleString()}</span>
@@ -962,9 +971,39 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
             <div className="flex items-center gap-1">
               <span className="text-[11px] text-gray-400">| {stats.periods} Period ที่เปิดอยู่</span>
             </div>
-            <div className="flex-1 max-w-[160px]">
-              <div className="h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                <div className="h-full rounded-full" style={{width:`${pct}%`, background:"#EC4899"}} />
+
+            {/* ── divider ── */}
+            <span className="text-gray-200 select-none hidden lg:block">|</span>
+
+            {/* ── มูลค่า ── */}
+            <div className="hidden lg:flex items-center gap-1">
+              <span className="text-[11px] text-gray-500">💰 มูลค่า Capacity</span>
+              <span className="text-[12px] font-bold text-gray-800">฿{fmtVal(stats.totalValue)}</span>
+            </div>
+            <div className="hidden lg:flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#7C3AED"}} />
+              <span className="text-[11px] text-gray-500">มูลค่าจอง</span>
+              <span className="text-[12px] font-bold" style={{color:"#7C3AED"}}>฿{fmtVal(stats.bookedValue)}</span>
+              <span className="text-[10px] text-gray-400">({valuePct}%)</span>
+            </div>
+
+            {/* ── progress bars ── */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              <div className="w-[100px]">
+                <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
+                  <span>ที่นั่ง</span><span>{pct}%</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                  <div className="h-full rounded-full" style={{width:`${pct}%`, background:"#EC4899"}} />
+                </div>
+              </div>
+              <div className="hidden lg:block w-[100px]">
+                <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
+                  <span>มูลค่า</span><span>{valuePct}%</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                  <div className="h-full rounded-full" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
+                </div>
               </div>
             </div>
           </div>
