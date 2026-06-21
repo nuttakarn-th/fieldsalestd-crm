@@ -2123,24 +2123,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 </div>
               </div>
 
-              {/* Tags */}
-              <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tag ประเภทโปรแกรม</label>
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {CATEGORY_TAGS.map((tag) => (
-                    <button key={tag} type="button"
-                      onClick={() => setPForm((f) => ({
-                        ...f, tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
-                      }))}
-                      className="px-1.5 py-0.5 rounded-full text-[10px] border transition-all"
-                      style={pForm.tags.includes(tag)
-                        ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                        : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
-                    >{tag}</button>
-                  ))}
-                </div>
-              </div>
-
               {/* Footnote */}
               <div>
                 <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
