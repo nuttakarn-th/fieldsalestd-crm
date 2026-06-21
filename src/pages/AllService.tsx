@@ -2233,6 +2233,20 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
+  const [carSearch, setCarSearch] = useState("");
+  const [showSkeleton, setShowSkeleton] = useState(cars.length === 0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowSkeleton(false), 2000);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => { if (cars.length > 0) setShowSkeleton(false); }, [cars.length]);
+
+  const filteredCars = useMemo(() => {
+    if (!carSearch.trim()) return cars;
+    const q = carSearch.toLowerCase();
+    return cars.filter((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
+  }, [cars, carSearch]);
 
   const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ", note: "" }); setOpen(true); };
   const openEdit = (id: string) => {
@@ -2261,18 +2275,52 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 anim-tab-enter">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <p className="text-sm text-muted-foreground">รวม {cars.length} คัน</p>
+          <p className="text-sm text-muted-foreground">
+            รวม {cars.length} คัน
+            {carSearch && filteredCars.length !== cars.length && <span className="ml-1.5 text-xs text-amber-600 font-medium">(กรอง {filteredCars.length})</span>}
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">🚗 บริการเช่ารถ — ไม่จำกัดโควต้า (Unlimited)</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+            <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder="ค้นหารถ..." value={carSearch} onChange={(e) => setCarSearch(e.target.value)} />
+            {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
+          </div>
           <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
         </div>
       </div>
+
+      {/* Skeleton — แสดงเมื่อ load จาก Supabase ยังไม่มาถึง */}
+      {showSkeleton && (
+        <>
+          <div className="hidden sm:block bg-card rounded-xl border overflow-hidden animate-pulse">
+            {[1,2,3].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-3 py-3.5 border-b last:border-0">
+                <div className="h-4 bg-gray-200 rounded w-1/4" />
+                <div className="h-3 bg-gray-100 rounded w-1/6" />
+                <div className="h-3 bg-gray-100 rounded w-1/12 ml-auto" />
+                <div className="h-3 bg-gray-100 rounded w-1/6" />
+              </div>
+            ))}
+          </div>
+          <div className="sm:hidden space-y-2">
+            {[1,2,3].map((i) => (
+              <div key={i} className="bg-card rounded-xl border p-3.5 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-2/5 mb-2" />
+                <div className="h-3 bg-gray-100 rounded w-1/4" />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Desktop table — hidden on mobile */}
+      {!showSkeleton && (
       <div className="hidden sm:block bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -2288,8 +2336,8 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {cars.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/30">
+              {filteredCars.map((c) => (
+                <tr key={c.id} className="hover:bg-muted/30 anim-fade-in">
                   <td className="p-3 font-semibold">{c.name}</td>
                   <td className="p-3">{c.type}</td>
                   <td className="p-3 text-center">{c.total_seats}</td>
@@ -2304,19 +2352,52 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   )}
                 </tr>
               ))}
-              {cars.length === 0 && <tr><td colSpan={canEdit ? 7 : 6} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>}
+              {filteredCars.length === 0 && cars.length === 0 && (
+                <tr><td colSpan={canEdit ? 7 : 6} className="py-12 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center"><Car className="w-6 h-6 text-gray-300" /></div>
+                    <p className="text-sm font-medium text-gray-500">ยังไม่มีรถในระบบ</p>
+                    <p className="text-xs text-gray-400">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+                  </div>
+                </td></tr>
+              )}
+              {filteredCars.length === 0 && cars.length > 0 && (
+                <tr><td colSpan={canEdit ? 7 : 6} className="py-8 text-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <Search className="w-5 h-5 text-gray-300" />
+                    <p className="text-sm text-gray-500">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
+                    <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline mt-0.5">ล้างการค้นหา</button>
+                  </div>
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+      )}
 
       {/* Mobile cards — hidden on sm+ */}
+      {!showSkeleton && (
       <div className="sm:hidden space-y-2">
-        {cars.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground bg-card rounded-xl border">ยังไม่มีรายการ</div>
+        {filteredCars.length === 0 && cars.length === 0 && (
+          <div className="py-12 flex flex-col items-center gap-3 bg-card rounded-xl border">
+            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center"><Car className="w-7 h-7 text-gray-300" /></div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-gray-600">ยังไม่มีรถในระบบ</p>
+              <p className="text-xs text-gray-400 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+            </div>
+            {canEdit && <Button onClick={openAdd} size="sm" className="bg-gradient-pink text-accent-foreground"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรถคันแรก</Button>}
+          </div>
         )}
-        {cars.map((c) => (
-          <div key={c.id} className="bg-card rounded-xl border shadow-soft p-3.5">
+        {filteredCars.length === 0 && cars.length > 0 && (
+          <div className="py-8 flex flex-col items-center gap-2 bg-card rounded-xl border">
+            <Search className="w-5 h-5 text-gray-300" />
+            <p className="text-sm text-gray-500">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
+            <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline">ล้างการค้นหา</button>
+          </div>
+        )}
+        {filteredCars.map((c, idx) => (
+          <div key={c.id} className="bg-card rounded-xl border shadow-soft p-3.5 anim-card-in" style={{animationDelay: `${idx * 40}ms`}}>
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2348,6 +2429,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           </div>
         ))}
       </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
@@ -2379,18 +2461,20 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
 /* ========= Booking (Flight/Hotel/Visa/Insurance) ========= */
 function BookingSection({ canEdit }: { canEdit: boolean }) {
   return (
-    <Tabs defaultValue="flight" className="space-y-3">
-      <TabsList>
-        <TabsTrigger value="flight"><Plane className="w-4 h-4 mr-1" /> ตั๋วเครื่องบิน</TabsTrigger>
-        <TabsTrigger value="hotel"><Hotel className="w-4 h-4 mr-1" /> โรงแรม</TabsTrigger>
-        <TabsTrigger value="visa"><FileBadge className="w-4 h-4 mr-1" /> Visa</TabsTrigger>
-        <TabsTrigger value="insurance"><Shield className="w-4 h-4 mr-1" /> ประกันการเดินทาง</TabsTrigger>
-      </TabsList>
-      <TabsContent value="flight"><FlightSection canEdit={canEdit} /></TabsContent>
-      <TabsContent value="hotel"><HotelSection canEdit={canEdit} /></TabsContent>
-      <TabsContent value="visa"><VisaSection canEdit={canEdit} /></TabsContent>
-      <TabsContent value="insurance"><InsuranceSection canEdit={canEdit} /></TabsContent>
-    </Tabs>
+    <div className="anim-tab-enter">
+      <Tabs defaultValue="flight" className="space-y-3">
+        <TabsList>
+          <TabsTrigger value="flight"><Plane className="w-4 h-4 mr-1" /> ตั๋วเครื่องบิน</TabsTrigger>
+          <TabsTrigger value="hotel"><Hotel className="w-4 h-4 mr-1" /> โรงแรม</TabsTrigger>
+          <TabsTrigger value="visa"><FileBadge className="w-4 h-4 mr-1" /> Visa</TabsTrigger>
+          <TabsTrigger value="insurance"><Shield className="w-4 h-4 mr-1" /> ประกันการเดินทาง</TabsTrigger>
+        </TabsList>
+        <TabsContent value="flight"><FlightSection canEdit={canEdit} /></TabsContent>
+        <TabsContent value="hotel"><HotelSection canEdit={canEdit} /></TabsContent>
+        <TabsContent value="visa"><VisaSection canEdit={canEdit} /></TabsContent>
+        <TabsContent value="insurance"><InsuranceSection canEdit={canEdit} /></TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
@@ -2425,6 +2509,7 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
       cols={["สายการบิน", "เส้นทาง", "หมายเหตุ"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.airline, i.route, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      searchable searchPlaceholder="ค้นหาสายการบิน..."
       importExport={<ImportExportMenu fields={FLIGHT_FIELDS} sheetName="ตั๋วเครื่องบิน" filename="flights" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
@@ -2475,6 +2560,7 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
       cols={["ชื่อโรงแรม", "เมือง", "ประเทศ", "หมายเหตุ"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      searchable searchPlaceholder="ค้นหาโรงแรม..."
       importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
@@ -2529,6 +2615,7 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
       cols={["ประเภท", "ประเทศ", "หมายเหตุ"]}
       rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      searchable searchPlaceholder="ค้นหา Visa..."
       importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
@@ -2585,6 +2672,7 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
       cols={["แผน", "วงเงิน", "ราคา", "หมายเหตุ"]}
       rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
+      searchable searchPlaceholder="ค้นหาประกัน..."
       importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
@@ -2615,18 +2703,73 @@ interface SimpleTableProps {
   onDelete: (id: string) => void;
   dialog: React.ReactNode;
   importExport?: React.ReactNode;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
-function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog, importExport }: SimpleTableProps) {
+function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dialog, importExport, searchable, searchPlaceholder }: SimpleTableProps) {
+  const [q, setQ] = useState("");
+  const [ready, setReady] = useState(rows.length > 0);
+  useEffect(() => {
+    if (rows.length > 0) { setReady(true); return; }
+    const t = setTimeout(() => setReady(true), 1800);
+    return () => clearTimeout(t);
+  }, [rows.length]);
+
+  const filteredRows = useMemo(() => {
+    if (!searchable || !q.trim()) return rows;
+    const lq = q.toLowerCase();
+    return rows.filter((r) =>
+      r.cells.some((cell) => typeof cell === "string" && cell.toLowerCase().includes(lq))
+    );
+  }, [rows, q, searchable]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 anim-tab-enter">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <p className="text-sm text-muted-foreground">{title} · {rows.length} รายการ</p>
-        <div className="flex items-center gap-2">
+        <p className="text-sm text-muted-foreground">
+          {title} · {rows.length} รายการ
+          {searchable && q && filteredRows.length !== rows.length && (
+            <span className="ml-1.5 text-xs text-amber-600 font-medium">(กรอง {filteredRows.length})</span>
+          )}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          {searchable && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder={searchPlaceholder ?? "ค้นหา..."} value={q} onChange={(e) => setQ(e.target.value)} />
+              {q && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setQ("")}><X className="w-3.5 h-3.5" /></button>}
+            </div>
+          )}
           {importExport}
           {canEdit && <Button onClick={onAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่ม</Button>}
         </div>
       </div>
+
+      {/* Skeleton — show while data hasn't arrived yet */}
+      {!ready && (
+        <>
+          <div className="hidden sm:block bg-card rounded-xl border overflow-hidden animate-pulse">
+            {[1,2,3].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-3 py-3.5 border-b last:border-0">
+                <div className="h-4 bg-gray-200 rounded w-1/4" />
+                <div className="h-3 bg-gray-100 rounded w-1/5" />
+                <div className="h-3 bg-gray-100 rounded w-1/6 ml-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="sm:hidden space-y-2">
+            {[1,2,3].map((i) => (
+              <div key={i} className="bg-card rounded-xl border p-3.5 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-2/5 mb-2" />
+                <div className="h-3 bg-gray-100 rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Desktop table — hidden on mobile */}
+      {ready && (
       <div className="hidden sm:block bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -2637,7 +2780,7 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rows.map((r) => (
+              {filteredRows.map((r) => (
                 <tr key={r.id} className="hover:bg-muted/30">
                   {r.cells.map((c, i) => <td key={i} className="p-3">{c}</td>)}
                   {canEdit && (
@@ -2648,18 +2791,51 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
                   )}
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="p-8 text-center text-muted-foreground">ยังไม่มีรายการ</td></tr>}
+              {filteredRows.length === 0 && rows.length === 0 && (
+                <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="py-12 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center"><PackageSearch className="w-6 h-6 text-gray-300" /></div>
+                    <p className="text-sm font-medium text-gray-500">ยังไม่มีรายการ</p>
+                  </div>
+                </td></tr>
+              )}
+              {filteredRows.length === 0 && rows.length > 0 && (
+                <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="py-8 text-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <Search className="w-5 h-5 text-gray-300" />
+                    <p className="text-sm text-gray-500">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
+                    <button onClick={() => setQ("")} className="text-xs text-blue-500 hover:underline mt-0.5">ล้างการค้นหา</button>
+                  </div>
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+      )}
+
       {/* Mobile cards — hidden on sm+ */}
+      {ready && (
       <div className="sm:hidden space-y-2">
-        {rows.length === 0 && (
-          <div className="p-8 text-center text-muted-foreground bg-card rounded-xl border">ยังไม่มีรายการ</div>
+        {filteredRows.length === 0 && rows.length === 0 && (
+          <div className="py-12 flex flex-col items-center gap-3 bg-card rounded-xl border">
+            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center"><PackageSearch className="w-7 h-7 text-gray-300" /></div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-gray-600">ยังไม่มีรายการ</p>
+              <p className="text-xs text-gray-400 mt-0.5">กด เพิ่ม เพื่อเริ่มต้น</p>
+            </div>
+            {canEdit && <Button onClick={onAdd} size="sm" className="bg-gradient-pink text-accent-foreground"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรายการแรก</Button>}
+          </div>
         )}
-        {rows.map((r) => (
-          <div key={r.id} className="bg-card rounded-xl border shadow-soft p-3.5">
+        {filteredRows.length === 0 && rows.length > 0 && (
+          <div className="py-8 flex flex-col items-center gap-2 bg-card rounded-xl border">
+            <Search className="w-5 h-5 text-gray-300" />
+            <p className="text-sm text-gray-500">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
+            <button onClick={() => setQ("")} className="text-xs text-blue-500 hover:underline">ล้างการค้นหา</button>
+          </div>
+        )}
+        {filteredRows.map((r, idx) => (
+          <div key={r.id} className="bg-card rounded-xl border shadow-soft p-3.5 anim-card-in" style={{animationDelay: `${idx * 40}ms`}}>
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0 space-y-1">
                 {r.cells.map((cell, i) => (
@@ -2679,6 +2855,7 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
           </div>
         ))}
       </div>
+      )}
       {dialog}
     </div>
   );
