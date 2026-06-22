@@ -20,6 +20,8 @@ import {
   Diamond,
   Tag,
   UserPlus,
+  CalendarRange,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -106,6 +108,7 @@ const salesManagerMenu: RoleMenu = {
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "รายงานแผนงาน", url: "/app/plan-report", icon: ClipboardList },
       ],
     },
     {
@@ -137,6 +140,7 @@ const salesMenu: RoleMenu = {
       category: "SALES MANAGEMENT",
       items: [
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "แผนสัปดาห์", url: "/app/weekly-plan", icon: CalendarRange },
         { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
         { title: "Calendar Route", url: "/app/calendar", icon: MapPinned },
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },

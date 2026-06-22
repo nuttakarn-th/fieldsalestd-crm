@@ -69,6 +69,8 @@ import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
 import WebSetting from "./pages/WebSetting.tsx";
 import MarketingLeads from "./pages/MarketingLeads.tsx";
 import AdsDashboard from "./pages/AdsDashboard.tsx";
+import WeeklySalesPlan from "./pages/WeeklySalesPlan.tsx";
+import PlanReport from "./pages/PlanReport.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -173,6 +175,8 @@ const App = () => (
             <Route path="ob-dashboard" element={<OBDashboard />} />
             <Route path="heatmap" element={<ProvinceHeatmap />} />
             <Route path="marketing-leads" element={<MarketingLeads />} />
+            <Route path="weekly-plan" element={<WeeklySalesPlan />} />
+            <Route path="plan-report" element={<PlanReport />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
