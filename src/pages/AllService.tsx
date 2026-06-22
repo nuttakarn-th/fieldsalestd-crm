@@ -276,6 +276,7 @@ const blankPeriodForm = () => ({
   special_price: "",        // ราคาพิเศษ — เมื่อกรอก 🔥 auto-on
   total_seats: "",
   airline_code: "",
+  departure_city: "" as "" | "CNX" | "DMK" | "BKK",
   project: "",
   note: "",
   cancelled: false,
@@ -473,6 +474,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
       airline_code: p.airline_code ?? "",
+      departure_city: (p.departure_city ?? "") as "" | "CNX" | "DMK" | "BKK",
       project: p.project ?? "",
       note: p.note ?? "",
       cancelled: p.cancelled ?? false,
@@ -516,6 +518,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       total_seats: seats,
       quota: pEditId ? (existingPeriod?.quota ?? seats) : seats,
       airline_code: pForm.airline_code || undefined,
+      departure_city: pForm.departure_city || undefined,
       project: pForm.project || undefined,
       note: pForm.note || undefined,
       cancelled: pForm.cancelled || undefined,
@@ -1425,6 +1428,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           >Period{sortIcon('date')}</div>
                           <div className="w-[56px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
                           <div className="w-8 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">🔥</div>
+                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-pink-500 uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-2 shrink-0" />
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">FD</div>
@@ -1528,6 +1532,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 {/* 4. PROMO — auto when special_price set */}
                                 <div className="w-8 text-center shrink-0 leading-none">
                                   {hasPromo ? <span title={`ราคาพิเศษ ลด ${discount.toLocaleString()} บาท`} className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
+                                </div>
+
+                                {/* 4.5 บิน — departure city (CNX/DMK/BKK) */}
+                                <div className="w-[46px] shrink-0 text-center">
+                                  {p.departure_city
+                                    ? <span className="text-[11px] font-bold text-pink-500">{p.departure_city}</span>
+                                    : <span className="text-gray-200 text-xs">–</span>}
                                 </div>
 
                                 {/* 5. เดินทาง (airline code) */}
@@ -2197,7 +2208,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 )}
               </div>
 
-              {/* สายการบิน + Campaign */}
+              {/* สายการบิน + บิน (departure city) */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">สายการบิน</label>
@@ -2205,10 +2216,32 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Campaign</label>
-                  <Input className="h-8 text-xs mt-0.5" value={pForm.project}
-                    onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
+                  <label className="text-[10px] font-semibold text-pink-500 uppercase tracking-wide">บิน (ต้นทาง)</label>
+                  <div className="flex gap-1 mt-0.5">
+                    {(["", "CNX", "DMK", "BKK"] as const).map((city) => (
+                      <button
+                        key={city || "none"}
+                        type="button"
+                        onClick={() => setPForm((f) => ({ ...f, departure_city: city }))}
+                        className="flex-1 h-8 rounded-md text-xs font-bold border transition-all"
+                        style={
+                          pForm.departure_city === city
+                            ? { background: city ? "#EC4899" : "#F3F4F6", color: city ? "#fff" : "#9CA3AF", borderColor: city ? "#EC4899" : "#E5E7EB" }
+                            : { borderColor: "#E5E7EB", color: "#9CA3AF", background: "transparent" }
+                        }
+                      >
+                        {city || "–"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              </div>
+
+              {/* Campaign */}
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Campaign</label>
+                <Input className="h-8 text-xs mt-0.5" value={pForm.project}
+                  onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
               </div>
 
               {/* หมายเหตุ */}

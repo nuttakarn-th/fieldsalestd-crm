@@ -28,6 +28,7 @@ export interface TourPeriod {
   total_seats: number;      // ที่นั่งทั้งหมดของ period นี้
   quota: number;            // ที่นั่งว่างของ period นี้
   airline_code?: string;    // เช่น "FD", "TG"
+  departure_city?: string;  // สนามบินต้นทาง: "CNX" | "DMK" | "BKK"
   project?: string;         // โครงการ (ถ้ามี)
   note?: string;            // หมายเหตุเฉพาะ period
   cancelled?: boolean;      // period ถูกยกเลิก
