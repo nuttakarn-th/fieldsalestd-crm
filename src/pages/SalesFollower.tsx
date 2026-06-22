@@ -220,37 +220,39 @@ export default function SalesFollower() {
       rows.forEach((s, i) => {
         const bg = i % 2 === 0 ? "#fff" : "#f9f9fb";
         const strike = s.status === "completed" ? "text-decoration:line-through;color:#9CA3AF;" : "";
+        // รวม ลูกค้า + สถานที่ เป็นเซลล์เดียว (ประหยัดความกว้าง A4 แนวตั้ง)
+        const placeCell = s.customer
+          ? `<div style="font-weight:600;${strike}">${s.customer}</div>${s.place !== s.customer ? `<div style="font-size:7pt;color:#6B7280;margin-top:1px">${s.place}</div>` : ""}`
+          : `<div style="font-weight:600;${strike}">${s.place}</div>`;
         tableRows += `
           <tr style="background:${bg}">
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:600;color:#374151;${strike}">${s.rep}</td>
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:600;${strike}">${s.customer || s.place}</td>
-            ${s.customer && s.place !== s.customer ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#6B7280;font-size:8pt">${s.place}</td>` : `<td style="padding:5px 8px;border-bottom:1px solid #eee;"></td>`}
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#6B7280">${s.address}</td>
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#374151">${s.purpose}</td>
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;color:#6B7280">${s.time}</td>
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">
-              <span style="background:${statusColor[s.status]}18;color:${statusColor[s.status]};border:1px solid ${statusColor[s.status]}40;border-radius:999px;padding:2px 8px;font-size:8pt;font-weight:600">${statusLabel[s.status]}</span>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;font-weight:600;color:#374151">${s.rep}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee">${placeCell}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;color:#6B7280">${s.address}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;color:#374151">${s.purpose}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center;color:#6B7280">${s.time}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;text-align:center">
+              <span style="background:${statusColor[s.status]}18;color:${statusColor[s.status]};border:1px solid ${statusColor[s.status]}40;border-radius:999px;padding:1px 6px;font-size:7pt;font-weight:600">${statusLabel[s.status]}</span>
             </td>
-            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#9CA3AF;font-style:italic">${s.note}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #eee;color:#9CA3AF;font-style:italic">${s.note}</td>
           </tr>`;
       });
       sections += `
         <div class="day-section">
-          <div style="background:#F5F3FF;border-left:4px solid #534AB7;padding:6px 12px;margin:16px 0 6px;border-radius:0 6px 6px 0">
-            <span style="font-weight:700;color:#534AB7;font-size:10pt">📅 ${dateLabel}</span>
-            <span style="margin-left:16px;color:#6B7280;font-size:8.5pt">จำนวน ${rows.length} จุด</span>
+          <div style="background:#F5F3FF;border-left:4px solid #534AB7;padding:5px 10px;margin:14px 0 4px;border-radius:0 5px 5px 0">
+            <span style="font-weight:700;color:#534AB7;font-size:9.5pt">📅 ${dateLabel}</span>
+            <span style="margin-left:14px;color:#6B7280;font-size:8pt">จำนวน ${rows.length} จุด</span>
           </div>
-          <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+          <table style="width:100%;border-collapse:collapse;font-size:7.5pt">
             <thead>
               <tr style="background:#534AB7;color:#fff">
-                <th style="padding:6px 8px;text-align:left;width:10%">Sales</th>
-                <th style="padding:6px 8px;text-align:left;width:20%">ลูกค้า</th>
-                <th style="padding:6px 8px;text-align:left;width:14%">สถานที่</th>
-                <th style="padding:6px 8px;text-align:left;width:12%">เบอร์ติดต่อ</th>
-                <th style="padding:6px 8px;text-align:left;width:18%">วัตถุประสงค์</th>
-                <th style="padding:6px 8px;text-align:center;width:7%">เวลา</th>
-                <th style="padding:6px 8px;text-align:center;width:9%">สถานะ</th>
-                <th style="padding:6px 8px;text-align:left">หมายเหตุ</th>
+                <th style="padding:5px 6px;text-align:left;width:9%">Sales</th>
+                <th style="padding:5px 6px;text-align:left;width:26%">ลูกค้า / สถานที่</th>
+                <th style="padding:5px 6px;text-align:left;width:11%">เบอร์ติดต่อ</th>
+                <th style="padding:5px 6px;text-align:left;width:19%">วัตถุประสงค์</th>
+                <th style="padding:5px 6px;text-align:center;width:7%">เวลา</th>
+                <th style="padding:5px 6px;text-align:center;width:10%">สถานะ</th>
+                <th style="padding:5px 6px;text-align:left">หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>${tableRows}</tbody>
@@ -266,18 +268,21 @@ export default function SalesFollower() {
     win.document.write(`<!DOCTYPE html><html><head>
       <meta charset="utf-8"/>
       <title>รายงานแผนสัปดาห์</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com"/>
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+      <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Sarabun', 'Tahoma', sans-serif; margin: 0; padding: 20px 28px; color: #1F2937; font-size: 9pt; }
-        .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2.5px solid #534AB7; padding-bottom: 10px; margin-bottom: 14px; }
-        .header-title { font-size: 18pt; font-weight: 800; color: #534AB7; line-height: 1.2; }
-        .header-sub { font-size: 9pt; color: #6B7280; margin-top: 2px; }
-        .header-meta { text-align: right; font-size: 8pt; color: #6B7280; }
-        .stats { display: flex; gap: 12px; margin-bottom: 14px; }
-        .stat-box { flex: 1; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px; text-align: center; }
-        .stat-val { font-size: 18pt; font-weight: 800; }
-        .stat-lbl { font-size: 7.5pt; color: #6B7280; margin-top: 2px; }
-        @media print { @page { margin: 1.2cm 1.5cm; size: A4 landscape; } body { padding: 0; } }
+        body { font-family: 'Kanit', 'Sarabun', 'Tahoma', sans-serif; margin: 0; padding: 16px 22px; color: #1F2937; font-size: 8.5pt; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2.5px solid #534AB7; padding-bottom: 8px; margin-bottom: 10px; }
+        .header-title { font-size: 16pt; font-weight: 700; color: #534AB7; line-height: 1.2; }
+        .header-sub { font-size: 8pt; color: #6B7280; margin-top: 2px; }
+        .header-meta { text-align: right; font-size: 7.5pt; color: #6B7280; }
+        .stats { display: flex; gap: 8px; margin-bottom: 10px; }
+        .stat-box { flex: 1; border: 1px solid #E5E7EB; border-radius: 6px; padding: 6px 8px; text-align: center; }
+        .stat-val { font-size: 15pt; font-weight: 700; }
+        .stat-lbl { font-size: 7pt; color: #6B7280; margin-top: 1px; }
+        @media print { @page { margin: 1cm 1.2cm; size: A4 portrait; } body { padding: 0; } }
       </style>
     </head><body>
       <div class="header">
