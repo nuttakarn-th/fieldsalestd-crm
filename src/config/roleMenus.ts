@@ -138,9 +138,8 @@ const salesMenu: RoleMenu = {
       category: "SALES MANAGEMENT",
       items: [
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-        { title: "แผนสัปดาห์", url: "/app/weekly-plan", icon: CalendarRange },
+        { title: "Calendar Plan", url: "/app/calendar-plan", icon: CalendarRange },
         { title: "Planning + Route", url: "/app/planning", icon: RouteIcon },
-        { title: "Calendar Route", url: "/app/calendar", icon: MapPinned },
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
