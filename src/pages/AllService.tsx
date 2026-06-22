@@ -1740,20 +1740,26 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           </div>
                         )}
                         <div className="flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
-                          {/* Bulk select-all checkbox for this tour */}
-                          <input
-                            type="checkbox"
-                            className="w-3.5 h-3.5 rounded accent-pink-500 shrink-0 cursor-pointer"
-                            title="เลือกทุก Period"
-                            checked={t.periods!.length > 0 && t.periods!.every(p => selectedPeriods.has(p.period_id))}
-                            onChange={(e) => {
-                              setSelectedPeriods(prev => {
-                                const next = new Set(prev);
-                                t.periods!.forEach(p => e.target.checked ? next.add(p.period_id) : next.delete(p.period_id));
-                                return next;
-                              });
-                            }}
-                          />
+                          {/* Bulk select-all checkbox — hidden when !canEdit */}
+                          {canEdit ? (
+                            <input
+                              type="checkbox"
+                              className="w-3.5 h-3.5 rounded accent-pink-500 shrink-0 cursor-pointer mr-0.5"
+                              title="เลือกทุก Period ที่ยังไม่ยกเลิก"
+                              checked={t.periods!.filter(p => !p.cancelled).length > 0 && t.periods!.filter(p => !p.cancelled).every(p => selectedPeriods.has(p.period_id))}
+                              onChange={(e) => {
+                                setSelectedPeriods(prev => {
+                                  const next = new Set(prev);
+                                  t.periods!.filter(p => !p.cancelled).forEach(p => e.target.checked ? next.add(p.period_id) : next.delete(p.period_id));
+                                  return next;
+                                });
+                              }}
+                            />
+                          ) : (
+                            <div className="w-3.5 shrink-0 mr-0.5" />
+                          )}
+                          {/* spacer — matches expand button w-6 in data rows */}
+                          <div className="w-6 shrink-0" />
                           {/* Period — w-[165px] + 2-digit year in data row */}
                           <div
                             className="w-[165px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
@@ -1832,19 +1838,26 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 }}
                               >
                                 <div className="flex items-center gap-1 px-3 py-1 w-full">
-                                {/* 0. Bulk select checkbox */}
-                                <input
-                                  type="checkbox"
-                                  className="w-3.5 h-3.5 rounded accent-pink-500 shrink-0 cursor-pointer mr-0.5"
-                                  checked={selectedPeriods.has(pid)}
-                                  onChange={(e) => {
-                                    setSelectedPeriods(prev => {
-                                      const next = new Set(prev);
-                                      e.target.checked ? next.add(pid) : next.delete(pid);
-                                      return next;
-                                    });
-                                  }}
-                                />
+                                {/* 0. Bulk select checkbox — canEdit only, disabled when cancelled */}
+                                {canEdit ? (
+                                  <input
+                                    type="checkbox"
+                                    className={`w-3.5 h-3.5 rounded shrink-0 mr-0.5 ${isCancelled ? "opacity-25 cursor-not-allowed" : "accent-pink-500 cursor-pointer"}`}
+                                    checked={selectedPeriods.has(pid)}
+                                    disabled={isCancelled}
+                                    title={isCancelled ? "Period ที่ยกเลิกแล้วไม่สามารถเลือกได้" : "เลือก Period นี้"}
+                                    onChange={(e) => {
+                                      if (isCancelled) return;
+                                      setSelectedPeriods(prev => {
+                                        const next = new Set(prev);
+                                        e.target.checked ? next.add(pid) : next.delete(pid);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-3.5 shrink-0 mr-0.5" />
+                                )}
                                 {/* 1. Expand → footnote */}
                                 <button
                                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
