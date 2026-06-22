@@ -763,76 +763,164 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const exportStockPDF = () => {
     const today = new Date().toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
     const cats = [
-      { label: "ทัวร์ต่างประเทศ", items: intlTours, color: "#16A34A" },
-      { label: "ทัวร์ในประเทศ",   items: domTours,  color: "#D97706" },
-      { label: "Incentive",        items: incTours,  color: "#7C3AED" },
+      { label: "ทัวร์ต่างประเทศ", shortLabel: "INTERNATIONAL", items: intlTours, bg: "#065F46", light: "#ECFDF5", accent: "#10B981" },
+      { label: "ทัวร์ในประเทศ",   shortLabel: "DOMESTIC",      items: domTours,  bg: "#92400E", light: "#FFFBEB", accent: "#F59E0B" },
+      { label: "Incentive",        shortLabel: "INCENTIVE",     items: incTours,  bg: "#4C1D95", light: "#F5F3FF", accent: "#8B5CF6" },
     ];
-    const rows = cats.flatMap(({ label, items, color }) =>
+
+    // ── summary stats ──
+    const totalPrograms = filteredTours.length;
+    const allActivePeriods = filteredTours.flatMap(t => (t.periods ?? []).filter(p => !p.cancelled));
+    const totalPeriods = allActivePeriods.length;
+    const totalSeats = allActivePeriods.reduce((s, p) => s + (p.total_seats || 0), 0);
+    const bookedSeats = allActivePeriods.reduce((s, p) => s + Math.max(0, (p.total_seats || 0) - (p.quota || 0)), 0);
+    const lowStockCount = allActivePeriods.filter(p => p.quota > 0 && p.quota <= 3).length;
+
+    const fmtD = (d?: string) => d ? new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "–";
+    const fmtPrice = (n: number) => n > 0 ? n.toLocaleString() : "–";
+
+    const rows = cats.flatMap(({ label, shortLabel, items, bg, light, accent }) =>
       items.length === 0 ? [] : [
-        `<tr><td colspan="9" style="background:${color};color:#fff;font-weight:700;font-size:11px;padding:6px 8px;">${label} (${items.length} โปรแกรม)</td></tr>`,
+        // ── category header band ──
+        `<tr>
+          <td colspan="9" style="background:${bg};color:#fff;font-weight:700;font-size:10px;padding:7px 10px;letter-spacing:0.05em;">
+            <span style="opacity:0.7;font-size:8px;margin-right:6px">${shortLabel}</span>${label}
+            <span style="float:right;font-weight:400;font-size:9px;opacity:0.85">${items.length} โปรแกรม · ${items.flatMap(t=>(t.periods??[]).filter(p=>!p.cancelled)).length} period</span>
+          </td>
+        </tr>`,
+        // ── column mini-header ──
+        `<tr style="background:${light}">
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;letter-spacing:0.08em">รหัส</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700">โปรแกรม</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700">วันเดินทาง</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:center">สายการบิน</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:center">บิน</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:right">ราคา/ที่นั่ง</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:center">ที่นั่งรวม</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:center">จอง</td>
+          <td style="padding:3px 10px;font-size:8px;color:${accent};font-weight:700;text-align:center">สถานะ</td>
+        </tr>`,
         ...items.flatMap((t) => {
           const ps = (t.periods ?? []).filter(p => !p.cancelled);
-          return ps.length === 0
-            ? [`<tr><td style="padding:4px 8px;font-weight:600">${t.code}</td><td colspan="8" style="padding:4px 8px;color:#9CA3AF">${t.city} — ยังไม่มี period</td></tr>`]
-            : ps.map((p, i) => {
-                const fmtD = (d?: string) => d ? new Date(d).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"2-digit"}) : "–";
-                const status = p.quota === 0 ? '<span style="color:#6B7280">ปิดกรุ๊ป</span>' : p.quota <= 3 ? `<span style="color:#C2410C">⚠ ${p.quota}</span>` : `<span style="color:#16A34A">ว่าง ${p.quota}</span>`;
-                const price = p.special_price ? `<s style="color:#9CA3AF;font-size:9px">${p.price_per_seat.toLocaleString()}</s> <b style="color:#EA580C">${p.special_price.toLocaleString()}</b>` : `<b>${p.price_per_seat.toLocaleString()}</b>`;
-                return `<tr style="background:${i%2===0?"#fff":"#F9FAFB"}">
-                  <td style="padding:3px 8px;font-size:9px;color:#6B7280">${i===0?t.code:""}</td>
-                  <td style="padding:3px 8px;font-size:10px;font-weight:${i===0?700:400}">${i===0?(t.title??t.city):""}</td>
-                  <td style="padding:3px 8px;font-size:9px">${fmtD(p.start_date)} – ${fmtD(p.end_date)}</td>
-                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.days||""}วัน</td>
-                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.airline_code||"–"}</td>
-                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.departure_city||"–"}</td>
-                  <td style="padding:3px 8px;font-size:9px;text-align:right">${price} ฿</td>
-                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.total_seats}</td>
-                  <td style="padding:3px 8px;font-size:10px;text-align:center">${status}</td>
-                </tr>`;
-              });
+          if (ps.length === 0) return [
+            `<tr style="background:#F9FAFB">
+              <td style="padding:4px 10px;font-size:9px;color:#9CA3AF">${t.code}</td>
+              <td colspan="8" style="padding:4px 10px;font-size:9px;color:#9CA3AF;font-style:italic">${t.title ?? t.city} — ยังไม่มี period</td>
+            </tr>`
+          ];
+          return ps.map((p, i) => {
+            const booked = Math.max(0, (p.total_seats || 0) - (p.quota || 0));
+            const pricePrimary = fmtPrice(p.special_price ?? p.price_per_seat);
+            const priceOld = p.special_price ? `<span style="text-decoration:line-through;color:#9CA3AF;font-size:8px;margin-right:2px">${p.price_per_seat.toLocaleString()}</span>` : "";
+            const priceCell = p.special_price
+              ? `${priceOld}<b style="color:#EA580C">${pricePrimary}</b>`
+              : `<b>${pricePrimary}</b>`;
+            const statusCell = p.quota === 0
+              ? `<span style="background:#FEE2E2;color:#B91C1C;border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">FULL</span>`
+              : p.quota <= 3
+                ? `<span style="background:#FFF7ED;color:#C2410C;border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700">⚠ เหลือ ${p.quota}</span>`
+                : `<span style="background:#F0FDF4;color:#15803D;border-radius:3px;padding:1px 5px;font-size:8px">ว่าง ${p.quota}</span>`;
+            const rowBg = i % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
+            return `<tr style="background:${rowBg}">
+              <td style="padding:4px 10px;font-size:9px;color:#6B7280;border-left:2px solid ${i===0?accent:"transparent"}">${i === 0 ? `<b style="color:#111">${t.code}</b>` : ""}</td>
+              <td style="padding:4px 10px;font-size:9px;font-weight:${i === 0 ? 600 : 400};color:${i === 0 ? "#111" : "#6B7280"}">${i === 0 ? (t.title ?? t.city) : ""}</td>
+              <td style="padding:4px 10px;font-size:9px;white-space:nowrap">${fmtD(p.start_date)} – ${fmtD(p.end_date)}</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:center">${p.airline_code || "–"}</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:center">${p.departure_city || "–"}</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:right">${priceCell} ฿</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:center">${p.total_seats || "–"}</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:center;color:${booked > 0 ? "#374151" : "#D1D5DB"}">${booked > 0 ? booked : "–"}</td>
+              <td style="padding:4px 10px;font-size:9px;text-align:center">${statusCell}</td>
+            </tr>`;
+          });
         }),
+        // spacer between categories
+        `<tr><td colspan="9" style="padding:4px 0;border:none"></td></tr>`,
       ]
     ).join("");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+
+    const html = `<!DOCTYPE html><html lang="th"><head>
+<meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-  *{font-family:'Kanit',sans-serif;box-sizing:border-box}
-  body{margin:0;padding:16px;font-size:11px;color:#111}
-  @page{size:A4 portrait;margin:12mm}
-  h1{font-size:16px;font-weight:700;margin:0 0 2px}
-  .sub{font-size:11px;color:#6B7280;margin-bottom:12px}
-  table{width:100%;border-collapse:collapse;font-size:10px}
-  th{background:#F3F4F6;padding:5px 8px;text-align:left;font-weight:600;font-size:9px;color:#6B7280;text-transform:uppercase;border-bottom:1px solid #E5E7EB}
-  td{border-bottom:0.5px solid #F3F4F6}
-  .footer{font-size:9px;color:#9CA3AF;margin-top:10px;text-align:right}
-  @media print{.no-print{display:none}}
-</style></head><body>
-<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #EC4899;padding-bottom:8px;margin-bottom:10px">
+  *{font-family:'Kanit',sans-serif;box-sizing:border-box;margin:0;padding:0}
+  body{background:#fff;color:#111;font-size:10px;padding:0}
+  @page{size:A4 portrait;margin:10mm 12mm}
+  table{width:100%;border-collapse:collapse}
+  td{vertical-align:middle}
+  .header-band{background:linear-gradient(135deg,#312E81 0%,#4F46E5 100%);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+  .header-title{font-size:18px;font-weight:700;letter-spacing:-0.01em;margin-bottom:2px}
+  .header-sub{font-size:10px;opacity:0.75}
+  .stat-row{display:flex;gap:0;border-bottom:1px solid #E5E7EB}
+  .stat-box{flex:1;padding:8px 14px;border-right:1px solid #E5E7EB;text-align:center}
+  .stat-box:last-child{border-right:none}
+  .stat-num{font-size:18px;font-weight:700;line-height:1}
+  .stat-lbl{font-size:8px;color:#6B7280;margin-top:2px;letter-spacing:0.05em;text-transform:uppercase}
+  .content{padding:0}
+  .footer{font-size:8px;color:#9CA3AF;text-align:center;padding:6px 0;border-top:1px solid #E5E7EB;margin-top:6px}
+  @media print{
+    .no-print{display:none}
+    tr{page-break-inside:avoid}
+    .header-band{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    td[style*="background"]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head><body>
+
+<div class="header-band">
   <div>
-    <h1>รายงาน Stock ทัวร์</h1>
-    <div class="sub">Standard Tour Hub · พิมพ์วันที่ ${today}</div>
+    <div class="header-title">รายงาน Stock ทัวร์</div>
+    <div class="header-sub">Standard Tour Hub &nbsp;·&nbsp; พิมพ์วันที่ ${today}</div>
   </div>
-  <div style="font-size:11px;text-align:right;color:#6B7280">
-    รวม <b style="color:#111">${filteredTours.length}</b> โปรแกรม
+  <div style="text-align:right;font-size:9px;opacity:0.85;line-height:1.8">
+    ${filteredTours.length < tours.length ? `<div style="background:rgba(255,255,255,0.2);border-radius:4px;padding:2px 8px;margin-bottom:4px">กรองแล้ว ${filteredTours.length} / ${tours.length} โปรแกรม</div>` : ""}
+    <div>สร้างโดย Standard Tour Hub CRM</div>
   </div>
 </div>
-<table>
-  <thead><tr>
-    <th style="width:90px">รหัส</th>
-    <th>โปรแกรม</th>
-    <th>วันเดินทาง</th>
-    <th style="width:50px;text-align:center">วัน</th>
-    <th style="width:50px;text-align:center">สายการบิน</th>
-    <th style="width:50px;text-align:center">บิน</th>
-    <th style="width:90px;text-align:right">ราคา</th>
-    <th style="width:50px;text-align:center">ที่นั่ง</th>
-    <th style="width:70px;text-align:center">สถานะ</th>
-  </tr></thead>
-  <tbody>${rows}</tbody>
-</table>
-<div class="footer">พิมพ์จาก Standard Tour Hub · ${today}</div>
-<script>window.onload=()=>{window.print();}<\/script>
+
+<div class="stat-row">
+  <div class="stat-box">
+    <div class="stat-num" style="color:#4F46E5">${totalPrograms}</div>
+    <div class="stat-lbl">โปรแกรม</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:#0891B2">${totalPeriods}</div>
+    <div class="stat-lbl">Period</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:#059669">${totalSeats.toLocaleString()}</div>
+    <div class="stat-lbl">ที่นั่งรวม</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:#D97706">${bookedSeats.toLocaleString()}</div>
+    <div class="stat-lbl">จองแล้ว</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:${lowStockCount > 0 ? "#C2410C" : "#6B7280"}">${lowStockCount}</div>
+    <div class="stat-lbl">Low Stock ⚠</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-num" style="color:#374151">${totalSeats > 0 ? Math.round((bookedSeats/totalSeats)*100) : 0}%</div>
+    <div class="stat-lbl">Booking Rate</div>
+  </div>
+</div>
+
+<div class="content">
+  <table>
+    <tbody>${rows}</tbody>
+  </table>
+</div>
+
+<div class="footer">
+  Standard Tour Hub &nbsp;·&nbsp; พิมพ์วันที่ ${today} &nbsp;·&nbsp; รวม ${totalPrograms} โปรแกรม ${totalPeriods} period
+</div>
+
+<script>
+  // wait for Google Font then print
+  document.fonts.ready.then(() => { setTimeout(() => { window.print(); }, 400); });
+<\/script>
 </body></html>`;
+
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); }
     else toast.error("ไม่สามารถเปิดหน้าต่างพิมพ์ได้ — ตรวจสอบ popup blocker");
