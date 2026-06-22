@@ -131,6 +131,15 @@ export interface RoutePlan {
   title: string;
   stops: RouteStop[];
   created_at: string;
+  // ── Check-in / Check-out ──────────────────────────────────────────
+  has_checkin?: boolean;   // เริ่มจากออฟฟิศ (default true)
+  has_checkout?: boolean;  // กลับออฟฟิศ    (default true)
+  checkin_at?: string;     // ISO timestamp เมื่อ check-in จริง
+  checkout_at?: string;    // ISO timestamp เมื่อ check-out จริง
+  checkin_lat?: number;    // GPS lat ณ check-in
+  checkin_lng?: number;    // GPS lng ณ check-in
+  checkout_lat?: number;   // GPS lat ณ check-out
+  checkout_lng?: number;   // GPS lng ณ check-out
 }
 
 export const SALES_REPS: SalesRep[] = ["เฟิร์ส", "โดนัท", "ปาม"];
@@ -474,8 +483,10 @@ interface CRMState {
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
   addFollowupLog: (leadId: string, log: Omit<FollowupLog, "log_id" | "lead_id">) => void;
   setTarget: (month: string, rep: SalesRep, patch: Partial<Omit<MonthlyTarget, "month" | "rep">>) => void;
-  addRoute: (rep: SalesRep, date: string, title: string) => string;
+  addRoute: (rep: SalesRep, date: string, title: string, hasCheckin?: boolean, hasCheckout?: boolean) => string;
   updateRoute: (id: string, patch: Partial<Omit<RoutePlan, "route_id" | "stops">>) => void;
+  checkinRoute: (routeId: string, lat: number, lng: number) => Promise<void>;
+  checkoutRoute: (routeId: string, lat: number, lng: number) => Promise<void>;
   deleteRoute: (id: string) => Promise<void>;
   addStop: (routeId: string, stop: Omit<RouteStop, "stop_id" | "route_id" | "seq" | "status">) => void;
   updateStop: (routeId: string, stopId: string, patch: Partial<RouteStop>) => void;
@@ -1238,9 +1249,9 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  addRoute: (rep, date, title) => {
+  addRoute: (rep, date, title, hasCheckin = true, hasCheckout = true) => {
     const id = `R${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
-    const r: RoutePlan = { route_id: id, rep, date, title, stops: [], created_at: new Date().toISOString() };
+    const r: RoutePlan = { route_id: id, rep, date, title, stops: [], created_at: new Date().toISOString(), has_checkin: hasCheckin, has_checkout: hasCheckout };
     set({ routes: [r, ...get().routes] });
     if (SUPABASE_ENABLED && supabase) {
       // upsert แทน insert — retry safe (idempotent)
@@ -1269,6 +1280,27 @@ export const useCRM = create<CRMState>()(
       });
     }
   },
+
+  checkinRoute: async (routeId, lat, lng) => {
+    const now = new Date().toISOString();
+    const patch = { checkin_at: now, checkin_lat: lat, checkin_lng: lng };
+    set({ routes: get().routes.map((r) => r.route_id === routeId ? { ...r, ...patch } : r) });
+    if (SUPABASE_ENABLED && supabase) {
+      const { error } = await supabase.from("route_plans").update(patch).eq("route_id", routeId);
+      if (error) console.error("[supabase] checkin route ล้มเหลว:", error);
+    }
+  },
+
+  checkoutRoute: async (routeId, lat, lng) => {
+    const now = new Date().toISOString();
+    const patch = { checkout_at: now, checkout_lat: lat, checkout_lng: lng };
+    set({ routes: get().routes.map((r) => r.route_id === routeId ? { ...r, ...patch } : r) });
+    if (SUPABASE_ENABLED && supabase) {
+      const { error } = await supabase.from("route_plans").update(patch).eq("route_id", routeId);
+      if (error) console.error("[supabase] checkout route ล้มเหลว:", error);
+    }
+  },
+
   deleteRoute: async (id) => {
     // Optimistic remove จาก local state ก่อน
     const backup = get().routes.find((r) => r.route_id === id);
