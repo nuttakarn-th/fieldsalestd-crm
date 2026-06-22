@@ -49,7 +49,12 @@ export default function Mission() {
   const [skipTarget, setSkipTarget] = useState<RouteStop | null>(null);
   const [skipDate, setSkipDate] = useState("");
 
-  // วันพรุ่งนี้ (YYYY-MM-DD) — ขั้นต่ำของ skip date
+  // วันนี้ (YYYY-MM-DD) — ค่า default ของ skip date
+  function todayYMD() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  // ยังคง tomorrowYMD ไว้เพื่อใช้เป็น default value ตอน open skip dialog
   function tomorrowYMD() {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -414,14 +419,13 @@ export default function Mission() {
           </DialogHeader>
           <div className="space-y-3 py-1">
             <p className="text-sm text-muted-foreground">
-              <b className="text-foreground">{skipTarget?.place_name}</b> จะถูกย้ายไปยังแผนของวันที่เลือก (status รีเซ็ตเป็น "รอดำเนินการ")
+              <b className="text-foreground">{skipTarget?.place_name}</b> จะถูกย้ายไปยังแผนของวันที่เลือก (status รีเซ็ตเป็น "รอดำเนินการ") — เลือกได้ทั้งวันก่อนหน้าและวันข้างหน้า
             </p>
             <div>
-              <Label className="text-sm font-medium">วันที่ต้องการเลื่อนไป *</Label>
+              <Label className="text-sm font-medium">วันที่ต้องการย้ายไป *</Label>
               <Input
                 type="date"
                 value={skipDate}
-                min={tomorrowYMD()}
                 onChange={(e) => setSkipDate(e.target.value)}
                 className="mt-1.5"
               />
@@ -446,7 +450,8 @@ export default function Mission() {
       </Dialog>
 
       {/* ── Complete Dialog ── */}
-      <Dialog open={!!completeOpen} onOpenChange={(o) => !o && setCompleteOpen(null)}>
+      {/* Guard: อย่าปิด Complete dialog ถ้า sub-dialog (customer/quicklead) กำลัง open อยู่ */}
+      <Dialog open={!!completeOpen} onOpenChange={(o) => { if (!o && !newCustOpen && !quickLeadOpen) setCompleteOpen(null); }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Complete: {completeOpen?.place_name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -527,14 +532,14 @@ export default function Mission() {
                 variant="outline"
                 size="sm"
                 className="flex-1 sm:flex-none text-xs"
-                onClick={() => { setCompleteOpen(null); setNewCustOpen(true); }}
+                onClick={() => setNewCustOpen(true)}
               >
                 <UserPlus className="w-3.5 h-3.5 mr-1.5" /> + ลูกค้าฉบับเต็ม
               </Button>
               <Button
                 size="sm"
                 className="flex-1 sm:flex-none text-xs bg-orange-500 hover:bg-orange-600 text-white border-0"
-                onClick={() => { setCompleteOpen(null); setQuickLeadOpen(true); }}
+                onClick={() => setQuickLeadOpen(true)}
               >
                 <UserPlus className="w-3.5 h-3.5 mr-1.5" /> + ลูกค้าด่วน
               </Button>
