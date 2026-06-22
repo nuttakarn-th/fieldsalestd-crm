@@ -183,6 +183,147 @@ export default function SalesFollower() {
     URL.revokeObjectURL(url);
   }, [planRows, weekDays, STATUS_LABELS]);
 
+  /* ── Plan Report PDF (A4 ภาพรวมสัปดาห์) ── */
+  const exportPlanPDF = useCallback(() => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+
+    const now = new Date();
+    const exportDateStr = now.toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
+    const exportTimeStr = now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+
+    const statusLabel: Record<string, string> = {
+      planned: "แผน", in_progress: "กำลังไป", completed: "เสร็จ ✓", skipped: "ข้าม",
+    };
+    const statusColor: Record<string, string> = {
+      planned: "#534AB7", in_progress: "#D97706", completed: "#16A34A", skipped: "#9CA3AF",
+    };
+
+    // Group by date for section headers
+    const byDate = new Map<string, typeof planRows>();
+    planRows.forEach((r) => {
+      const arr = byDate.get(r.date) ?? [];
+      arr.push(r);
+      byDate.set(r.date, arr);
+    });
+
+    const totalDone    = planRows.filter((r) => r.status === "completed").length;
+    const totalPlanned = planRows.filter((r) => r.status === "planned").length;
+    const totalSkipped = planRows.filter((r) => r.status === "skipped").length;
+    const hitRate      = planRows.length ? Math.round((totalDone / planRows.length) * 100) : 0;
+
+    let sections = "";
+    byDate.forEach((rows, date) => {
+      const d = new Date(date);
+      const dateLabel = d.toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      let tableRows = "";
+      rows.forEach((s, i) => {
+        const bg = i % 2 === 0 ? "#fff" : "#f9f9fb";
+        const strike = s.status === "completed" ? "text-decoration:line-through;color:#9CA3AF;" : "";
+        tableRows += `
+          <tr style="background:${bg}">
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:600;color:#374151;${strike}">${s.rep}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;font-weight:600;${strike}">${s.customer || s.place}</td>
+            ${s.customer && s.place !== s.customer ? `<td style="padding:5px 8px;border-bottom:1px solid #eee;color:#6B7280;font-size:8pt">${s.place}</td>` : `<td style="padding:5px 8px;border-bottom:1px solid #eee;"></td>`}
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#6B7280">${s.address}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#374151">${s.purpose}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center;color:#6B7280">${s.time}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:center">
+              <span style="background:${statusColor[s.status]}18;color:${statusColor[s.status]};border:1px solid ${statusColor[s.status]}40;border-radius:999px;padding:2px 8px;font-size:8pt;font-weight:600">${statusLabel[s.status]}</span>
+            </td>
+            <td style="padding:5px 8px;border-bottom:1px solid #eee;color:#9CA3AF;font-style:italic">${s.note}</td>
+          </tr>`;
+      });
+      sections += `
+        <div class="day-section">
+          <div style="background:#F5F3FF;border-left:4px solid #534AB7;padding:6px 12px;margin:16px 0 6px;border-radius:0 6px 6px 0">
+            <span style="font-weight:700;color:#534AB7;font-size:10pt">📅 ${dateLabel}</span>
+            <span style="margin-left:16px;color:#6B7280;font-size:8.5pt">จำนวน ${rows.length} จุด</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+            <thead>
+              <tr style="background:#534AB7;color:#fff">
+                <th style="padding:6px 8px;text-align:left;width:10%">Sales</th>
+                <th style="padding:6px 8px;text-align:left;width:20%">ลูกค้า</th>
+                <th style="padding:6px 8px;text-align:left;width:14%">สถานที่</th>
+                <th style="padding:6px 8px;text-align:left;width:12%">เบอร์ติดต่อ</th>
+                <th style="padding:6px 8px;text-align:left;width:18%">วัตถุประสงค์</th>
+                <th style="padding:6px 8px;text-align:center;width:7%">เวลา</th>
+                <th style="padding:6px 8px;text-align:center;width:9%">สถานะ</th>
+                <th style="padding:6px 8px;text-align:left">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>`;
+    });
+
+    const filterNote = [
+      planFilterRep !== "all" ? `Sales: ${planFilterRep}` : "ทุก Sales",
+      planFilterStatus !== "all" ? `สถานะ: ${statusLabel[planFilterStatus]}` : "ทุกสถานะ",
+    ].join(" · ");
+
+    win.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>รายงานแผนสัปดาห์</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Sarabun', 'Tahoma', sans-serif; margin: 0; padding: 20px 28px; color: #1F2937; font-size: 9pt; }
+        .header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2.5px solid #534AB7; padding-bottom: 10px; margin-bottom: 14px; }
+        .header-title { font-size: 18pt; font-weight: 800; color: #534AB7; line-height: 1.2; }
+        .header-sub { font-size: 9pt; color: #6B7280; margin-top: 2px; }
+        .header-meta { text-align: right; font-size: 8pt; color: #6B7280; }
+        .stats { display: flex; gap: 12px; margin-bottom: 14px; }
+        .stat-box { flex: 1; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px; text-align: center; }
+        .stat-val { font-size: 18pt; font-weight: 800; }
+        .stat-lbl { font-size: 7.5pt; color: #6B7280; margin-top: 2px; }
+        @media print { @page { margin: 1.2cm 1.5cm; size: A4 landscape; } body { padding: 0; } }
+      </style>
+    </head><body>
+      <div class="header">
+        <div>
+          <div class="header-title">รายงานแผนสัปดาห์</div>
+          <div class="header-sub">ช่วงสัปดาห์ ${weekLabel} · ${filterNote}</div>
+        </div>
+        <div class="header-meta">
+          <div>วันที่พิมพ์: ${exportDateStr} เวลา ${exportTimeStr}</div>
+          <div style="margin-top:4px;font-weight:600;color:#374151">Standard Tour</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-val" style="color:#534AB7">${planRows.length}</div>
+          <div class="stat-lbl">ทั้งหมด</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#16A34A">${totalDone}</div>
+          <div class="stat-lbl">เสร็จแล้ว</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#D97706">${totalPlanned}</div>
+          <div class="stat-lbl">ยังไม่ได้ไป</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#9CA3AF">${totalSkipped}</div>
+          <div class="stat-lbl">ข้าม</div>
+        </div>
+        <div class="stat-box" style="background:#F5F3FF;border-color:#534AB7">
+          <div class="stat-val" style="color:#534AB7">${hitRate}%</div>
+          <div class="stat-lbl" style="color:#534AB7;font-weight:600">Hit Rate</div>
+        </div>
+      </div>
+
+      ${sections}
+
+      <div style="margin-top:20px;border-top:1px solid #E5E7EB;padding-top:8px;text-align:right;font-size:7.5pt;color:#9CA3AF">
+        สร้างโดยระบบ CRM Standard Tour · ${exportDateStr}
+      </div>
+    </body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+  }, [planRows, weekLabel, planFilterRep, planFilterStatus, STATUS_LABELS]);
+
   /* ── Route Report PDF (A4 รายบุคคล) ── */
   const downloadReport = useCallback((mode: 'pdf' | 'jpg' = 'pdf') => {
     if (!reportRep || reportItems.length === 0) return;
@@ -1050,9 +1191,14 @@ export default function SalesFollower() {
               </SelectContent>
             </Select>
 
-            <Button size="sm" variant="outline" onClick={exportPlanCSV} className="h-8 text-xs gap-1.5 ml-auto">
-              <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
-            </Button>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <Button size="sm" variant="outline" onClick={exportPlanCSV} className="h-8 text-xs gap-1.5">
+                <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
+              </Button>
+              <Button size="sm" variant="outline" onClick={exportPlanPDF} className="h-8 text-xs gap-1.5">
+                <FileDown className="w-3.5 h-3.5" /> Export PDF
+              </Button>
+            </div>
           </div>
 
           {/* Mini stats */}
