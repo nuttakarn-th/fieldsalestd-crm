@@ -35,7 +35,7 @@ const PURPOSES = ACTIVITY_GROUPS.flatMap((g) => g.items);
 
 // ─── Excel import fields ───────────────────────────────────────────────────────
 const PLAN_FIELDS: ExcelField[] = [
-  { key: "date",         header: "วันที่ (YYYY-MM-DD)", example: "2026-06-23", required: true },
+  { key: "date",         header: "วันที่ (DD-MM-YYYY)", example: "23-06-2026", required: true, type: "date" as const },
   { key: "place_name",   header: "ชื่อสถานที่ / บริษัท", example: "บมจ. พัฒนาดี",  required: true },
   { key: "address",      header: "เบอร์ติดต่อ / ที่อยู่",  example: "089-123-4567" },
   { key: "purpose",      header: "วัตถุประสงค์",           example: "Field Sale (New Prospect)" },

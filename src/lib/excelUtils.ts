@@ -5,7 +5,7 @@ export interface ExcelField {
   header: string;         // Thai column header
   example?: string;       // shown in row 2 of template
   required?: boolean;
-  type?: "text" | "number";
+  type?: "text" | "number" | "date"; // "date" = user enters DD-MM-YYYY, stored as YYYY-MM-DD
 }
 
 // ── Template ──────────────────────────────────────────────────────────────────
@@ -111,6 +111,13 @@ export function parseExcelFile(
             if (field.type === "number") {
               const n = parseFloat(String(val).replace(/,/g, ""));
               val = isNaN(n) ? 0 : n;
+            } else if (field.type === "date") {
+              // User enters DD-MM-YYYY → convert to YYYY-MM-DD for internal store
+              const raw = String(val).trim();
+              const m = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+              val = m
+                ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
+                : raw; // fallback: keep as-is (e.g. already YYYY-MM-DD)
             } else {
               val = String(val).trim();
             }

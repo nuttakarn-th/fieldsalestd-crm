@@ -29,7 +29,7 @@ const CUSTOMER_FIELDS: ExcelField[] = [
   { key: "line_id",      header: "Line ID",               example: "somchai_line" },
   { key: "email",        header: "อีเมล",                 example: "somchai@email.com" },
   // ── ข้อมูลการตลาด ──────────────────────────────────────────
-  { key: "birthday",     header: "วันเกิด (YYYY-MM-DD)",  example: "1990-05-20" },
+  { key: "birthday",     header: "วันเกิด (DD-MM-YYYY)",  example: "20-05-1990", type: "date" as const },
   { key: "province",     header: "จังหวัด",               example: "กรุงเทพฯ" },
   { key: "interests",    header: "ความสนใจ (คั่นด้วย ,)", example: "ทัวร์ต่างประเทศ,ครอบครัว" },
   { key: "group_type",   header: "ประเภทกลุ่ม",           example: "ครอบครัว" },
