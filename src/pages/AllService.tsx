@@ -1428,7 +1428,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           >Period{sortIcon('date')}</div>
                           <div className="w-[56px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
                           <div className="w-8 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">🔥</div>
-                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-pink-500 uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
+                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-2 shrink-0" />
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">FD</div>
