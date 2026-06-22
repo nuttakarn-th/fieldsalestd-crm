@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -351,6 +351,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterPromo, setFilterPromo]     = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
+  // ── date range filter (period travel date) ──
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo,   setFilterDateTo]   = useState("");
+  // ── bulk selection (period_id set) ──
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<string>>(new Set());
+  // ── import error reporting ──
+  const [importErrors, setImportErrors] = useState<{row: number; code: string; issue: string}[]>([]);
 
   // ── period sort state ──
   const [periodSort, setPeriodSort] = useState<{field: 'date'|'price'|'quota'; dir: 'asc'|'desc'}>({field: 'date', dir: 'asc'});
@@ -614,6 +621,29 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   }, [tours]);
   const handleImport = (rows: Record<string, unknown>[]) => {
     const parseBool = (v: unknown) => String(v).toUpperCase() === "TRUE";
+    const errors: {row: number; code: string; issue: string}[] = [];
+
+    // ── validate each row before processing ──
+    rows.forEach((row, idx) => {
+      const rowNum = idx + 2; // Excel row (header = 1)
+      const code = String(row.code ?? "").trim();
+      if (!code) {
+        errors.push({ row: rowNum, code: "–", issue: "ไม่มีรหัสทัวร์ (code)" });
+        return;
+      }
+      if (!row.price_per_seat || Number(row.price_per_seat) <= 0) {
+        errors.push({ row: rowNum, code, issue: "ราคา/ที่นั่ง ว่างหรือ 0" });
+      }
+      if (!row.total_seats || Number(row.total_seats) <= 0) {
+        errors.push({ row: rowNum, code, issue: "จำนวนที่นั่ง ว่างหรือ 0" });
+      }
+      if (row.start_date) {
+        const d = String(row.start_date).trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          errors.push({ row: rowNum, code, issue: `วันเดินทาง format ผิด: "${d}" (ต้องการ YYYY-MM-DD หรือ DD-MM-YYYY)` });
+        }
+      }
+    });
 
     const buildPeriod = (row: Record<string, unknown>) => {
       const seats = Number(row.total_seats ?? 0);
@@ -689,6 +719,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       periodsAdded && `เพิ่ม ${periodsAdded} Period`,
     ].filter(Boolean).join(", ");
     toast.success(`Import สำเร็จ — ${msg}`);
+    if (errors.length > 0) {
+      setImportErrors(errors);
+      toast.warning(`พบ ${errors.length} แถวที่มีปัญหา — ดูรายละเอียดด้านล่าง`);
+    }
   };
 
   // ── import preview — แสดง dialog ก่อน import จริง ──
@@ -723,6 +757,85 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const toCreate = newProgramCodes.size;
     const toUpdate = preview.filter((x) => x.action === "เพิ่ม Period").length;
     setImportPreviewData({ rows, toCreate, toUpdate, preview });
+  };
+
+  // ── Export PDF (print-ready A4, font Kanit) ──
+  const exportStockPDF = () => {
+    const today = new Date().toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
+    const cats = [
+      { label: "ทัวร์ต่างประเทศ", items: intlTours, color: "#16A34A" },
+      { label: "ทัวร์ในประเทศ",   items: domTours,  color: "#D97706" },
+      { label: "Incentive",        items: incTours,  color: "#7C3AED" },
+    ];
+    const rows = cats.flatMap(({ label, items, color }) =>
+      items.length === 0 ? [] : [
+        `<tr><td colspan="9" style="background:${color};color:#fff;font-weight:700;font-size:11px;padding:6px 8px;">${label} (${items.length} โปรแกรม)</td></tr>`,
+        ...items.flatMap((t) => {
+          const ps = (t.periods ?? []).filter(p => !p.cancelled);
+          return ps.length === 0
+            ? [`<tr><td style="padding:4px 8px;font-weight:600">${t.code}</td><td colspan="8" style="padding:4px 8px;color:#9CA3AF">${t.city} — ยังไม่มี period</td></tr>`]
+            : ps.map((p, i) => {
+                const fmtD = (d?: string) => d ? new Date(d).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"2-digit"}) : "–";
+                const status = p.quota === 0 ? '<span style="color:#6B7280">ปิดกรุ๊ป</span>' : p.quota <= 3 ? `<span style="color:#C2410C">⚠ ${p.quota}</span>` : `<span style="color:#16A34A">ว่าง ${p.quota}</span>`;
+                const price = p.special_price ? `<s style="color:#9CA3AF;font-size:9px">${p.price_per_seat.toLocaleString()}</s> <b style="color:#EA580C">${p.special_price.toLocaleString()}</b>` : `<b>${p.price_per_seat.toLocaleString()}</b>`;
+                return `<tr style="background:${i%2===0?"#fff":"#F9FAFB"}">
+                  <td style="padding:3px 8px;font-size:9px;color:#6B7280">${i===0?t.code:""}</td>
+                  <td style="padding:3px 8px;font-size:10px;font-weight:${i===0?700:400}">${i===0?(t.title??t.city):""}</td>
+                  <td style="padding:3px 8px;font-size:9px">${fmtD(p.start_date)} – ${fmtD(p.end_date)}</td>
+                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.days||""}วัน</td>
+                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.airline_code||"–"}</td>
+                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.departure_city||"–"}</td>
+                  <td style="padding:3px 8px;font-size:9px;text-align:right">${price} ฿</td>
+                  <td style="padding:3px 8px;font-size:9px;text-align:center">${p.total_seats}</td>
+                  <td style="padding:3px 8px;font-size:10px;text-align:center">${status}</td>
+                </tr>`;
+              });
+        }),
+      ]
+    ).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  *{font-family:'Kanit',sans-serif;box-sizing:border-box}
+  body{margin:0;padding:16px;font-size:11px;color:#111}
+  @page{size:A4 portrait;margin:12mm}
+  h1{font-size:16px;font-weight:700;margin:0 0 2px}
+  .sub{font-size:11px;color:#6B7280;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:10px}
+  th{background:#F3F4F6;padding:5px 8px;text-align:left;font-weight:600;font-size:9px;color:#6B7280;text-transform:uppercase;border-bottom:1px solid #E5E7EB}
+  td{border-bottom:0.5px solid #F3F4F6}
+  .footer{font-size:9px;color:#9CA3AF;margin-top:10px;text-align:right}
+  @media print{.no-print{display:none}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #EC4899;padding-bottom:8px;margin-bottom:10px">
+  <div>
+    <h1>รายงาน Stock ทัวร์</h1>
+    <div class="sub">Standard Tour Hub · พิมพ์วันที่ ${today}</div>
+  </div>
+  <div style="font-size:11px;text-align:right;color:#6B7280">
+    รวม <b style="color:#111">${filteredTours.length}</b> โปรแกรม
+  </div>
+</div>
+<table>
+  <thead><tr>
+    <th style="width:90px">รหัส</th>
+    <th>โปรแกรม</th>
+    <th>วันเดินทาง</th>
+    <th style="width:50px;text-align:center">วัน</th>
+    <th style="width:50px;text-align:center">สายการบิน</th>
+    <th style="width:50px;text-align:center">บิน</th>
+    <th style="width:90px;text-align:right">ราคา</th>
+    <th style="width:50px;text-align:center">ที่นั่ง</th>
+    <th style="width:70px;text-align:center">สถานะ</th>
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="footer">พิมพ์จาก Standard Tour Hub · ${today}</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+    else toast.error("ไม่สามารถเปิดหน้าต่างพิมพ์ได้ — ตรวจสอบ popup blocker");
   };
 
   // ── filter options (computed from store) ──
@@ -766,18 +879,33 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         );
         if (!has) return false;
       }
+      // ── date range filter — show tour if ANY period falls within range ──
+      if (filterDateFrom || filterDateTo) {
+        const periods = t.periods ?? [];
+        if (periods.length > 0) {
+          const has = periods.some((p) => {
+            const d = p.start_date ?? "";
+            if (!d) return false;
+            if (filterDateFrom && d < filterDateFrom) return false;
+            if (filterDateTo   && d > filterDateTo)   return false;
+            return true;
+          });
+          if (!has) return false;
+        }
+      }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterPromo, filterTags]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterPromo, filterTags, filterDateFrom, filterDateTo]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
   const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
 
-  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterPromo || filterTags.length);
+  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
   const clearFilters = () => {
     setFilterText(""); setFilterCat(""); setFilterCountry("");
     setFilterStatus(""); setFilterPromo(false); setFilterTags([]);
+    setFilterDateFrom(""); setFilterDateTo("");
   };
 
   return (
@@ -899,6 +1027,28 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
               </SelectContent>
             </Select>
+            {/* Date range filter */}
+            <div className="flex items-center gap-1 border border-gray-200 rounded-md px-2 h-8">
+              <CalendarDays className="w-3 h-3 text-gray-400 shrink-0" />
+              <input
+                type="date"
+                className="h-full text-xs bg-transparent outline-none text-gray-600 w-[110px]"
+                title="วันเดินทาง ตั้งแต่"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+              />
+              <span className="text-gray-300 text-xs">–</span>
+              <input
+                type="date"
+                className="h-full text-xs bg-transparent outline-none text-gray-600 w-[110px]"
+                title="วันเดินทาง ถึง"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+              />
+              {(filterDateFrom || filterDateTo) && (
+                <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-gray-300 hover:text-gray-500 transition-colors ml-0.5">✕</button>
+              )}
+            </div>
             <button
               onClick={() => setFilterPromo((v) => !v)}
               className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-600"}`}
@@ -940,6 +1090,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         </div>
         <div className="flex items-center gap-2">
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={exportStockPDF} title="Export PDF รายงาน Stock">
+            <FileText className="w-4 h-4 text-red-500" />
+            <span className="hidden sm:inline">PDF</span>
+          </Button>
           {canEdit && (
             <Button onClick={openAdd} style={{background: "#16A34A", color: "#FFFFFF"}} className="hover:opacity-90">
               <Plus className="w-4 h-4 mr-1" />
@@ -1014,8 +1168,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
               <span className="text-[10px] text-gray-400">({valuePct}%)</span>
             </div>
 
-            {/* ── progress bars ── */}
-            <div className="flex items-center gap-1.5 ml-auto">
+            {/* ── progress bars + mini category chart ── */}
+            <div className="flex items-center gap-3 ml-auto">
               <div className="w-[100px]">
                 <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
                   <span>ที่นั่ง</span><span>{pct}%</span>
@@ -1032,6 +1186,39 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                   <div className="h-full rounded-full" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
                 </div>
               </div>
+              {/* ── mini category breakdown bars ── */}
+              {(() => {
+                const cats = [
+                  { label: "Intl", tours: intlTours, color: "#16A34A" },
+                  { label: "Dom", tours: domTours, color: "#F59E0B" },
+                  { label: "Inc", tours: incTours, color: "#7C3AED" },
+                ] as const;
+                return (
+                  <div className="hidden xl:flex items-center gap-2 border-l border-gray-200 pl-3">
+                    <span className="text-[9px] text-gray-400 font-medium">แยกประเภท</span>
+                    {cats.map(({ label, tours: catTours, color }) => {
+                      const cs = catTours.reduce((a, t) => {
+                        (t.periods ?? []).filter(p => !p.cancelled).forEach(p => {
+                          a.total += p.total_seats;
+                          a.booked += (p.total_seats - p.quota);
+                        });
+                        return a;
+                      }, { total: 0, booked: 0 });
+                      if (cs.total === 0) return null;
+                      const cp = Math.round((cs.booked / cs.total) * 100);
+                      return (
+                        <div key={label} className="flex flex-col items-center gap-0.5" title={`${label}: ${cp}% จอง (${cs.booked}/${cs.total})`}>
+                          <span className="text-[9px] font-semibold" style={{color}}>{label}</span>
+                          <div className="w-[40px] h-2.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                            <div className="h-full rounded-full" style={{width:`${cp}%`, background: color}} />
+                          </div>
+                          <span className="text-[8px] text-gray-400">{cp}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
@@ -1421,8 +1608,64 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                     <div className="hidden sm:block border-t anim-slide-down" style={{background: "#FAFAFA"}}>
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
                         {/* v142: w-full — stretch to fill container width */}
+                        {/* Bulk action toolbar */}
+                        {selectedPeriods.size > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-1.5 border-b" style={{background:"#EFF6FF"}}>
+                            <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" />
+                            <span className="text-xs font-semibold text-blue-700">เลือก {selectedPeriods.size} Period</span>
+                            <div className="flex items-center gap-1 ml-2">
+                              <button
+                                className="h-7 px-3 rounded-md text-xs font-semibold border transition-colors"
+                                style={{background:"#DC2626",color:"#fff",borderColor:"#DC2626"}}
+                                onClick={() => {
+                                  if (!confirm(`ยืนยันยกเลิก ${selectedPeriods.size} Period ที่เลือก?`)) return;
+                                  selectedPeriods.forEach((pid) => {
+                                    const tour = tours.find(t => t.periods?.some(p => p.period_id === pid));
+                                    if (!tour) return;
+                                    const period = tour.periods?.find(p => p.period_id === pid);
+                                    if (!period) return;
+                                    updatePeriod(tour.id, pid, { ...period, cancelled: true, cancel_reason: "Bulk cancel", updated_by: actorName, updated_at: new Date().toISOString() });
+                                  });
+                                  toast.success(`ยกเลิก ${selectedPeriods.size} Period แล้ว`);
+                                  setSelectedPeriods(new Set());
+                                }}
+                              >ยกเลิก Period ที่เลือก</button>
+                              <button
+                                className="h-7 px-3 rounded-md text-xs font-semibold border border-blue-300 text-blue-700 transition-colors hover:bg-blue-50"
+                                onClick={() => {
+                                  const rows: Record<string, unknown>[] = [];
+                                  selectedPeriods.forEach((pid) => {
+                                    const tour = tours.find(t => t.periods?.some(p => p.period_id === pid));
+                                    if (!tour) return;
+                                    const p = tour.periods?.find(p => p.period_id === pid);
+                                    if (!p) return;
+                                    rows.push({ category: tour.category, code: tour.code, city: tour.city, country: tour.country, start_date: p.start_date ?? "", end_date: p.end_date ?? "", nights: p.nights ?? "", days: p.days ?? "", price_per_seat: p.price_per_seat, special_price: p.special_price ?? "", total_seats: p.total_seats, airline_code: p.airline_code ?? "", departure_city: p.departure_city ?? "", cancelled: p.cancelled ? "TRUE" : "FALSE" });
+                                  });
+                                  import("@/lib/excelUtils").then(({ exportToExcel }) => {
+                                    exportToExcel(rows, TOUR_FIELDS, "ทัวร์ (เลือก)", `tours-selected`);
+                                    toast.success(`Export ${rows.length} Period แล้ว`);
+                                  });
+                                }}
+                              >Export ที่เลือก</button>
+                            </div>
+                            <button className="ml-auto text-xs text-blue-500 hover:text-blue-700" onClick={() => setSelectedPeriods(new Set())}>✕ ยกเลิกการเลือก</button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
-                          <div className="w-6 shrink-0" />
+                          {/* Bulk select-all checkbox for this tour */}
+                          <input
+                            type="checkbox"
+                            className="w-3.5 h-3.5 rounded accent-pink-500 shrink-0 cursor-pointer"
+                            title="เลือกทุก Period"
+                            checked={t.periods!.length > 0 && t.periods!.every(p => selectedPeriods.has(p.period_id))}
+                            onChange={(e) => {
+                              setSelectedPeriods(prev => {
+                                const next = new Set(prev);
+                                t.periods!.forEach(p => e.target.checked ? next.add(p.period_id) : next.delete(p.period_id));
+                                return next;
+                              });
+                            }}
+                          />
                           {/* Period — w-[165px] + 2-digit year in data row */}
                           <div
                             className="w-[165px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
@@ -1501,6 +1744,19 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                 }}
                               >
                                 <div className="flex items-center gap-1 px-3 py-1 w-full">
+                                {/* 0. Bulk select checkbox */}
+                                <input
+                                  type="checkbox"
+                                  className="w-3.5 h-3.5 rounded accent-pink-500 shrink-0 cursor-pointer mr-0.5"
+                                  checked={selectedPeriods.has(pid)}
+                                  onChange={(e) => {
+                                    setSelectedPeriods(prev => {
+                                      const next = new Set(prev);
+                                      e.target.checked ? next.add(pid) : next.delete(pid);
+                                      return next;
+                                    });
+                                  }}
+                                />
                                 {/* 1. Expand → footnote */}
                                 <button
                                   className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
@@ -1704,6 +1960,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                                       </span>
                                     ) : isFullDisplay ? (
                                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
+                                    ) : currentQuota > 0 && currentQuota <= 3 ? (
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap" style={{background:"#FFF7ED",color:"#C2410C"}}>
+                                        ⚠ เหลือ {currentQuota}
+                                      </span>
                                     ) : (
                                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>
                                     )}
@@ -2406,6 +2666,58 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                 style={{background: "#16A34A", color: "#fff"}}
               >
                 ยืนยัน Import {importPreviewData.rows.length} แถว
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Import Error Report Dialog ── */}
+      {importErrors.length > 0 && (
+        <Dialog open={importErrors.length > 0} onOpenChange={() => setImportErrors([])}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-orange-700">
+                <AlertCircle className="w-5 h-5 text-orange-500" />
+                พบปัญหาระหว่าง Import — {importErrors.length} แถว
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-3">
+              ข้อมูลที่ไม่มีปัญหายังถูก import เข้าระบบแล้ว แต่แถวด้านล่างนี้ควรแก้ไขแล้ว import ใหม่อีกครั้ง
+            </p>
+            <div className="max-h-72 overflow-y-auto rounded-lg border text-xs">
+              <table className="w-full">
+                <thead className="bg-orange-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-orange-700 whitespace-nowrap">แถว Excel</th>
+                    <th className="px-3 py-2 text-left font-semibold text-orange-700 whitespace-nowrap">รหัสทัวร์</th>
+                    <th className="px-3 py-2 text-left font-semibold text-orange-700">ปัญหาที่พบ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {importErrors.map((err, i) => (
+                    <tr key={i} className="hover:bg-orange-50/30">
+                      <td className="px-3 py-2 font-mono font-bold text-orange-800">Row {err.row}</td>
+                      <td className="px-3 py-2 font-mono text-gray-700">{err.code}</td>
+                      <td className="px-3 py-2 text-gray-700">{err.issue}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setImportErrors([])}>ปิด</Button>
+              <Button
+                onClick={() => {
+                  const csv = ["แถว Excel,รหัสทัวร์,ปัญหาที่พบ", ...importErrors.map(e => `${e.row},"${e.code}","${e.issue}"`)].join("\n");
+                  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a"); a.href = url; a.download = "import-errors.csv"; a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                style={{background:"#F97316",color:"#fff"}}
+              >
+                ดาวน์โหลด Error Report (.csv)
               </Button>
             </DialogFooter>
           </DialogContent>
