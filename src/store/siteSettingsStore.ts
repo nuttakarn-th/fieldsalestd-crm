@@ -76,6 +76,10 @@ interface State {
   // OG Meta for social sharing
   ogMain: OgMeta;
   ogPackages: OgMeta;
+  // Office GPS Location (for Check-in/Check-out geofence)
+  officeLat: number | null;
+  officeLng: number | null;
+  officeSetAt?: string; // ISO timestamp ครั้งล่าสุดที่ set
 
   setProfile: (v: string) => void;
   setSocial: (l: SocialLink[]) => void;
@@ -98,6 +102,7 @@ interface State {
   removeTourPackageBanner: (id: string) => void;
   setOgMain: (patch: Partial<OgMeta>) => void;
   setOgPackages: (patch: Partial<OgMeta>) => void;
+  setOfficeLocation: (lat: number, lng: number) => Promise<void>;
 
   loadFromSupabase: () => Promise<void>;
   saveToSupabase: () => Promise<void>;
@@ -157,6 +162,9 @@ const DEFAULTS = {
   tourPackageBanners: [] as TourPackageBanner[],
   ogMain: DEFAULT_OG_MAIN,
   ogPackages: DEFAULT_OG_PACKAGES,
+  officeLat: null,
+  officeLng: null,
+  officeSetAt: undefined,
 };
 
 // Pick only the data fields (no actions) for serialization
@@ -180,6 +188,9 @@ function snapshot(s: State) {
     tourPackageBanners: s.tourPackageBanners,
     ogMain: s.ogMain,
     ogPackages: s.ogPackages,
+    officeLat: s.officeLat,
+    officeLng: s.officeLng,
+    officeSetAt: s.officeSetAt,
   };
 }
 
@@ -220,6 +231,18 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
   setOgMain: (patch) => { set({ ogMain: { ...get().ogMain, ...patch } }); get().saveToSupabase(); },
   setOgPackages: (patch) => { set({ ogPackages: { ...get().ogPackages, ...patch } }); get().saveToSupabase(); },
 
+  setOfficeLocation: async (lat, lng) => {
+    const now = new Date().toISOString();
+    set({ officeLat: lat, officeLng: lng, officeSetAt: now });
+    if (SUPABASE_ENABLED && supabase) {
+      const snap = { ...snapshot(get()), officeLat: lat, officeLng: lng, officeSetAt: now };
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ id: "default", payload: snap }, { onConflict: "id" });
+      if (error) console.error("[siteSettings] setOfficeLocation ล้มเหลว:", error);
+    }
+  },
+
   loadFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
@@ -254,6 +277,9 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
         // Ensure OG meta defaults
         if (!payload.ogMain) payload.ogMain = DEFAULT_OG_MAIN;
         if (!payload.ogPackages) payload.ogPackages = DEFAULT_OG_PACKAGES;
+        // Office GPS — keep null if not set
+        if (payload.officeLat === undefined) payload.officeLat = null;
+        if (payload.officeLng === undefined) payload.officeLng = null;
         set(payload);
       }
     } catch (e) {

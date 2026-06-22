@@ -13,13 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, type RoutePlan } from "@/store/crmStore";
+import { useSiteSettings } from "@/store/siteSettingsStore";
+import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// ── Office Config — อัปเดตพิกัดออฟฟิศที่นี่ ─────────────────────────────────
-// วิธีหาพิกัด: เปิด Google Maps → คลิกขวาที่ตึกออฟฟิศ → copy พิกัด
-const OFFICE_LAT = 18.7883;   // ละติจูดออฟฟิศ (เชียงใหม่ — แก้ตามจริง)
-const OFFICE_LNG = 98.9853;   // ลองจิจูดออฟฟิศ
 const CHECKIN_RADIUS_M = 200; // รัศมี GPS ที่อนุญาต (เมตร)
 
 // ── Haversine distance (เมตร) ─────────────────────────────────────────────────
@@ -66,6 +64,14 @@ function ymd(d: Date) {
 export default function Planning() {
   const currentRep = useCRM((s) => s.currentRep);
   const routes = useCRM((s) => s.routes);
+  // ── Office GPS from siteSettings ─────────────────────────────────────────────
+  const officeLat = useSiteSettings((s) => s.officeLat);
+  const officeLng = useSiteSettings((s) => s.officeLng);
+  const officeSetAt = useSiteSettings((s) => s.officeSetAt);
+  const setOfficeLocation = useSiteSettings((s) => s.setOfficeLocation);
+  // ── Current user (for Admin/Manager "Set Office" button) ─────────────────────
+  const currentUser = useCurrentUser();
+  const canSetOffice = currentUser?.role === "Admin" || currentUser?.role === "Sales Manager";
   // ── Stable selector ──────────────────────────────────────────────────────────
   // Zustand v5 ไม่รองรับ equalityFn เป็น arg ที่ 2 → selector .map() สร้าง array ใหม่ทุก render
   // → Zustand เห็นว่า state เปลี่ยน → re-render → loop → React #185
@@ -94,11 +100,12 @@ export default function Planning() {
   const [newRouteTitle, setNewRouteTitle] = useState("");
   const [newRouteHasCheckin, setNewRouteHasCheckin] = useState(true);
   const [newRouteHasCheckout, setNewRouteHasCheckout] = useState(true);
-  const [gpsLoading, setGpsLoading] = useState<string | null>(null); // routeId ที่กำลังรอ GPS
+  const [gpsLoading, setGpsLoading] = useState<"checkin" | "checkout" | "set_office" | null>(null);
   const dragStopId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const dateKey = ymd(date);
+  const isToday = dateKey === ymd(new Date());
   const todayRoutes = useMemo(
     () => routes.filter((r) => r.rep === currentRep && r.date === dateKey).sort((a, b) => a.created_at.localeCompare(b.created_at)),
     [routes, currentRep, dateKey],
@@ -133,17 +140,34 @@ export default function Planning() {
     toast.success(`สร้าง Route "${title}" แล้ว`);
   };
 
-  // ── GPS Check-in ──────────────────────────────────────────────────────────
-  const handleCheckin = async (routeId: string) => {
-    setGpsLoading(routeId + "_in");
+  // ── day-level route: route แรกของวันสำหรับ check-in/out ──────────────────
+  const dayRoute = todayRoutes[0] ?? null;
+  const hasCheckinEnabled  = (dayRoute?.has_checkin  ?? true);
+  const hasCheckoutEnabled = (dayRoute?.has_checkout ?? true);
+
+  // ── GPS helper: ตรวจรัศมีออฟฟิศ ─────────────────────────────────────────
+  const verifyOfficeGPS = async (): Promise<{ lat: number; lng: number } | null> => {
+    if (!officeLat || !officeLng) {
+      toast.error("ยังไม่ได้ตั้งพิกัดออฟฟิศ — ให้ Admin/Manager กด 'ตั้งตำแหน่งออฟฟิศ' ก่อน");
+      return null;
+    }
+    const pos = await getGPS();
+    const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, officeLat, officeLng);
+    if (dist > CHECKIN_RADIUS_M) {
+      toast.error(`คุณอยู่ห่างออฟฟิศ ${Math.round(dist)} เมตร — ต้องอยู่ภายใน ${CHECKIN_RADIUS_M} เมตร`);
+      return null;
+    }
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  };
+
+  // ── GPS Check-in (day-level) ──────────────────────────────────────────────
+  const handleCheckin = async () => {
+    if (!dayRoute) return;
+    setGpsLoading("checkin");
     try {
-      const pos = await getGPS();
-      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
-      if (dist > CHECKIN_RADIUS_M) {
-        toast.error(`คุณอยู่ห่างออฟฟิศ ${Math.round(dist)} เมตร — ต้องอยู่ภายใน ${CHECKIN_RADIUS_M} เมตร`);
-        return;
-      }
-      await checkinRoute(routeId, pos.coords.latitude, pos.coords.longitude);
+      const coords = await verifyOfficeGPS();
+      if (!coords) return;
+      await checkinRoute(dayRoute.route_id, coords.lat, coords.lng);
       toast.success("✅ Check-in เรียบร้อย!");
     } catch (e: any) {
       if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
@@ -154,18 +178,31 @@ export default function Planning() {
     }
   };
 
-  // ── GPS Check-out ─────────────────────────────────────────────────────────
-  const handleCheckout = async (routeId: string) => {
-    setGpsLoading(routeId + "_out");
+  // ── GPS Check-out (day-level) ─────────────────────────────────────────────
+  const handleCheckout = async () => {
+    if (!dayRoute) return;
+    setGpsLoading("checkout");
+    try {
+      const coords = await verifyOfficeGPS();
+      if (!coords) return;
+      await checkoutRoute(dayRoute.route_id, coords.lat, coords.lng);
+      toast.success("✅ Check-out เรียบร้อย! ขอบคุณสำหรับงานวันนี้");
+    } catch (e: any) {
+      if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
+      else if (e?.code === 3) toast.error("GPS หมดเวลา — ลองใหม่อีกครั้ง");
+      else toast.error("ไม่สามารถรับ GPS ได้");
+    } finally {
+      setGpsLoading(null);
+    }
+  };
+
+  // ── Set Office Location (Admin/Manager only) ─────────────────────────────
+  const handleSetOffice = async () => {
+    setGpsLoading("set_office");
     try {
       const pos = await getGPS();
-      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
-      if (dist > CHECKIN_RADIUS_M) {
-        toast.error(`คุณอยู่ห่างออฟฟิศ ${Math.round(dist)} เมตร — ต้องอยู่ภายใน ${CHECKIN_RADIUS_M} เมตร`);
-        return;
-      }
-      await checkoutRoute(routeId, pos.coords.latitude, pos.coords.longitude);
-      toast.success("✅ Check-out เรียบร้อย! ขอบคุณสำหรับงานวันนี้");
+      await setOfficeLocation(pos.coords.latitude, pos.coords.longitude);
+      toast.success(`✅ บันทึกพิกัดออฟฟิศแล้ว (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}) ความแม่นยำ ±${Math.round(pos.coords.accuracy)}m`);
     } catch (e: any) {
       if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
       else if (e?.code === 3) toast.error("GPS หมดเวลา — ลองใหม่อีกครั้ง");
@@ -267,6 +304,150 @@ export default function Planning() {
         </div>
       </div>
 
+      {/* ── Day-level Check-in / Check-out banner (วันนี้เท่านั้น + มี route) ── */}
+      {isToday && todayRoutes.length > 0 && (
+        <div className="rounded-xl border overflow-hidden shadow-sm">
+          {/* header */}
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-b">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-indigo-500 shrink-0" />
+              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">การเข้า-ออกงานวันนี้</span>
+              <span className="text-[11px] text-muted-foreground">(GPS ต้องอยู่ภายใน {CHECKIN_RADIUS_M}m จากออฟฟิศ)</span>
+            </div>
+            {/* Set Office button — Admin/Manager only */}
+            {canSetOffice && (
+              <button
+                onClick={handleSetOffice}
+                disabled={gpsLoading === "set_office"}
+                className="flex items-center gap-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-md px-2.5 py-1 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+                title="ใช้ตำแหน่ง GPS ปัจจุบัน (ต้องอยู่ที่ออฟฟิศ) บันทึกเป็นพิกัดออฟฟิศ"
+              >
+                {gpsLoading === "set_office"
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : <MapPin className="w-3 h-3" />
+                }
+                {officeLat ? "อัปเดตตำแหน่งออฟฟิศ" : "ตั้งตำแหน่งออฟฟิศ"}
+              </button>
+            )}
+          </div>
+
+          {/* office coords status */}
+          {!officeLat && (
+            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-2 text-xs text-amber-700">
+              <span>⚠️</span>
+              <span>ยังไม่ได้ตั้งพิกัดออฟฟิศ — {canSetOffice ? "กด 'ตั้งตำแหน่งออฟฟิศ' ด้านบนขณะอยู่ที่ออฟฟิศ" : "รอ Admin/Manager ตั้งพิกัดออฟฟิศก่อน"}</span>
+            </div>
+          )}
+          {officeLat && officeSetAt && (
+            <div className="px-4 py-1.5 bg-white/50 dark:bg-black/10 border-b flex items-center gap-2 text-[10px] text-muted-foreground">
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span>ออฟฟิศ: {officeLat.toFixed(5)}, {officeLng?.toFixed(5)}</span>
+              <span>·</span>
+              <span>ตั้งเมื่อ {new Date(officeSetAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          )}
+
+          {/* Check-in / Check-out panels */}
+          <div className="grid grid-cols-2 divide-x bg-white dark:bg-card">
+            {/* ── Check-in ── */}
+            {hasCheckinEnabled ? (
+              <div className={cn("flex items-center gap-3 px-4 py-3", dayRoute?.checkin_at ? "bg-emerald-50/50 dark:bg-emerald-950/10" : "bg-amber-50/40 dark:bg-amber-950/10")}>
+                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                  dayRoute?.checkin_at ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-500")}>
+                  <LogIn className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Check-in เข้างาน</p>
+                  {dayRoute?.checkin_at ? (
+                    <p className="text-base font-bold text-emerald-600">
+                      {new Date(dayRoute.checkin_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-600 font-medium">ยังไม่ได้ Check-in</p>
+                  )}
+                </div>
+                {!dayRoute?.checkin_at && (
+                  <Button
+                    size="sm"
+                    className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+                    onClick={handleCheckin}
+                    disabled={gpsLoading === "checkin" || !officeLat}
+                  >
+                    {gpsLoading === "checkin"
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <><LogIn className="w-3.5 h-3.5 mr-1.5" />Check-in</>
+                    }
+                  </Button>
+                )}
+                {dayRoute?.checkin_at && (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 opacity-40">
+                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <LogIn className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Check-in</p>
+                  <p className="text-xs text-muted-foreground">ไม่ต้องผ่านออฟฟิศ</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Check-out ── */}
+            {hasCheckoutEnabled ? (
+              <div className={cn("flex items-center gap-3 px-4 py-3",
+                dayRoute?.checkout_at ? "bg-emerald-50/50 dark:bg-emerald-950/10" :
+                dayRoute?.checkin_at ? "bg-blue-50/40 dark:bg-blue-950/10" : "opacity-50")}>
+                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
+                  dayRoute?.checkout_at ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-500")}>
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Check-out ออกงาน</p>
+                  {dayRoute?.checkout_at ? (
+                    <p className="text-base font-bold text-emerald-600">
+                      {new Date(dayRoute.checkout_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
+                    </p>
+                  ) : dayRoute?.checkin_at ? (
+                    <p className="text-sm text-blue-500 font-medium">รอ Check-out</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">รอ Check-in ก่อน</p>
+                  )}
+                </div>
+                {!dayRoute?.checkout_at && dayRoute?.checkin_at && (
+                  <Button
+                    size="sm"
+                    className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                    onClick={handleCheckout}
+                    disabled={gpsLoading === "checkout" || !officeLat}
+                  >
+                    {gpsLoading === "checkout"
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <><LogOut className="w-3.5 h-3.5 mr-1.5" />Check-out</>
+                    }
+                  </Button>
+                )}
+                {dayRoute?.checkout_at && (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 opacity-40">
+                <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <LogOut className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Check-out</p>
+                  <p className="text-xs text-muted-foreground">ไม่ต้องกลับออฟฟิศ</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {todayRoutes.length === 0 ? (
         <div className="rounded-xl border border-dashed p-10 text-center bg-card">
           <Navigation className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
@@ -288,15 +469,6 @@ export default function Planning() {
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <Badge variant="outline" className="border-primary/40 text-primary text-[10px] h-5">{r.stops.length} จุด</Badge>
                         <Badge variant="outline" className="border-success/40 text-success text-[10px] h-5">เสร็จ {completed}/{r.stops.length}</Badge>
-                        {(r.has_checkin ?? true) && !r.checkin_at && (
-                          <Badge variant="outline" className="border-amber-400/60 text-amber-600 text-[10px] h-5 animate-pulse">⏳ รอ Check-in</Badge>
-                        )}
-                        {r.checkin_at && !r.checkout_at && (r.has_checkout ?? true) && (
-                          <Badge variant="outline" className="border-blue-400/60 text-blue-600 text-[10px] h-5">🟢 กำลังปฏิบัติงาน</Badge>
-                        )}
-                        {r.checkout_at && (
-                          <Badge variant="outline" className="border-success/60 text-success text-[10px] h-5">✅ เสร็จงานวันนี้</Badge>
-                        )}
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-0.5 hidden sm:block">Route ID: {r.route_id}</p>
                     </div>
@@ -311,93 +483,6 @@ export default function Planning() {
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />
                     </Button>
                   </div>
-
-                  {/* ── Check-in / Check-out bar (วันนี้เท่านั้น) ── */}
-                  {r.date === ymd(new Date()) && (
-                    <div className="mt-2 rounded-lg border bg-white/60 dark:bg-black/20 divide-x flex overflow-hidden">
-                      {/* ── Check-in side ── */}
-                      {(r.has_checkin ?? true) ? (
-                        <div className={cn(
-                          "flex-1 flex items-center gap-2 px-3 py-2",
-                          r.checkin_at ? "bg-success/8" : "bg-amber-50/80 dark:bg-amber-950/20"
-                        )}>
-                          <Building2 className={cn("w-4 h-4 shrink-0", r.checkin_at ? "text-success" : "text-amber-500")} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Check-in</p>
-                            {r.checkin_at ? (
-                              <p className="text-xs font-bold text-success">
-                                {new Date(r.checkin_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-amber-600">ยังไม่ได้ Check-in</p>
-                            )}
-                          </div>
-                          {!r.checkin_at && (
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs px-2.5 bg-amber-500 hover:bg-amber-600 text-white shrink-0"
-                              onClick={() => handleCheckin(r.route_id)}
-                              disabled={gpsLoading === r.route_id + "_in"}
-                            >
-                              {gpsLoading === r.route_id + "_in"
-                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <><LogIn className="w-3 h-3 mr-1" />Check-in</>
-                              }
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex-1 flex items-center gap-2 px-3 py-2 opacity-40">
-                          <Building2 className="w-4 h-4 shrink-0 text-muted-foreground" />
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Check-in</p>
-                            <p className="text-[10px] text-muted-foreground">ไม่ต้องผ่านออฟฟิศ</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* ── Check-out side ── */}
-                      {(r.has_checkout ?? true) ? (
-                        <div className={cn(
-                          "flex-1 flex items-center gap-2 px-3 py-2",
-                          r.checkout_at ? "bg-success/8" : r.checkin_at ? "bg-blue-50/80 dark:bg-blue-950/20" : "opacity-50"
-                        )}>
-                          <Building2 className={cn("w-4 h-4 shrink-0", r.checkout_at ? "text-success" : "text-blue-500")} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Check-out</p>
-                            {r.checkout_at ? (
-                              <p className="text-xs font-bold text-success">
-                                {new Date(r.checkout_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })} น.
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-blue-500">{r.checkin_at ? "รอ Check-out" : "รอ Check-in ก่อน"}</p>
-                            )}
-                          </div>
-                          {!r.checkout_at && r.checkin_at && (
-                            <Button
-                              size="sm"
-                              className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                              onClick={() => handleCheckout(r.route_id)}
-                              disabled={gpsLoading === r.route_id + "_out"}
-                            >
-                              {gpsLoading === r.route_id + "_out"
-                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <><LogOut className="w-3 h-3 mr-1" />Check-out</>
-                              }
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex-1 flex items-center gap-2 px-3 py-2 opacity-40">
-                          <Building2 className="w-4 h-4 shrink-0 text-muted-foreground" />
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Check-out</p>
-                            <p className="text-[10px] text-muted-foreground">ไม่ต้องกลับออฟฟิศ</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {/* Row 2: action buttons */}
                   <div className="flex items-center gap-2 mt-2">
