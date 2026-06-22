@@ -234,6 +234,21 @@ export default function CalendarPlan() {
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Export range state — default สัปดาห์ปัจจุบัน
+  const [exportFrom, setExportFrom] = useState<string>(() => ymd(startOfWeek(new Date(), { weekStartsOn: 1 })));
+  const [exportTo,   setExportTo]   = useState<string>(() => ymd(addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 5)));
+  const [exportStatusFilter, setExportStatusFilter] = useState<"all" | StopStatus>("all");
+
+  const applyExportPreset = (preset: "this-week" | "next-week" | "this-month" | "last-month" | "next-30d") => {
+    const now = new Date();
+    const mon = startOfWeek(now, { weekStartsOn: 1 });
+    if (preset === "this-week")  { setExportFrom(ymd(mon)); setExportTo(ymd(addDays(mon, 5))); }
+    if (preset === "next-week")  { setExportFrom(ymd(addWeeks(mon, 1))); setExportTo(ymd(addDays(addWeeks(mon, 1), 5))); }
+    if (preset === "this-month") { setExportFrom(ymd(startOfMonth(now))); setExportTo(ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0))); }
+    if (preset === "last-month") { setExportFrom(ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1))); setExportTo(ymd(new Date(now.getFullYear(), now.getMonth(), 0))); }
+    if (preset === "next-30d")   { setExportFrom(ymd(now)); setExportTo(ymd(addDays(now, 30))); }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -283,42 +298,53 @@ export default function CalendarPlan() {
     setActiveTab("week");
   }, [importRows, routes, currentRep, addRoute, addStop]);
 
-  // Export current week to Excel
-  const exportWeekExcel = useCallback(() => {
-    const exportFields: ExcelField[] = [
-      { key: "date",    header: "วันที่" },
-      { key: "day",     header: "วัน" },
-      { key: "place",   header: "ลูกค้า / สถานที่" },
-      { key: "address", header: "เบอร์ติดต่อ" },
-      { key: "purpose", header: "วัตถุประสงค์" },
-      { key: "time",    header: "เวลา" },
-      { key: "status",  header: "สถานะ" },
-      { key: "note",    header: "หมายเหตุ" },
-    ];
-    const DAY_TH: Record<string, string> = { Monday: "จันทร์", Tuesday: "อังคาร", Wednesday: "พุธ", Thursday: "พฤหัส", Friday: "ศุกร์", Saturday: "เสาร์" };
-    const STATUS_TH: Record<string, string> = { planned: "แผน", in_progress: "กำลังไป", completed: "เสร็จ", skipped: "ข้าม" };
+  // Export date range — computed preview
+  const EXPORT_FIELDS: ExcelField[] = [
+    { key: "date",    header: "วันที่" },
+    { key: "day",     header: "วัน" },
+    { key: "place",   header: "ลูกค้า / สถานที่" },
+    { key: "address", header: "เบอร์ติดต่อ" },
+    { key: "purpose", header: "วัตถุประสงค์" },
+    { key: "time",    header: "เวลา" },
+    { key: "status",  header: "สถานะ" },
+    { key: "note",    header: "หมายเหตุ" },
+  ];
+  const DAY_TH: Record<string, string> = { Monday: "จันทร์", Tuesday: "อังคาร", Wednesday: "พุธ", Thursday: "พฤหัส", Friday: "ศุกร์", Saturday: "เสาร์", Sunday: "อาทิตย์" };
+  const STATUS_TH: Record<string, string> = { planned: "แผน", in_progress: "กำลังไป", completed: "เสร็จ", skipped: "ข้าม" };
+
+  const exportPreview = useMemo(() => {
     const custMap: Record<string, string> = {};
     customers.forEach((c: any) => { custMap[c.customer_id] = c.company || c.full_name; });
     const data: Record<string, unknown>[] = [];
-    weekDays.forEach((d) => {
-      const route = routeByDay.get(ymd(d));
-      route?.stops.forEach((s) => {
-        data.push({
-          date:    ymd(d),
-          day:     DAY_TH[format(d, "EEEE")] ?? "",
-          place:   s.customer_id ? (custMap[s.customer_id] || s.place_name) : s.place_name,
-          address: s.address,
-          purpose: s.purpose,
-          time:    s.planned_time ?? "",
-          status:  STATUS_TH[s.status] ?? s.status,
-          note:    s.note ?? "",
+    const daysSet = new Set<string>();
+    routes
+      .filter((r) => r.rep === currentRep && r.date >= exportFrom && r.date <= exportTo)
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+      .forEach((r) => {
+        r.stops.forEach((s) => {
+          if (exportStatusFilter !== "all" && s.status !== exportStatusFilter) return;
+          daysSet.add(r.date);
+          data.push({
+            date:    r.date,
+            day:     DAY_TH[format(new Date(r.date + "T00:00:00"), "EEEE")] ?? "",
+            place:   s.customer_id ? (custMap[s.customer_id] || s.place_name) : s.place_name,
+            address: s.address ?? "",
+            purpose: s.purpose,
+            time:    s.planned_time ?? "",
+            status:  STATUS_TH[s.status] ?? s.status,
+            note:    s.note ?? "",
+          });
         });
       });
-    });
-    if (data.length === 0) { toast.error("ไม่มีข้อมูลแผนในสัปดาห์นี้"); return; }
-    exportToExcel(data, exportFields, "แผนสัปดาห์", `CalendarPlan_${ymd(weekDays[0])}`);
-    toast.success("Export Excel สำเร็จ");
-  }, [weekDays, routeByDay, customers]);
+    return { data, stopCount: data.length, dayCount: daysSet.size };
+  }, [routes, currentRep, exportFrom, exportTo, exportStatusFilter, customers]);
+
+  const exportRangeExcel = useCallback(() => {
+    const { data, stopCount } = exportPreview;
+    if (stopCount === 0) { toast.error("ไม่มีข้อมูลในช่วงเวลาที่เลือก"); return; }
+    exportToExcel(data, EXPORT_FIELDS, "แผนเยี่ยมลูกค้า", `CalendarPlan_${exportFrom}_to_${exportTo}`);
+    toast.success(`Export ${stopCount} จุด สำเร็จ`);
+  }, [exportPreview, exportFrom, exportTo]);
 
   // Guard: Sales only
   const crmCurrentRep = useCRM((s) => s.currentRep);
@@ -645,22 +671,105 @@ export default function CalendarPlan() {
           </div>
 
           {/* Export */}
-          <div className="bg-white rounded-xl border p-5 shadow-soft space-y-3">
+          <div className="bg-white rounded-xl border p-5 shadow-soft space-y-4">
             <div className="flex items-center gap-2">
               <FileDown className="w-5 h-5 text-blue-600" />
-              <h2 className="font-semibold text-gray-900">Export แผนสัปดาห์</h2>
+              <h2 className="font-semibold text-gray-900">Export แผนเยี่ยมลูกค้า</h2>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Export แผนสัปดาห์ปัจจุบัน (<span className="font-medium">{weekLabel}</span>) ออกเป็น Excel หรือ PDF
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" onClick={exportWeekExcel} className="gap-2">
-                <FileSpreadsheet className="w-4 h-4" /> Export Excel
-              </Button>
-              <Button variant="outline" onClick={() => { setActiveTab("week"); }} className="gap-2 text-muted-foreground">
-                <CalendarRange className="w-4 h-4" /> ไปหน้าแผนสัปดาห์
-              </Button>
+
+            {/* Quick presets */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">ช่วงเวลาด่วน</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { label: "สัปดาห์นี้",    value: "this-week"  },
+                  { label: "สัปดาห์หน้า",   value: "next-week"  },
+                  { label: "เดือนนี้",       value: "this-month" },
+                  { label: "เดือนที่แล้ว",  value: "last-month" },
+                  { label: "30 วันข้างหน้า", value: "next-30d"  },
+                ] as const).map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => applyExportPreset(p.value)}
+                    className="px-3 py-1.5 text-xs rounded-full border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Custom range */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">กำหนดช่วงเวลาเอง</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">ตั้งแต่วันที่</label>
+                  <Input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-9 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">ถึงวันที่</label>
+                  <Input type="date" value={exportTo} min={exportFrom} onChange={(e) => setExportTo(e.target.value)} className="h-9 text-sm" />
+                </div>
+              </div>
+            </div>
+
+            {/* Status filter */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">กรองสถานะ</p>
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { label: "ทั้งหมด",     value: "all",         cls: "border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100" },
+                  { label: "แผน (ยังไปไม่ถึง)", value: "planned",  cls: "border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100" },
+                  { label: "เสร็จแล้ว",   value: "completed",   cls: "border-green-200 text-green-700 bg-green-50 hover:bg-green-100" },
+                  { label: "ข้าม",        value: "skipped",     cls: "border-gray-200 text-gray-500 bg-gray-50 hover:bg-gray-100" },
+                ] as const).map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => setExportStatusFilter(s.value)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                      exportStatusFilter === s.value
+                        ? "ring-2 ring-offset-1 ring-blue-400 font-semibold"
+                        : "",
+                      s.cls,
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview summary */}
+            <div className={cn(
+              "rounded-lg px-4 py-3 flex items-center justify-between gap-3 border text-sm",
+              exportPreview.stopCount > 0
+                ? "bg-blue-50 border-blue-200"
+                : "bg-gray-50 border-gray-200",
+            )}>
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className={cn("w-4 h-4 shrink-0", exportPreview.stopCount > 0 ? "text-blue-600" : "text-gray-400")} />
+                <span className={exportPreview.stopCount > 0 ? "text-blue-800" : "text-gray-400"}>
+                  {exportPreview.stopCount > 0
+                    ? <><span className="font-semibold">{exportPreview.stopCount} จุด</span> จาก <span className="font-semibold">{exportPreview.dayCount} วัน</span> พร้อม Export</>
+                    : "ไม่มีข้อมูลในช่วงที่เลือก"}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {exportFrom} → {exportTo}
+              </span>
+            </div>
+
+            <Button
+              onClick={exportRangeExcel}
+              disabled={exportPreview.stopCount === 0}
+              className="gap-2 w-full sm:w-auto"
+              style={{ background: "#1D4ED8", color: "#fff" }}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Export {exportPreview.stopCount > 0 ? `(${exportPreview.stopCount} จุด)` : ""} เป็น Excel
+            </Button>
           </div>
         </div>
       )}
