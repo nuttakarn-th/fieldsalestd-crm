@@ -1,14 +1,17 @@
 import { useMemo, useState, useCallback } from "react";
 import { Navigate } from "react-router-dom";
-import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer, ChevronLeft, ChevronRight, CalendarClock, ImageDown } from "lucide-react";
+import { addDays, format, startOfWeek, subWeeks, addWeeks } from "date-fns";
+import { th } from "date-fns/locale";
+import { Users2, MapPin, CheckCircle2, TrendingUp, ImageIcon, Clock, Map as MapIcon, FileDown, Printer, ChevronLeft, ChevronRight, CalendarClock, ImageDown, CalendarRange, ClipboardList, FileSpreadsheet, SkipForward, AlertCircle } from "lucide-react";
 import { fmtDateTime } from "@/lib/dateUtils";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from "recharts";
-import { useCRM } from "@/store/crmStore";
+import { useCRM, SALES_REPS as ALL_SALES_REPS, type StopStatus } from "@/store/crmStore";
 import { useActiveSalesNames, useCurrentUser, useAuth } from "@/store/authStore";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
@@ -17,6 +20,7 @@ import type { DateRange } from "react-day-picker";
 export default function SalesFollower() {
   const currentRep = useCRM((s) => s.currentRep);
   const routes = useCRM((s) => s.routes);
+  const customers = useCRM((s) => s.customers);
   const SALES_REPS = useActiveSalesNames();
   const user = useCurrentUser();
   const viewAsRole = useAuth((s) => s.viewAsRole);
@@ -72,6 +76,112 @@ export default function SalesFollower() {
     { planned: 0, completed: 0, routes: 0, totalMin: 0 },
   );
   const overallRate = totals.planned ? Math.round((totals.completed / totals.planned) * 100) : 0;
+
+  // ── Tab state ──────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"mission" | "plan">("mission");
+
+  // ── Weekly Plan tab state + data ───────────────────────────────────────────
+  const [baseMonday, setBaseMonday] = useState<Date>(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
+  );
+  const [planFilterRep, setPlanFilterRep] = useState("all");
+  const [planFilterStatus, setPlanFilterStatus] = useState("all");
+
+  const weekDays = useMemo(
+    () => Array.from({ length: 6 }, (_, i) => addDays(baseMonday, i)),
+    [baseMonday],
+  );
+  const weekLabel = `${format(weekDays[0], "d MMM", { locale: th })} – ${format(weekDays[5], "d MMM yyyy", { locale: th })}`;
+  const weekKeys = useMemo(() => new Set(weekDays.map((d) => format(d, "yyyy-MM-dd"))), [weekDays]);
+
+  const custMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    customers.forEach((c: any) => { m[c.customer_id] = c.company || c.full_name; });
+    return m;
+  }, [customers]);
+
+  const STATUS_LABELS: Record<StopStatus, string> = {
+    planned: "แผน", in_progress: "กำลังไป", completed: "เสร็จ ✓", skipped: "ข้าม",
+  };
+  const STATUS_COLORS: Record<StopStatus, string> = {
+    planned: "bg-purple-50 text-purple-700 border-purple-200",
+    in_progress: "bg-amber-50 text-amber-700 border-amber-200",
+    completed: "bg-green-50 text-green-700 border-green-200",
+    skipped: "bg-gray-100 text-gray-500 border-gray-200",
+  };
+  const DAY_SHORT: Record<string, string> = {
+    Monday: "จ.", Tuesday: "อ.", Wednesday: "พ.",
+    Thursday: "พฤ.", Friday: "ศ.", Saturday: "ส.", Sunday: "อา.",
+  };
+
+  const allPlanRows = useMemo(() => {
+    const rows: {
+      date: string; dayLabel: string; rep: string; place: string; purpose: string;
+      address: string; status: StopStatus; time: string; note: string; customer: string;
+    }[] = [];
+    routes.forEach((r) => {
+      if (!weekKeys.has(r.date)) return;
+      r.stops.forEach((s) => {
+        const dayOfWeek = format(new Date(r.date), "EEEE");
+        rows.push({
+          date: r.date,
+          dayLabel: DAY_SHORT[dayOfWeek] ?? dayOfWeek,
+          rep: r.rep,
+          place: s.place_name,
+          purpose: s.purpose,
+          address: s.address,
+          status: s.status,
+          time: s.planned_time ?? "",
+          note: s.note ?? "",
+          customer: s.customer_id ? (custMap[s.customer_id] ?? "") : "",
+        });
+      });
+    });
+    return rows.sort((a, b) =>
+      a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.rep.localeCompare(b.rep),
+    );
+  }, [routes, weekKeys, custMap]);
+
+  const planRows = useMemo(() => {
+    return allPlanRows.filter((r) => {
+      if (planFilterRep !== "all" && r.rep !== planFilterRep) return false;
+      if (planFilterStatus !== "all" && r.status !== planFilterStatus) return false;
+      return true;
+    });
+  }, [allPlanRows, planFilterRep, planFilterStatus]);
+
+  const planStats = useMemo(() => ({
+    total:   allPlanRows.length,
+    done:    allPlanRows.filter((r) => r.status === "completed").length,
+    planned: allPlanRows.filter((r) => r.status === "planned").length,
+    skipped: allPlanRows.filter((r) => r.status === "skipped").length,
+  }), [allPlanRows]);
+
+  const byRepCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    allPlanRows.forEach((r) => { m[r.rep] = (m[r.rep] ?? 0) + 1; });
+    return m;
+  }, [allPlanRows]);
+
+  const exportPlanCSV = useCallback(() => {
+    const headers = ["วัน", "วันที่", "Sales", "ลูกค้า/สถานที่", "เบอร์ติดต่อ", "วัตถุประสงค์", "เวลา", "สถานะ", "หมายเหตุ"];
+    const csvRows = [
+      headers.join(","),
+      ...planRows.map((r) => [
+        r.dayLabel, r.date, r.rep,
+        `"${r.customer || r.place}"`, `"${r.address}"`,
+        `"${r.purpose}"`, r.time,
+        STATUS_LABELS[r.status], `"${r.note}"`,
+      ].join(",")),
+    ];
+    const blob = new Blob(["﻿" + csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `plan-report-${format(weekDays[0], "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [planRows, weekDays, STATUS_LABELS]);
 
   /* ── Route Report PDF (A4 รายบุคคล) ── */
   const downloadReport = useCallback((mode: 'pdf' | 'jpg' = 'pdf') => {
@@ -512,14 +622,35 @@ export default function SalesFollower() {
             <p className="text-sm text-muted-foreground">ติดตามภารกิจ Mission Complete ของ Sales ทุกคน</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); setCompletedPage(1); }} />
-          <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1 shrink-0">
-            <FileDown className="w-4 h-4" /> Export PDF
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Tab switcher */}
+          <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+            <button
+              onClick={() => setActiveTab("mission")}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${activeTab === "mission" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <ClipboardList className="w-3 h-3" /> Live Mission
+            </button>
+            <button
+              onClick={() => setActiveTab("plan")}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${activeTab === "plan" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <CalendarRange className="w-3 h-3" /> แผนสัปดาห์
+            </button>
+          </div>
+          {/* Mission-only actions */}
+          {activeTab === "mission" && (
+            <>
+              <DateRangeFilter value={preset} custom={custom} onChange={(p, c) => { setPreset(p); setCustom(c); setCompletedPage(1); }} />
+              <Button size="sm" variant="outline" onClick={exportPDF} className="gap-1 shrink-0">
+                <FileDown className="w-4 h-4" /> Export PDF
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
+      {activeTab === "mission" && (<>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Routes ทั้งหมด", value: totals.routes, icon: MapPin, tone: "text-primary bg-primary/10" },
@@ -879,6 +1010,160 @@ export default function SalesFollower() {
           </div>
         );
       })()}
+      </>)}
+
+      {/* ── แผนสัปดาห์ Tab ─────────────────────────────────────────────────── */}
+      {activeTab === "plan" && (
+        <div className="space-y-4">
+          {/* Controls row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Week navigator */}
+            <button onClick={() => setBaseMonday((d) => subWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+              <ChevronLeft className="w-4 h-4 text-gray-500" />
+            </button>
+            <span className="text-sm font-medium text-gray-700 min-w-[155px] text-center">{weekLabel}</span>
+            <button onClick={() => setBaseMonday((d) => addWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200">
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </button>
+            <button onClick={() => setBaseMonday(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+              สัปดาห์นี้
+            </button>
+
+            {/* Rep filter */}
+            <Select value={planFilterRep} onValueChange={setPlanFilterRep}>
+              <SelectTrigger className="h-8 text-xs w-[130px]"><SelectValue placeholder="ทุก Sales" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุก Sales</SelectItem>
+                {ALL_SALES_REPS.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+              </SelectContent>
+            </Select>
+
+            {/* Status filter */}
+            <Select value={planFilterStatus} onValueChange={setPlanFilterStatus}>
+              <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="ทุกสถานะ" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกสถานะ</SelectItem>
+                <SelectItem value="planned">แผน</SelectItem>
+                <SelectItem value="in_progress">กำลังไป</SelectItem>
+                <SelectItem value="completed">เสร็จ ✓</SelectItem>
+                <SelectItem value="skipped">ข้าม</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button size="sm" variant="outline" onClick={exportPlanCSV} className="h-8 text-xs gap-1.5 ml-auto">
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Export CSV
+            </Button>
+          </div>
+
+          {/* Mini stats */}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "ทั้งสัปดาห์", value: planStats.total, color: "#1D4ED8" },
+              { label: "เสร็จแล้ว",   value: planStats.done,    color: "#16A34A" },
+              { label: "ยังไม่ได้ไป", value: planStats.planned, color: "#D97706" },
+              { label: "ข้าม",         value: planStats.skipped, color: "#9CA3AF" },
+            ].map((s) => (
+              <div key={s.label} className="bg-card rounded-xl border p-4 shadow-soft text-center">
+                <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+                <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Per-rep chips */}
+          {Object.keys(byRepCount).length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">Sales:</span>
+              {Object.entries(byRepCount).map(([rep, cnt]) => (
+                <button
+                  key={rep}
+                  onClick={() => setPlanFilterRep(planFilterRep === rep ? "all" : rep)}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${planFilterRep === rep ? "bg-amber-500 text-white border-amber-500" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  {rep} · {cnt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Table */}
+          {planRows.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-52 text-muted-foreground bg-card rounded-xl border shadow-soft">
+              <AlertCircle className="w-10 h-10 mb-2 opacity-25" />
+              <p className="text-sm">ไม่มีข้อมูลแผนงานในสัปดาห์นี้</p>
+              {(planFilterRep !== "all" || planFilterStatus !== "all") && (
+                <button onClick={() => { setPlanFilterRep("all"); setPlanFilterStatus("all"); }} className="mt-2 text-xs text-purple-600 underline">
+                  ล้าง Filter
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-xs text-muted-foreground uppercase tracking-wide">
+                    <th className="px-4 py-3 text-left font-semibold w-10">วัน</th>
+                    <th className="px-4 py-3 text-left font-semibold w-20">วันที่</th>
+                    <th className="px-4 py-3 text-left font-semibold w-20">Sales</th>
+                    <th className="px-4 py-3 text-left font-semibold">ลูกค้า / สถานที่</th>
+                    <th className="px-4 py-3 text-left font-semibold w-32">เบอร์ติดต่อ</th>
+                    <th className="px-4 py-3 text-left font-semibold w-44">วัตถุประสงค์</th>
+                    <th className="px-4 py-3 text-left font-semibold w-16">เวลา</th>
+                    <th className="px-4 py-3 text-left font-semibold w-24">สถานะ</th>
+                    <th className="px-4 py-3 text-left font-semibold">หมายเหตุ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planRows.map((row, idx) => {
+                    const prevRow = planRows[idx - 1];
+                    const isNewDate = !prevRow || prevRow.date !== row.date;
+                    return (
+                      <>
+                        {isNewDate && idx > 0 && (
+                          <tr key={`sep-${row.date}-${idx}`}>
+                            <td colSpan={9} className="h-px bg-gray-100 p-0" />
+                          </tr>
+                        )}
+                        <tr
+                          key={`${row.date}-${row.rep}-${idx}`}
+                          className={`border-b border-gray-50 hover:bg-muted/30 transition-colors ${row.status === "completed" ? "opacity-70" : ""} ${row.status === "skipped" ? "opacity-50" : ""}`}
+                        >
+                          <td className="px-4 py-2.5 text-xs font-semibold text-gray-700">{row.dayLabel}</td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(row.date), "d MMM", { locale: th })}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs font-medium text-gray-700 whitespace-nowrap">{row.rep}</td>
+                          <td className="px-4 py-2.5">
+                            <p className={`font-medium text-gray-900 ${row.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
+                              {row.customer || row.place}
+                            </p>
+                            {row.customer && row.place !== row.customer && (
+                              <p className="text-xs text-muted-foreground">{row.place}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-gray-600 whitespace-nowrap">{row.address}</td>
+                          <td className="px-4 py-2.5 text-xs text-gray-600">{row.purpose}</td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.time}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${STATUS_COLORS[row.status]}`}>
+                              {STATUS_LABELS[row.status]}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground italic">{row.note}</td>
+                        </tr>
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="px-4 py-2.5 bg-muted/20 border-t text-xs text-muted-foreground flex items-center justify-between">
+                <span>แสดง {planRows.length} รายการ {planRows.length !== allPlanRows.length ? `(จากทั้งหมด ${allPlanRows.length})` : ""}</span>
+                <span>{weekLabel}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

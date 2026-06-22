@@ -21,7 +21,6 @@ import {
   Tag,
   UserPlus,
   CalendarRange,
-  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -108,7 +107,6 @@ const salesManagerMenu: RoleMenu = {
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
-        { title: "รายงานแผนงาน", url: "/app/plan-report", icon: ClipboardList },
       ],
     },
     {
