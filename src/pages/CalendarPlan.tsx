@@ -56,10 +56,10 @@ function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 
 
 function StatusBadge({ status }: { status: StopStatus }) {
   const cfg: Record<StopStatus, { label: string; cls: string }> = {
-    planned:     { label: "แผน",     cls: "bg-purple-50 text-purple-700 border-purple-200" },
-    in_progress: { label: "กำลังไป", cls: "bg-amber-50  text-amber-700  border-amber-200"  },
-    completed:   { label: "เสร็จ ✓", cls: "bg-green-50  text-green-700  border-green-200"  },
-    skipped:     { label: "ข้าม",    cls: "bg-gray-100  text-gray-500   border-gray-200"   },
+    planned:     { label: "แผน",     cls: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+    in_progress: { label: "กำลังไป", cls: "bg-amber-500/10  text-amber-400  border-amber-500/20"  },
+    completed:   { label: "เสร็จ ✓", cls: "bg-green-500/10  text-green-400  border-green-500/20"  },
+    skipped:     { label: "ข้าม",    cls: "bg-muted text-muted-foreground border-border"           },
   };
   const c = cfg[status];
   return (
@@ -85,14 +85,14 @@ function SortableStop({ stop, routeId: _routeId, isPast, onDelete }: SortableSto
   };
   return (
     <div ref={setNodeRef} style={style}
-      className={cn("rounded-md border text-[11px] bg-white flex items-stretch mb-1 group relative overflow-hidden",
-        isPast ? "border-gray-200 opacity-60" : "border-purple-100 shadow-sm"
+      className={cn("rounded-md border text-[11px] bg-card flex items-stretch mb-1 group relative overflow-hidden",
+        isPast ? "border-border opacity-60" : "border-purple-500/20 shadow-sm"
       )}>
       {/* Drag handle */}
       {!isPast && (
         <div {...attributes} {...listeners}
-          className="flex items-center justify-center w-4 shrink-0 bg-gray-50 border-r border-purple-50 cursor-grab active:cursor-grabbing touch-none">
-          <GripVertical className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-400" />
+          className="flex items-center justify-center w-4 shrink-0 bg-muted border-r border-border cursor-grab active:cursor-grabbing touch-none">
+          <GripVertical className="w-2.5 h-2.5 text-muted-foreground/40 group-hover:text-muted-foreground" />
         </div>
       )}
       {/* Compact 2-line content */}
@@ -559,22 +559,22 @@ export default function CalendarPlan() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full min-h-screen bg-gray-50">
+    <div className="flex flex-col h-full min-h-screen bg-background">
 
       {/* ── Top bar ── */}
-      <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="bg-card border-b border-border sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-primary shadow-glow">
             <CalendarRange className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-base font-semibold leading-tight text-gray-900">Calendar Plan</h1>
+            <h1 className="text-base font-semibold leading-tight text-foreground">Calendar Plan</h1>
             <p className="text-xs text-muted-foreground">วางแผน · ดูปฏิทิน · Import/Export</p>
           </div>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+        <div className="flex rounded-lg border border-border bg-muted p-0.5">
           {([
             { id: "week",   label: "แผนสัปดาห์", icon: CalendarRange },
             { id: "month",  label: "ปฏิทิน",      icon: CalendarDays },
@@ -585,7 +585,7 @@ export default function CalendarPlan() {
               onClick={() => setActiveTab(id)}
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5",
-                activeTab === id ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700",
+                activeTab === id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="w-3.5 h-3.5" /> {label}
@@ -596,14 +596,14 @@ export default function CalendarPlan() {
         {/* Right-side controls per tab */}
         {activeTab === "week" && (
           <div className="flex items-center gap-1.5">
-            <button onClick={() => setBaseMonday((d) => subWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 border border-gray-200">
-              <ChevronLeft className="w-4 h-4 text-gray-500" />
+            <button onClick={() => setBaseMonday((d) => subWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-muted border border-border">
+              <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             </button>
-            <span className="text-sm font-medium text-gray-700 min-w-[160px] text-center">{weekLabel}</span>
-            <button onClick={() => setBaseMonday((d) => addWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-gray-100 border border-gray-200">
-              <ChevronRight className="w-4 h-4 text-gray-500" />
+            <span className="text-sm font-medium text-foreground min-w-[160px] text-center">{weekLabel}</span>
+            <button onClick={() => setBaseMonday((d) => addWeeks(d, 1))} className="p-1.5 rounded-lg hover:bg-muted border border-border">
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
-            <button onClick={() => setBaseMonday(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            <button onClick={() => setBaseMonday(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted">
               สัปดาห์นี้
             </button>
           </div>
@@ -629,14 +629,14 @@ export default function CalendarPlan() {
       ════════════════════════════════════════ */}
       {activeTab === "week" && (<>
         {/* Stats bar */}
-        <div className="grid grid-cols-4 gap-px bg-gray-200 border-b">
+        <div className="grid grid-cols-4 gap-px bg-border border-b">
           {[
-            { label: "ทั้งสัปดาห์", value: weekStats.total,   color: "#534AB7" },
-            { label: "เสร็จแล้ว",   value: weekStats.done,    color: "#16A34A" },
-            { label: "ยังไม่ได้ไป", value: weekStats.planned, color: "#CA8A04" },
-            { label: "ข้าม",        value: weekStats.skipped, color: "#9CA3AF" },
+            { label: "ทั้งสัปดาห์", value: weekStats.total,   color: "#A78BFA" },
+            { label: "เสร็จแล้ว",   value: weekStats.done,    color: "#4ADE80" },
+            { label: "ยังไม่ได้ไป", value: weekStats.planned, color: "#FCD34D" },
+            { label: "ข้าม",        value: weekStats.skipped, color: "#6B7280" },
           ].map((s) => (
-            <div key={s.label} className="bg-white px-4 py-2.5 text-center">
+            <div key={s.label} className="bg-card px-4 py-2.5 text-center">
               <p className="text-xl font-semibold" style={{ color: s.color }}>{s.value}</p>
               <p className="text-[11px] text-muted-foreground">{s.label}</p>
             </div>
@@ -650,7 +650,7 @@ export default function CalendarPlan() {
           <div className="min-w-[700px]">
 
             {/* ROW 1: Sticky day-header row */}
-            <div className="grid sticky top-0 z-10 bg-white border-b shadow-sm"
+            <div className="grid sticky top-0 z-10 bg-card border-b border-border shadow-sm"
               style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
               {weekDays.map((day, i) => {
                 const dk = ymd(day);
@@ -661,17 +661,17 @@ export default function CalendarPlan() {
                 const isSat = i === 5;
                 return (
                   <div key={dk} className={cn(
-                    "px-2 py-2 border-r border-gray-200 flex items-center gap-1.5",
-                    isSat && "bg-gray-50",
+                    "px-2 py-2 border-r border-border flex items-center gap-1.5",
+                    isSat && "bg-muted/30",
                     isPast && "opacity-60",
                   )}>
-                    <span className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0", isToday ? "text-white" : "text-gray-600")}
-                      style={{ background: isToday ? "#534AB7" : "transparent" }}>
+                    <span className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0", isToday ? "text-white" : "text-muted-foreground")}
+                      style={{ background: isToday ? "#7C3AED" : "transparent" }}>
                       {format(day, "d")}
                     </span>
-                    <p className="text-[11px] font-medium text-gray-500">{DAY_LABELS_SHORT[i]}</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">{DAY_LABELS_SHORT[i]}</p>
                     <div className="ml-auto flex items-center gap-1">
-                      {isPast && <Lock className="w-3 h-3 text-gray-300" />}
+                      {isPast && <Lock className="w-3 h-3 text-muted-foreground/30" />}
                       {totalStops > 0 && <span className="text-[10px] text-muted-foreground">{totalStops} จุด</span>}
                     </div>
                   </div>
@@ -689,25 +689,25 @@ export default function CalendarPlan() {
                 const isSat = i === 5;
                 return (
                   <DroppableDay key={dk} id={dk} disabled={isPast} className={cn(
-                    "border-r border-gray-200 min-h-[60vh] p-2",
-                    isSat && "bg-gray-50",
-                    isPast && "bg-gray-50/50",
+                    "border-r border-border min-h-[60vh] p-2",
+                    isSat && "bg-muted/20",
+                    isPast && "bg-muted/10",
                   )}>
                     {/* ── วันผ่านมา: แสดงผลอย่างเดียว ── */}
                     {isPast && dayRoutes.length === 0 && (
                       <div className="flex flex-col items-center justify-center h-24 gap-1 opacity-30">
-                        <Lock className="w-4 h-4 text-gray-400" />
-                        <p className="text-[10px] text-gray-400">วันผ่านมา</p>
+                        <Lock className="w-4 h-4 text-muted-foreground" />
+                        <p className="text-[10px] text-muted-foreground">วันผ่านมา</p>
                       </div>
                     )}
 
                     {/* ── แสดง route แต่ละ route (รวม past) ── */}
                     {dayRoutes.map((route, ri) => (
                       <div key={route.route_id}
-                        className={cn("rounded-lg border mb-2", isPast ? "border-gray-200 bg-white/60" : "border-purple-100 bg-white shadow-sm")}>
+                        className={cn("rounded-lg border mb-2", isPast ? "border-border bg-card/60" : "border-purple-500/20 bg-card shadow-sm")}>
                         {/* Route header */}
                         <div className={cn("flex items-center gap-1.5 px-2 py-1.5 border-b rounded-t-lg",
-                          isPast ? "border-gray-100 bg-gray-50/80" : "border-purple-50 bg-purple-50/60")}>
+                          isPast ? "border-border/40 bg-muted/40" : "border-purple-500/10 bg-purple-500/10")}>
                           <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide truncate flex-1">
                             {route.title || `Route ${ri + 1}`}
                           </span>
@@ -728,13 +728,13 @@ export default function CalendarPlan() {
                             ))}
                           </SortableContext>
                           {route.stops.length === 0 && (
-                            <p className="text-[10px] text-center text-gray-300 py-2">ยังไม่มีจุดเยี่ยม</p>
+                            <p className="text-[10px] text-center text-muted-foreground/40 py-2">ยังไม่มีจุดเยี่ยม</p>
                           )}
 
                           {/* + เพิ่มจุด ใน route นี้ (เฉพาะวันปัจจุบัน+อนาคต) */}
                           {!isPast && !isSat && (
                             <button onClick={() => openAdd(dk, undefined, route.route_id)}
-                              className="w-full border border-dashed border-purple-200 rounded-lg py-1 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-0.5 mt-1">
+                              className="w-full border border-dashed border-purple-500/30 rounded-lg py-1 text-[10px] text-purple-400 hover:border-purple-400 hover:bg-purple-500/10 transition-colors flex items-center justify-center gap-0.5 mt-1">
                               <Plus className="w-3 h-3" /> เพิ่มจุด
                             </button>
                           )}
@@ -745,7 +745,7 @@ export default function CalendarPlan() {
                     {/* ── สร้าง Route ใหม่ (เฉพาะวันธรรมดา ปัจจุบัน+อนาคต) ── */}
                     {!isPast && !isSat && (
                       <button onClick={() => openCreateRoute(dk)}
-                        className="w-full border-2 border-dashed border-purple-200 rounded-lg py-2.5 text-[11px] text-purple-500 hover:border-purple-400 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 font-medium">
+                        className="w-full border-2 border-dashed border-purple-500/30 rounded-lg py-2.5 text-[11px] text-purple-400 hover:border-purple-400 hover:bg-purple-500/10 transition-colors flex items-center justify-center gap-1 font-medium">
                         <Plus className="w-3.5 h-3.5" /> สร้าง Route
                       </button>
                     )}
@@ -763,7 +763,7 @@ export default function CalendarPlan() {
             const meta = findStopMeta(activeStopId);
             if (!meta) return null;
             return (
-              <div className="rounded-lg border-2 border-purple-400 bg-white shadow-xl text-[11px] p-2 w-44 opacity-95 rotate-1">
+              <div className="rounded-lg border-2 border-purple-400 bg-card shadow-xl text-[11px] p-2 w-44 opacity-95 rotate-1">
                 <p className="font-semibold truncate">{meta.stop.place_name}</p>
                 <p className="text-muted-foreground text-[10px] truncate">{meta.stop.purpose}</p>
                 {meta.stop.planned_time && (
@@ -791,9 +791,9 @@ export default function CalendarPlan() {
                   <p className="text-[11px] text-purple-600 mt-0.5">{pendingMove.stop.purpose}</p>
                 </div>
                 <div className="flex items-center gap-2 text-[12px]">
-                  <div className="flex-1 text-center rounded bg-gray-50 border px-2 py-1.5">
+                  <div className="flex-1 text-center rounded bg-muted border border-border px-2 py-1.5">
                     <p className="text-[10px] text-muted-foreground">จาก</p>
-                    <p className="font-semibold text-gray-700">
+                    <p className="font-semibold text-foreground">
                       {format(new Date(pendingMove.srcRoute.date + "T00:00:00"), "d MMM", { locale: th })}
                     </p>
                   </div>
@@ -827,14 +827,14 @@ export default function CalendarPlan() {
 
         {/* Suggested customers */}
         {suggested.length > 0 && (
-          <div className="border-t bg-white px-4 py-3">
+          <div className="border-t border-border bg-card px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
               <Lightbulb className="w-3.5 h-3.5 text-amber-500" /> ลูกค้าที่ควรเยี่ยม (ไม่ได้เจอ 30+ วัน)
             </p>
             <div className="flex gap-2 flex-wrap">
               {suggested.map((c: any) => (
                 <button key={c.customer_id} onClick={() => openAdd(ymd(weekDays[0]), c.customer_id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple-200 text-[11px] text-purple-700 bg-purple-50 hover:bg-purple-100">
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple-500/20 text-[11px] text-purple-400 bg-purple-500/10 hover:bg-purple-500/20">
                   <User className="w-3 h-3" />{c.company || c.full_name}
                 </button>
               ))}
@@ -900,19 +900,19 @@ export default function CalendarPlan() {
         <div className="p-6 flex-1 space-y-6 max-w-3xl mx-auto w-full">
 
           {/* Download template */}
-          <div className="bg-white rounded-xl border p-5 shadow-soft space-y-3">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-soft space-y-3">
             <div className="flex items-center gap-2">
-              <Download className="w-5 h-5 text-purple-600" />
-              <h2 className="font-semibold text-gray-900">ดาวน์โหลด Template</h2>
+              <Download className="w-5 h-5 text-purple-400" />
+              <h2 className="font-semibold text-foreground">ดาวน์โหลด Template</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               ดาวน์โหลด Template Excel สำหรับกรอกแผนการเยี่ยมลูกค้า ระบุวันที่, สถานที่, เบอร์, วัตถุประสงค์ และเวลานัด
             </p>
-            <div className="bg-purple-50 rounded-lg p-3 text-xs text-purple-700 space-y-1">
+            <div className="bg-purple-500/10 rounded-lg p-3 text-xs text-purple-400 space-y-1">
               {PLAN_FIELDS.map((f) => (
                 <div key={f.key} className="flex items-center gap-2">
                   <span className="font-semibold w-40 shrink-0">{f.header}{f.required ? " *" : ""}</span>
-                  <span className="text-purple-500">เช่น {f.example}</span>
+                  <span className="text-purple-400/70">เช่น {f.example}</span>
                 </div>
               ))}
             </div>
@@ -923,10 +923,10 @@ export default function CalendarPlan() {
           </div>
 
           {/* Upload & Import */}
-          <div className="bg-white rounded-xl border p-5 shadow-soft space-y-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-soft space-y-4">
             <div className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-green-600" />
-              <h2 className="font-semibold text-gray-900">Import แผนจาก Excel</h2>
+              <Upload className="w-5 h-5 text-green-400" />
+              <h2 className="font-semibold text-foreground">Import แผนจาก Excel</h2>
             </div>
             <p className="text-sm text-muted-foreground">
               อัพโหลดไฟล์ Excel ที่กรอกข้อมูลแล้ว ระบบจะสร้าง Route + จุดเยี่ยมให้อัตโนมัติตามวันที่
@@ -934,12 +934,12 @@ export default function CalendarPlan() {
 
             {/* File drop zone */}
             <label className={cn("flex flex-col items-center gap-3 border-2 border-dashed rounded-xl p-8 cursor-pointer transition",
-              importFile ? "border-green-400 bg-green-50" : "border-gray-300 hover:border-purple-400 hover:bg-purple-50/40")}>
-              <FileUp className={cn("w-10 h-10", importFile ? "text-green-500" : "text-gray-400")} />
+              importFile ? "border-green-500/50 bg-green-500/10" : "border-border hover:border-purple-400 hover:bg-purple-500/10")}>
+              <FileUp className={cn("w-10 h-10", importFile ? "text-green-400" : "text-muted-foreground")} />
               <div className="text-center">
                 {importFile
-                  ? <><p className="font-medium text-green-700">{importFile.name}</p><p className="text-xs text-green-600 mt-1">{importRows?.length ?? 0} แถวพร้อม Import</p></>
-                  : <><p className="text-sm font-medium text-gray-600">คลิกหรือลากไฟล์ .xlsx มาวางที่นี่</p><p className="text-xs text-gray-400 mt-1">รองรับ .xlsx เท่านั้น</p></>}
+                  ? <><p className="font-medium text-green-400">{importFile.name}</p><p className="text-xs text-green-400/70 mt-1">{importRows?.length ?? 0} แถวพร้อม Import</p></>
+                  : <><p className="text-sm font-medium text-muted-foreground">คลิกหรือลากไฟล์ .xlsx มาวางที่นี่</p><p className="text-xs text-muted-foreground/60 mt-1">รองรับ .xlsx เท่านั้น</p></>}
               </div>
               <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileChange} />
             </label>
@@ -948,29 +948,29 @@ export default function CalendarPlan() {
             {importing && <div className="flex items-center justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-purple-600" /></div>}
 
             {importRows && importRows.length > 0 && (
-              <div className="rounded-lg border overflow-hidden">
-                <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 border-b flex items-center justify-between">
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border flex items-center justify-between">
                   <span>ตัวอย่างข้อมูล ({Math.min(importRows.length, 5)} จาก {importRows.length} แถว)</span>
-                  <span className="text-purple-600">{new Set(importRows.map((r) => String(r.date))).size} วัน</span>
+                  <span className="text-purple-400">{new Set(importRows.map((r) => String(r.date))).size} วัน</span>
                 </div>
                 <table className="w-full text-xs">
-                  <thead><tr className="border-b bg-gray-50 text-gray-500">
+                  <thead><tr className="border-b border-border bg-muted text-muted-foreground">
                     {PLAN_FIELDS.map((f) => <th key={f.key} className="px-3 py-2 text-left font-medium">{f.header}</th>)}
                   </tr></thead>
                   <tbody>
                     {importRows.slice(0, 5).map((row, i) => (
-                      <tr key={i} className="border-b hover:bg-gray-50">
-                        {PLAN_FIELDS.map((f) => <td key={f.key} className="px-3 py-2 text-gray-700">{String(row[f.key] ?? "")}</td>)}
+                      <tr key={i} className="border-b border-border hover:bg-muted/50">
+                        {PLAN_FIELDS.map((f) => <td key={f.key} className="px-3 py-2 text-foreground">{String(row[f.key] ?? "")}</td>)}
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {importRows.length > 5 && <div className="px-3 py-2 text-xs text-muted-foreground bg-gray-50 border-t">... และอีก {importRows.length - 5} แถว</div>}
+                {importRows.length > 5 && <div className="px-3 py-2 text-xs text-muted-foreground bg-muted border-t border-border">... และอีก {importRows.length - 5} แถว</div>}
               </div>
             )}
 
             {importRows && importRows.length === 0 && (
-              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-500/10 rounded-lg px-4 py-3">
                 <AlertCircle className="w-4 h-4 shrink-0" /> ไม่พบข้อมูลในไฟล์ที่อัพโหลด
               </div>
             )}
@@ -989,15 +989,15 @@ export default function CalendarPlan() {
           </div>
 
           {/* Export */}
-          <div className="bg-white rounded-xl border p-5 shadow-soft space-y-4">
+          <div className="bg-card rounded-xl border border-border p-5 shadow-soft space-y-4">
             <div className="flex items-center gap-2">
-              <FileDown className="w-5 h-5 text-blue-600" />
-              <h2 className="font-semibold text-gray-900">Export แผนเยี่ยมลูกค้า</h2>
+              <FileDown className="w-5 h-5 text-blue-400" />
+              <h2 className="font-semibold text-foreground">Export แผนเยี่ยมลูกค้า</h2>
             </div>
 
             {/* Quick presets */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">ช่วงเวลาด่วน</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">ช่วงเวลาด่วน</p>
               <div className="flex flex-wrap gap-2">
                 {([
                   { label: "สัปดาห์นี้",    value: "this-week"  },
@@ -1009,7 +1009,7 @@ export default function CalendarPlan() {
                   <button
                     key={p.value}
                     onClick={() => applyExportPreset(p.value)}
-                    className="px-3 py-1.5 text-xs rounded-full border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                    className="px-3 py-1.5 text-xs rounded-full border border-blue-500/20 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
                   >
                     {p.label}
                   </button>
@@ -1019,7 +1019,7 @@ export default function CalendarPlan() {
 
             {/* Custom range */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">กำหนดช่วงเวลาเอง</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">กำหนดช่วงเวลาเอง</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">ตั้งแต่วันที่</label>
@@ -1034,13 +1034,13 @@ export default function CalendarPlan() {
 
             {/* Status filter */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">กรองสถานะ</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">กรองสถานะ</p>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { label: "ทั้งหมด",     value: "all",         cls: "border-gray-300 text-gray-600 bg-gray-50 hover:bg-gray-100" },
-                  { label: "แผน (ยังไปไม่ถึง)", value: "planned",  cls: "border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100" },
-                  { label: "เสร็จแล้ว",   value: "completed",   cls: "border-green-200 text-green-700 bg-green-50 hover:bg-green-100" },
-                  { label: "ข้าม",        value: "skipped",     cls: "border-gray-200 text-gray-500 bg-gray-50 hover:bg-gray-100" },
+                  { label: "ทั้งหมด",     value: "all",         cls: "border-border text-muted-foreground bg-muted hover:bg-muted/80" },
+                  { label: "แผน (ยังไปไม่ถึง)", value: "planned",  cls: "border-purple-500/20 text-purple-400 bg-purple-500/10 hover:bg-purple-500/20" },
+                  { label: "เสร็จแล้ว",   value: "completed",   cls: "border-green-500/20 text-green-400 bg-green-500/10 hover:bg-green-500/20" },
+                  { label: "ข้าม",        value: "skipped",     cls: "border-border text-muted-foreground bg-muted hover:bg-muted/80" },
                 ] as const).map((s) => (
                   <button
                     key={s.value}
@@ -1063,12 +1063,12 @@ export default function CalendarPlan() {
             <div className={cn(
               "rounded-lg px-4 py-3 flex items-center justify-between gap-3 border text-sm",
               exportPreview.stopCount > 0
-                ? "bg-blue-50 border-blue-200"
-                : "bg-gray-50 border-gray-200",
+                ? "bg-blue-500/10 border-blue-500/20"
+                : "bg-muted border-border",
             )}>
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className={cn("w-4 h-4 shrink-0", exportPreview.stopCount > 0 ? "text-blue-600" : "text-gray-400")} />
-                <span className={exportPreview.stopCount > 0 ? "text-blue-800" : "text-gray-400"}>
+                <FileSpreadsheet className={cn("w-4 h-4 shrink-0", exportPreview.stopCount > 0 ? "text-blue-400" : "text-muted-foreground")} />
+                <span className={exportPreview.stopCount > 0 ? "text-blue-300" : "text-muted-foreground"}>
                   {exportPreview.stopCount > 0
                     ? <><span className="font-semibold">{exportPreview.stopCount} จุด</span> จาก <span className="font-semibold">{exportPreview.dayCount} วัน</span> พร้อม Export</>
                     : "ไม่มีข้อมูลในช่วงที่เลือก"}
@@ -1208,7 +1208,7 @@ export default function CalendarPlan() {
             {/* Route picker — แสดงเมื่อวันนั้นมีหลาย route */}
             {addOpen && (routesByDay.get(addOpen.dayKey) ?? []).length > 1 && (
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เพิ่มเข้า Route</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">เพิ่มเข้า Route</label>
                 <Select
                   value={addOpen.routeId ?? "new"}
                   onValueChange={(v) => setAddOpen((o) => o ? { ...o, routeId: v === "new" ? null : v } : o)}
@@ -1226,7 +1226,7 @@ export default function CalendarPlan() {
               </div>
             )}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ลูกค้า</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ลูกค้า</label>
               <Select value={stopForm.customer_id} onValueChange={handleCustomerChange}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="เลือกลูกค้า (ไม่บังคับ)" /></SelectTrigger>
                 <SelectContent>
@@ -1240,16 +1240,16 @@ export default function CalendarPlan() {
               </Select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ชื่อสถานที่</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ชื่อสถานที่</label>
               <Input className="mt-1 h-9 text-sm" placeholder="ชื่อบริษัท / สถานที่" value={stopForm.place_name} onChange={(e) => setStopForm((f) => ({ ...f, place_name: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เบอร์ติดต่อ</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">เบอร์ติดต่อ</label>
                 <Input className="mt-1 h-9 text-sm" placeholder="08X-XXX-XXXX" value={stopForm.address} onChange={(e) => setStopForm((f) => ({ ...f, address: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เวลา</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">เวลา</label>
                 <TimeInput24
                   value={stopForm.planned_time}
                   onChange={(v) => setStopForm((f) => ({ ...f, planned_time: v }))}
@@ -1259,7 +1259,7 @@ export default function CalendarPlan() {
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">วัตถุประสงค์</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">วัตถุประสงค์</label>
               <Select value={stopForm.purpose} onValueChange={(v) => setStopForm((f) => ({ ...f, purpose: v }))}>
                 <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1273,7 +1273,7 @@ export default function CalendarPlan() {
               </Select>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">หมายเหตุ</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
               <Input className="mt-1 h-9 text-sm" placeholder="รายละเอียดเพิ่มเติม..." value={stopForm.note} onChange={(e) => setStopForm((f) => ({ ...f, note: e.target.value }))} />
             </div>
           </div>

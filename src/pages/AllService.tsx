@@ -1038,7 +1038,7 @@ ${catBlocks}
         .anim-filter     { animation: slideDown 0.2s ease-out; }
       `}</style>
       {/* ── FILTER BAR (non-sticky) ── */}
-      <div className="bg-white border-b px-4 py-2.5 space-y-2">
+      <div className="bg-card border-b border-border px-4 py-2.5 space-y-2">
 
         {/* ── MOBILE: compact search row + filter toggle ── */}
         <div className="flex items-center gap-2 sm:hidden">
@@ -1048,7 +1048,7 @@ ${catBlocks}
           </div>
           <button
             onClick={() => setFilterOpen((v) => !v)}
-            className={`h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${(filterOpen || hasFilter) ? "text-white border-gray-800" : "border-gray-200 text-gray-500"}`}
+            className={`h-9 flex items-center gap-1.5 px-3 rounded-lg border text-sm font-medium transition-colors ${(filterOpen || hasFilter) ? "text-white border-transparent" : "border-border text-muted-foreground"}`}
             style={(filterOpen || hasFilter) ? {background: "#1F2937"} : undefined}
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -1059,7 +1059,7 @@ ${catBlocks}
 
         {/* ── MOBILE: expandable filter panel ── */}
         {filterOpen && (
-          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-gray-100 mt-1 anim-filter">
+          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-border mt-1 anim-filter">
             <div className="grid grid-cols-2 gap-2">
               <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="กลุ่มทัวร์" /></SelectTrigger>
@@ -1088,7 +1088,7 @@ ${catBlocks}
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setFilterPromo((v) => !v)}
-                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500"}`}
+                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground"}`}
                 style={filterPromo ? {background: "#F59E0B"} : undefined}
               >🔥 Promo</button>
               {hasFilter && (
@@ -1103,7 +1103,7 @@ ${catBlocks}
                   className="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
                   style={filterTags.includes(tag)
                     ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                    : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                    : {borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))"}}
                 >{tag}</button>
               ))}
             </div>
@@ -1141,34 +1141,34 @@ ${catBlocks}
               </SelectContent>
             </Select>
             {/* Date range filter */}
-            <div className="flex items-center gap-1 border border-gray-200 rounded-md px-2 h-8">
-              <CalendarDays className="w-3 h-3 text-gray-400 shrink-0" />
+            <div className="flex items-center gap-1 border border-border rounded-md px-2 h-8">
+              <CalendarDays className="w-3 h-3 text-muted-foreground shrink-0" />
               <input
                 type="date"
-                className="h-full text-xs bg-transparent outline-none text-gray-600 w-[110px]"
+                className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ตั้งแต่"
                 value={filterDateFrom}
                 onChange={(e) => setFilterDateFrom(e.target.value)}
               />
-              <span className="text-gray-300 text-xs">–</span>
+              <span className="text-muted-foreground/40 text-xs">–</span>
               <input
                 type="date"
-                className="h-full text-xs bg-transparent outline-none text-gray-600 w-[110px]"
+                className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ถึง"
                 value={filterDateTo}
                 onChange={(e) => setFilterDateTo(e.target.value)}
               />
               {(filterDateFrom || filterDateTo) && (
-                <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-gray-300 hover:text-gray-500 transition-colors ml-0.5">✕</button>
+                <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-0.5">✕</button>
               )}
             </div>
             <button
               onClick={() => setFilterPromo((v) => !v)}
-              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-gray-200 text-gray-500 hover:border-orange-300 hover:text-orange-600"}`}
+              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-300 hover:text-orange-400"}`}
               style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
             >🔥 Promo</button>
             {hasFilter && (
-              <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-md transition-colors">✕ ล้าง</button>
+              <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -1186,7 +1186,7 @@ ${catBlocks}
       </div>
 
       {/* ── HEADER ACTIONS BAR ── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b bg-white">
+      <div className="flex items-center justify-between gap-2 flex-wrap px-4 py-3 border-b border-border bg-card">
         <div>
           <p className="text-sm text-muted-foreground flex items-center gap-2">
             {isLoadingTours && (
@@ -1254,73 +1254,73 @@ ${catBlocks}
         ] as const;
 
         return (
-          <div className="hidden sm:flex items-stretch border-b bg-white divide-x divide-gray-100 overflow-x-auto">
+          <div className="hidden sm:flex items-stretch border-b border-border bg-card divide-x divide-border overflow-x-auto">
             {/* ── Label chip ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 shrink-0">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
-              <span className="text-[10px] text-gray-300 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
+              <span className="text-[10px] text-muted-foreground/50 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
             </div>
 
             {/* ── ที่นั่งรวม ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 min-w-[88px] shrink-0">
-              <span className="text-[18px] font-bold text-gray-900 leading-none">{stats.totalSeats.toLocaleString()}</span>
-              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">ที่นั่งรวม</span>
+              <span className="text-[18px] font-bold text-foreground leading-none">{stats.totalSeats.toLocaleString()}</span>
+              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">ที่นั่งรวม</span>
             </div>
 
             {/* ── จองแล้ว + progress ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 min-w-[108px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[18px] font-bold" style={{color:"#EC4899"}}>{stats.booked.toLocaleString()}</span>
-                <span className="text-[11px] font-semibold text-gray-400">{pct}%</span>
+                <span className="text-[18px] font-bold" style={{color:"#F472B6"}}>{stats.booked.toLocaleString()}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{pct}%</span>
               </div>
-              <span className="text-[10px] text-gray-400 mt-1 mb-1.5 whitespace-nowrap">จองแล้ว</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px]" style={{background:"#FCE7F3"}}>
-                <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background:"#EC4899"}} />
+              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">จองแล้ว</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-pink-500/20">
+                <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background:"#F472B6"}} />
               </div>
             </div>
 
             {/* ── ว่าง ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 min-w-[80px] shrink-0">
-              <span className="text-[18px] font-bold leading-none" style={{color:"#16A34A"}}>{stats.available.toLocaleString()}</span>
-              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">ว่าง</span>
+              <span className="text-[18px] font-bold leading-none" style={{color:"#4ADE80"}}>{stats.available.toLocaleString()}</span>
+              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">ว่าง</span>
             </div>
 
             {/* ── มูลค่า Capacity ── */}
             <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0">
-              <span className="text-[15px] font-bold text-gray-800 leading-none">฿{fmtVal(stats.totalValue)}</span>
-              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">💰 Capacity</span>
+              <span className="text-[15px] font-bold text-foreground leading-none">฿{fmtVal(stats.totalValue)}</span>
+              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">💰 Capacity</span>
             </div>
 
             {/* ── มูลค่าจอง + progress ── */}
             <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[15px] font-bold" style={{color:"#7C3AED"}}>฿{fmtVal(stats.bookedValue)}</span>
-                <span className="text-[11px] font-semibold text-gray-400">{valuePct}%</span>
+                <span className="text-[15px] font-bold" style={{color:"#A78BFA"}}>฿{fmtVal(stats.bookedValue)}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{valuePct}%</span>
               </div>
-              <span className="text-[10px] text-gray-400 mt-1 mb-1.5 whitespace-nowrap">มูลค่าจอง</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px]" style={{background:"#EDE9FE"}}>
-                <div className="h-full rounded-full transition-all" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
+              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">มูลค่าจอง</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-purple-500/20">
+                <div className="h-full rounded-full transition-all" style={{width:`${valuePct}%`, background:"#A78BFA"}} />
               </div>
             </div>
 
             {/* ── ยกเลิก ── */}
             {stats.cancelledPeriods > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[120px] shrink-0" style={{background:"#FFF5F5"}}>
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[120px] shrink-0 bg-red-500/5">
                 <div className="flex items-baseline gap-1.5 leading-none">
-                  <span className="text-[15px] font-bold text-red-500">{stats.cancelledPeriods} Period</span>
+                  <span className="text-[15px] font-bold text-red-400">{stats.cancelledPeriods} Period</span>
                 </div>
-                <span className="text-[10px] text-gray-400 mt-1 mb-0.5 whitespace-nowrap">❌ ยกเลิกแล้ว</span>
+                <span className="text-[10px] text-muted-foreground mt-1 mb-0.5 whitespace-nowrap">❌ ยกเลิกแล้ว</span>
                 <span className="text-[10px] font-semibold text-red-400 whitespace-nowrap">
-                  ฿{fmtVal(stats.cancelledValue)} <span className="text-[9px] font-normal text-gray-400">({stats.cancelledSeats.toLocaleString()} ที่)</span>
+                  ฿{fmtVal(stats.cancelledValue)} <span className="text-[9px] font-normal text-muted-foreground/60">({stats.cancelledSeats.toLocaleString()} ที่)</span>
                 </span>
               </div>
             )}
 
             {/* ── Dashboard button ── */}
-            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-gray-100">
+            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border">
               <button
                 onClick={() => window.location.href = "/app/stock-dashboard"}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors whitespace-nowrap"
                 title="ดู Dashboard เต็มรูปแบบ"
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1333,7 +1333,7 @@ ${catBlocks}
 
             {/* ── Category breakdown ── */}
             <div className="hidden xl:flex items-center gap-3 px-4 ml-auto shrink-0">
-              <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">แยกประเภท</span>
+              <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide">แยกประเภท</span>
               {catBreakdown.map(({ label, tours: catTours, color, bg }) => {
                 const cs = catTours.reduce((a, t) => {
                   (t.periods ?? []).filter(p => !p.cancelled).forEach(p => {
@@ -1355,7 +1355,7 @@ ${catBlocks}
                       </svg>
                       <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{color}}>{cp}%</span>
                     </div>
-                    <span className="text-[8px] text-gray-400 whitespace-nowrap">{cs.booked}/{cs.total}</span>
+                    <span className="text-[8px] text-muted-foreground whitespace-nowrap">{cs.booked}/{cs.total}</span>
                   </div>
                 );
               })}
@@ -1421,15 +1421,15 @@ ${catBlocks}
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row — DESKTOP (sm+) ── */}
-                    <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-gray-50/40"}`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
-                      <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 transition-colors" onClick={() => toggleExpand(t.id)}>
+                    <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-muted/30"}`} style={{background: isExpanded ? bg : "hsl(var(--card))", borderLeft: `4px solid ${color}`}}>
+                      <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors" onClick={() => toggleExpand(t.id)}>
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-0 flex-wrap">
-                          <span className="font-bold text-sm text-gray-900 mr-2">{t.title ?? t.city}</span>
-                          {t.duration && <><span className="text-gray-300 mr-2">|</span><span className="text-sm text-gray-500 mr-2 whitespace-nowrap">{t.duration}</span></>}
-                          <span className="text-gray-300 mr-2">|</span>
+                          <span className="font-bold text-sm text-foreground mr-2">{t.title ?? t.city}</span>
+                          {t.duration && <><span className="text-muted-foreground/30 mr-2">|</span><span className="text-sm text-muted-foreground mr-2 whitespace-nowrap">{t.duration}</span></>}
+                          <span className="text-muted-foreground/30 mr-2">|</span>
                           <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
                           <button onClick={() => hasPeriods && toggleExpand(t.id)}
                             className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
@@ -1439,26 +1439,26 @@ ${catBlocks}
                           </button>
                           {t.continent && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                         </div>
-                        {t.title && t.city && t.city !== t.title && <div className="text-[11px] text-gray-400 truncate mt-0.5">{t.city}</div>}
+                        {t.title && t.city && t.city !== t.title && <div className="text-[11px] text-muted-foreground truncate mt-0.5">{t.city}</div>}
                       </div>
                       {/* ℹ Info popover — tags + description + audit */}
                       {((t.tour_types ?? []).length > 0 || t.description || t.created_by || t.updated_by) && (
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="ข้อมูลเพิ่มเติม">
-                              <Info className="w-3.5 h-3.5 text-gray-400" />
+                              <Info className="w-3.5 h-3.5 text-muted-foreground" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent align="end" className="w-60 p-3 space-y-2.5 text-xs">
                             {t.continent && (
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-400 shrink-0">ทวีป</span>
+                                <span className="text-muted-foreground shrink-0">ทวีป</span>
                                 <span className="font-semibold px-2 py-0.5 rounded-full text-[10px]" style={{background:`${color}15`,color}}>{t.continent}</span>
                               </div>
                             )}
                             {(t.tour_types ?? []).length > 0 && (
                               <div>
-                                <div className="text-gray-400 mb-1">ประเภทโปรแกรม</div>
+                                <div className="text-muted-foreground mb-1">ประเภทโปรแกรม</div>
                                 <div className="flex flex-wrap gap-1">
                                   {(t.tour_types ?? []).map((tag) => (
                                     <span key={tag} className="px-2 py-0.5 rounded-full border text-[10px] font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
@@ -1468,15 +1468,15 @@ ${catBlocks}
                             )}
                             {t.description && (
                               <div>
-                                <div className="text-gray-400 mb-0.5">คำอธิบาย</div>
-                                <div className="text-gray-700 leading-relaxed">{t.description}</div>
+                                <div className="text-muted-foreground mb-0.5">คำอธิบาย</div>
+                                <div className="text-foreground leading-relaxed">{t.description}</div>
                               </div>
                             )}
                             {(t.created_by || t.updated_by) && (
-                              <div className="pt-2 border-t space-y-0.5 text-[10px] text-gray-400">
-                                {t.created_by && <div>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></div>}
+                              <div className="pt-2 border-t border-border space-y-0.5 text-[10px] text-muted-foreground">
+                                {t.created_by && <div>สร้างโดย <span className="font-medium text-foreground">{t.created_by}</span></div>}
                                 {t.updated_by && (
-                                  <div>แก้ไขล่าสุด <span className="font-medium text-blue-600">{t.updated_by}</span>
+                                  <div>แก้ไขล่าสุด <span className="font-medium text-blue-400">{t.updated_by}</span>
                                     {t.updated_at && <span className="ml-1">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
                                   </div>
                                 )}
@@ -1507,25 +1507,25 @@ ${catBlocks}
                     </div>
 
                     {/* ── Program Header Row — MOBILE (< sm) ── */}
-                    <div className={`sm:hidden transition-colors`} style={{background: isExpanded ? bg : "white", borderLeft: `4px solid ${color}`}}>
+                    <div className={`sm:hidden transition-colors`} style={{background: isExpanded ? bg : "hsl(var(--card))", borderLeft: `4px solid ${color}`}}>
                       {/* Top row: expand + name + period badge */}
                       <div className="flex items-start gap-2 px-3 pt-2.5 pb-1">
-                        <button className="mt-0.5 w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-gray-400" onClick={() => toggleExpand(t.id)}>
+                        <button className="mt-0.5 w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-muted-foreground" onClick={() => toggleExpand(t.id)}>
                           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </button>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-1.5 flex-wrap">
-                            <span className="font-extrabold text-lg text-gray-900 leading-tight">{t.title ?? t.city}</span>
+                            <span className="font-extrabold text-lg text-foreground leading-tight">{t.title ?? t.city}</span>
                             <button onClick={() => hasPeriods && toggleExpand(t.id)}
                               className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] mt-0.5"
-                              style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
+                              style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"hsl(var(--border))",color:"hsl(var(--muted-foreground))",background:"hsl(var(--muted))"}}>
                               {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
                               {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                             </button>
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {t.duration && <span className="text-xs text-gray-400 whitespace-nowrap">{t.duration}</span>}
-                            <span className="text-[11px] font-mono font-semibold text-gray-400 whitespace-nowrap">{t.code}</span>
+                            {t.duration && <span className="text-xs text-muted-foreground whitespace-nowrap">{t.duration}</span>}
+                            <span className="text-[11px] font-mono font-semibold text-muted-foreground whitespace-nowrap">{t.code}</span>
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
                         </div>
@@ -1538,19 +1538,19 @@ ${catBlocks}
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl shrink-0" title="ข้อมูลเพิ่มเติม">
-                                  <Info className="w-4 h-4 text-gray-400" />
+                                  <Info className="w-4 h-4 text-muted-foreground" />
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent align="start" className="w-60 p-3 space-y-2.5 text-xs">
                                 {t.continent && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-gray-400">ทวีป</span>
+                                    <span className="text-muted-foreground">ทวีป</span>
                                     <span className="font-semibold px-2 py-0.5 rounded-full text-[10px]" style={{background:`${color}15`,color}}>{t.continent}</span>
                                   </div>
                                 )}
                                 {(t.tour_types ?? []).length > 0 && (
                                   <div>
-                                    <div className="text-gray-400 mb-1">ประเภทโปรแกรม</div>
+                                    <div className="text-muted-foreground mb-1">ประเภทโปรแกรม</div>
                                     <div className="flex flex-wrap gap-1">
                                       {(t.tour_types ?? []).map((tag) => (
                                         <span key={tag} className="px-2 py-0.5 rounded-full border text-[10px] font-medium" style={{borderColor:`${color}40`,color}}>{tag}</span>
@@ -1560,13 +1560,13 @@ ${catBlocks}
                                 )}
                                 {t.description && (
                                   <div>
-                                    <div className="text-gray-400 mb-0.5">คำอธิบาย</div>
-                                    <div className="text-gray-700 leading-relaxed">{t.description}</div>
+                                    <div className="text-muted-foreground mb-0.5">คำอธิบาย</div>
+                                    <div className="text-foreground leading-relaxed">{t.description}</div>
                                   </div>
                                 )}
                                 {(t.created_by || t.updated_by) && (
-                                  <div className="pt-2 border-t space-y-0.5 text-[10px] text-gray-400">
-                                    {t.created_by && <div>สร้างโดย <span className="font-medium text-gray-600">{t.created_by}</span></div>}
+                                  <div className="pt-2 border-t space-y-0.5 text-[10px] text-muted-foreground">
+                                    {t.created_by && <div>สร้างโดย <span className="font-medium text-muted-foreground">{t.created_by}</span></div>}
                                     {t.updated_by && (
                                       <div>แก้ไขล่าสุด <span className="font-medium text-blue-600">{t.updated_by}</span>
                                         {t.updated_at && <span className="ml-1">· {new Date(t.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"})}</span>}
@@ -1649,14 +1649,14 @@ ${catBlocks}
                               {/* Top: date + status */}
                               <div className="flex items-start justify-between px-3 pt-2.5 pb-1">
                                 <div className="flex-1 min-w-0 pr-2">
-                                  <div className={`text-sm font-bold leading-snug ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}>
+                                  <div className={`text-sm font-bold leading-snug ${isCancelled ? "line-through text-muted-foreground" : "text-foreground"}`}>
                                     {p.start_date ? fmtThai(p.start_date) : p.travel_date}
                                     {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}
                                   </div>
                                   {/* Chips row */}
                                   <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                                     {(p.days || p.nights) && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#1F2937"}}>{p.days}วัน {p.nights}คืน</span>}
-                                    {p.airline_code && <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{p.airline_code}</span>}
+                                    {p.airline_code && <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{p.airline_code}</span>}
                                     {hasPromo && <span className="text-xs">🔥</span>}
                                     {p.freeday && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#7C3AED"}}>Freeday</span>}
                                     {p.shopping && <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background:"#F59E0B"}}>ลงร้าน</span>}
@@ -1665,9 +1665,9 @@ ${catBlocks}
                                   </div>
                                 </div>
                                 <div className="shrink-0 mt-0.5">
-                                  {isCancelled ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
-                                   : isFullDisplay ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
-                                   : <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>}
+                                  {isCancelled ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 whitespace-nowrap">ยกเลิก</span>
+                                   : isFullDisplay ? <span className="px-2 py-1 rounded-full text-xs font-bold bg-muted text-muted-foreground whitespace-nowrap">ปิดกรุ๊ป</span>
+                                   : <span className="px-2 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-400 whitespace-nowrap">ว่าง</span>}
                                 </div>
                               </div>
                               {/* Price + progress bar */}
@@ -1675,7 +1675,7 @@ ${catBlocks}
                                 <span className="font-bold text-base shrink-0 leading-none" style={{color:"#EC4899"}}>{p.price_per_seat.toLocaleString()}฿</span>
                                 <div className="flex-1">
                                   <div className="flex justify-between text-[10px] mb-1">
-                                    <span className={`font-semibold ${hasPending ? "text-amber-600" : "text-gray-500"}`}>จอง {bookedCount}/{p.total_seats}</span>
+                                    <span className={`font-semibold ${hasPending ? "text-amber-400" : "text-muted-foreground"}`}>จอง {bookedCount}/{p.total_seats}</span>
                                     <span className={`font-semibold ${isCancelled ? "text-red-400" : hasPending ? "text-amber-500" : "text-emerald-600"}`}>{isCancelled ? "ยกเลิก" : `ว่าง ${currentQuota}`}</span>
                                   </div>
                                   <div className="relative h-3.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
@@ -1694,7 +1694,7 @@ ${catBlocks}
                                         className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-base disabled:opacity-30 transition-colors"
                                         style={{background:"#EF4444"}}
                                       ><Minus className="w-4 h-4" /></button>
-                                      <span className="text-sm font-bold text-gray-700 min-w-[28px] text-center">{currentQuota}</span>
+                                      <span className="text-sm font-bold text-foreground min-w-[28px] text-center">{currentQuota}</span>
                                       <button disabled={currentQuota <= 0}
                                         onClick={() => setPendingQuota((prev) => ({...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0)}))}
                                         className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-base disabled:opacity-30 transition-colors"
@@ -1703,10 +1703,10 @@ ${catBlocks}
                                       {hasPending && (
                                         <>
                                           <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName); setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; }); toast.success("อัปเดตโควต้าแล้ว"); }}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-green-600 border border-green-200 bg-white"
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-green-400 border border-green-500/20 bg-card"
                                           ><Save className="w-4 h-4" /></button>
                                           <button onClick={() => setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; })}
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 border border-gray-200 bg-white"
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground border border-border bg-card"
                                           ><X className="w-4 h-4" /></button>
                                         </>
                                       )}
@@ -1720,24 +1720,24 @@ ${catBlocks}
                               )}
                               {/* footnote/tags + audit trail */}
                               {(p.footnote || (p.tags ?? []).length > 0 || p.project || p.note || p.created_by || p.updated_by) && (
-                                <div className="px-3 py-2 text-xs space-y-1 border-t" style={{background:"#F9FAFB", borderColor:`${statusColor}15`}}>
-                                  {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
-                                  {(p.tags ?? []).length > 0 && <div className="flex gap-1 flex-wrap">{(p.tags ?? []).map((tg) => <span key={tg} className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px]">{tg}</span>)}</div>}
-                                  {p.project && <div className="text-gray-400">โครงการ: <span className="text-gray-600">{p.project}</span></div>}
-                                  {p.note && <div className="text-gray-400">หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
+                                <div className="px-3 py-2 text-xs space-y-1 border-t border-border bg-muted/40">
+                                  {p.footnote && <div className="text-muted-foreground italic">*{p.footnote}</div>}
+                                  {(p.tags ?? []).length > 0 && <div className="flex gap-1 flex-wrap">{(p.tags ?? []).map((tg) => <span key={tg} className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px]">{tg}</span>)}</div>}
+                                  {p.project && <div className="text-muted-foreground/60">โครงการ: <span className="text-muted-foreground">{p.project}</span></div>}
+                                  {p.note && <div className="text-muted-foreground/60">หมายเหตุ: <span className="text-muted-foreground">{p.note}</span></div>}
                                   {/* Audit trail */}
                                   {(p.created_by || p.updated_by) && (
-                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 border-t border-gray-100 mt-0.5">
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 pt-1 border-t border-border mt-0.5">
                                       {p.created_by && (
-                                        <span className="text-[10px] text-gray-400">
-                                          สร้างโดย <span className="font-medium text-gray-600">{p.created_by}</span>
-                                          {p.created_at && <span className="ml-1 text-gray-300">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                        <span className="text-[10px] text-muted-foreground">
+                                          สร้างโดย <span className="font-medium text-muted-foreground">{p.created_by}</span>
+                                          {p.created_at && <span className="ml-1 text-muted-foreground/40">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
                                         </span>
                                       )}
                                       {p.updated_by && (
-                                        <span className="text-[10px] text-gray-400">
+                                        <span className="text-[10px] text-muted-foreground">
                                           แก้ไขโดย <span className="font-medium text-blue-600">{p.updated_by}</span>
-                                          {p.updated_at && <span className="ml-1 text-gray-300">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                          {p.updated_at && <span className="ml-1 text-muted-foreground/40">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
                                         </span>
                                       )}
                                     </div>
@@ -1750,7 +1750,7 @@ ${catBlocks}
                       </div>
                       {/* Add Period (mobile) */}
                       {canEdit && (
-                        <button onClick={() => openAddPeriod(t.id)} className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-colors hover:bg-white" style={{color, borderTop:`1px dashed ${color}30`}}>
+                        <button onClick={() => openAddPeriod(t.id)} className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold transition-colors hover:bg-muted/30" style={{color, borderTop:`1px dashed ${color}30`}}>
                           <Plus className="w-4 h-4" /> เพิ่ม Period ใหม่
                         </button>
                       )}
@@ -1826,40 +1826,40 @@ ${catBlocks}
                           <div className="w-6 shrink-0" />
                           {/* Period — w-[165px] + 2-digit year in data row */}
                           <div
-                            className="w-[165px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            className="w-[165px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-foreground transition-colors"
                             onClick={() => togglePeriodSort('date')}
                             title="เรียงตามวันเดินทาง"
                           >Period{sortIcon('date')}</div>
-                          <div className="w-[56px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
-                          <div className="w-8 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">🔥</div>
-                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
-                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
+                          <div className="w-[56px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">วัน/คืน</div>
+                          <div className="w-8 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">🔥</div>
+                          <div className="w-[46px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
+                          <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-2 shrink-0" />
-                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">FD</div>
-                          <div className="w-9 shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ร้าน</div>
-                          <div className="w-[62px] shrink-0 text-[10px] font-semibold text-gray-500 tracking-wide whitespace-nowrap text-center">จอง จ่าย จบ</div>
-                          <div className="w-[40px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
+                          <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">FD</div>
+                          <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">ร้าน</div>
+                          <div className="w-[62px] shrink-0 text-[10px] font-semibold text-muted-foreground tracking-wide whitespace-nowrap text-center">จอง จ่าย จบ</div>
+                          <div className="w-[40px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
                           {/* separator VAT7% | ราคา */}
-                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+                          <div className="w-px h-4 bg-border shrink-0 self-center mx-1" />
                           {/* ราคา — clickable sort */}
                           <div
-                            className="w-[80px] text-right shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-gray-700 transition-colors"
+                            className="w-[80px] text-right shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-foreground transition-colors"
                             onClick={() => togglePeriodSort('price')}
                             title="เรียงตามราคา"
                           >ราคา (฿){sortIcon('price')}</div>
                           {/* separator ราคา | Book */}
-                          <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+                          <div className="w-px h-4 bg-border shrink-0 self-center mx-1" />
                           {/* Book/โควต้า — flex-1 fills remaining space */}
                           <div
-                            className="flex-1 min-w-[120px] max-w-[220px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-gray-700 transition-colors"
+                            className="flex-1 min-w-[120px] max-w-[220px] text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center cursor-pointer hover:text-foreground transition-colors"
                             onClick={() => togglePeriodSort('quota')}
                             title="เรียงตามที่นั่งว่าง"
                           >Book/โควต้า{sortIcon('quota')}</div>
-                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
-                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">ข้อมูลเพิ่ม</div>
+                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">+/-</div>
+                          <div className="w-[50px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">ข้อมูลเพิ่ม</div>
                           {/* สถานะ + actions — ml-auto กลุ่มนี้ชิดขวาสุด */}
                           <div className="ml-auto flex items-center gap-1 shrink-0">
-                            <div className="w-[70px] text-[10px] font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
+                            <div className="w-[70px] text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">สถานะ</div>
                             {canEdit && <div className="w-[44px]" />}
                           </div>
                         </div>
@@ -1922,7 +1922,7 @@ ${catBlocks}
                                 )}
                                 {/* 1. Expand → footnote */}
                                 <button
-                                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 shrink-0 text-gray-400 transition-colors"
+                                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-muted shrink-0 text-muted-foreground transition-colors"
                                   onClick={() => togglePeriodExpand(pid)}
                                   title="แสดง footnote"
                                 >
@@ -1934,7 +1934,7 @@ ${catBlocks}
                                 {/* 2. Period date range — w-[165px] + short year (69) for compact display */}
                                 <div className="w-[165px] shrink-0 overflow-hidden">
                                   <div
-                                    className={`text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isCancelled ? "line-through text-gray-400" : "text-gray-800"}`}
+                                    className={`text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis ${isCancelled ? "line-through text-muted-foreground" : "text-foreground"}`}
                                     title={`${p.start_date ? fmtThai(p.start_date) : (p.travel_date ?? "")}${p.end_date && p.end_date !== p.start_date ? ` – ${fmtThai(p.end_date)}` : ""}`}
                                   >
                                     {p.start_date ? fmtThaiShort(p.start_date) : p.travel_date}
@@ -1948,7 +1948,7 @@ ${catBlocks}
                                     <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{background: "#1F2937"}}>
                                       {p.days}วัน {p.nights}คืน
                                     </span>
-                                  ) : <span className="text-gray-300 text-[10px]">–</span>}
+                                  ) : <span className="text-muted-foreground/40 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 4. PROMO — auto when special_price set */}
@@ -1964,13 +1964,13 @@ ${catBlocks}
                                 </div>
 
                                 {/* 5. เดินทาง (airline code) */}
-                                <div className="w-9 shrink-0 text-[11px] font-mono text-gray-600 text-center">
+                                <div className="w-9 shrink-0 text-[11px] font-mono text-muted-foreground text-center">
                                   {p.airline_code || <span className="text-gray-200">–</span>}
                                 </div>
 
                                 {/* separator */}
                                 <div className="w-2 shrink-0 flex justify-center">
-                                  <div className="w-px h-5 bg-gray-200" />
+                                  <div className="w-px h-5 bg-border" />
                                 </div>
 
                                 {/* 6. FREEDAY chip — "FD" abbreviated */}
@@ -2002,7 +2002,7 @@ ${catBlocks}
                                 </div>
 
                                 {/* separator VAT7% | ราคา */}
-                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+                                <div className="w-px h-4 bg-border shrink-0 self-center mx-1" />
 
                                 {/* 10. ราคา — 2-line เมื่อมี promo */}
                                 <div className="w-[80px] text-right shrink-0 flex flex-col items-end leading-tight">
@@ -2017,8 +2017,8 @@ ${catBlocks}
                                       </div>
                                       {/* ราคาปกติ (ขีดฆ่า) */}
                                       <div className="flex items-baseline gap-0.5">
-                                        <span className="text-[9px] text-gray-400 line-through">{p.price_per_seat.toLocaleString()}</span>
-                                        <span className="text-[8px] text-gray-300">฿</span>
+                                        <span className="text-[9px] text-muted-foreground line-through">{p.price_per_seat.toLocaleString()}</span>
+                                        <span className="text-[8px] text-muted-foreground/40">฿</span>
                                       </div>
                                       {/* ลดไป X บาท */}
                                       <span className="text-[8px] font-semibold text-orange-500">-{discount.toLocaleString()} บาท</span>
@@ -2028,19 +2028,19 @@ ${catBlocks}
                                       <span className="font-bold text-sm" style={{
                                         color: isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A"
                                       }}>{p.price_per_seat.toLocaleString()}</span>
-                                      <span className="text-[9px] text-gray-400">฿</span>
+                                      <span className="text-[9px] text-muted-foreground">฿</span>
                                     </div>
                                   )}
                                 </div>
 
                                 {/* separator ราคา | Book */}
-                                <div className="w-px h-4 bg-gray-200 shrink-0 self-center mx-1" />
+                                <div className="w-px h-4 bg-border shrink-0 self-center mx-1" />
 
                                 {/* 11. Progress bar — flex-1 matches header, fills remaining space */}
                                 <div className="flex-1 min-w-[120px] max-w-[220px]">
                                   <div className="flex justify-between items-center mb-0.5">
-                                    <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-gray-600"}`}>
-                                      จอง {bookedCount}<span className="font-normal text-gray-400">/{p.total_seats}</span>
+                                    <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-600" : "text-muted-foreground"}`}>
+                                      จอง {bookedCount}<span className="font-normal text-muted-foreground">/{p.total_seats}</span>
                                     </span>
                                     {!isCancelled && (
                                       <span className={`text-[10px] font-semibold ${hasPending ? "text-amber-500" : "text-emerald-600"}`}>
@@ -2106,7 +2106,7 @@ ${catBlocks}
                                   ) : <div className="w-7" />}
                                   {hasPending ? (
                                     <button
-                                      className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors border border-gray-200"
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors border border-border"
                                       title="ยกเลิกการแก้ไข"
                                       onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
                                     ><X className="w-3.5 h-3.5" /></button>
@@ -2118,17 +2118,17 @@ ${catBlocks}
                                   <div className="w-[70px] flex justify-center">
                                     {isCancelled ? (
                                       <span className="inline-flex flex-col items-center">
-                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 whitespace-nowrap">ยกเลิก</span>
-                                        {p.cancel_reason && <span className="text-[9px] text-red-400 mt-0.5 text-center leading-tight max-w-[60px] truncate">*{p.cancel_reason}</span>}
+                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/10 text-red-400 whitespace-nowrap">ยกเลิก</span>
+                                        {p.cancel_reason && <span className="text-[9px] text-red-400/70 mt-0.5 text-center leading-tight max-w-[60px] truncate">*{p.cancel_reason}</span>}
                                       </span>
                                     ) : isFullDisplay ? (
-                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 whitespace-nowrap">ปิดกรุ๊ป</span>
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground whitespace-nowrap">ปิดกรุ๊ป</span>
                                     ) : currentQuota > 0 && currentQuota <= 3 ? (
-                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap" style={{background:"#FFF7ED",color:"#C2410C"}}>
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap bg-orange-500/10 text-orange-400">
                                         ⚠ เหลือ {currentQuota}
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-400 whitespace-nowrap">ว่าง</span>
                                     )}
                                   </div>
                                   {canEdit && (
@@ -2151,39 +2151,39 @@ ${catBlocks}
                                 </div>
                               {/* Footnote — inside card */}
                               {isFootnoteOpen && (
-                                <div className="px-9 py-2 text-xs space-y-1 border-t" style={{background: "#F9FAFB", borderColor: `${statusColor}20`}}>
-                                  {p.footnote && <div className="text-gray-500 italic">*{p.footnote}</div>}
+                                <div className="px-9 py-2 text-xs space-y-1 border-t border-border bg-muted/40">
+                                  {p.footnote && <div className="text-muted-foreground italic">*{p.footnote}</div>}
                                   {(p.tags ?? []).length > 0 && (
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="text-gray-400 text-[10px]">Tag:</span>
+                                      <span className="text-muted-foreground/60 text-[10px]">Tag:</span>
                                       {(p.tags ?? []).map((tag) => (
-                                        <span key={tag} className="px-2 py-0.5 bg-white border border-gray-200 rounded-full text-[10px] text-gray-600">{tag}</span>
+                                        <span key={tag} className="px-2 py-0.5 bg-card border border-border rounded-full text-[10px] text-muted-foreground">{tag}</span>
                                       ))}
                                     </div>
                                   )}
-                                  {p.project && <div className="text-gray-400">โครงการ / Campaign: <span className="text-gray-600">{p.project}</span></div>}
-                                  {p.note && <div className="text-gray-400">*หมายเหตุ: <span className="text-gray-600">{p.note}</span></div>}
+                                  {p.project && <div className="text-muted-foreground/60">โครงการ / Campaign: <span className="text-muted-foreground">{p.project}</span></div>}
+                                  {p.note && <div className="text-muted-foreground/60">*หมายเหตุ: <span className="text-muted-foreground">{p.note}</span></div>}
                                   {/* ── Audit trail ── */}
-                                  <div className="flex items-center gap-3 pt-1 border-t border-gray-100 mt-1 flex-wrap">
+                                  <div className="flex items-center gap-3 pt-1 border-t border-border mt-1 flex-wrap">
                                     {p.created_by && (
-                                      <span className="text-gray-400">
-                                        สร้างโดย <span className="font-medium text-gray-600">{p.created_by}</span>
-                                        {p.created_at && <span className="ml-1 text-gray-300">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                      <span className="text-muted-foreground">
+                                        สร้างโดย <span className="font-medium text-muted-foreground">{p.created_by}</span>
+                                        {p.created_at && <span className="ml-1 text-muted-foreground/40">· {new Date(p.created_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
                                       </span>
                                     )}
                                     {p.updated_by && p.updated_by !== p.created_by && (
-                                      <span className="text-gray-400">
+                                      <span className="text-muted-foreground">
                                         แก้ไขโดย <span className="font-medium text-blue-600">{p.updated_by}</span>
-                                        {p.updated_at && <span className="ml-1 text-gray-300">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
+                                        {p.updated_at && <span className="ml-1 text-muted-foreground/40">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
                                       </span>
                                     )}
                                     {p.updated_by && p.updated_by === p.created_by && p.updated_at && p.updated_at !== p.created_at && (
-                                      <span className="text-gray-400">
-                                        อัปเดตล่าสุด <span className="ml-1 text-gray-300">{new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>
+                                      <span className="text-muted-foreground">
+                                        อัปเดตล่าสุด <span className="ml-1 text-muted-foreground/40">{new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>
                                       </span>
                                     )}
                                     {!p.created_by && !p.updated_by && (
-                                      <span className="text-gray-300 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
+                                      <span className="text-muted-foreground/40 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
                                     )}
                                   </div>
                                 </div>
@@ -2198,7 +2198,7 @@ ${catBlocks}
                         {canEdit && (
                           <button
                             onClick={() => openAddPeriod(t.id)}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-white"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/30"
                             style={{color, borderTop: `1px dashed ${color}30`}}
                           >
                             <Plus className="w-3.5 h-3.5" /> เพิ่ม Period ใหม่
@@ -2229,14 +2229,14 @@ ${catBlocks}
 
       {/* Empty state */}
       {filteredTours.length === 0 && (
-        <div className="py-14 flex flex-col items-center gap-3 bg-white border-t anim-fade-in">
+        <div className="py-14 flex flex-col items-center gap-3 bg-card border-t border-border anim-fade-in">
           {tours.length === 0 ? (
             <>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{background:"#F5F3FF"}}>
                 <PackageSearch className="w-7 h-7" style={{color:"#7C3AED"}} />
               </div>
-              <p className="text-base font-semibold text-gray-700">ยังไม่มีโปรแกรมทัวร์</p>
-              <p className="text-sm text-gray-400">เริ่มต้นด้วยการเพิ่มโปรแกรมทัวร์แรกของคุณ</p>
+              <p className="text-base font-semibold text-foreground">ยังไม่มีโปรแกรมทัวร์</p>
+              <p className="text-sm text-muted-foreground">เริ่มต้นด้วยการเพิ่มโปรแกรมทัวร์แรกของคุณ</p>
               {canEdit && (
                 <button onClick={openAdd} className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity" style={{background:"#16A34A"}}>
                   <Plus className="w-4 h-4" /> เพิ่มโปรแกรมทัวร์แรก
@@ -2248,7 +2248,7 @@ ${catBlocks}
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{background:"#FFF7ED"}}>
                 <Search className="w-7 h-7" style={{color:"#EA580C"}} />
               </div>
-              <p className="text-base font-semibold text-gray-700">ไม่พบโปรแกรมที่ตรงกับตัวกรอง</p>
+              <p className="text-base font-semibold text-foreground">ไม่พบโปรแกรมที่ตรงกับตัวกรอง</p>
               <button onClick={clearFilters} className="text-sm text-orange-600 hover:text-orange-700 underline">ล้างตัวกรองทั้งหมด</button>
             </>
           )}
@@ -2386,7 +2386,7 @@ ${catBlocks}
                       )}
                       <button type="button"
                         onClick={() => setForm((f) => ({ ...f, country2: "" }))}
-                        className="shrink-0 text-gray-400 hover:text-red-500 transition-colors">
+                        className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors">
                         <X className="w-4 h-4" />
                       </button>
                     </div>
@@ -2525,12 +2525,12 @@ ${catBlocks}
               {/* วันเดินทาง + วันกลับ */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">วันเดินทาง *</label>
+                  <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">วันเดินทาง *</label>
                   <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.start_date}
                     onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">วันกลับ *</label>
+                  <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">วันกลับ *</label>
                   <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.end_date}
                     onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
                 </div>
@@ -2544,7 +2544,7 @@ ${catBlocks}
                   <div className="flex items-center gap-0.5">
                     <input
                       type="number" min={1} max={30}
-                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-white focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-card focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
                       value={pForm.days}
                       onChange={(e) => {
                         const d = Number(e.target.value);
@@ -2557,7 +2557,7 @@ ${catBlocks}
                   <div className="flex items-center gap-0.5">
                     <input
                       type="number" min={0} max={30}
-                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-white focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-card focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
                       value={pForm.nights}
                       onChange={(e) => {
                         const n = Number(e.target.value);
@@ -2585,20 +2585,20 @@ ${catBlocks}
                   )}
                 </div>
               ) : (
-                <div className="h-7 rounded-lg border border-dashed border-gray-200 flex items-center justify-center">
-                  <span className="text-[10px] text-gray-300">เลือกวันเดินทางและวันกลับ</span>
+                <div className="h-7 rounded-lg border border-dashed border-border flex items-center justify-center">
+                  <span className="text-[10px] text-muted-foreground/40">เลือกวันเดินทางและวันกลับ</span>
                 </div>
               )}
 
               {/* ราคา + ที่นั่ง */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ราคาปกติ (฿) *</label>
+                  <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">ราคาปกติ (฿) *</label>
                   <Input className="h-8 text-xs mt-0.5" type="number" min={0}
                     value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ที่นั่งทั้งหมด *</label>
+                  <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">ที่นั่งทั้งหมด *</label>
                   <Input className="h-8 text-xs mt-0.5" type="number" min={0}
                     value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
                 </div>
@@ -2606,7 +2606,7 @@ ${catBlocks}
 
               {/* ราคาพิเศษ (optional — auto-trigger 🔥) */}
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">
                   ราคาพิเศษ (฿)
                   {pForm.special_price && Number(pForm.special_price) > 0 && Number(pForm.special_price) < Number(pForm.price_per_seat) && (
                     <span className="ml-1.5 text-orange-500">🔥 auto</span>
@@ -2637,7 +2637,7 @@ ${catBlocks}
               {/* สายการบิน + บิน (departure city) */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">สายการบิน</label>
+                  <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">สายการบิน</label>
                   <Input className="h-8 text-xs mt-0.5" value={pForm.airline_code}
                     onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
                 </div>
@@ -2665,14 +2665,14 @@ ${catBlocks}
 
               {/* Campaign */}
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Campaign</label>
+                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">Campaign</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.project}
                   onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
               </div>
 
               {/* หมายเหตุ */}
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">หมายเหตุ</label>
+                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">หมายเหตุ</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.note}
                   onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
               </div>
@@ -2683,7 +2683,7 @@ ${catBlocks}
 
               {/* Chip buttons */}
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">ตัวเลือก Chip</label>
+                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">ตัวเลือก Chip</label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {/* 🔥 Promotion ไม่มีในนี้ — แสดงอัตโนมัติจากราคาพิเศษ */}
                   {([
@@ -2705,7 +2705,7 @@ ${catBlocks}
 
               {/* Footnote */}
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
+                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
                 <Input className="h-8 text-xs mt-1"
                   value={pForm.footnote}
                   onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))}
@@ -2775,42 +2775,42 @@ ${catBlocks}
             {importPreviewData.preview.length > 0 && (
               <div className="max-h-72 overflow-y-auto rounded-lg border text-xs">
                 <table className="w-full">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
+                  <thead className="bg-muted sticky top-0 z-10">
                     <tr>
-                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">สถานะ</th>
-                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">รหัสทัวร์</th>
-                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500">เมือง / เส้นทาง</th>
-                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">ประเทศ</th>
-                      <th className="px-2.5 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">วันเดินทาง</th>
-                      <th className="px-2.5 py-2 text-right font-semibold text-gray-500 whitespace-nowrap">ราคา/ที่นั่ง</th>
-                      <th className="px-2.5 py-2 text-right font-semibold text-gray-500 whitespace-nowrap">ที่นั่ง</th>
-                      <th className="px-2.5 py-2 text-center font-semibold text-gray-500 whitespace-nowrap">สายการบิน</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">สถานะ</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">รหัสทัวร์</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground">เมือง / เส้นทาง</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">ประเทศ</th>
+                      <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">วันเดินทาง</th>
+                      <th className="px-2.5 py-2 text-right font-semibold text-muted-foreground whitespace-nowrap">ราคา/ที่นั่ง</th>
+                      <th className="px-2.5 py-2 text-right font-semibold text-muted-foreground whitespace-nowrap">ที่นั่ง</th>
+                      <th className="px-2.5 py-2 text-center font-semibold text-muted-foreground whitespace-nowrap">สายการบิน</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-border">
                     {importPreviewData.preview.map((row, i) => (
-                      <tr key={i} className={`hover:bg-gray-50 ${row.action === "สร้างใหม่" ? "bg-green-50/40" : "bg-blue-50/30"}`}>
+                      <tr key={i} className={`hover:bg-muted/50 ${row.action === "สร้างใหม่" ? "bg-green-500/5" : "bg-blue-500/5"}`}>
                         <td className="px-2.5 py-1.5">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
-                            row.action === "สร้างใหม่" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                            row.action === "สร้างใหม่" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
                           }`}>
                             {row.action === "สร้างใหม่" ? "✦ สร้างใหม่" : "+ Period"}
                           </span>
                         </td>
-                        <td className="px-2.5 py-1.5 font-mono font-semibold text-gray-800 whitespace-nowrap">{row.code}</td>
-                        <td className="px-2.5 py-1.5 text-gray-700 max-w-[200px] truncate" title={row.city}>{row.city || <span className="text-gray-300">–</span>}</td>
-                        <td className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap">{row.country || <span className="text-gray-300">–</span>}</td>
-                        <td className="px-2.5 py-1.5 text-gray-600 whitespace-nowrap font-mono">
-                          {row.start_date || <span className="text-gray-300">–</span>}
+                        <td className="px-2.5 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">{row.code}</td>
+                        <td className="px-2.5 py-1.5 text-foreground max-w-[200px] truncate" title={row.city}>{row.city || <span className="text-muted-foreground/40">–</span>}</td>
+                        <td className="px-2.5 py-1.5 text-muted-foreground whitespace-nowrap">{row.country || <span className="text-muted-foreground/40">–</span>}</td>
+                        <td className="px-2.5 py-1.5 text-muted-foreground whitespace-nowrap font-mono">
+                          {row.start_date || <span className="text-muted-foreground/40">–</span>}
                         </td>
-                        <td className="px-2.5 py-1.5 text-right text-gray-700 whitespace-nowrap font-medium">
-                          {row.price_per_seat ? `฿${row.price_per_seat.toLocaleString()}` : <span className="text-gray-300">–</span>}
+                        <td className="px-2.5 py-1.5 text-right text-foreground whitespace-nowrap font-medium">
+                          {row.price_per_seat ? `฿${row.price_per_seat.toLocaleString()}` : <span className="text-muted-foreground/40">–</span>}
                         </td>
-                        <td className="px-2.5 py-1.5 text-right text-gray-600 whitespace-nowrap">
-                          {row.total_seats ?? <span className="text-gray-300">–</span>}
+                        <td className="px-2.5 py-1.5 text-right text-muted-foreground whitespace-nowrap">
+                          {row.total_seats ?? <span className="text-muted-foreground/40">–</span>}
                         </td>
-                        <td className="px-2.5 py-1.5 text-center font-mono text-gray-600">
-                          {row.airline_code || <span className="text-gray-300">–</span>}
+                        <td className="px-2.5 py-1.5 text-center font-mono text-muted-foreground">
+                          {row.airline_code || <span className="text-muted-foreground/40">–</span>}
                         </td>
                       </tr>
                     ))}
@@ -2861,8 +2861,8 @@ ${catBlocks}
                   {importErrors.map((err, i) => (
                     <tr key={i} className="hover:bg-orange-50/30">
                       <td className="px-3 py-2 font-mono font-bold text-orange-800">Row {err.row}</td>
-                      <td className="px-3 py-2 font-mono text-gray-700">{err.code}</td>
-                      <td className="px-3 py-2 text-gray-700">{err.issue}</td>
+                      <td className="px-3 py-2 font-mono text-foreground">{err.code}</td>
+                      <td className="px-3 py-2 text-foreground">{err.issue}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2964,7 +2964,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder="ค้นหารถ..." value={carSearch} onChange={(e) => setCarSearch(e.target.value)} />
-            {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
+            {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
           </div>
           <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} canImport={canEdit} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
@@ -2977,18 +2977,18 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           <div className="hidden sm:block bg-card rounded-xl border overflow-hidden animate-pulse">
             {[1,2,3].map((i) => (
               <div key={i} className="flex items-center gap-4 px-3 py-3.5 border-b last:border-0">
-                <div className="h-4 bg-gray-200 rounded w-1/4" />
-                <div className="h-3 bg-gray-100 rounded w-1/6" />
-                <div className="h-3 bg-gray-100 rounded w-1/12 ml-auto" />
-                <div className="h-3 bg-gray-100 rounded w-1/6" />
+                <div className="h-4 bg-muted rounded w-1/4" />
+                <div className="h-3 bg-muted/60 rounded w-1/6" />
+                <div className="h-3 bg-muted/60 rounded w-1/12 ml-auto" />
+                <div className="h-3 bg-muted/60 rounded w-1/6" />
               </div>
             ))}
           </div>
           <div className="sm:hidden space-y-2">
             {[1,2,3].map((i) => (
               <div key={i} className="bg-card rounded-xl border p-3.5 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-2/5 mb-2" />
-                <div className="h-3 bg-gray-100 rounded w-1/4" />
+                <div className="h-4 bg-muted rounded w-2/5 mb-2" />
+                <div className="h-3 bg-muted/60 rounded w-1/4" />
               </div>
             ))}
           </div>
@@ -3031,17 +3031,17 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
               {filteredCars.length === 0 && cars.length === 0 && (
                 <tr><td colSpan={canEdit ? 7 : 6} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center"><Car className="w-6 h-6 text-gray-300" /></div>
-                    <p className="text-sm font-medium text-gray-500">ยังไม่มีรถในระบบ</p>
-                    <p className="text-xs text-gray-400">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center"><Car className="w-6 h-6 text-muted-foreground/40" /></div>
+                    <p className="text-sm font-medium text-muted-foreground">ยังไม่มีรถในระบบ</p>
+                    <p className="text-xs text-muted-foreground/60">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
                   </div>
                 </td></tr>
               )}
               {filteredCars.length === 0 && cars.length > 0 && (
                 <tr><td colSpan={canEdit ? 7 : 6} className="py-8 text-center">
                   <div className="flex flex-col items-center gap-1.5">
-                    <Search className="w-5 h-5 text-gray-300" />
-                    <p className="text-sm text-gray-500">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
+                    <Search className="w-5 h-5 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
                     <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline mt-0.5">ล้างการค้นหา</button>
                   </div>
                 </td></tr>
@@ -3057,18 +3057,18 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
       <div className="sm:hidden space-y-2">
         {filteredCars.length === 0 && cars.length === 0 && (
           <div className="py-12 flex flex-col items-center gap-3 bg-card rounded-xl border">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center"><Car className="w-7 h-7 text-gray-300" /></div>
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center"><Car className="w-7 h-7 text-muted-foreground/40" /></div>
             <div className="text-center">
-              <p className="text-sm font-semibold text-gray-600">ยังไม่มีรถในระบบ</p>
-              <p className="text-xs text-gray-400 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+              <p className="text-sm font-semibold text-muted-foreground">ยังไม่มีรถในระบบ</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
             </div>
             {canEdit && <Button onClick={openAdd} size="sm" className="bg-gradient-pink text-accent-foreground"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรถคันแรก</Button>}
           </div>
         )}
         {filteredCars.length === 0 && cars.length > 0 && (
           <div className="py-8 flex flex-col items-center gap-2 bg-card rounded-xl border">
-            <Search className="w-5 h-5 text-gray-300" />
-            <p className="text-sm text-gray-500">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
+            <Search className="w-5 h-5 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
             <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline">ล้างการค้นหา</button>
           </div>
         )}
@@ -3077,20 +3077,20 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-base text-gray-900 leading-snug">{c.name}</span>
-                  {c.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{c.type}</span>}
+                  <span className="font-bold text-base text-foreground leading-snug">{c.name}</span>
+                  {c.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{c.type}</span>}
                   {c.seat_material && c.seat_material !== "ไม่ระบุ" && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{c.seat_material}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{c.seat_material}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                   <div className="flex items-center gap-1">
-                    <Car className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-xs text-gray-600">{c.total_seats} ที่นั่ง</span>
+                    <Car className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{c.total_seats} ที่นั่ง</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-gray-900">฿{c.rate_per_day.toLocaleString()}</span>
-                    <span className="text-xs text-gray-400">/วัน</span>
+                    <span className="text-sm font-bold text-foreground">฿{c.rate_per_day.toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">/วัน</span>
                   </div>
                 </div>
                 {c.note && <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{c.note}</p>}
@@ -3413,7 +3413,7 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder={searchPlaceholder ?? "ค้นหา..."} value={q} onChange={(e) => setQ(e.target.value)} />
-              {q && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setQ("")}><X className="w-3.5 h-3.5" /></button>}
+              {q && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground" onClick={() => setQ("")}><X className="w-3.5 h-3.5" /></button>}
             </div>
           )}
           {importExport}
@@ -3427,17 +3427,17 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
           <div className="hidden sm:block bg-card rounded-xl border overflow-hidden animate-pulse">
             {[1,2,3].map((i) => (
               <div key={i} className="flex items-center gap-4 px-3 py-3.5 border-b last:border-0">
-                <div className="h-4 bg-gray-200 rounded w-1/4" />
-                <div className="h-3 bg-gray-100 rounded w-1/5" />
-                <div className="h-3 bg-gray-100 rounded w-1/6 ml-auto" />
+                <div className="h-4 bg-muted rounded w-1/4" />
+                <div className="h-3 bg-muted/60 rounded w-1/5" />
+                <div className="h-3 bg-muted/60 rounded w-1/6 ml-auto" />
               </div>
             ))}
           </div>
           <div className="sm:hidden space-y-2">
             {[1,2,3].map((i) => (
               <div key={i} className="bg-card rounded-xl border p-3.5 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-2/5 mb-2" />
-                <div className="h-3 bg-gray-100 rounded w-1/3" />
+                <div className="h-4 bg-muted rounded w-2/5 mb-2" />
+                <div className="h-3 bg-muted/60 rounded w-1/3" />
               </div>
             ))}
           </div>
@@ -3470,16 +3470,16 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
               {filteredRows.length === 0 && rows.length === 0 && (
                 <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center"><PackageSearch className="w-6 h-6 text-gray-300" /></div>
-                    <p className="text-sm font-medium text-gray-500">ยังไม่มีรายการ</p>
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center"><PackageSearch className="w-6 h-6 text-muted-foreground/40" /></div>
+                    <p className="text-sm font-medium text-muted-foreground">ยังไม่มีรายการ</p>
                   </div>
                 </td></tr>
               )}
               {filteredRows.length === 0 && rows.length > 0 && (
                 <tr><td colSpan={cols.length + (canEdit ? 1 : 0)} className="py-8 text-center">
                   <div className="flex flex-col items-center gap-1.5">
-                    <Search className="w-5 h-5 text-gray-300" />
-                    <p className="text-sm text-gray-500">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
+                    <Search className="w-5 h-5 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
                     <button onClick={() => setQ("")} className="text-xs text-blue-500 hover:underline mt-0.5">ล้างการค้นหา</button>
                   </div>
                 </td></tr>
@@ -3495,18 +3495,18 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
       <div className="sm:hidden space-y-2">
         {filteredRows.length === 0 && rows.length === 0 && (
           <div className="py-12 flex flex-col items-center gap-3 bg-card rounded-xl border">
-            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center"><PackageSearch className="w-7 h-7 text-gray-300" /></div>
+            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center"><PackageSearch className="w-7 h-7 text-muted-foreground/40" /></div>
             <div className="text-center">
-              <p className="text-sm font-semibold text-gray-600">ยังไม่มีรายการ</p>
-              <p className="text-xs text-gray-400 mt-0.5">กด เพิ่ม เพื่อเริ่มต้น</p>
+              <p className="text-sm font-semibold text-muted-foreground">ยังไม่มีรายการ</p>
+              <p className="text-xs text-muted-foreground/60 mt-0.5">กด เพิ่ม เพื่อเริ่มต้น</p>
             </div>
             {canEdit && <Button onClick={onAdd} size="sm" className="bg-gradient-pink text-accent-foreground"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรายการแรก</Button>}
           </div>
         )}
         {filteredRows.length === 0 && rows.length > 0 && (
           <div className="py-8 flex flex-col items-center gap-2 bg-card rounded-xl border">
-            <Search className="w-5 h-5 text-gray-300" />
-            <p className="text-sm text-gray-500">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
+            <Search className="w-5 h-5 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">ไม่พบรายการที่ตรงกับ "<span className="font-medium">{q}</span>"</p>
             <button onClick={() => setQ("")} className="text-xs text-blue-500 hover:underline">ล้างการค้นหา</button>
           </div>
         )}
