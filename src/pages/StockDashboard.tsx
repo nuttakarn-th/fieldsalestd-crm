@@ -200,7 +200,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
   const tooltipData = tooltip ? byIso[tooltip.iso] : null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-5">
+    <div className="bg-card rounded-2xl border border-border p-5 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
       </div>
 
       {/* Map */}
-      <div className="relative rounded-xl overflow-hidden" style={{ background: "hsl(var(--muted)/0.3)", height: 240 }}>
+      <div className="relative rounded-xl overflow-hidden flex-1 min-h-[200px]" style={{ background: "hsl(var(--muted)/0.3)" }}>
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ scale: 110, center: [15, 15] }}
@@ -727,12 +727,12 @@ export default function StockDashboard() {
         {/* ── World Map + Heatmap (side-by-side on XL) ── */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           {/* World Map — 2/3 width */}
-          <div className="xl:col-span-2">
+          <div className="xl:col-span-2 flex flex-col">
             <WorldMapSection countryStats={countryStats} />
           </div>
 
           {/* Period Heatmap — 1/3 width */}
-          <div className="bg-card rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4 h-full">
             <div className="flex items-center gap-2 mb-3">
               <CalendarDays className="w-4 h-4" style={{ color: C_INTL }} />
               <h2 className="text-sm font-bold text-foreground">Period Heatmap</h2>
