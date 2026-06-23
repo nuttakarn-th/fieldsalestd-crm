@@ -289,11 +289,15 @@ export default function StockDashboard() {
     });
   }, [filteredTours]);
 
-  // ── available years ──
+  // ── available years ── (กรองเฉพาะปีที่สมเหตุสมผล: ค.ศ. 2010–2040)
   const availableYears = useMemo(() => {
     const s = new Set<number>();
-    for (const t of tours) for (const p of t.periods ?? [])
-      if (p.start_date) s.add(new Date(p.start_date).getFullYear());
+    const MIN_YEAR = 2010, MAX_YEAR = 2040;
+    for (const t of tours) for (const p of t.periods ?? []) {
+      if (!p.start_date) continue;
+      const y = new Date(p.start_date).getFullYear();
+      if (y >= MIN_YEAR && y <= MAX_YEAR) s.add(y);
+    }
     return Array.from(s).sort().reverse();
   }, [tours]);
 
