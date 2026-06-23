@@ -1202,7 +1202,7 @@ ${catBlocks}
           <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} />
+          <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} canImport={canEdit} />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportStockPDF} title="Export PDF รายงาน Stock">
             <FileText className="w-4 h-4 text-red-500" />
             <span className="hidden sm:inline">PDF</span>
@@ -2928,7 +2928,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
             <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder="ค้นหารถ..." value={carSearch} onChange={(e) => setCarSearch(e.target.value)} />
             {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
           </div>
-          <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} />
+          <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} canImport={canEdit} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
         </div>
       </div>
@@ -3148,7 +3148,7 @@ function FlightSection({ canEdit }: { canEdit: boolean }) {
       rows={items.map((i) => ({ id: i.id, cells: [i.airline, i.route, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       searchable searchPlaceholder="ค้นหาสายการบิน..."
-      importExport={<ImportExportMenu fields={FLIGHT_FIELDS} sheetName="ตั๋วเครื่องบิน" filename="flights" data={exportData} onImport={handleImport} />}
+      importExport={<ImportExportMenu fields={FLIGHT_FIELDS} sheetName="ตั๋วเครื่องบิน" filename="flights" data={exportData} onImport={handleImport} canImport={canEdit} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -3199,7 +3199,7 @@ function HotelSection({ canEdit }: { canEdit: boolean }) {
       rows={items.map((i) => ({ id: i.id, cells: [i.name, i.city, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       searchable searchPlaceholder="ค้นหาโรงแรม..."
-      importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} />}
+      importExport={<ImportExportMenu fields={HOTEL_FIELDS} sheetName="โรงแรม" filename="hotels" data={exportData} onImport={handleImport} canImport={canEdit} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -3254,7 +3254,7 @@ function VisaSection({ canEdit }: { canEdit: boolean }) {
       rows={items.map((i) => ({ id: i.id, cells: [`${i.visa_type} · ${VISA_DESC[i.visa_type]}`, i.country, i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       searchable searchPlaceholder="ค้นหา Visa..."
-      importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} />}
+      importExport={<ImportExportMenu fields={VISA_FIELDS} sheetName="Visa" filename="visas" data={exportData} onImport={handleImport} canImport={canEdit} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
@@ -3311,7 +3311,7 @@ function InsuranceSection({ canEdit }: { canEdit: boolean }) {
       rows={items.map((i) => ({ id: i.id, cells: [i.plan_name, i.coverage, i.price.toLocaleString(), i.note || "-"] }))}
       canEdit={canEdit} onAdd={openAdd} onEdit={openEdit} onDelete={(id) => { del(id); toast.success("ลบแล้ว"); }}
       searchable searchPlaceholder="ค้นหาประกัน..."
-      importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} />}
+      importExport={<ImportExportMenu fields={INSURANCE_FIELDS} sheetName="ประกัน" filename="insurances" data={exportData} onImport={handleImport} canImport={canEdit} />}
       dialog={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>

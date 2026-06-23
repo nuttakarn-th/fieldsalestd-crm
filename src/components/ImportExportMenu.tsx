@@ -24,6 +24,8 @@ interface ImportExportMenuProps {
   onImport: (rows: Record<string, unknown>[]) => void | Promise<void>;
   /** Optional: disable the menu */
   disabled?: boolean;
+  /** Optional: hide import options (Template + Import .xlsx) for read-only roles */
+  canImport?: boolean;
 }
 
 export function ImportExportMenu({
@@ -33,6 +35,7 @@ export function ImportExportMenu({
   data,
   onImport,
   disabled = false,
+  canImport = true,
 }: ImportExportMenuProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -88,29 +91,33 @@ export function ImportExportMenu({
             className="gap-1.5"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Import / Export
+            {canImport ? "Import / Export" : "Export"}
             <ChevronDown className="w-3.5 h-3.5 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onClick={handleTemplate} className="gap-2 cursor-pointer">
-            <FileDown className="w-4 h-4 text-emerald-500" />
-            <div>
-              <p className="font-medium">ดาวน์โหลด Template</p>
-              <p className="text-xs text-muted-foreground">ไฟล์ตัวอย่างสำหรับกรอกข้อมูล</p>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => fileRef.current?.click()}
-            className="gap-2 cursor-pointer"
-          >
-            <FileUp className="w-4 h-4 text-blue-500" />
-            <div>
-              <p className="font-medium">Import .xlsx</p>
-              <p className="text-xs text-muted-foreground">เพิ่มข้อมูลจากไฟล์ Excel</p>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {canImport && (
+            <>
+              <DropdownMenuItem onClick={handleTemplate} className="gap-2 cursor-pointer">
+                <FileDown className="w-4 h-4 text-emerald-500" />
+                <div>
+                  <p className="font-medium">ดาวน์โหลด Template</p>
+                  <p className="text-xs text-muted-foreground">ไฟล์ตัวอย่างสำหรับกรอกข้อมูล</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => fileRef.current?.click()}
+                className="gap-2 cursor-pointer"
+              >
+                <FileUp className="w-4 h-4 text-blue-500" />
+                <div>
+                  <p className="font-medium">Import .xlsx</p>
+                  <p className="text-xs text-muted-foreground">เพิ่มข้อมูลจากไฟล์ Excel</p>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onClick={handleExport} className="gap-2 cursor-pointer">
             <FileDown className="w-4 h-4 text-orange-500" />
             <div>
