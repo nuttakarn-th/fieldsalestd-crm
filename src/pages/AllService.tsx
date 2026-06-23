@@ -1242,96 +1242,91 @@ ${catBlocks}
         const fmtVal   = (v: number) => v >= 1_000_000
           ? `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)} ล้าน`
           : v.toLocaleString();
+        // ── category breakdown data ──
+        const catBreakdown = [
+          { label: "Intl", tours: intlTours, color: "#16A34A", bg: "#DCFCE7" },
+          { label: "Dom",  tours: domTours,  color: "#F59E0B", bg: "#FEF3C7" },
+          { label: "Inc",  tours: incTours,  color: "#7C3AED", bg: "#EDE9FE" },
+        ] as const;
+
         return (
-          <div className="hidden sm:flex items-center gap-4 px-6 py-2 border-b bg-gray-50 flex-wrap">
-            <span className="text-[11px] text-gray-500 font-medium">📊 ภาพรวม Stock</span>
-
-            {/* ── ที่นั่ง ── */}
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-gray-500">ที่นั่งทั้งหมด</span>
-              <span className="text-[12px] font-bold text-gray-800">{stats.totalSeats.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#EC4899"}} />
-              <span className="text-[11px] text-gray-500">จองแล้ว</span>
-              <span className="text-[12px] font-bold" style={{color:"#EC4899"}}>{stats.booked.toLocaleString()}</span>
-              <span className="text-[10px] text-gray-400">({pct}%)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#16A34A"}} />
-              <span className="text-[11px] text-gray-500">ว่าง</span>
-              <span className="text-[12px] font-bold" style={{color:"#16A34A"}}>{stats.available.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[11px] text-gray-400">| {stats.periods} Period ที่เปิดอยู่</span>
+          <div className="hidden sm:flex items-stretch border-b bg-white divide-x divide-gray-100 overflow-x-auto">
+            {/* ── Label chip ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 shrink-0">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
+              <span className="text-[10px] text-gray-300 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
             </div>
 
-            {/* ── divider ── */}
-            <span className="text-gray-200 select-none hidden lg:block">|</span>
-
-            {/* ── มูลค่า ── */}
-            <div className="hidden lg:flex items-center gap-1">
-              <span className="text-[11px] text-gray-500">💰 มูลค่า Capacity</span>
-              <span className="text-[12px] font-bold text-gray-800">฿{fmtVal(stats.totalValue)}</span>
-            </div>
-            <div className="hidden lg:flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full inline-block" style={{background:"#7C3AED"}} />
-              <span className="text-[11px] text-gray-500">มูลค่าจอง</span>
-              <span className="text-[12px] font-bold" style={{color:"#7C3AED"}}>฿{fmtVal(stats.bookedValue)}</span>
-              <span className="text-[10px] text-gray-400">({valuePct}%)</span>
+            {/* ── ที่นั่งรวม ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[88px] shrink-0">
+              <span className="text-[18px] font-bold text-gray-900 leading-none">{stats.totalSeats.toLocaleString()}</span>
+              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">ที่นั่งรวม</span>
             </div>
 
-            {/* ── progress bars + mini category chart ── */}
-            <div className="flex items-center gap-3 ml-auto">
-              <div className="w-[100px]">
-                <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
-                  <span>ที่นั่ง</span><span>{pct}%</span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                  <div className="h-full rounded-full" style={{width:`${pct}%`, background:"#EC4899"}} />
-                </div>
+            {/* ── จองแล้ว + progress ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[108px] shrink-0">
+              <div className="flex items-baseline gap-1.5 leading-none">
+                <span className="text-[18px] font-bold" style={{color:"#EC4899"}}>{stats.booked.toLocaleString()}</span>
+                <span className="text-[11px] font-semibold text-gray-400">{pct}%</span>
               </div>
-              <div className="hidden lg:block w-[100px]">
-                <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
-                  <span>มูลค่า</span><span>{valuePct}%</span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                  <div className="h-full rounded-full" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
-                </div>
+              <span className="text-[10px] text-gray-400 mt-1 mb-1.5 whitespace-nowrap">จองแล้ว</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px]" style={{background:"#FCE7F3"}}>
+                <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background:"#EC4899"}} />
               </div>
-              {/* ── mini category breakdown bars ── */}
-              {(() => {
-                const cats = [
-                  { label: "Intl", tours: intlTours, color: "#16A34A" },
-                  { label: "Dom", tours: domTours, color: "#F59E0B" },
-                  { label: "Inc", tours: incTours, color: "#7C3AED" },
-                ] as const;
+            </div>
+
+            {/* ── ว่าง ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[80px] shrink-0">
+              <span className="text-[18px] font-bold leading-none" style={{color:"#16A34A"}}>{stats.available.toLocaleString()}</span>
+              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">ว่าง</span>
+            </div>
+
+            {/* ── มูลค่า Capacity ── */}
+            <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0">
+              <span className="text-[15px] font-bold text-gray-800 leading-none">฿{fmtVal(stats.totalValue)}</span>
+              <span className="text-[10px] text-gray-400 mt-1 whitespace-nowrap">💰 Capacity</span>
+            </div>
+
+            {/* ── มูลค่าจอง + progress ── */}
+            <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0">
+              <div className="flex items-baseline gap-1.5 leading-none">
+                <span className="text-[15px] font-bold" style={{color:"#7C3AED"}}>฿{fmtVal(stats.bookedValue)}</span>
+                <span className="text-[11px] font-semibold text-gray-400">{valuePct}%</span>
+              </div>
+              <span className="text-[10px] text-gray-400 mt-1 mb-1.5 whitespace-nowrap">มูลค่าจอง</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px]" style={{background:"#EDE9FE"}}>
+                <div className="h-full rounded-full transition-all" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
+              </div>
+            </div>
+
+            {/* ── Category breakdown ── */}
+            <div className="hidden xl:flex items-center gap-3 px-4 ml-auto shrink-0">
+              <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">แยกประเภท</span>
+              {catBreakdown.map(({ label, tours: catTours, color, bg }) => {
+                const cs = catTours.reduce((a, t) => {
+                  (t.periods ?? []).filter(p => !p.cancelled).forEach(p => {
+                    a.total  += p.total_seats;
+                    a.booked += (p.total_seats - p.quota);
+                  });
+                  return a;
+                }, { total: 0, booked: 0 });
+                if (cs.total === 0) return null;
+                const cp = Math.round((cs.booked / cs.total) * 100);
                 return (
-                  <div className="hidden xl:flex items-center gap-2 border-l border-gray-200 pl-3">
-                    <span className="text-[9px] text-gray-400 font-medium">แยกประเภท</span>
-                    {cats.map(({ label, tours: catTours, color }) => {
-                      const cs = catTours.reduce((a, t) => {
-                        (t.periods ?? []).filter(p => !p.cancelled).forEach(p => {
-                          a.total += p.total_seats;
-                          a.booked += (p.total_seats - p.quota);
-                        });
-                        return a;
-                      }, { total: 0, booked: 0 });
-                      if (cs.total === 0) return null;
-                      const cp = Math.round((cs.booked / cs.total) * 100);
-                      return (
-                        <div key={label} className="flex flex-col items-center gap-0.5" title={`${label}: ${cp}% จอง (${cs.booked}/${cs.total})`}>
-                          <span className="text-[9px] font-semibold" style={{color}}>{label}</span>
-                          <div className="w-[40px] h-2.5 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                            <div className="h-full rounded-full" style={{width:`${cp}%`, background: color}} />
-                          </div>
-                          <span className="text-[8px] text-gray-400">{cp}%</span>
-                        </div>
-                      );
-                    })}
+                  <div key={label} className="flex flex-col items-center gap-1" title={`${label}: ${cp}% จอง (${cs.booked}/${cs.total})`}>
+                    <span className="text-[10px] font-bold" style={{color}}>{label}</span>
+                    <div className="relative w-9 h-9 shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-9 h-9 -rotate-90">
+                        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" stroke={bg} />
+                        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" stroke={color}
+                          strokeDasharray={`${cp * 0.942} 94.2`} strokeLinecap="round" />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{color}}>{cp}%</span>
+                    </div>
+                    <span className="text-[8px] text-gray-400 whitespace-nowrap">{cs.booked}/{cs.total}</span>
                   </div>
                 );
-              })()}
+              })}
             </div>
           </div>
         );
