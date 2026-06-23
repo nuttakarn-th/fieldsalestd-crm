@@ -67,9 +67,7 @@ export default function Planning() {
   // ── Office GPS from siteSettings ─────────────────────────────────────────────
   const officeLat = useSiteSettings((s) => s.officeLat);
   const officeLng = useSiteSettings((s) => s.officeLng);
-  const officeSetAt = useSiteSettings((s) => s.officeSetAt);
-  const setOfficeLocation = useSiteSettings((s) => s.setOfficeLocation);
-  // ── Current user (for Admin/Manager "Set Office" button) ─────────────────────
+  // ── Current user (for warning link to WebSetting) ─────────────────────────────
   const currentUser = useCurrentUser();
   const canSetOffice = currentUser?.role === "Admin" || currentUser?.role === "Sales Manager";
   // ── Stable selector ──────────────────────────────────────────────────────────
@@ -100,7 +98,7 @@ export default function Planning() {
   const [newRouteTitle, setNewRouteTitle] = useState("");
   const [newRouteHasCheckin, setNewRouteHasCheckin] = useState(true);
   const [newRouteHasCheckout, setNewRouteHasCheckout] = useState(true);
-  const [gpsLoading, setGpsLoading] = useState<"checkin" | "checkout" | "set_office" | null>(null);
+  const [gpsLoading, setGpsLoading] = useState<"checkin" | "checkout" | null>(null);
   const dragStopId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
@@ -187,22 +185,6 @@ export default function Planning() {
       if (!coords) return;
       await checkoutRoute(dayRoute.route_id, coords.lat, coords.lng);
       toast.success("✅ Check-out เรียบร้อย! ขอบคุณสำหรับงานวันนี้");
-    } catch (e: any) {
-      if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
-      else if (e?.code === 3) toast.error("GPS หมดเวลา — ลองใหม่อีกครั้ง");
-      else toast.error("ไม่สามารถรับ GPS ได้");
-    } finally {
-      setGpsLoading(null);
-    }
-  };
-
-  // ── Set Office Location (Admin/Manager only) ─────────────────────────────
-  const handleSetOffice = async () => {
-    setGpsLoading("set_office");
-    try {
-      const pos = await getGPS();
-      await setOfficeLocation(pos.coords.latitude, pos.coords.longitude);
-      toast.success(`✅ บันทึกพิกัดออฟฟิศแล้ว (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}) ความแม่นยำ ±${Math.round(pos.coords.accuracy)}m`);
     } catch (e: any) {
       if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
       else if (e?.code === 3) toast.error("GPS หมดเวลา — ลองใหม่อีกครั้ง");
@@ -304,32 +286,11 @@ export default function Planning() {
         </div>
       </div>
 
-      {/* ── Office Location bar — Admin/Manager always visible ── */}
-      {canSetOffice && (
-        <div className="rounded-lg border bg-slate-50 dark:bg-slate-900/40 px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
-            {officeLat && officeSetAt ? (
-              <span className="text-xs text-muted-foreground truncate">
-                ออฟฟิศ: <span className="font-mono">{officeLat.toFixed(5)}, {officeLng?.toFixed(5)}</span>
-                <span className="ml-2 opacity-60">ตั้งเมื่อ {new Date(officeSetAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-              </span>
-            ) : (
-              <span className="text-xs text-amber-600 font-medium">⚠️ ยังไม่ได้ตั้งพิกัดออฟฟิศ — กปุ่มด้านขวาขณะอยู่ที่ออฟฟิศ</span>
-            )}
-          </div>
-          <button
-            onClick={handleSetOffice}
-            disabled={gpsLoading === "set_office"}
-            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-md px-3 py-1.5 hover:bg-indigo-50 transition-colors disabled:opacity-50 shrink-0 font-medium"
-            title="ใช้ตำแหน่ง GPS ปัจจุบัน (ต้องอยู่ที่ออฟฟิศ) บันทึกเป็นพิกัดออฟฟิศ"
-          >
-            {gpsLoading === "set_office"
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <MapPin className="w-3.5 h-3.5" />
-            }
-            {officeLat ? "อัปเดตตำแหน่งออฟฟิศ" : "ตั้งตำแหน่งออฟฟิศ"}
-          </button>
+      {/* ── Office coords warning (no coords set yet) ── */}
+      {!officeLat && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 px-4 py-2.5 flex items-center gap-2 text-xs text-amber-700">
+          <Building2 className="w-3.5 h-3.5 shrink-0" />
+          <span>⚠️ ยังไม่ได้ตั้งพิกัดออฟฟิศ — {canSetOffice ? <><a href="/web-setting" className="underline font-semibold">ไปตั้งค่าที่ Web Setting → พิกัดออฟฟิศ</a></> : "รอ Admin ตั้งพิกัดออฟฟิศก่อน"}</span>
         </div>
       )}
 

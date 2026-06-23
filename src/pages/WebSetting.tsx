@@ -9,7 +9,7 @@ import {
   Save, RotateCcw, ChevronLeft, Check,
   ToggleLeft, ToggleRight, Info,
   Brain, Plus, Trash2, Pencil, X, Tag, ChevronRight as ChevronRightIcon,
-  ChevronRight, Globe2, Copy,
+  ChevronRight, Globe2, Copy, MapPin, Navigation, Loader2, Building2,
 } from "lucide-react";
 import { NavActions } from "@/components/NavActions";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { useSiteSettings, type OgMeta } from "@/store/siteSettingsStore";
 import { generateOgHtml } from "@/lib/ogMeta";
 import { toast } from "sonner";
 
-type SidebarTab = "help" | "bot" | "training" | "banner" | "og";
+type SidebarTab = "help" | "bot" | "training" | "banner" | "og" | "office";
 
 const PAGE_LABELS: Record<string, string> = {
   "service-stock":        "Service and Stock",
@@ -634,6 +634,176 @@ function OgMetaSection() {
   );
 }
 
+/* ── Office Location Section ── */
+function OfficeLocationSection() {
+  const officeLat    = useSiteSettings((s) => s.officeLat);
+  const officeLng    = useSiteSettings((s) => s.officeLng);
+  const officeSetAt  = useSiteSettings((s) => s.officeSetAt);
+  const setOfficeLocation = useSiteSettings((s) => s.setOfficeLocation);
+
+  const [latInput, setLatInput]   = useState(officeLat?.toString() ?? "");
+  const [lngInput, setLngInput]   = useState(officeLng?.toString() ?? "");
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [saving, setSaving]       = useState(false);
+
+  // sync when store updates
+  useEffect(() => {
+    setLatInput(officeLat?.toString() ?? "");
+    setLngInput(officeLng?.toString() ?? "");
+  }, [officeLat, officeLng]);
+
+  const handleGPS = async () => {
+    if (!navigator.geolocation) { toast.error("Browser ไม่รองรับ GPS"); return; }
+    setGpsLoading(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((res, rej) =>
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 })
+      );
+      setLatInput(pos.coords.latitude.toFixed(6));
+      setLngInput(pos.coords.longitude.toFixed(6));
+      toast.success("ได้พิกัด GPS แล้ว — กด 'บันทึก' เพื่อยืนยัน");
+    } catch {
+      toast.error("ไม่สามารถรับ GPS ได้ — กรุณาอนุญาต Location หรือใส่พิกัดด้วยตนเอง");
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const lat = parseFloat(latInput);
+    const lng = parseFloat(lngInput);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      toast.error("พิกัดไม่ถูกต้อง — Lat ต้องอยู่ระหว่าง -90 ถึง 90, Lng ระหว่าง -180 ถึง 180");
+      return;
+    }
+    setSaving(true);
+    try {
+      await setOfficeLocation(lat, lng);
+      toast.success("บันทึกพิกัดออฟฟิศสำเร็จ");
+    } catch {
+      toast.error("บันทึกไม่สำเร็จ — ลองอีกครั้ง");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openInGoogleMaps = () => {
+    const lat = parseFloat(latInput);
+    const lng = parseFloat(lngInput);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      window.open(`https://www.google.com/maps?q=${lat},${lng}`, "_blank");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Building2 className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="font-bold text-base">พิกัดออฟฟิศ (Check-in GPS)</h2>
+          <p className="text-xs text-muted-foreground">ตั้งจุดออฟฟิศที่ Sales ต้องอยู่ภายใน 200 เมตร เพื่อ Check-in / Check-out</p>
+        </div>
+      </div>
+
+      {/* Current status */}
+      <div className={`rounded-xl border p-4 flex items-center gap-3 ${officeLat ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200" : "bg-amber-50 dark:bg-amber-950/20 border-amber-200"}`}>
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${officeLat ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-500"}`}>
+          <MapPin className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {officeLat ? (
+            <>
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">ตั้งพิกัดแล้ว ✓</p>
+              <p className="text-xs text-muted-foreground font-mono">{officeLat.toFixed(6)}, {officeLng?.toFixed(6)}</p>
+              {officeSetAt && (
+                <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                  อัปเดตล่าสุด: {new Date(officeSetAt).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-amber-700">⚠️ ยังไม่ได้ตั้งพิกัดออฟฟิศ</p>
+              <p className="text-xs text-amber-600/80">Sales จะไม่สามารถ Check-in ได้จนกว่าจะตั้งพิกัด</p>
+            </>
+          )}
+        </div>
+        {officeLat && (
+          <button onClick={openInGoogleMaps} className="text-xs text-indigo-600 hover:underline shrink-0 flex items-center gap-1">
+            <Globe2 className="w-3.5 h-3.5" /> ดูแผนที่
+          </button>
+        )}
+      </div>
+
+      {/* Input form */}
+      <div className="rounded-xl border bg-card p-5 space-y-4">
+        <p className="text-sm font-semibold">ตั้งพิกัดออฟฟิศ</p>
+
+        {/* GPS button */}
+        <button
+          onClick={handleGPS}
+          disabled={gpsLoading}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-indigo-300 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 transition-colors text-sm font-medium disabled:opacity-50"
+        >
+          {gpsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+          {gpsLoading ? "กำลังรับพิกัด GPS..." : "📍 ใช้ GPS ตำแหน่งปัจจุบัน (กดขณะอยู่ที่ออฟฟิศ)"}
+        </button>
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex-1 h-px bg-border" />
+          หรือใส่พิกัดจาก Google Maps
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Manual input */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Latitude (ละติจูด)</label>
+            <Input
+              value={latInput}
+              onChange={(e) => setLatInput(e.target.value)}
+              placeholder="เช่น 18.788071"
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Longitude (ลองจิจูด)</label>
+            <Input
+              value={lngInput}
+              onChange={(e) => setLngInput(e.target.value)}
+              placeholder="เช่น 98.993630"
+              className="font-mono text-sm"
+            />
+          </div>
+        </div>
+
+        {/* How to get coords from Google Maps */}
+        <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+          <p className="font-semibold text-foreground/70">วิธีหาพิกัดจาก Google Maps:</p>
+          <p>1. เปิด Google Maps บน PC → ค้นหาที่อยู่ออฟฟิศ</p>
+          <p>2. คลิกขวาที่จุดออฟฟิศ → เลือกพิกัด (ตัวเลข 2 ชุด)</p>
+          <p>3. ตัวเลขแรก = Latitude, ตัวเลขสอง = Longitude</p>
+          <p>4. วางในช่องด้านบน แล้วกด "บันทึกพิกัด"</p>
+        </div>
+
+        <Button onClick={handleSave} disabled={saving || (!latInput || !lngInput)} className="w-full bg-gradient-primary text-primary-foreground">
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          บันทึกพิกัดออฟฟิศ
+        </Button>
+      </div>
+
+      {/* Info */}
+      <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/20 border-blue-200 p-4 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+        <p className="font-semibold">📌 หมายเหตุ</p>
+        <p>• Sales ต้องอยู่ภายใน <strong>200 เมตร</strong> จากพิกัดนี้เพื่อ Check-in / Check-out</p>
+        <p>• พิกัดนี้ใช้ร่วมกันทุก Sales ในระบบ — เปลี่ยนได้ทุกเมื่อ</p>
+        <p>• หากออฟฟิศย้าย ให้อัปเดตพิกัดใหม่ที่นี่</p>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ── */
 export default function WebSetting() {
   const user = useCurrentUser();
@@ -642,6 +812,7 @@ export default function WebSetting() {
   if (!user || user.role !== "Admin") return <Navigate to="/" replace />;
 
   const tabs: { key: SidebarTab; label: string; icon: React.ElementType }[] = [
+    { key: "office",   label: "พิกัดออฟฟิศ",         icon: Building2 },
     { key: "help",     label: "คำอธิบายหน้า (?)",  icon: HelpCircle },
     { key: "bot",      label: "ตั้งค่า Chat Bot",    icon: Bot },
     { key: "training", label: "เทรน Bot (Q&A)",      icon: Brain },
@@ -718,6 +889,7 @@ export default function WebSetting() {
 
         {/* Content */}
         <main className="flex-1 p-4 sm:p-6 min-h-[calc(100vh-56px)]">
+          {tab === "office"   && <OfficeLocationSection />}
           {tab === "help"     && <HelpTextSection />}
           {tab === "bot"      && <BotSection />}
           {tab === "training" && <BotTrainingSection />}
