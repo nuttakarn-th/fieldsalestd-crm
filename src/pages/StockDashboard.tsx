@@ -240,11 +240,11 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
       </div>
 
       {/* Map */}
-      <div className="relative rounded-xl overflow-hidden" style={{ background: "hsl(var(--muted)/0.3)" }}>
+      <div className="relative rounded-xl overflow-hidden" style={{ background: "hsl(var(--muted)/0.3)", height: 240 }}>
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 120, center: [0, 20] }}
-          style={{ width: "100%", height: "auto" }}
+          projectionConfig={{ scale: 110, center: [15, 15] }}
+          style={{ width: "100%", height: "100%" }}
         >
           <ZoomableGroup zoom={zoom} center={center}
             onMoveEnd={({ coordinates, zoom: z }) => { setCenter(coordinates as [number,number]); setZoom(z); }}>
@@ -479,16 +479,21 @@ export default function StockDashboard() {
       .sort((a, b) => b.bookedVal - a.bookedVal).slice(0, 12);
   }, [filteredTours]);
 
-  // ── heatmap ──
+  // ── heatmap (กรองเฉพาะปี ค.ศ. 2010–2040 เพื่อกันข้อมูลผิดพลาด) ──
   const heatmapData = useMemo(() => {
+    const MIN_YEAR = 2010, MAX_YEAR = 2040;
     const years = new Set<number>();
-    for (const t of filteredTours) for (const p of t.periods ?? [])
-      if (p.start_date) years.add(new Date(p.start_date).getFullYear());
+    for (const t of filteredTours) for (const p of t.periods ?? []) {
+      if (!p.start_date) continue;
+      const y = new Date(p.start_date).getFullYear();
+      if (y >= MIN_YEAR && y <= MAX_YEAR) years.add(y);
+    }
     const yearList = Array.from(years).sort();
     const grid: Record<string, Record<number, { periods: number; booked: number; seats: number }>> = {};
     for (const t of filteredTours) for (const p of t.periods ?? []) {
       if (!p.start_date || p.cancelled) continue;
       const d = new Date(p.start_date); const mo = d.getMonth(); const yr = d.getFullYear();
+      if (yr < MIN_YEAR || yr > MAX_YEAR) continue;
       if (!grid[mo]) grid[mo] = {};
       if (!grid[mo][yr]) grid[mo][yr] = { periods: 0, booked: 0, seats: 0 };
       grid[mo][yr].periods++; grid[mo][yr].booked += p.total_seats - p.quota; grid[mo][yr].seats += p.total_seats;
@@ -719,8 +724,77 @@ export default function StockDashboard() {
           </div>
         </div>
 
-        {/* ── World Map ── */}
-        <WorldMapSection countryStats={countryStats} />
+        {/* ── World Map + Heatmap (side-by-side on XL) ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          {/* World Map — 2/3 width */}
+          <div className="xl:col-span-2">
+            <WorldMapSection countryStats={countryStats} />
+          </div>
+
+          {/* Period Heatmap — 1/3 width */}
+          <div className="bg-card rounded-2xl border border-border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarDays className="w-4 h-4" style={{ color: C_INTL }} />
+              <h2 className="text-sm font-bold text-foreground">Period Heatmap</h2>
+              <span className="text-[10px] text-muted-foreground">รายเดือน</span>
+            </div>
+            {heatmapData.yearList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="text-xs border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-[10px] text-muted-foreground font-medium py-1 pr-3 sticky left-0 bg-card w-8">เดือน</th>
+                      {heatmapData.yearList.map((y) => (
+                        <th key={y} className="text-center text-[10px] text-muted-foreground font-semibold py-1 px-0.5 w-[58px]">
+                          {y + 543}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MONTH_TH.map((mo, mi) => (
+                      <tr key={mi}>
+                        <td className="text-muted-foreground font-medium py-0.5 pr-3 text-[10px] sticky left-0 bg-card">{mo}</td>
+                        {heatmapData.yearList.map((y) => {
+                          const cell = heatmapData.grid[mi]?.[y];
+                          const count = cell?.periods ?? 0;
+                          const rate  = cell && cell.seats > 0 ? Math.round((cell.booked / cell.seats) * 100) : 0;
+                          const intensity = Math.min(count / 8, 1);
+                          const bg = count === 0 ? "hsl(var(--muted))" : `rgba(167,139,250,${0.1 + intensity * 0.65})`;
+                          return (
+                            <td key={y} className="text-center py-0.5 px-0.5">
+                              <div className="rounded-md mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105"
+                                style={{ background: bg, height: 36, width: 52 }}
+                                title={count > 0 ? `${mo} ${y+543}: ${count} periods, จอง ${rate}%` : "ไม่มี period"}>
+                                {count > 0 ? (
+                                  <>
+                                    <span className={`text-[13px] font-bold leading-none ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
+                                    <span className={`text-[9px] ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground/25 text-[10px]">—</span>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex items-center gap-1 mt-2">
+                  <span className="text-[9px] text-muted-foreground">น้อย</span>
+                  {[0.1, 0.3, 0.5, 0.7, 0.9].map((op, i) => (
+                    <div key={i} className="w-3.5 h-3 rounded-sm" style={{ background: `rgba(167,139,250,${op})` }} />
+                  ))}
+                  <span className="text-[9px] text-muted-foreground">มาก</span>
+                </div>
+              </div>
+            ) : (
+              <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">ยังไม่มีข้อมูล</div>
+            )}
+          </div>
+        </div>
 
         {/* ── By Continent + By Country ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -728,8 +802,8 @@ export default function StockDashboard() {
           <div className="bg-card rounded-2xl border border-border p-5">
             <SectionHeader icon={Globe2} title="แยกตามทวีป / ภูมิภาค" color={C_INC} />
             {continentStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={Math.max(220, continentStats.length * 38)}>
-                <BarChart data={continentStats} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={Math.max(200, continentStats.length * 34)}>
+                <BarChart data={continentStats} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                   <XAxis type="number" tickFormatter={fmtM} tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                   <YAxis dataKey="name" type="category" width={72} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
@@ -749,7 +823,7 @@ export default function StockDashboard() {
           {/* Country table */}
           <div className="bg-card rounded-2xl border border-border p-5">
             <SectionHeader icon={MapPin} title="Top ประเทศ (by มูลค่าจอง)" color={C_DOM} />
-            <div className="overflow-auto max-h-[300px]">
+            <div className="overflow-auto max-h-[280px]">
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b border-border text-[10px] text-muted-foreground uppercase tracking-wide">
@@ -763,12 +837,12 @@ export default function StockDashboard() {
                 <tbody>
                   {countryStats.map((c, i) => (
                     <tr key={c.name} className="border-b border-border/40 hover:bg-muted/40 transition-colors">
-                      <td className="py-2 text-muted-foreground/40 w-6">{i + 1}</td>
-                      <td className="py-2 font-medium text-foreground">{c.name}</td>
-                      <td className="py-2 text-right text-muted-foreground">{c.programs}</td>
-                      <td className="py-2 text-right">
+                      <td className="py-1.5 text-muted-foreground/40 w-6">{i + 1}</td>
+                      <td className="py-1.5 font-medium text-foreground">{c.name}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">{c.programs}</td>
+                      <td className="py-1.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
                             <div className="h-full rounded-full transition-all"
                               style={{ width: `${c.rate}%`, background: c.rate >= 70 ? C_BOOKED : c.rate >= 40 ? C_DOM : "hsl(var(--muted-foreground))" }} />
                           </div>
@@ -777,7 +851,7 @@ export default function StockDashboard() {
                           </span>
                         </div>
                       </td>
-                      <td className="py-2 text-right font-semibold" style={{ color: C_INTL }}>{fmtMB(c.bookedVal)}</td>
+                      <td className="py-1.5 text-right font-semibold" style={{ color: C_INTL }}>{fmtMB(c.bookedVal)}</td>
                     </tr>
                   ))}
                   {countryStats.length === 0 && (
@@ -787,66 +861,6 @@ export default function StockDashboard() {
               </table>
             </div>
           </div>
-        </div>
-
-        {/* ── Monthly Heatmap ── */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <SectionHeader icon={CalendarDays} title="Period Heatmap รายเดือน" sub="— จำนวน Period ที่เปิดขายแต่ละเดือน" color={C_INTL} />
-          {heatmapData.yearList.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="text-xs border-collapse">
-                <thead>
-                  <tr>
-                    <th className="text-left text-[10px] text-muted-foreground font-medium py-1.5 pr-4 w-10 sticky left-0 bg-card">เดือน</th>
-                    {heatmapData.yearList.map((y) => (
-                      <th key={y} className="text-center text-[11px] text-muted-foreground font-semibold py-2 px-1 w-[68px]">
-                        {y + 543}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {MONTH_TH.map((mo, mi) => (
-                    <tr key={mi}>
-                      <td className="text-muted-foreground font-medium py-0.5 pr-4 text-[11px] sticky left-0 bg-card">{mo}</td>
-                      {heatmapData.yearList.map((y) => {
-                        const cell = heatmapData.grid[mi]?.[y];
-                        const count = cell?.periods ?? 0;
-                        const rate  = cell && cell.seats > 0 ? Math.round((cell.booked / cell.seats) * 100) : 0;
-                        const intensity = Math.min(count / 8, 1);
-                        const bg = count === 0 ? "hsl(var(--muted))" : `rgba(167, 139, 250, ${0.1 + intensity * 0.65})`;
-                        return (
-                          <td key={y} className="text-center py-0.5 px-0.5">
-                            <div className="rounded-lg mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105 hover:brightness-110"
-                              style={{ background: bg, height: 40, width: 60 }}
-                              title={count > 0 ? `${mo} ${y + 543}: ${count} period, จอง ${rate}%` : "ไม่มี period"}>
-                              {count > 0 ? (
-                                <>
-                                  <span className={`text-[14px] font-bold leading-tight ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
-                                  <span className={`text-[9px] font-medium ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground/25 text-[10px]">—</span>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-[10px] text-muted-foreground">น้อย</span>
-                {[0.1, 0.25, 0.42, 0.58, 0.75].map((op, i) => (
-                  <div key={i} className="w-4 h-3.5 rounded" style={{ background: `rgba(167,139,250,${op})` }} />
-                ))}
-                <span className="text-[10px] text-muted-foreground">มาก</span>
-              </div>
-            </div>
-          ) : (
-            <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">ยังไม่มีข้อมูล</div>
-          )}
         </div>
 
         {/* ── Cancellation + Upcoming ── */}
