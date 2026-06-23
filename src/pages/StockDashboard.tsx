@@ -1,17 +1,64 @@
 /**
  * StockDashboard.tsx — Full Stock / Tour Management Dashboard (Dark Mode)
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList,
 } from "recharts";
+import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { useServices, type TourItem } from "@/store/serviceStore";
 import {
   ArrowLeft, Globe2, MapPin, TrendingUp, PackageSearch,
-  CheckCircle2, XCircle, CalendarDays, Layers, AlertTriangle,
+  CheckCircle2, XCircle, CalendarDays, Layers, AlertTriangle, ZoomIn, ZoomOut,
 } from "lucide-react";
+
+// ─── world-atlas topojson (ISO 3166-1 numeric as geo.id) ────────────────────
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+// ─── Thai country name → ISO 3166-1 numeric (ตรงกับ world-atlas) ────────────
+const COUNTRY_ISO: Record<string, string> = {
+  // เอเชียตะวันออก
+  "จีน":"156","ญี่ปุ่น":"392","เกาหลีใต้":"410","เกาหลี":"410",
+  "ไต้หวัน":"158","ฮ่องกง":"344","มองโกเลีย":"496",
+  // เอเชียตะวันออกเฉียงใต้
+  "สิงคโปร์":"702","มาเลเซีย":"458","อินโดนีเซีย":"360",
+  "เวียดนาม":"704","กัมพูชา":"116","ลาว":"418",
+  "พม่า":"104","เมียนมา":"104","ฟิลิปปินส์":"608",
+  "บรูไน":"96","บาหลี":"360", // บาหลี = Indonesia
+  // เอเชียใต้
+  "อินเดีย":"356","เนปาล":"524","ศรีลังกา":"144","ภูฏาน":"64","มัลดีฟส์":"462",
+  // เอเชียกลาง
+  "คาซัคสถาน":"398","อุซเบกิสถาน":"860","คีร์กีซสถาน":"417",
+  // ยุโรป
+  "ฝรั่งเศส":"250","สวิตเซอร์แลนด์":"756","อิตาลี":"380","เยอรมนี":"276",
+  "สเปน":"724","อังกฤษ":"826","สหราชอาณาจักร":"826","สกอตแลนด์":"826",
+  "ออสเตรีย":"40","เนเธอร์แลนด์":"528","เบลเยียม":"56","โปรตุเกส":"620",
+  "กรีซ":"300","ตุรกี":"792","สาธารณรัฐเช็ก":"203","ฮังการี":"348",
+  "โปแลนด์":"616","นอร์เวย์":"578","สวีเดน":"752","ฟินแลนด์":"246",
+  "เดนมาร์ก":"208","ไอร์แลนด์":"372","ไอซ์แลนด์":"352","รัสเซีย":"643",
+  "โครเอเชีย":"191","สโลวีเนีย":"705","มอลตา":"470","โรมาเนีย":"642",
+  "บัลแกเรีย":"100","เซอร์เบีย":"688","แอลเบเนีย":"8","มอนเตเนโกร":"499",
+  // ตะวันออกกลาง
+  "ดูไบ":"784","UAE":"784","สหรัฐอาหรับเอมิเรตส์":"784",
+  "อิสราเอล":"376","จอร์แดน":"400","ซาอุดีอาระเบีย":"682",
+  "โอมาน":"512","กาตาร์":"634","คูเวต":"414","บาห์เรน":"48",
+  // แอฟริกา
+  "อียิปต์":"818","โมร็อกโก":"504","แอฟริกาใต้":"710",
+  "แทนซาเนีย":"834","เคนยา":"404","มาดากัสการ์":"450",
+  "เอธิโอเปีย":"231","ซิมบับเว":"716","กานา":"288",
+  // อเมริกาเหนือ
+  "อเมริกา":"840","สหรัฐอเมริกา":"840","USA":"840",
+  "แคนาดา":"124","เม็กซิโก":"484",
+  // อเมริกาใต้
+  "เปรู":"604","บราซิล":"76","อาร์เจนตินา":"32",
+  "ชิลี":"152","โคลอมเบีย":"170","โบลิเวีย":"68",
+  // โอเชียเนีย
+  "ออสเตรเลีย":"36","นิวซีแลนด์":"554","ฟิจิ":"242","วานูอาตู":"548",
+  // ภายในประเทศ
+  "ไทย":"764","Thailand":"764",
+};
 
 // ─── brand palette (ใช้งานได้ทั้ง dark/light) ───────────────────────────────
 const C_INTL   = "#A78BFA"; // violet-400
@@ -99,6 +146,210 @@ function SectionHeader({ icon: Icon, title, sub, color = C_INTL }: {
       <Icon className="w-4 h-4" style={{ color }} />
       <h2 className="text-sm font-bold text-foreground">{title}</h2>
       {sub && <span className="text-[11px] text-muted-foreground ml-1">{sub}</span>}
+    </div>
+  );
+}
+
+// ─── World Map Section ───────────────────────────────────────────────────────
+type MapMode = "rate" | "programs" | "revenue";
+type CountryStat = { name: string; programs: number; seats: number; booked: number; bookedVal: number; rate: number };
+
+function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
+  const [mode, setMode] = useState<MapMode>("rate");
+  const [zoom, setZoom] = useState(1);
+  const [center, setCenter] = useState<[number, number]>([20, 10]);
+  const [tooltip, setTooltip] = useState<{ name: string; iso: string; x: number; y: number } | null>(null);
+
+  // build lookup: ISO numeric string → country data
+  const byIso = useMemo(() => {
+    const m: Record<string, CountryStat> = {};
+    for (const c of countryStats) {
+      const iso = COUNTRY_ISO[c.name.trim()];
+      if (iso) m[iso] = c;
+    }
+    return m;
+  }, [countryStats]);
+
+  const maxPrograms = useMemo(() => Math.max(...countryStats.map((c) => c.programs), 1), [countryStats]);
+  const maxRevenue  = useMemo(() => Math.max(...countryStats.map((c) => c.bookedVal), 1), [countryStats]);
+
+  const getColor = useCallback((isoId: string) => {
+    const d = byIso[isoId];
+    if (!d) return "hsl(var(--muted))";
+    if (mode === "rate") {
+      if (d.rate >= 70) return C_BOOKED;
+      if (d.rate >= 50) return "#F97316";  // orange
+      if (d.rate >= 30) return C_DOM;
+      return `${C_INTL}55`;
+    }
+    if (mode === "programs") {
+      const t = 0.12 + (d.programs / maxPrograms) * 0.78;
+      return `rgba(167,139,250,${t.toFixed(2)})`;
+    }
+    // revenue
+    const t = 0.12 + (d.bookedVal / maxRevenue) * 0.78;
+    return `rgba(56,189,248,${t.toFixed(2)})`;
+  }, [byIso, mode, maxPrograms, maxRevenue]);
+
+  const modes: { key: MapMode; label: string; color: string }[] = [
+    { key: "rate",     label: "Booking Rate", color: C_BOOKED },
+    { key: "programs", label: "โปรแกรม",      color: C_INTL   },
+    { key: "revenue",  label: "มูลค่าจอง",    color: C_INC    },
+  ];
+
+  const tooltipData = tooltip ? byIso[tooltip.iso] : null;
+
+  return (
+    <div className="bg-card rounded-2xl border border-border p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Globe2 className="w-4 h-4" style={{ color: C_INTL }} />
+          <h2 className="text-sm font-bold text-foreground">World Map — การกระจายโปรแกรมทั่วโลก</h2>
+          <span className="text-[11px] text-muted-foreground">({countryStats.length} ประเทศ)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* mode toggle */}
+          <div className="flex items-center rounded-lg border border-border overflow-hidden text-[11px]">
+            {modes.map((m) => (
+              <button key={m.key} onClick={() => setMode(m.key)}
+                className="px-3 py-1.5 font-medium transition-all"
+                style={mode === m.key
+                  ? { background: m.color, color: "#fff" }
+                  : { background: "transparent", color: "hsl(var(--muted-foreground))" }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {/* zoom controls */}
+          <div className="flex items-center gap-1">
+            <button onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}
+              className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+              <ZoomIn className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+            <button onClick={() => { setZoom(1); setCenter([20, 10]); }}
+              className="px-2 py-1 rounded-lg border border-border hover:bg-muted text-[10px] text-muted-foreground transition-colors">
+              reset
+            </button>
+            <button onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
+              className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+              <ZoomOut className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Map */}
+      <div className="relative rounded-xl overflow-hidden" style={{ background: "hsl(var(--muted)/0.3)" }}>
+        <ComposableMap
+          projection="geoMercator"
+          projectionConfig={{ scale: 120, center: [0, 20] }}
+          style={{ width: "100%", height: "auto" }}
+        >
+          <ZoomableGroup zoom={zoom} center={center}
+            onMoveEnd={({ coordinates, zoom: z }) => { setCenter(coordinates as [number,number]); setZoom(z); }}>
+            <Geographies geography={GEO_URL}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
+                  const isoId = String(geo.id);
+                  const hasData = !!byIso[isoId];
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill={getColor(isoId)}
+                      stroke="hsl(var(--border))"
+                      strokeWidth={0.4}
+                      style={{
+                        default:  { outline: "none", cursor: hasData ? "pointer" : "default" },
+                        hover:    { outline: "none", filter: hasData ? "brightness(1.25)" : "none" },
+                        pressed:  { outline: "none" },
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!hasData) return;
+                        setTooltip({ name: byIso[isoId].name, iso: isoId, x: e.clientX, y: e.clientY });
+                      }}
+                      onMouseMove={(e) => {
+                        if (tooltip?.iso === isoId) setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null);
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  );
+                })
+              }
+            </Geographies>
+          </ZoomableGroup>
+        </ComposableMap>
+
+        {/* Tooltip */}
+        {tooltip && tooltipData && (
+          <div className="fixed z-50 pointer-events-none"
+            style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
+            <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 text-xs min-w-[140px]">
+              <p className="font-bold text-foreground mb-1.5">{tooltipData.name}</p>
+              <div className="space-y-1">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">โปรแกรม</span>
+                  <span className="font-semibold text-foreground">{tooltipData.programs}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Booking Rate</span>
+                  <span className="font-semibold" style={{ color: tooltipData.rate >= 70 ? C_BOOKED : tooltipData.rate >= 40 ? C_DOM : C_INTL }}>
+                    {tooltipData.rate}%
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">มูลค่าจอง</span>
+                  <span className="font-semibold" style={{ color: C_INTL }}>{fmtMB(tooltipData.bookedVal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 flex-wrap">
+        {mode === "rate" && (
+          <>
+            <span className="text-[10px] text-muted-foreground">Booking Rate:</span>
+            {[
+              { color: `${C_INTL}55`, label: "<30%" },
+              { color: C_DOM,         label: "30–49%" },
+              { color: "#F97316",     label: "50–69%" },
+              { color: C_BOOKED,      label: "70%+" },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
+                <span className="text-[10px] text-muted-foreground">{l.label}</span>
+              </div>
+            ))}
+          </>
+        )}
+        {mode === "programs" && (
+          <>
+            <span className="text-[10px] text-muted-foreground">จำนวนโปรแกรม:</span>
+            {[0.12, 0.32, 0.55, 0.78, 0.9].map((op, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="w-4 h-3 rounded-sm" style={{ background: `rgba(167,139,250,${op})` }} />
+              </div>
+            ))}
+            <span className="text-[10px] text-muted-foreground">น้อย → มาก</span>
+          </>
+        )}
+        {mode === "revenue" && (
+          <>
+            <span className="text-[10px] text-muted-foreground">มูลค่าจอง:</span>
+            {[0.12, 0.32, 0.55, 0.78, 0.9].map((op, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <div className="w-4 h-3 rounded-sm" style={{ background: `rgba(56,189,248,${op})` }} />
+              </div>
+            ))}
+            <span className="text-[10px] text-muted-foreground">น้อย → มาก</span>
+          </>
+        )}
+        <span className="text-[10px] text-muted-foreground/40 ml-auto">Drag to pan · Scroll to zoom</span>
+      </div>
     </div>
   );
 }
@@ -468,6 +719,9 @@ export default function StockDashboard() {
           </div>
         </div>
 
+        {/* ── World Map ── */}
+        <WorldMapSection countryStats={countryStats} />
+
         {/* ── By Continent + By Country ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {/* Continent */}
@@ -540,12 +794,12 @@ export default function StockDashboard() {
           <SectionHeader icon={CalendarDays} title="Period Heatmap รายเดือน" sub="— จำนวน Period ที่เปิดขายแต่ละเดือน" color={C_INTL} />
           {heatmapData.yearList.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="text-xs border-collapse w-full">
+              <table className="text-xs border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left text-[10px] text-muted-foreground font-medium py-1.5 pr-3 w-10">เดือน</th>
+                    <th className="text-left text-[10px] text-muted-foreground font-medium py-1.5 pr-4 w-10 sticky left-0 bg-card">เดือน</th>
                     {heatmapData.yearList.map((y) => (
-                      <th key={y} className="text-center text-[11px] text-muted-foreground font-semibold py-2 px-1 min-w-[64px]">
+                      <th key={y} className="text-center text-[11px] text-muted-foreground font-semibold py-2 px-1 w-[68px]">
                         {y + 543}
                       </th>
                     ))}
@@ -554,7 +808,7 @@ export default function StockDashboard() {
                 <tbody>
                   {MONTH_TH.map((mo, mi) => (
                     <tr key={mi}>
-                      <td className="text-muted-foreground font-medium py-1 pr-3 text-[11px]">{mo}</td>
+                      <td className="text-muted-foreground font-medium py-0.5 pr-4 text-[11px] sticky left-0 bg-card">{mo}</td>
                       {heatmapData.yearList.map((y) => {
                         const cell = heatmapData.grid[mi]?.[y];
                         const count = cell?.periods ?? 0;
@@ -562,17 +816,17 @@ export default function StockDashboard() {
                         const intensity = Math.min(count / 8, 1);
                         const bg = count === 0 ? "hsl(var(--muted))" : `rgba(167, 139, 250, ${0.1 + intensity * 0.65})`;
                         return (
-                          <td key={y} className="text-center py-1 px-1">
-                            <div className="rounded-xl mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105 hover:brightness-110"
-                              style={{ background: bg, minHeight: 46, width: 58 }}
+                          <td key={y} className="text-center py-0.5 px-0.5">
+                            <div className="rounded-lg mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105 hover:brightness-110"
+                              style={{ background: bg, height: 40, width: 60 }}
                               title={count > 0 ? `${mo} ${y + 543}: ${count} period, จอง ${rate}%` : "ไม่มี period"}>
                               {count > 0 ? (
                                 <>
-                                  <span className={`text-[15px] font-bold leading-tight ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
-                                  <span className={`text-[10px] font-medium ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
+                                  <span className={`text-[14px] font-bold leading-tight ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
+                                  <span className={`text-[9px] font-medium ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
                                 </>
                               ) : (
-                                <span className="text-muted-foreground/30 text-[11px]">—</span>
+                                <span className="text-muted-foreground/25 text-[10px]">—</span>
                               )}
                             </div>
                           </td>
@@ -582,12 +836,12 @@ export default function StockDashboard() {
                   ))}
                 </tbody>
               </table>
-              <div className="flex items-center gap-1.5 mt-3">
-                <span className="text-[10px] text-muted-foreground">Intensity:</span>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-[10px] text-muted-foreground">น้อย</span>
                 {[0.1, 0.25, 0.42, 0.58, 0.75].map((op, i) => (
-                  <div key={i} className="w-5 h-4 rounded" style={{ background: `rgba(167,139,250,${op})` }} />
+                  <div key={i} className="w-4 h-3.5 rounded" style={{ background: `rgba(167,139,250,${op})` }} />
                 ))}
-                <span className="text-[10px] text-muted-foreground ml-1">มาก</span>
+                <span className="text-[10px] text-muted-foreground">มาก</span>
               </div>
             </div>
           ) : (
