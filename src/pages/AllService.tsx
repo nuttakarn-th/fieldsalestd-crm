@@ -1230,13 +1230,17 @@ ${catBlocks}
                 acc.periods     += 1;
                 acc.totalValue  += p.total_seats * p.price_per_seat;
                 acc.bookedValue += bookedSeats   * p.price_per_seat;
+              } else {
+                acc.cancelledPeriods += 1;
+                acc.cancelledSeats   += p.total_seats;
+                acc.cancelledValue   += p.total_seats * p.price_per_seat;
               }
             });
             return acc;
           },
-          { totalSeats: 0, booked: 0, available: 0, periods: 0, totalValue: 0, bookedValue: 0 }
+          { totalSeats: 0, booked: 0, available: 0, periods: 0, totalValue: 0, bookedValue: 0, cancelledPeriods: 0, cancelledSeats: 0, cancelledValue: 0 }
         );
-        if (stats.periods === 0) return null;
+        if (stats.periods === 0 && stats.cancelledPeriods === 0) return null;
         const pct      = stats.totalSeats  > 0 ? Math.round((stats.booked      / stats.totalSeats)  * 100) : 0;
         const valuePct = stats.totalValue  > 0 ? Math.round((stats.bookedValue / stats.totalValue)  * 100) : 0;
         const fmtVal   = (v: number) => v >= 1_000_000
@@ -1298,6 +1302,19 @@ ${catBlocks}
                 <div className="h-full rounded-full transition-all" style={{width:`${valuePct}%`, background:"#7C3AED"}} />
               </div>
             </div>
+
+            {/* ── ยกเลิก ── */}
+            {stats.cancelledPeriods > 0 && (
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[120px] shrink-0" style={{background:"#FFF5F5"}}>
+                <div className="flex items-baseline gap-1.5 leading-none">
+                  <span className="text-[15px] font-bold text-red-500">{stats.cancelledPeriods} Period</span>
+                </div>
+                <span className="text-[10px] text-gray-400 mt-1 mb-0.5 whitespace-nowrap">❌ ยกเลิกแล้ว</span>
+                <span className="text-[10px] font-semibold text-red-400 whitespace-nowrap">
+                  ฿{fmtVal(stats.cancelledValue)} <span className="text-[9px] font-normal text-gray-400">({stats.cancelledSeats.toLocaleString()} ที่)</span>
+                </span>
+              </div>
+            )}
 
             {/* ── Category breakdown ── */}
             <div className="hidden xl:flex items-center gap-3 px-4 ml-auto shrink-0">
