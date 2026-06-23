@@ -96,8 +96,6 @@ export default function Planning() {
   });
   const [openNewRoute, setOpenNewRoute] = useState(false);
   const [newRouteTitle, setNewRouteTitle] = useState("");
-  const [newRouteHasCheckin, setNewRouteHasCheckin] = useState(true);
-  const [newRouteHasCheckout, setNewRouteHasCheckout] = useState(true);
   const [gpsLoading, setGpsLoading] = useState<"checkin" | "checkout" | null>(null);
   const dragStopId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -125,14 +123,12 @@ export default function Planning() {
 
   const openCreateRoute = () => {
     setNewRouteTitle(`แผนเยี่ยมลูกค้า ${dateKey}`);
-    setNewRouteHasCheckin(true);
-    setNewRouteHasCheckout(true);
     setOpenNewRoute(true);
   };
 
   const createRoute = () => {
     const title = newRouteTitle.trim() || `แผนเยี่ยมลูกค้า ${dateKey}`;
-    addRoute(currentRep as never, dateKey, title, newRouteHasCheckin, newRouteHasCheckout);
+    addRoute(currentRep as never, dateKey, title, true, true);
     setOpenNewRoute(false);
     setNewRouteTitle("");
     toast.success(`สร้าง Route "${title}" แล้ว`);
@@ -664,72 +660,6 @@ export default function Planning() {
               <p className="text-[11px] text-muted-foreground mt-1">ชื่อนี้จะแสดงบน Route ID เพื่อหาง่าย</p>
             </div>
 
-            {/* ── Check-in / Check-out toggles ── */}
-            <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
-              <p className="text-xs font-semibold flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-primary" />
-                การ Check-in / Check-out ออฟฟิศ
-              </p>
-              <p className="text-[11px] text-muted-foreground -mt-1">
-                ระบบจะขอ GPS ยืนยันว่าอยู่ภายใน {CHECKIN_RADIUS_M} เมตรจากออฟฟิศ
-              </p>
-
-              {/* Check-in toggle */}
-              <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
-                <div className="flex items-center gap-2">
-                  <LogIn className={cn("w-4 h-4 shrink-0", newRouteHasCheckin ? "text-amber-500" : "text-muted-foreground")} />
-                  <div>
-                    <p className="text-sm font-medium">Check-in ที่ออฟฟิศก่อนออกงาน</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {newRouteHasCheckin ? "เริ่มเส้นทางจากออฟฟิศ — คำนวณระยะทางจากออฟฟิศ" : "เริ่มจากบ้านหรือสถานที่อื่น — ไม่นับระยะถึงออฟฟิศ"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={newRouteHasCheckin}
-                  onClick={() => setNewRouteHasCheckin((v) => !v)}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
-                    newRouteHasCheckin ? "bg-amber-500" : "bg-muted-foreground/30"
-                  )}
-                >
-                  <span className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                    newRouteHasCheckin ? "translate-x-6" : "translate-x-1"
-                  )} />
-                </button>
-              </label>
-
-              {/* Check-out toggle */}
-              <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
-                <div className="flex items-center gap-2">
-                  <LogOut className={cn("w-4 h-4 shrink-0", newRouteHasCheckout ? "text-blue-500" : "text-muted-foreground")} />
-                  <div>
-                    <p className="text-sm font-medium">Check-out ที่ออฟฟิศหลังเลิกงาน</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {newRouteHasCheckout ? "กลับออฟฟิศสิ้นสุดวัน — คำนวณระยะทางกลับออฟฟิศ" : "ไม่กลับออฟฟิศ — สิ้นสุดที่จุดสุดท้ายในแผน"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={newRouteHasCheckout}
-                  onClick={() => setNewRouteHasCheckout((v) => !v)}
-                  className={cn(
-                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0",
-                    newRouteHasCheckout ? "bg-blue-500" : "bg-muted-foreground/30"
-                  )}
-                >
-                  <span className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                    newRouteHasCheckout ? "translate-x-6" : "translate-x-1"
-                  )} />
-                </button>
-              </label>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenNewRoute(false)}>ยกเลิก</Button>

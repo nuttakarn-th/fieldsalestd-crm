@@ -99,11 +99,23 @@ export default function CalendarPlan() {
     return routes.filter((r) => r.rep === currentRep && keys.has(r.date));
   }, [routes, weekDays, currentRep]);
 
-  const routeByDay = useMemo(() => {
-    const m = new Map<string, RoutePlan>();
-    weekRoutes.forEach((r) => m.set(r.date, r));
+  // Map วันละหลาย route ได้
+  const routesByDay = useMemo(() => {
+    const m = new Map<string, RoutePlan[]>();
+    weekRoutes.forEach((r) => {
+      const arr = m.get(r.date) ?? [];
+      arr.push(r);
+      m.set(r.date, arr);
+    });
     return m;
   }, [weekRoutes]);
+
+  // backward compat: first route of day
+  const routeByDay = useMemo(() => {
+    const m = new Map<string, RoutePlan>();
+    routesByDay.forEach((arr, date) => { if (arr[0]) m.set(date, arr[0]); });
+    return m;
+  }, [routesByDay]);
 
   const weekStats = useMemo(() => {
     let planned = 0, done = 0, skipped = 0;
@@ -130,15 +142,17 @@ export default function CalendarPlan() {
     }).slice(0, 8);
   }, [customers, routes]);
 
-  const openAdd = (dayKey: string, customerId?: string) => {
-    const existingRoute = routeByDay.get(dayKey) ?? null;
+  const openAdd = (dayKey: string, customerId?: string, routeId?: string) => {
+    const dayRoutes = routesByDay.get(dayKey) ?? [];
+    // ถ้าระบุ routeId มาเลย ใช้เลย; ไม่งั้นใช้ route แรก (หรือ null = สร้างใหม่)
+    const resolvedRouteId = routeId ?? dayRoutes[0]?.route_id ?? null;
     let form = { customer_id: "none", place_name: "", address: "", purpose: PURPOSES[0], planned_time: "09:00", note: "" };
     if (customerId) {
       const c = customers.find((x: any) => x.customer_id === customerId);
       if (c) { form = { ...form, customer_id: c.customer_id, place_name: (c as any).company || c.full_name, address: (c as any).tel ?? "" }; }
     }
     setStopForm(form);
-    setAddOpen({ dayKey, routeId: existingRoute?.route_id ?? null });
+    setAddOpen({ dayKey, routeId: resolvedRouteId });
   };
 
   const handleCustomerChange = (customerId: string) => {
@@ -453,7 +467,8 @@ export default function CalendarPlan() {
           <div className="grid min-w-[700px]" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
             {weekDays.map((day, i) => {
               const dk = ymd(day);
-              const route = routeByDay.get(dk);
+              const dayRoutes = routesByDay.get(dk) ?? [];
+              const totalStops = dayRoutes.reduce((s, r) => s + r.stops.length, 0);
               const isToday = dk === todayKey;
               const isSat = i === 5;
               return (
@@ -465,36 +480,57 @@ export default function CalendarPlan() {
                       {format(day, "d")}
                     </span>
                     <p className="text-[11px] font-medium text-gray-500">{DAY_LABELS_SHORT[i]}</p>
-                    {route && <span className="ml-auto text-[10px] text-muted-foreground">{route.stops.length} จุด</span>}
+                    {totalStops > 0 && <span className="ml-auto text-[10px] text-muted-foreground">{totalStops} จุด</span>}
                   </div>
-                  {/* Stops */}
+                  {/* Stops — แสดงจากทุก route */}
                   <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
-                    {route?.stops.map((stop) => (
-                      <div key={stop.stop_id} className={cn("rounded-lg p-2 border text-[11px] group relative",
-                        stop.status === "completed" ? "bg-green-50 border-green-100 opacity-75"
-                          : stop.status === "skipped" ? "bg-gray-50 border-gray-200 opacity-60"
-                          : "bg-white border-purple-100")}>
-                        <div className="flex items-start justify-between gap-1 mb-0.5">
-                          <p className={cn("font-semibold leading-tight", stop.status === "completed" && "line-through text-gray-500")}>{stop.place_name}</p>
-                          <StatusBadge status={stop.status} />
-                        </div>
-                        <p className="text-muted-foreground truncate">{stop.purpose}</p>
-                        {stop.planned_time && <p className="text-muted-foreground mt-0.5"><Clock className="w-3 h-3 inline mr-0.5" />{stop.planned_time}</p>}
-                        {stop.address && <p className="text-muted-foreground truncate"><Phone className="w-3 h-3 inline mr-0.5" />{stop.address}</p>}
-                        {/* Hover actions */}
-                        {stop.status === "planned" && (
-                          <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
-                            <button title="เสร็จ" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "completed", completed_at: new Date().toISOString() })}
-                              className="w-5 h-5 rounded flex items-center justify-center bg-green-100 text-green-700 hover:bg-green-200"><CheckCircle2 className="w-3 h-3" /></button>
-                            <button title="ข้าม" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "skipped" })}
-                              className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 text-gray-500 hover:bg-gray-200"><SkipForward className="w-3 h-3" /></button>
-                            <button title="ลบ" onClick={() => deleteStop(route.route_id, stop.stop_id)}
-                              className="w-5 h-5 rounded flex items-center justify-center bg-red-50 text-red-400 hover:bg-red-100"><XCircle className="w-3 h-3" /></button>
+                    {dayRoutes.map((route, ri) => (
+                      <div key={route.route_id}>
+                        {/* Route label — แสดงเมื่อมีหลาย route */}
+                        {dayRoutes.length > 1 && (
+                          <div className="flex items-center gap-1.5 mb-1 mt-1">
+                            <div className="h-px flex-1 bg-purple-100" />
+                            <span className="text-[10px] text-purple-400 font-medium shrink-0 truncate max-w-[80px]" title={route.title}>
+                              {route.title || `Route ${ri + 1}`}
+                            </span>
+                            <div className="h-px flex-1 bg-purple-100" />
                           </div>
+                        )}
+                        {route.stops.map((stop) => (
+                          <div key={stop.stop_id} className={cn("rounded-lg p-2 border text-[11px] group relative mb-1.5",
+                            stop.status === "completed" ? "bg-green-50 border-green-100 opacity-75"
+                              : stop.status === "skipped" ? "bg-gray-50 border-gray-200 opacity-60"
+                              : "bg-white border-purple-100")}>
+                            <div className="flex items-start justify-between gap-1 mb-0.5">
+                              <p className={cn("font-semibold leading-tight", stop.status === "completed" && "line-through text-gray-500")}>{stop.place_name}</p>
+                              <StatusBadge status={stop.status} />
+                            </div>
+                            <p className="text-muted-foreground truncate">{stop.purpose}</p>
+                            {stop.planned_time && <p className="text-muted-foreground mt-0.5"><Clock className="w-3 h-3 inline mr-0.5" />{stop.planned_time}</p>}
+                            {stop.address && <p className="text-muted-foreground truncate"><Phone className="w-3 h-3 inline mr-0.5" />{stop.address}</p>}
+                            {stop.status === "planned" && (
+                              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+                                <button title="เสร็จ" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "completed", completed_at: new Date().toISOString() })}
+                                  className="w-5 h-5 rounded flex items-center justify-center bg-green-100 text-green-700 hover:bg-green-200"><CheckCircle2 className="w-3 h-3" /></button>
+                                <button title="ข้าม" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "skipped" })}
+                                  className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 text-gray-500 hover:bg-gray-200"><SkipForward className="w-3 h-3" /></button>
+                                <button title="ลบ" onClick={() => deleteStop(route.route_id, stop.stop_id)}
+                                  className="w-5 h-5 rounded flex items-center justify-center bg-red-50 text-red-400 hover:bg-red-100"><XCircle className="w-3 h-3" /></button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {/* + เพิ่มจุด ใน route นั้น */}
+                        {!isSat && (
+                          <button onClick={() => openAdd(dk, undefined, route.route_id)}
+                            className="w-full border border-dashed border-purple-200 rounded-lg py-1.5 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 mb-1">
+                            <Plus className="w-3 h-3" /> เพิ่มจุดใน {dayRoutes.length > 1 ? (route.title || `Route ${ri + 1}`) : "Route นี้"}
+                          </button>
                         )}
                       </div>
                     ))}
-                    {!isSat && (
+                    {/* + เพิ่มจุด (สร้าง route ใหม่ หรือ route แรกถ้ายังไม่มี) */}
+                    {!isSat && dayRoutes.length === 0 && (
                       <button onClick={() => openAdd(dk)}
                         className="w-full border border-dashed border-gray-300 rounded-lg py-2 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
                         <Plus className="w-3 h-3" /> เพิ่มจุด
@@ -887,6 +923,26 @@ export default function CalendarPlan() {
             <DialogTitle>เพิ่มจุดเยี่ยม · {addOpen && format(new Date(addOpen.dayKey), "EEEE d MMM yyyy", { locale: th })}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-1">
+            {/* Route picker — แสดงเมื่อวันนั้นมีหลาย route */}
+            {addOpen && (routesByDay.get(addOpen.dayKey) ?? []).length > 1 && (
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เพิ่มเข้า Route</label>
+                <Select
+                  value={addOpen.routeId ?? "new"}
+                  onValueChange={(v) => setAddOpen((o) => o ? { ...o, routeId: v === "new" ? null : v } : o)}
+                >
+                  <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(routesByDay.get(addOpen.dayKey) ?? []).map((r, ri) => (
+                      <SelectItem key={r.route_id} value={r.route_id}>
+                        {r.title || `Route ${ri + 1}`} · {r.stops.length} จุด
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="new">＋ สร้าง Route ใหม่</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ลูกค้า</label>
               <Select value={stopForm.customer_id} onValueChange={handleCustomerChange}>
