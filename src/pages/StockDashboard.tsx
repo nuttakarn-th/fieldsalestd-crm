@@ -1,63 +1,116 @@
 /**
  * StockDashboard.tsx — Full Stock / Tour Management Dashboard (Dark Mode)
  */
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList,
 } from "recharts";
-import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
+import { MapContainer, TileLayer, Circle, Tooltip as LTooltip, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { useServices, type TourItem } from "@/store/serviceStore";
 import {
   ArrowLeft, Globe2, MapPin, TrendingUp, PackageSearch,
-  CheckCircle2, XCircle, CalendarDays, Layers, AlertTriangle, ZoomIn, ZoomOut,
+  CheckCircle2, XCircle, CalendarDays, Layers, AlertTriangle, Maximize2, Minimize2,
 } from "lucide-react";
 
-// ─── world-atlas topojson (ISO 3166-1 numeric as geo.id) ────────────────────
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-
-// ─── Thai country name → ISO 3166-1 numeric (ตรงกับ world-atlas) ────────────
-const COUNTRY_ISO: Record<string, string> = {
-  // เอเชียตะวันออก
-  "จีน":"156","ญี่ปุ่น":"392","เกาหลีใต้":"410","เกาหลี":"410",
-  "ไต้หวัน":"158","ฮ่องกง":"344","มองโกเลีย":"496",
-  // เอเชียตะวันออกเฉียงใต้
-  "สิงคโปร์":"702","มาเลเซีย":"458","อินโดนีเซีย":"360",
-  "เวียดนาม":"704","กัมพูชา":"116","ลาว":"418",
-  "พม่า":"104","เมียนมา":"104","ฟิลิปปินส์":"608",
-  "บรูไน":"96","บาหลี":"360", // บาหลี = Indonesia
-  // เอเชียใต้
-  "อินเดีย":"356","เนปาล":"524","ศรีลังกา":"144","ภูฏาน":"64","มัลดีฟส์":"462",
-  // เอเชียกลาง
-  "คาซัคสถาน":"398","อุซเบกิสถาน":"860","คีร์กีซสถาน":"417",
-  // ยุโรป
-  "ฝรั่งเศส":"250","สวิตเซอร์แลนด์":"756","อิตาลี":"380","เยอรมนี":"276",
-  "สเปน":"724","อังกฤษ":"826","สหราชอาณาจักร":"826","สกอตแลนด์":"826",
-  "ออสเตรีย":"40","เนเธอร์แลนด์":"528","เบลเยียม":"56","โปรตุเกส":"620",
-  "กรีซ":"300","ตุรกี":"792","สาธารณรัฐเช็ก":"203","ฮังการี":"348",
-  "โปแลนด์":"616","นอร์เวย์":"578","สวีเดน":"752","ฟินแลนด์":"246",
-  "เดนมาร์ก":"208","ไอร์แลนด์":"372","ไอซ์แลนด์":"352","รัสเซีย":"643",
-  "โครเอเชีย":"191","สโลวีเนีย":"705","มอลตา":"470","โรมาเนีย":"642",
-  "บัลแกเรีย":"100","เซอร์เบีย":"688","แอลเบเนีย":"8","มอนเตเนโกร":"499",
-  // ตะวันออกกลาง
-  "ดูไบ":"784","UAE":"784","สหรัฐอาหรับเอมิเรตส์":"784",
-  "อิสราเอล":"376","จอร์แดน":"400","ซาอุดีอาระเบีย":"682",
-  "โอมาน":"512","กาตาร์":"634","คูเวต":"414","บาห์เรน":"48",
-  // แอฟริกา
-  "อียิปต์":"818","โมร็อกโก":"504","แอฟริกาใต้":"710",
-  "แทนซาเนีย":"834","เคนยา":"404","มาดากัสการ์":"450",
-  "เอธิโอเปีย":"231","ซิมบับเว":"716","กานา":"288",
-  // อเมริกาเหนือ
-  "อเมริกา":"840","สหรัฐอเมริกา":"840","USA":"840",
-  "แคนาดา":"124","เม็กซิโก":"484",
-  // อเมริกาใต้
-  "เปรู":"604","บราซิล":"76","อาร์เจนตินา":"32",
-  "ชิลี":"152","โคลอมเบีย":"170","โบลิเวีย":"68",
-  // โอเชียเนีย
-  "ออสเตรเลีย":"36","นิวซีแลนด์":"554","ฟิจิ":"242","วานูอาตู":"548",
-  // ภายในประเทศ
-  "ไทย":"764","Thailand":"764",
+// ─── Thai country name → {city, lat, lng} for Leaflet heatmap ────────────────
+const CITY_COORDS: Record<string, { city: string; lat: number; lng: number }> = {
+  "จีน":        { city: "Beijing",        lat: 39.9042, lng: 116.4074 },
+  "ญี่ปุ่น":    { city: "Tokyo",          lat: 35.6762, lng: 139.6503 },
+  "เกาหลีใต้":  { city: "Seoul",          lat: 37.5665, lng: 126.9780 },
+  "เกาหลี":     { city: "Seoul",          lat: 37.5665, lng: 126.9780 },
+  "ไต้หวัน":    { city: "Taipei",         lat: 25.0320, lng: 121.5654 },
+  "ฮ่องกง":     { city: "Hong Kong",      lat: 22.3193, lng: 114.1694 },
+  "มองโกเลีย":  { city: "Ulaanbaatar",    lat: 47.8864, lng: 106.9057 },
+  "สิงคโปร์":   { city: "Singapore",      lat:  1.3521, lng: 103.8198 },
+  "มาเลเซีย":   { city: "Kuala Lumpur",   lat:  3.1390, lng: 101.6869 },
+  "อินโดนีเซีย":{ city: "Jakarta",        lat: -6.2088, lng: 106.8456 },
+  "เวียดนาม":   { city: "Hanoi",          lat: 21.0285, lng: 105.8542 },
+  "กัมพูชา":    { city: "Phnom Penh",     lat: 11.5564, lng: 104.9282 },
+  "ลาว":        { city: "Vientiane",      lat: 17.9757, lng: 102.6331 },
+  "พม่า":       { city: "Yangon",         lat: 16.8661, lng:  96.1951 },
+  "เมียนมา":    { city: "Yangon",         lat: 16.8661, lng:  96.1951 },
+  "ฟิลิปปินส์": { city: "Manila",         lat: 14.5995, lng: 120.9842 },
+  "บรูไน":      { city: "Bandar Seri",    lat:  4.9031, lng: 114.9398 },
+  "บาหลี":      { city: "Bali",           lat: -8.3405, lng: 115.0920 },
+  "อินเดีย":    { city: "New Delhi",      lat: 28.6139, lng:  77.2090 },
+  "เนปาล":      { city: "Kathmandu",      lat: 27.7172, lng:  85.3240 },
+  "ศรีลังกา":   { city: "Colombo",        lat:  6.9271, lng:  79.8612 },
+  "ภูฏาน":      { city: "Thimphu",        lat: 27.4728, lng:  89.6393 },
+  "มัลดีฟส์":   { city: "Malé",           lat:  4.1755, lng:  73.5093 },
+  "คาซัคสถาน":  { city: "Almaty",         lat: 43.2220, lng:  76.8512 },
+  "อุซเบกิสถาน":{ city: "Samarkand",      lat: 39.6270, lng:  66.9750 },
+  "คีร์กีซสถาน":{ city: "Bishkek",        lat: 42.8746, lng:  74.5698 },
+  "ฝรั่งเศส":   { city: "Paris",          lat: 48.8566, lng:   2.3522 },
+  "สวิตเซอร์แลนด์":{ city: "Zurich",     lat: 47.3769, lng:   8.5417 },
+  "อิตาลี":     { city: "Rome",           lat: 41.9028, lng:  12.4964 },
+  "เยอรมนี":    { city: "Frankfurt",      lat: 50.1109, lng:   8.6821 },
+  "สเปน":       { city: "Barcelona",      lat: 41.3851, lng:   2.1734 },
+  "อังกฤษ":     { city: "London",         lat: 51.5074, lng:  -0.1278 },
+  "สหราชอาณาจักร":{ city: "London",       lat: 51.5074, lng:  -0.1278 },
+  "สกอตแลนด์":  { city: "Edinburgh",      lat: 55.9533, lng:  -3.1883 },
+  "ออสเตรีย":   { city: "Vienna",         lat: 48.2082, lng:  16.3738 },
+  "เนเธอร์แลนด์":{ city: "Amsterdam",    lat: 52.3676, lng:   4.9041 },
+  "เบลเยียม":   { city: "Brussels",       lat: 50.8503, lng:   4.3517 },
+  "โปรตุเกส":   { city: "Lisbon",         lat: 38.7223, lng:  -9.1393 },
+  "กรีซ":       { city: "Athens",         lat: 37.9838, lng:  23.7275 },
+  "ตุรกี":      { city: "Istanbul",       lat: 41.0082, lng:  28.9784 },
+  "สาธารณรัฐเช็ก":{ city: "Prague",      lat: 50.0755, lng:  14.4378 },
+  "ฮังการี":    { city: "Budapest",       lat: 47.4979, lng:  19.0402 },
+  "โปแลนด์":    { city: "Krakow",         lat: 50.0647, lng:  19.9450 },
+  "นอร์เวย์":   { city: "Bergen",         lat: 60.3913, lng:   5.3221 },
+  "สวีเดน":     { city: "Stockholm",      lat: 59.3293, lng:  18.0686 },
+  "ฟินแลนด์":   { city: "Helsinki",       lat: 60.1699, lng:  24.9384 },
+  "เดนมาร์ก":   { city: "Copenhagen",     lat: 55.6761, lng:  12.5683 },
+  "ไอร์แลนด์":  { city: "Dublin",         lat: 53.3498, lng:  -6.2603 },
+  "ไอซ์แลนด์":  { city: "Reykjavik",      lat: 64.1265, lng: -21.8174 },
+  "รัสเซีย":    { city: "Moscow",         lat: 55.7558, lng:  37.6173 },
+  "โครเอเชีย":  { city: "Dubrovnik",      lat: 42.6507, lng:  18.0944 },
+  "สโลวีเนีย":  { city: "Ljubljana",      lat: 46.0569, lng:  14.5058 },
+  "มอลตา":      { city: "Valletta",       lat: 35.8997, lng:  14.5147 },
+  "โรมาเนีย":   { city: "Bucharest",      lat: 44.4268, lng:  26.1025 },
+  "บัลแกเรีย":  { city: "Sofia",          lat: 42.6977, lng:  23.3219 },
+  "เซอร์เบีย":  { city: "Belgrade",       lat: 44.7866, lng:  20.4489 },
+  "แอลเบเนีย":  { city: "Tirana",         lat: 41.3275, lng:  19.8187 },
+  "มอนเตเนโกร": { city: "Kotor",          lat: 42.4247, lng:  18.7712 },
+  "ดูไบ":       { city: "Dubai",          lat: 25.2048, lng:  55.2708 },
+  "UAE":        { city: "Dubai",          lat: 25.2048, lng:  55.2708 },
+  "สหรัฐอาหรับเอมิเรตส์":{ city: "Dubai",lat: 25.2048, lng:  55.2708 },
+  "อิสราเอล":   { city: "Jerusalem",      lat: 31.7683, lng:  35.2137 },
+  "จอร์แดน":    { city: "Petra",          lat: 30.3285, lng:  35.4444 },
+  "ซาอุดีอาระเบีย":{ city: "Riyadh",     lat: 24.6877, lng:  46.7219 },
+  "โอมาน":      { city: "Muscat",         lat: 23.5880, lng:  58.3829 },
+  "กาตาร์":     { city: "Doha",           lat: 25.2854, lng:  51.5310 },
+  "คูเวต":      { city: "Kuwait City",    lat: 29.3759, lng:  47.9774 },
+  "บาห์เรน":    { city: "Manama",         lat: 26.2235, lng:  50.5876 },
+  "อียิปต์":    { city: "Cairo",          lat: 30.0444, lng:  31.2357 },
+  "โมร็อกโก":   { city: "Marrakech",      lat: 31.6295, lng:  -7.9811 },
+  "แอฟริกาใต้": { city: "Cape Town",      lat:-33.9249, lng:  18.4241 },
+  "แทนซาเนีย":  { city: "Serengeti",      lat: -2.3333, lng:  34.8333 },
+  "เคนยา":      { city: "Nairobi",        lat: -1.2921, lng:  36.8219 },
+  "มาดากัสการ์":{ city: "Antananarivo",   lat:-18.9137, lng:  47.5361 },
+  "เอธิโอเปีย": { city: "Addis Ababa",    lat:  9.0320, lng:  38.7469 },
+  "ซิมบับเว":   { city: "Victoria Falls", lat:-17.9243, lng:  25.8572 },
+  "กานา":       { city: "Accra",          lat:  5.6037, lng:  -0.1870 },
+  "อเมริกา":    { city: "New York",       lat: 40.7128, lng: -74.0060 },
+  "สหรัฐอเมริกา":{ city: "New York",     lat: 40.7128, lng: -74.0060 },
+  "USA":        { city: "Los Angeles",    lat: 34.0522, lng:-118.2437 },
+  "แคนาดา":     { city: "Vancouver",      lat: 49.2827, lng:-123.1207 },
+  "เม็กซิโก":   { city: "Cancún",         lat: 21.1619, lng: -86.8515 },
+  "เปรู":       { city: "Machu Picchu",   lat:-13.1631, lng: -72.5450 },
+  "บราซิล":     { city: "Rio de Janeiro", lat:-22.9068, lng: -43.1729 },
+  "อาร์เจนตินา":{ city: "Buenos Aires",  lat:-34.6037, lng: -58.3816 },
+  "ชิลี":       { city: "Santiago",       lat:-33.4489, lng: -70.6693 },
+  "โคลอมเบีย":  { city: "Bogotá",         lat:  4.7110, lng: -74.0721 },
+  "โบลิเวีย":   { city: "La Paz",         lat:-16.5000, lng: -68.1500 },
+  "ออสเตรเลีย": { city: "Sydney",         lat:-33.8688, lng: 151.2093 },
+  "นิวซีแลนด์": { city: "Queenstown",     lat:-45.0312, lng: 168.6626 },
+  "ฟิจิ":       { city: "Suva",           lat:-18.1248, lng: 178.4501 },
+  "วานูอาตู":   { city: "Port Vila",      lat:-17.7333, lng: 168.3167 },
+  "ไทย":        { city: "Bangkok",        lat: 13.7563, lng: 100.5018 },
+  "Thailand":   { city: "Bangkok",        lat: 13.7563, lng: 100.5018 },
 };
 
 // ─── brand palette (ใช้งานได้ทั้ง dark/light) ───────────────────────────────
@@ -154,42 +207,67 @@ function SectionHeader({ icon: Icon, title, sub, color = C_INTL }: {
 type MapMode = "rate" | "programs" | "revenue";
 type CountryStat = { name: string; programs: number; seats: number; booked: number; bookedVal: number; rate: number };
 
+// ─── Map helper: invalidate size on fullscreen change ───────────────────────
+function MapInvalidator({ trigger }: { trigger: number }) {
+  const map = useMap();
+  useEffect(() => { setTimeout(() => map.invalidateSize(), 150); }, [map, trigger]);
+  return null;
+}
+
+// ─── World Leaflet Heatmap ───────────────────────────────────────────────────
+type MapMode = "rate" | "programs" | "revenue";
+type CountryStat = { name: string; programs: number; seats: number; booked: number; bookedVal: number; rate: number };
+
 function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
   const [mode, setMode] = useState<MapMode>("rate");
-  const [zoom, setZoom] = useState(1.8);
-  const [center, setCenter] = useState<[number, number]>([100, 20]); // default: เอเชีย
-  const [tooltip, setTooltip] = useState<{ name: string; iso: string; x: number; y: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fsCounter, setFsCounter] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // build lookup: ISO numeric string → country data
-  const byIso = useMemo(() => {
-    const m: Record<string, CountryStat> = {};
-    for (const c of countryStats) {
-      const iso = COUNTRY_ISO[c.name.trim()];
-      if (iso) m[iso] = c;
+  useEffect(() => {
+    const handler = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      setFsCounter((n) => n + 1);
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(() => undefined);
+    } else {
+      document.exitFullscreen().catch(() => undefined);
     }
-    return m;
-  }, [countryStats]);
+  }, []);
 
   const maxPrograms = useMemo(() => Math.max(...countryStats.map((c) => c.programs), 1), [countryStats]);
   const maxRevenue  = useMemo(() => Math.max(...countryStats.map((c) => c.bookedVal), 1), [countryStats]);
 
-  const getColor = useCallback((isoId: string) => {
-    const d = byIso[isoId];
-    if (!d) return "hsl(var(--muted))";
+  const getCircleColor = useCallback((c: CountryStat): string => {
     if (mode === "rate") {
-      if (d.rate >= 70) return C_BOOKED;
-      if (d.rate >= 50) return "#F97316";  // orange
-      if (d.rate >= 30) return C_DOM;
-      return `${C_INTL}55`;
+      if (c.rate >= 80) return "#EF4444";
+      if (c.rate >= 55) return "#F97316";
+      if (c.rate >= 30) return "#EAB308";
+      return "#22C55E";
     }
     if (mode === "programs") {
-      const t = 0.12 + (d.programs / maxPrograms) * 0.78;
-      return `rgba(167,139,250,${t.toFixed(2)})`;
+      const t = c.programs / maxPrograms;
+      if (t >= 0.7) return "#7C3AED";
+      if (t >= 0.4) return "#A78BFA";
+      return "#C4B5FD";
     }
-    // revenue
-    const t = 0.12 + (d.bookedVal / maxRevenue) * 0.78;
-    return `rgba(56,189,248,${t.toFixed(2)})`;
-  }, [byIso, mode, maxPrograms, maxRevenue]);
+    const t = c.bookedVal / maxRevenue;
+    if (t >= 0.7) return "#0284C7";
+    if (t >= 0.4) return "#38BDF8";
+    return "#BAE6FD";
+  }, [mode, maxPrograms, maxRevenue]);
+
+  const points = useMemo(() =>
+    countryStats
+      .map((c) => ({ c, coord: CITY_COORDS[c.name.trim()] }))
+      .filter((p): p is { c: CountryStat; coord: { city: string; lat: number; lng: number } } => !!p.coord),
+  [countryStats]);
 
   const modes: { key: MapMode; label: string; color: string }[] = [
     { key: "rate",     label: "Booking Rate", color: C_BOOKED },
@@ -197,20 +275,22 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
     { key: "revenue",  label: "มูลค่าจอง",    color: C_INC    },
   ];
 
-  const tooltipData = tooltip ? byIso[tooltip.iso] : null;
-
   return (
-    <div className="bg-card rounded-2xl border border-border p-5">
+    <div
+      ref={containerRef}
+      className={`bg-card border border-border flex flex-col overflow-hidden transition-all ${
+        isFullscreen ? "fixed inset-0 z-[9999] rounded-none" : "rounded-2xl"
+      }`}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Globe2 className="w-4 h-4" style={{ color: C_INTL }} />
-          <h2 className="text-sm font-bold text-foreground">World Map — การกระจายโปรแกรมทั่วโลก</h2>
-          <span className="text-[11px] text-muted-foreground">({countryStats.length} ประเทศ)</span>
+          <h2 className="text-sm font-bold text-foreground">World Heatmap — การกระจายโปรแกรมทั่วโลก</h2>
+          <span className="text-[11px] text-muted-foreground">({points.length}/{countryStats.length} ประเทศ)</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* mode toggle */}
-          <div className="flex items-center rounded-lg border border-border overflow-hidden text-[11px]">
+          <div className="flex rounded-lg border border-border overflow-hidden text-[11px]">
             {modes.map((m) => (
               <button key={m.key} onClick={() => setMode(m.key)}
                 className="px-3 py-1.5 font-medium transition-all"
@@ -221,106 +301,96 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
               </button>
             ))}
           </div>
-          {/* zoom controls */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => setZoom((z) => Math.min(z * 1.5, 8))}
-              className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
-              <ZoomIn className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-            <button onClick={() => { setZoom(1.8); setCenter([100, 20]); }}
-              className="px-2 py-1 rounded-lg border border-border hover:bg-muted text-[10px] text-muted-foreground transition-colors">
-              reset
-            </button>
-            <button onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
-              className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
-              <ZoomOut className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-          </div>
+          <button onClick={toggleFullscreen}
+            className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
+            title={isFullscreen ? "ออกจากเต็มจอ" : "ขยายเต็มจอ"}>
+            {isFullscreen
+              ? <Minimize2 className="w-3.5 h-3.5 text-muted-foreground" />
+              : <Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />}
+          </button>
         </div>
       </div>
 
-      {/* Map */}
-      <div className="relative rounded-xl overflow-hidden aspect-[8/5]" style={{ background: "hsl(var(--muted)/0.3)" }}>
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{ scale: 110, center: [15, 15] }}
-          style={{ width: "100%", height: "100%" }}
+      {/* Leaflet Map */}
+      <div className={isFullscreen ? "flex-1" : "aspect-[8/5]"} style={{ minHeight: 0 }}>
+        <MapContainer
+          center={[20, 100]}
+          zoom={4}
+          scrollWheelZoom
+          zoomControl
+          style={{ height: "100%", width: "100%" }}
+          className="z-0"
         >
-          <ZoomableGroup zoom={zoom} center={center}
-            onMoveEnd={({ coordinates, zoom: z }) => { setCenter(coordinates as [number,number]); setZoom(z); }}>
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const isoId = String(geo.id);
-                  const hasData = !!byIso[isoId];
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={getColor(isoId)}
-                      stroke="hsl(var(--border))"
-                      strokeWidth={0.4}
-                      style={{
-                        default:  { outline: "none", cursor: hasData ? "pointer" : "default" },
-                        hover:    { outline: "none", filter: hasData ? "brightness(1.25)" : "none" },
-                        pressed:  { outline: "none" },
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!hasData) return;
-                        setTooltip({ name: byIso[isoId].name, iso: isoId, x: e.clientX, y: e.clientY });
-                      }}
-                      onMouseMove={(e) => {
-                        if (tooltip?.iso === isoId) setTooltip((t) => t ? { ...t, x: e.clientX, y: e.clientY } : null);
-                      }}
-                      onMouseLeave={() => setTooltip(null)}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
-        </ComposableMap>
-
-        {/* Tooltip */}
-        {tooltip && tooltipData && (
-          <div className="fixed z-50 pointer-events-none"
-            style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}>
-            <div className="bg-card border border-border rounded-xl shadow-xl px-3 py-2.5 text-xs min-w-[140px]">
-              <p className="font-bold text-foreground mb-1.5">{tooltipData.name}</p>
-              <div className="space-y-1">
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">โปรแกรม</span>
-                  <span className="font-semibold text-foreground">{tooltipData.programs}</span>
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org">OpenStreetMap</a> &copy; <a href="https://carto.com">CARTO</a>'
+            subdomains="abcd"
+            maxZoom={18}
+          />
+          <MapInvalidator trigger={fsCounter} />
+          {points.map(({ c, coord }) => {
+            const color   = getCircleColor(c);
+            const sizeM   = 0.35 + (c.programs / maxPrograms) * 0.65;
+            const rateColor = c.rate >= 80 ? "#EF4444" : c.rate >= 55 ? "#F97316" : c.rate >= 30 ? "#EAB308" : "#22C55E";
+            const tooltipContent = (
+              <div style={{ fontSize: 12, lineHeight: 1.6, minWidth: 150 }}>
+                <strong style={{ display: "block", marginBottom: 4 }}>{c.name}</strong>
+                <span style={{ color: "#888", fontSize: 11 }}>{coord.city}</span>
+                <hr style={{ margin: "4px 0", borderColor: "#e5e7eb" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "#6b7280" }}>โปรแกรม</span>
+                  <strong>{c.programs}</strong>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Booking Rate</span>
-                  <span className="font-semibold" style={{ color: tooltipData.rate >= 70 ? C_BOOKED : tooltipData.rate >= 40 ? C_DOM : C_INTL }}>
-                    {tooltipData.rate}%
-                  </span>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "#6b7280" }}>Booking Rate</span>
+                  <strong style={{ color: rateColor }}>{c.rate}%</strong>
                 </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">มูลค่าจอง</span>
-                  <span className="font-semibold" style={{ color: C_INTL }}>{fmtMB(tooltipData.bookedVal)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
+                  <strong>{fmtMB(c.bookedVal)}</strong>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            );
+            return (
+              <Fragment key={c.name}>
+                <Circle
+                  center={[coord.lat, coord.lng]}
+                  radius={320000 * sizeM}
+                  pathOptions={{ fillColor: color, fillOpacity: 0.06, stroke: false }}
+                />
+                <Circle
+                  center={[coord.lat, coord.lng]}
+                  radius={170000 * sizeM}
+                  pathOptions={{ fillColor: color, fillOpacity: 0.16, stroke: false }}
+                />
+                <Circle
+                  center={[coord.lat, coord.lng]}
+                  radius={65000 * sizeM}
+                  pathOptions={{ fillColor: color, fillOpacity: 0.58, color, weight: 1.2, opacity: 0.5 }}
+                >
+                  <LTooltip direction="top" offset={[0, -8]} opacity={1}>
+                    {tooltipContent}
+                  </LTooltip>
+                </Circle>
+              </Fragment>
+            );
+          })}
+        </MapContainer>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 flex-wrap">
+      <div className="flex items-center gap-3 px-4 py-2 border-t border-border shrink-0 flex-wrap">
         {mode === "rate" && (
           <>
             <span className="text-[10px] text-muted-foreground">Booking Rate:</span>
             {[
-              { color: `${C_INTL}55`, label: "<30%" },
-              { color: C_DOM,         label: "30–49%" },
-              { color: "#F97316",     label: "50–69%" },
-              { color: C_BOOKED,      label: "70%+" },
+              { color: "#22C55E", label: "<30%"  },
+              { color: "#EAB308", label: "30–54%" },
+              { color: "#F97316", label: "55–79%" },
+              { color: "#EF4444", label: "80%+"   },
             ].map((l) => (
               <div key={l.label} className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-sm" style={{ background: l.color }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: l.color }} />
                 <span className="text-[10px] text-muted-foreground">{l.label}</span>
               </div>
             ))}
@@ -329,26 +399,26 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
         {mode === "programs" && (
           <>
             <span className="text-[10px] text-muted-foreground">จำนวนโปรแกรม:</span>
-            {[0.12, 0.32, 0.55, 0.78, 0.9].map((op, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <div className="w-4 h-3 rounded-sm" style={{ background: `rgba(167,139,250,${op})` }} />
+            {[["#C4B5FD","น้อย"], ["#A78BFA","กลาง"], ["#7C3AED","มาก"]].map(([c, l]) => (
+              <div key={l} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ background: c }} />
+                <span className="text-[10px] text-muted-foreground">{l}</span>
               </div>
             ))}
-            <span className="text-[10px] text-muted-foreground">น้อย → มาก</span>
           </>
         )}
         {mode === "revenue" && (
           <>
             <span className="text-[10px] text-muted-foreground">มูลค่าจอง:</span>
-            {[0.12, 0.32, 0.55, 0.78, 0.9].map((op, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <div className="w-4 h-3 rounded-sm" style={{ background: `rgba(56,189,248,${op})` }} />
+            {[["#BAE6FD","น้อย"], ["#38BDF8","กลาง"], ["#0284C7","มาก"]].map(([c, l]) => (
+              <div key={l} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ background: c }} />
+                <span className="text-[10px] text-muted-foreground">{l}</span>
               </div>
             ))}
-            <span className="text-[10px] text-muted-foreground">น้อย → มาก</span>
           </>
         )}
-        <span className="text-[10px] text-muted-foreground/40 ml-auto">Drag to pan · Scroll to zoom</span>
+        <span className="text-[10px] text-muted-foreground/40 ml-auto">Scroll to zoom · Drag to pan · Hover for stats</span>
       </div>
     </div>
   );
