@@ -400,10 +400,10 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
               <CircleMarker
                 key={c.name}
                 center={[coord.lat, coord.lng]}
-                radius={10}
+                radius={28}
                 pathOptions={{ fillColor: "transparent", fillOpacity: 0, stroke: false }}
               >
-                <LTooltip direction="top" offset={[0, -4]} opacity={1}>
+                <LTooltip direction="top" offset={[0, -12]} opacity={1} sticky>
                   <div style={{ fontSize: 12, lineHeight: 1.6, minWidth: 155 }}>
                     <strong style={{ display: "block", marginBottom: 4 }}>{c.name}</strong>
                     <span style={{ color: "#888", fontSize: 11 }}>{coord.city}</span>
