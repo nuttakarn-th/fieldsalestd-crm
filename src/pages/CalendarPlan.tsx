@@ -485,16 +485,12 @@ export default function CalendarPlan() {
                   {/* Stops — แสดงจากทุก route */}
                   <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
                     {dayRoutes.map((route, ri) => (
-                      <div key={route.route_id}>
-                        {/* Route label — แสดงเมื่อมีหลาย route */}
+                      <div key={route.route_id} className={cn(dayRoutes.length > 1 && ri > 0 && "mt-2 pt-2 border-t border-dashed border-purple-100")}>
+                        {/* Route label — แสดงเมื่อมีหลาย route เป็น tiny chip ไม่ใช่ divider */}
                         {dayRoutes.length > 1 && (
-                          <div className="flex items-center gap-1.5 mb-1 mt-1">
-                            <div className="h-px flex-1 bg-purple-100" />
-                            <span className="text-[10px] text-purple-400 font-medium shrink-0 truncate max-w-[80px]" title={route.title}>
-                              {route.title || `Route ${ri + 1}`}
-                            </span>
-                            <div className="h-px flex-1 bg-purple-100" />
-                          </div>
+                          <p className="text-[9px] text-purple-400 font-semibold uppercase tracking-wide mb-1 truncate px-0.5">
+                            {route.title || `Route ${ri + 1}`}
+                          </p>
                         )}
                         {route.stops.map((stop) => (
                           <div key={stop.stop_id} className={cn("rounded-lg p-2 border text-[11px] group relative mb-1.5",
@@ -502,7 +498,7 @@ export default function CalendarPlan() {
                               : stop.status === "skipped" ? "bg-gray-50 border-gray-200 opacity-60"
                               : "bg-white border-purple-100")}>
                             <div className="flex items-start justify-between gap-1 mb-0.5">
-                              <p className={cn("font-semibold leading-tight", stop.status === "completed" && "line-through text-gray-500")}>{stop.place_name}</p>
+                              <p className={cn("font-semibold leading-tight pr-10", stop.status === "completed" && "line-through text-gray-500")}>{stop.place_name}</p>
                               <StatusBadge status={stop.status} />
                             </div>
                             <p className="text-muted-foreground truncate">{stop.purpose}</p>
@@ -520,19 +516,12 @@ export default function CalendarPlan() {
                             )}
                           </div>
                         ))}
-                        {/* + เพิ่มจุด ใน route นั้น */}
-                        {!isSat && (
-                          <button onClick={() => openAdd(dk, undefined, route.route_id)}
-                            className="w-full border border-dashed border-purple-200 rounded-lg py-1.5 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 mb-1">
-                            <Plus className="w-3 h-3" /> เพิ่มจุดใน {dayRoutes.length > 1 ? (route.title || `Route ${ri + 1}`) : "Route นี้"}
-                          </button>
-                        )}
                       </div>
                     ))}
-                    {/* + เพิ่มจุด (สร้าง route ใหม่ หรือ route แรกถ้ายังไม่มี) */}
-                    {!isSat && dayRoutes.length === 0 && (
+                    {/* ปุ่ม + เพิ่มจุด เดียว ไม่ว่ามีกี่ route */}
+                    {!isSat && (
                       <button onClick={() => openAdd(dk)}
-                        className="w-full border border-dashed border-gray-300 rounded-lg py-2 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
+                        className="w-full border border-dashed border-gray-300 rounded-lg py-2 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 mt-1">
                         <Plus className="w-3 h-3" /> เพิ่มจุด
                       </button>
                     )}

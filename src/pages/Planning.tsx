@@ -154,14 +154,18 @@ export default function Planning() {
     return { lat: pos.coords.latitude, lng: pos.coords.longitude };
   };
 
-  // ── GPS Check-in (day-level) ──────────────────────────────────────────────
+  // ── GPS Check-in (day-level) — auto-create route if none exists ──────────
   const handleCheckin = async () => {
-    if (!dayRoute) return;
     setGpsLoading("checkin");
     try {
       const coords = await verifyOfficeGPS();
       if (!coords) return;
-      await checkinRoute(dayRoute.route_id, coords.lat, coords.lng);
+      // ถ้าวันนี้ยังไม่มี route → สร้างอัตโนมัติ
+      let routeId = dayRoute?.route_id;
+      if (!routeId) {
+        routeId = addRoute(currentRep as never, dateKey, `แผนงาน ${dateKey}`, true, true);
+      }
+      await checkinRoute(routeId, coords.lat, coords.lng);
       toast.success("✅ Check-in เรียบร้อย!");
     } catch (e: any) {
       if (e?.code === 1) toast.error("ไม่ได้รับอนุญาต GPS — กรุณาเปิด Location ในเบราว์เซอร์");
@@ -290,8 +294,8 @@ export default function Planning() {
         </div>
       )}
 
-      {/* ── Day-level Check-in / Check-out banner (วันนี้เท่านั้น + มี route) ── */}
-      {isToday && todayRoutes.length > 0 && (
+      {/* ── Day-level Check-in / Check-out banner (วันนี้เสมอ) ── */}
+      {isToday && (
         <div className="rounded-xl border overflow-hidden shadow-sm">
           {/* header */}
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-b">
