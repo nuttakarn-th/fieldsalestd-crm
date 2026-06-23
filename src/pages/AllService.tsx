@@ -1316,6 +1316,21 @@ ${catBlocks}
               </div>
             )}
 
+            {/* ── Dashboard button ── */}
+            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-gray-100">
+              <button
+                onClick={() => window.location.href = "/app/stock-dashboard"}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors whitespace-nowrap"
+                title="ดู Dashboard เต็มรูปแบบ"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                Dashboard
+              </button>
+            </div>
+
             {/* ── Category breakdown ── */}
             <div className="hidden xl:flex items-center gap-3 px-4 ml-auto shrink-0">
               <span className="text-[9px] text-gray-400 font-medium uppercase tracking-wide">แยกประเภท</span>

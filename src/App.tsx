@@ -47,6 +47,7 @@ import UsersPage from "./pages/UsersPage.tsx";
 import LoginBannerPage from "./pages/LoginBannerPage.tsx";
 import AllServicePage from "./pages/AllServicePage.tsx";
 import MarketingDashboardPage from "./pages/MarketingDashboardPage.tsx";
+import StockDashboard from "./pages/StockDashboard.tsx";
 import CustomersPage from "./pages/CustomersPage.tsx";
 import CampaignsPage from "./pages/CampaignsPage.tsx";
 import MarketingReportPage from "./pages/MarketingReportPage.tsx";
@@ -179,6 +180,7 @@ const App = () => (
             <Route path="weekly-plan" element={<WeeklySalesPlan />} />
             <Route path="plan-report" element={<PlanReport />} />
             <Route path="calendar-plan" element={<CalendarPlan />} />
+            <Route path="stock-dashboard" element={<StockDashboard />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
