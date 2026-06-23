@@ -298,27 +298,27 @@ export default function Planning() {
       {isToday && (
         <div className="rounded-xl border overflow-hidden shadow-sm">
           {/* header */}
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-b">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-indigo-500 shrink-0" />
-              <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">การเข้า-ออกงานวันนี้</span>
-              <span className="text-[11px] text-muted-foreground">(GPS ต้องอยู่ภายใน {CHECKIN_RADIUS_M}m จากออฟฟิศ)</span>
-            </div>
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-b">
+            <Building2 className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">การเข้า-ออกงานวันนี้</span>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">(GPS ภายใน {CHECKIN_RADIUS_M}m)</span>
           </div>
 
-          {/* office coords warning (for non-admin / no coords set) */}
+          {/* office coords warning */}
           {!officeLat && !canSetOffice && (
-            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-2 text-xs text-amber-700">
+            <div className="px-3 py-2 bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-2 text-xs text-amber-700">
               <span>⚠️</span>
               <span>รอ Admin/Manager ตั้งพิกัดออฟฟิศก่อน</span>
             </div>
           )}
 
-          {/* Check-in / Check-out panels */}
-          <div className="grid grid-cols-2 divide-x bg-white dark:bg-card">
+          {/* Check-in / Check-out — stack on mobile, side-by-side on sm+ */}
+          <div className="flex flex-col sm:flex-row sm:divide-x divide-y sm:divide-y-0 bg-white dark:bg-card">
+
             {/* ── Check-in ── */}
             {hasCheckinEnabled ? (
-              <div className={cn("flex items-center gap-3 px-4 py-3", dayRoute?.checkin_at ? "bg-emerald-50/50 dark:bg-emerald-950/10" : "bg-amber-50/40 dark:bg-amber-950/10")}>
+              <div className={cn("flex items-center gap-3 px-3 py-3 sm:flex-1",
+                dayRoute?.checkin_at ? "bg-emerald-50/50" : "bg-amber-50/40")}>
                 <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
                   dayRoute?.checkin_at ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-500")}>
                   <LogIn className="w-4 h-4" />
@@ -333,25 +333,24 @@ export default function Planning() {
                     <p className="text-sm text-amber-600 font-medium">ยังไม่ได้ Check-in</p>
                   )}
                 </div>
-                {!dayRoute?.checkin_at && (
+                {!dayRoute?.checkin_at ? (
                   <Button
                     size="sm"
-                    className="h-8 px-3 bg-amber-500 hover:bg-amber-600 text-white shrink-0"
+                    className="h-9 px-4 bg-amber-500 hover:bg-amber-600 text-white shrink-0 text-sm font-semibold"
                     onClick={handleCheckin}
                     disabled={gpsLoading === "checkin" || !officeLat}
                   >
                     {gpsLoading === "checkin"
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <><LogIn className="w-3.5 h-3.5 mr-1.5" />Check-in</>
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><LogIn className="w-4 h-4 mr-1.5" />Check-in</>
                     }
                   </Button>
-                )}
-                {dayRoute?.checkin_at && (
+                ) : (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-4 py-3 opacity-40">
+              <div className="flex items-center gap-3 px-3 py-3 sm:flex-1 opacity-40">
                 <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <LogIn className="w-4 h-4 text-muted-foreground" />
                 </div>
@@ -364,9 +363,9 @@ export default function Planning() {
 
             {/* ── Check-out ── */}
             {hasCheckoutEnabled ? (
-              <div className={cn("flex items-center gap-3 px-4 py-3",
-                dayRoute?.checkout_at ? "bg-emerald-50/50 dark:bg-emerald-950/10" :
-                dayRoute?.checkin_at ? "bg-blue-50/40 dark:bg-blue-950/10" : "opacity-50")}>
+              <div className={cn("flex items-center gap-3 px-3 py-3 sm:flex-1",
+                dayRoute?.checkout_at ? "bg-emerald-50/50" :
+                dayRoute?.checkin_at ? "bg-blue-50/40" : "opacity-50")}>
                 <div className={cn("w-9 h-9 rounded-full flex items-center justify-center shrink-0",
                   dayRoute?.checkout_at ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-500")}>
                   <LogOut className="w-4 h-4" />
@@ -383,25 +382,24 @@ export default function Planning() {
                     <p className="text-xs text-muted-foreground">รอ Check-in ก่อน</p>
                   )}
                 </div>
-                {!dayRoute?.checkout_at && dayRoute?.checkin_at && (
+                {!dayRoute?.checkout_at && dayRoute?.checkin_at ? (
                   <Button
                     size="sm"
-                    className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                    className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white shrink-0 text-sm font-semibold"
                     onClick={handleCheckout}
                     disabled={gpsLoading === "checkout" || !officeLat}
                   >
                     {gpsLoading === "checkout"
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <><LogOut className="w-3.5 h-3.5 mr-1.5" />Check-out</>
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><LogOut className="w-4 h-4 mr-1.5" />Check-out</>
                     }
                   </Button>
-                )}
-                {dayRoute?.checkout_at && (
+                ) : dayRoute?.checkout_at ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                )}
+                ) : null}
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-4 py-3 opacity-40">
+              <div className="flex items-center gap-3 px-3 py-3 sm:flex-1 opacity-40">
                 <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <LogOut className="w-4 h-4 text-muted-foreground" />
                 </div>
