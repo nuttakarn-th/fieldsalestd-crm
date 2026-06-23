@@ -34,10 +34,10 @@ const DAY_LABELS = ["จ", "อ", "พ", "พฤ", "ศ", "ส"];
 // ─── Status badge ────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: StopStatus }) {
   const cfg = {
-    planned:     { label: "แผน",    cls: "bg-purple-50 text-purple-700 border-purple-200" },
-    in_progress: { label: "กำลังไป", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-    completed:   { label: "เสร็จ ✓", cls: "bg-green-50 text-green-700 border-green-200" },
-    skipped:     { label: "ข้าม",   cls: "bg-gray-100 text-gray-500 border-gray-200" },
+    planned:     { label: "แผน",    cls: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+    in_progress: { label: "กำลังไป", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+    completed:   { label: "เสร็จ ✓", cls: "bg-green-500/10 text-green-400 border-green-500/20" },
+    skipped:     { label: "ข้าม",   cls: "bg-muted text-muted-foreground border-border" },
   }[status];
   return (
     <span className={cn("inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border", cfg.cls)}>
@@ -210,15 +210,15 @@ export default function WeeklySalesPlan() {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full min-h-screen bg-gray-50">
+    <div className="flex flex-col h-full min-h-screen bg-background">
       {/* ── Top bar ── */}
-      <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+      <div className="bg-card border-b border-border sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#EEEDFE" }}>
-            <CalendarDays className="w-5 h-5" style={{ color: "#534AB7" }} />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-500/10">
+            <CalendarDays className="w-5 h-5 text-purple-400" />
           </div>
           <div>
-            <h1 className="text-base font-semibold leading-tight text-gray-900">แผนสัปดาห์</h1>
+            <h1 className="text-base font-semibold leading-tight text-foreground">แผนสัปดาห์</h1>
             <p className="text-xs text-muted-foreground">วางแผนการเยี่ยมลูกค้าล่วงหน้า</p>
           </div>
         </div>
@@ -227,20 +227,20 @@ export default function WeeklySalesPlan() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setBaseMonday((d) => subWeeks(d, 1))}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 text-gray-500" />
+            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
-          <span className="text-sm font-medium text-gray-700 min-w-[160px] text-center">{weekLabel}</span>
+          <span className="text-sm font-medium text-foreground min-w-[160px] text-center">{weekLabel}</span>
           <button
             onClick={() => setBaseMonday((d) => addWeeks(d, 1))}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
           >
-            <ChevronRight className="w-4 h-4 text-gray-500" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
           <button
             onClick={() => setBaseMonday(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted"
           >
             สัปดาห์นี้
           </button>
@@ -248,14 +248,14 @@ export default function WeeklySalesPlan() {
       </div>
 
       {/* ── Stats bar ── */}
-      <div className="grid grid-cols-4 gap-px bg-gray-200 border-b">
+      <div className="grid grid-cols-4 gap-px bg-border border-b">
         {[
-          { label: "ทั้งสัปดาห์", value: stats.total,   color: "#534AB7" },
-          { label: "เสร็จแล้ว",   value: stats.done,    color: "#16A34A" },
-          { label: "ยังไม่ได้ไป", value: stats.planned, color: "#CA8A04" },
-          { label: "ข้าม",        value: stats.skipped, color: "#9CA3AF" },
+          { label: "ทั้งสัปดาห์", value: stats.total,   color: "#A78BFA" },
+          { label: "เสร็จแล้ว",   value: stats.done,    color: "#4ADE80" },
+          { label: "ยังไม่ได้ไป", value: stats.planned, color: "#FCD34D" },
+          { label: "ข้าม",        value: stats.skipped, color: "#6B7280" },
         ].map((s) => (
-          <div key={s.label} className="bg-white px-4 py-2.5 text-center">
+          <div key={s.label} className="bg-card px-4 py-2.5 text-center">
             <p className="text-xl font-semibold" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[11px] text-muted-foreground">{s.label}</p>
           </div>
@@ -276,24 +276,24 @@ export default function WeeklySalesPlan() {
               <div
                 key={dk}
                 className={cn(
-                  "border-r border-gray-200 min-h-[calc(100vh-220px)] flex flex-col",
-                  isSat && "bg-gray-50",
-                  isPast && !isSat && "bg-white",
+                  "border-r border-border min-h-[calc(100vh-220px)] flex flex-col",
+                  isSat && "bg-muted/30",
+                  isPast && !isSat && "bg-background",
                 )}
               >
                 {/* Day header */}
                 <div className={cn(
-                  "px-2 py-2 border-b border-gray-200 flex items-center gap-1.5 sticky top-[105px] bg-white z-10",
-                  isSat && "bg-gray-50",
+                  "px-2 py-2 border-b border-border flex items-center gap-1.5 sticky top-[105px] bg-card z-10",
+                  isSat && "bg-muted/40",
                 )}>
                   <span className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0",
-                    isToday ? "text-white" : "text-gray-600",
-                  )} style={{ background: isToday ? "#534AB7" : "transparent" }}>
+                    isToday ? "text-white" : "text-muted-foreground",
+                  )} style={{ background: isToday ? "#7C3AED" : "transparent" }}>
                     {format(day, "d")}
                   </span>
                   <div>
-                    <p className="text-[11px] font-medium text-gray-500">{DAY_LABELS[i]}</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">{DAY_LABELS[i]}</p>
                   </div>
                   {route && (
                     <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
@@ -309,15 +309,15 @@ export default function WeeklySalesPlan() {
                       key={stop.stop_id}
                       className={cn(
                         "rounded-lg p-2 border text-[11px] group relative",
-                        stop.status === "completed" ? "bg-green-50 border-green-100 opacity-75"
-                          : stop.status === "skipped" ? "bg-gray-50 border-gray-200 opacity-60"
-                          : "bg-white border-purple-100",
+                        stop.status === "completed" ? "bg-green-500/10 border-green-500/20 opacity-75"
+                          : stop.status === "skipped" ? "bg-muted border-border opacity-60"
+                          : "bg-card border-purple-500/20",
                       )}
                     >
                       <div className="flex items-start justify-between gap-1 mb-1">
                         <p className={cn(
-                          "font-semibold leading-tight",
-                          stop.status === "completed" && "line-through text-gray-500",
+                          "font-semibold leading-tight text-foreground",
+                          stop.status === "completed" && "line-through text-muted-foreground",
                         )}>
                           {stop.place_name}
                         </p>
@@ -350,7 +350,7 @@ export default function WeeklySalesPlan() {
                           <button
                             title="ข้าม"
                             onClick={() => markSkip(route.route_id, stop.stop_id)}
-                            className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            className="w-5 h-5 rounded flex items-center justify-center bg-muted text-muted-foreground hover:bg-muted/80"
                           >
                             <SkipForward className="w-3 h-3" />
                           </button>
@@ -370,7 +370,7 @@ export default function WeeklySalesPlan() {
                   {!isSat && (
                     <button
                       onClick={() => openAdd(dk)}
-                      className="w-full border border-dashed border-gray-300 rounded-lg py-2 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1"
+                      className="w-full border border-dashed border-border rounded-lg py-2 text-[11px] text-muted-foreground hover:border-purple-500/50 hover:text-purple-400 hover:bg-purple-500/10 transition-colors flex items-center justify-center gap-1"
                     >
                       <Plus className="w-3 h-3" /> เพิ่มจุด
                     </button>
@@ -384,7 +384,7 @@ export default function WeeklySalesPlan() {
 
       {/* ── Suggested customers strip ── */}
       {suggested.length > 0 && (
-        <div className="border-t bg-white px-4 py-3">
+        <div className="border-t border-border bg-card px-4 py-3">
           <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
             ลูกค้าที่ควรเยี่ยม (ไม่ได้เจอ 30+ วัน)
@@ -394,7 +394,7 @@ export default function WeeklySalesPlan() {
               <button
                 key={c.customer_id}
                 onClick={() => openAdd(ymd(weekDays[0]), c.customer_id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple-200 text-[11px] text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple-500/20 text-[11px] text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
               >
                 <User className="w-3 h-3" />
                 {c.company || c.full_name}
@@ -417,7 +417,7 @@ export default function WeeklySalesPlan() {
           <div className="space-y-3 py-1">
             {/* Customer select */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">ลูกค้า</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">ลูกค้า</label>
               <Select value={stopForm.customer_id} onValueChange={handleCustomerChange}>
                 <SelectTrigger className="mt-1 h-9 text-sm">
                   <SelectValue placeholder="เลือกลูกค้า (ไม่บังคับ)" />
@@ -435,7 +435,7 @@ export default function WeeklySalesPlan() {
 
             {/* Place name */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">สถานที่ / ชื่อ</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">สถานที่ / ชื่อ</label>
               <Input
                 className="mt-1 h-9 text-sm"
                 placeholder="ชื่อบริษัท / ร้าน / สถานที่"
@@ -447,7 +447,7 @@ export default function WeeklySalesPlan() {
             <div className="grid grid-cols-2 gap-3">
               {/* Phone / Address */}
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เบอร์ติดต่อ</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">เบอร์ติดต่อ</label>
                 <Input
                   className="mt-1 h-9 text-sm"
                   placeholder="08X-XXX-XXXX"
@@ -457,7 +457,7 @@ export default function WeeklySalesPlan() {
               </div>
               {/* Time */}
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เวลา</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">เวลา</label>
                 <Input
                   type="time"
                   className="mt-1 h-9 text-sm"
@@ -469,7 +469,7 @@ export default function WeeklySalesPlan() {
 
             {/* Purpose */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">วัตถุประสงค์</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">วัตถุประสงค์</label>
               <Select value={stopForm.purpose} onValueChange={(v) => setStopForm((f) => ({ ...f, purpose: v }))}>
                 <SelectTrigger className="mt-1 h-9 text-sm">
                   <SelectValue />
@@ -489,7 +489,7 @@ export default function WeeklySalesPlan() {
 
             {/* Note */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">หมายเหตุ</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
               <Input
                 className="mt-1 h-9 text-sm"
                 placeholder="รายละเอียดเพิ่มเติม..."

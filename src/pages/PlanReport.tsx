@@ -23,10 +23,10 @@ const STATUS_LABELS: Record<StopStatus, string> = {
 };
 
 const STATUS_COLORS: Record<StopStatus, string> = {
-  planned:     "bg-purple-50 text-purple-700 border-purple-200",
-  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
-  completed:   "bg-green-50 text-green-700 border-green-200",
-  skipped:     "bg-gray-100 text-gray-500 border-gray-200",
+  planned:     "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  in_progress: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  completed:   "bg-green-500/10 text-green-400 border-green-500/20",
+  skipped:     "bg-muted text-muted-foreground border-border",
 };
 
 const DAY_SHORT: Record<string, string> = {
@@ -158,15 +158,15 @@ export default function PlanReport() {
 
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full min-h-screen bg-gray-50">
+    <div className="flex flex-col h-full min-h-screen bg-background">
       {/* ── Top bar ── */}
-      <div className="bg-white border-b sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap print:hidden">
+      <div className="bg-card border-b border-border sticky top-0 z-20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap print:hidden">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-50">
-            <ClipboardList className="w-5 h-5 text-amber-600" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/10">
+            <ClipboardList className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h1 className="text-base font-semibold leading-tight text-gray-900">รายงานแผนงาน</h1>
+            <h1 className="text-base font-semibold leading-tight text-foreground">รายงานแผนงาน</h1>
             <p className="text-xs text-muted-foreground">สรุปการวางแผนของทีม Sales</p>
           </div>
         </div>
@@ -176,20 +176,20 @@ export default function PlanReport() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setBaseMonday((d) => subWeeks(d, 1))}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
             >
-              <ChevronLeft className="w-4 h-4 text-gray-500" />
+              <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             </button>
-            <span className="text-sm font-medium text-gray-700 min-w-[150px] text-center">{weekLabel}</span>
+            <span className="text-sm font-medium text-foreground min-w-[150px] text-center">{weekLabel}</span>
             <button
               onClick={() => setBaseMonday((d) => addWeeks(d, 1))}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
             >
-              <ChevronRight className="w-4 h-4 text-gray-500" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
             <button
               onClick={() => setBaseMonday(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+              className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted"
             >
               สัปดาห์นี้
             </button>
@@ -233,14 +233,14 @@ export default function PlanReport() {
       </div>
 
       {/* ── Stats bar ── */}
-      <div className="grid grid-cols-4 gap-px bg-gray-200 border-b print:hidden">
+      <div className="grid grid-cols-4 gap-px bg-border border-b print:hidden">
         {[
-          { label: "ทั้งหมด",      value: stats.total,   color: "#1D4ED8", icon: <ClipboardList className="w-4 h-4" /> },
-          { label: "เสร็จแล้ว",    value: stats.done,    color: "#16A34A", icon: <CheckCircle2 className="w-4 h-4" /> },
-          { label: "ยังไม่ได้ไป",  value: stats.planned, color: "#D97706", icon: <Clock className="w-4 h-4" /> },
-          { label: "ข้าม",          value: stats.skipped, color: "#9CA3AF", icon: <SkipForward className="w-4 h-4" /> },
+          { label: "ทั้งหมด",      value: stats.total,   color: "#818CF8", icon: <ClipboardList className="w-4 h-4" /> },
+          { label: "เสร็จแล้ว",    value: stats.done,    color: "#4ADE80", icon: <CheckCircle2 className="w-4 h-4" /> },
+          { label: "ยังไม่ได้ไป",  value: stats.planned, color: "#FCD34D", icon: <Clock className="w-4 h-4" /> },
+          { label: "ข้าม",          value: stats.skipped, color: "#6B7280", icon: <SkipForward className="w-4 h-4" /> },
         ].map((s) => (
-          <div key={s.label} className="bg-white px-4 py-3 flex items-center gap-3">
+          <div key={s.label} className="bg-card px-4 py-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + "18", color: s.color }}>
               {s.icon}
             </div>
@@ -254,7 +254,7 @@ export default function PlanReport() {
 
       {/* ── Per-rep summary chips ── */}
       {Object.keys(stats.byRep).length > 0 && (
-        <div className="bg-white border-b px-4 py-2 flex items-center gap-2 flex-wrap print:hidden">
+        <div className="bg-card border-b border-border px-4 py-2 flex items-center gap-2 flex-wrap print:hidden">
           <span className="text-xs text-muted-foreground font-medium">Sales:</span>
           {Object.entries(stats.byRep).map(([rep, cnt]) => (
             <button
@@ -264,7 +264,7 @@ export default function PlanReport() {
                 "text-[11px] px-2.5 py-1 rounded-full border transition-colors",
                 filterRep === rep
                   ? "bg-amber-500 text-white border-amber-500"
-                  : "border-gray-200 text-gray-600 hover:bg-gray-50",
+                  : "border-border text-muted-foreground hover:bg-muted",
               )}
             >
               {rep} · {cnt}
@@ -278,7 +278,7 @@ export default function PlanReport() {
         {/* Print header */}
         <div className="hidden print:block mb-4">
           <h2 className="text-lg font-bold">รายงานแผนงาน Sales</h2>
-          <p className="text-sm text-gray-500">{weekLabel} {filterRep !== "all" ? `· ${filterRep}` : ""}</p>
+          <p className="text-sm text-muted-foreground">{weekLabel} {filterRep !== "all" ? `· ${filterRep}` : ""}</p>
         </div>
 
         {rows.length === 0 ? (
@@ -295,10 +295,10 @@ export default function PlanReport() {
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                <tr className="border-b border-border bg-muted text-xs text-muted-foreground uppercase tracking-wide">
                   <th className="px-4 py-3 text-left font-semibold w-12">วัน</th>
                   <th className="px-4 py-3 text-left font-semibold w-20">วันที่</th>
                   <th className="px-4 py-3 text-left font-semibold w-20">Sales</th>
@@ -318,20 +318,20 @@ export default function PlanReport() {
                     <>
                       {isNewDate && idx > 0 && (
                         <tr key={`sep-${row.date}`}>
-                          <td colSpan={9} className="h-px bg-gray-100 p-0" />
+                          <td colSpan={9} className="h-px bg-border p-0" />
                         </tr>
                       )}
                       <tr
                         key={`${row.routeId}-${row.stopId}`}
                         className={cn(
-                          "border-b border-gray-50 hover:bg-gray-50 transition-colors",
+                          "border-b border-border/40 hover:bg-muted/50 transition-colors",
                           row.status === "completed" ? "opacity-75" : "",
                           row.status === "skipped"   ? "opacity-50" : "",
                         )}
                       >
                         {/* Day */}
                         <td className="px-4 py-2.5">
-                          <span className="font-semibold text-gray-700 text-xs">{row.dayLabel}</span>
+                          <span className="font-semibold text-foreground text-xs">{row.dayLabel}</span>
                         </td>
                         {/* Date */}
                         <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
@@ -339,12 +339,12 @@ export default function PlanReport() {
                         </td>
                         {/* Rep */}
                         <td className="px-4 py-2.5">
-                          <span className="text-xs font-medium text-gray-700 whitespace-nowrap">{row.rep}</span>
+                          <span className="text-xs font-medium text-foreground whitespace-nowrap">{row.rep}</span>
                         </td>
                         {/* Customer / place */}
                         <td className="px-4 py-2.5">
                           <div>
-                            <p className={cn("font-medium text-gray-900", row.status === "completed" && "line-through text-gray-500")}>
+                            <p className={cn("font-medium text-foreground", row.status === "completed" && "line-through text-muted-foreground")}>
                               {row.customer || row.place}
                             </p>
                             {row.customer && row.place !== row.customer && (
@@ -353,10 +353,10 @@ export default function PlanReport() {
                           </div>
                         </td>
                         {/* Phone */}
-                        <td className="px-4 py-2.5 text-xs text-gray-600 whitespace-nowrap">{row.address}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{row.address}</td>
                         {/* Purpose */}
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-gray-600">{row.purpose}</span>
+                          <span className="text-xs text-muted-foreground">{row.purpose}</span>
                         </td>
                         {/* Time */}
                         <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.time}</td>
@@ -379,7 +379,7 @@ export default function PlanReport() {
             </table>
 
             {/* Footer */}
-            <div className="px-4 py-2.5 bg-gray-50 border-t text-xs text-muted-foreground flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-muted border-t border-border text-xs text-muted-foreground flex items-center justify-between">
               <span>แสดง {rows.length} รายการ {rows.length !== allRows.length ? `(จากทั้งหมด ${allRows.length})` : ""}</span>
               <span>สัปดาห์ {weekLabel}</span>
             </div>
