@@ -304,6 +304,35 @@ export default function Planning() {
         </div>
       </div>
 
+      {/* ── Office Location bar — Admin/Manager always visible ── */}
+      {canSetOffice && (
+        <div className="rounded-lg border bg-slate-50 dark:bg-slate-900/40 px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
+            {officeLat && officeSetAt ? (
+              <span className="text-xs text-muted-foreground truncate">
+                ออฟฟิศ: <span className="font-mono">{officeLat.toFixed(5)}, {officeLng?.toFixed(5)}</span>
+                <span className="ml-2 opacity-60">ตั้งเมื่อ {new Date(officeSetAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+              </span>
+            ) : (
+              <span className="text-xs text-amber-600 font-medium">⚠️ ยังไม่ได้ตั้งพิกัดออฟฟิศ — กปุ่มด้านขวาขณะอยู่ที่ออฟฟิศ</span>
+            )}
+          </div>
+          <button
+            onClick={handleSetOffice}
+            disabled={gpsLoading === "set_office"}
+            className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-md px-3 py-1.5 hover:bg-indigo-50 transition-colors disabled:opacity-50 shrink-0 font-medium"
+            title="ใช้ตำแหน่ง GPS ปัจจุบัน (ต้องอยู่ที่ออฟฟิศ) บันทึกเป็นพิกัดออฟฟิศ"
+          >
+            {gpsLoading === "set_office"
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <MapPin className="w-3.5 h-3.5" />
+            }
+            {officeLat ? "อัปเดตตำแหน่งออฟฟิศ" : "ตั้งตำแหน่งออฟฟิศ"}
+          </button>
+        </div>
+      )}
+
       {/* ── Day-level Check-in / Check-out banner (วันนี้เท่านั้น + มี route) ── */}
       {isToday && todayRoutes.length > 0 && (
         <div className="rounded-xl border overflow-hidden shadow-sm">
@@ -314,36 +343,13 @@ export default function Planning() {
               <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">การเข้า-ออกงานวันนี้</span>
               <span className="text-[11px] text-muted-foreground">(GPS ต้องอยู่ภายใน {CHECKIN_RADIUS_M}m จากออฟฟิศ)</span>
             </div>
-            {/* Set Office button — Admin/Manager only */}
-            {canSetOffice && (
-              <button
-                onClick={handleSetOffice}
-                disabled={gpsLoading === "set_office"}
-                className="flex items-center gap-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-md px-2.5 py-1 hover:bg-indigo-50 transition-colors disabled:opacity-50"
-                title="ใช้ตำแหน่ง GPS ปัจจุบัน (ต้องอยู่ที่ออฟฟิศ) บันทึกเป็นพิกัดออฟฟิศ"
-              >
-                {gpsLoading === "set_office"
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <MapPin className="w-3 h-3" />
-                }
-                {officeLat ? "อัปเดตตำแหน่งออฟฟิศ" : "ตั้งตำแหน่งออฟฟิศ"}
-              </button>
-            )}
           </div>
 
-          {/* office coords status */}
-          {!officeLat && (
+          {/* office coords warning (for non-admin / no coords set) */}
+          {!officeLat && !canSetOffice && (
             <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-b flex items-center gap-2 text-xs text-amber-700">
               <span>⚠️</span>
-              <span>ยังไม่ได้ตั้งพิกัดออฟฟิศ — {canSetOffice ? "กด 'ตั้งตำแหน่งออฟฟิศ' ด้านบนขณะอยู่ที่ออฟฟิศ" : "รอ Admin/Manager ตั้งพิกัดออฟฟิศก่อน"}</span>
-            </div>
-          )}
-          {officeLat && officeSetAt && (
-            <div className="px-4 py-1.5 bg-white/50 dark:bg-black/10 border-b flex items-center gap-2 text-[10px] text-muted-foreground">
-              <MapPin className="w-3 h-3 shrink-0" />
-              <span>ออฟฟิศ: {officeLat.toFixed(5)}, {officeLng?.toFixed(5)}</span>
-              <span>·</span>
-              <span>ตั้งเมื่อ {new Date(officeSetAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+              <span>รอ Admin/Manager ตั้งพิกัดออฟฟิศก่อน</span>
             </div>
           )}
 
