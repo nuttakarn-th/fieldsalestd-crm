@@ -7,7 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList,
 } from "recharts";
-import { MapContainer, TileLayer, CircleMarker, Tooltip as LTooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useServices, type TourItem } from "@/store/serviceStore";
@@ -212,11 +212,6 @@ type CountryStat = { name: string; programs: number; seats: number; booked: numb
 function MapInvalidator({ trigger }: { trigger: number }) {
   const map = useMap();
   useEffect(() => { setTimeout(() => map.invalidateSize(), 150); }, [map, trigger]);
-  // Boost tooltip pane above canvas (z-450) — CSS @layer base can't override Leaflet's inline style
-  useEffect(() => {
-    const pane = map.getPane("tooltipPane");
-    if (pane) pane.style.setProperty("z-index", "9000", "important");
-  }, [map]);
   return null;
 }
 
@@ -301,6 +296,63 @@ function CanvasHeatLayer({ points, mode, maxPrograms, maxRevenue }: {
   return null;
 }
 
+// ─── HoverHandler: mouse-based hover → React tooltip (bypasses Leaflet z-index) ─
+type HoverInfo = {
+  c: CountryStat;
+  coord: { city: string; lat: number; lng: number };
+  screenX: number;
+  screenY: number;
+} | null;
+
+function HoverHandler({ points, maxPrograms, onHover }: {
+  points: HeatPoint[];
+  maxPrograms: number;
+  onHover: (info: HoverInfo) => void;
+}) {
+  const map = useMap();
+  const onHoverRef = useRef(onHover);
+  onHoverRef.current = onHover;
+
+  useEffect(() => {
+    const container = map.getContainer();
+
+    const handleMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+
+      let best: HeatPoint | null = null;
+      let bestDist = Infinity;
+
+      for (const p of points) {
+        const pt = map.latLngToContainerPoint(L.latLng(p.coord.lat, p.coord.lng));
+        const northPt = map.latLngToContainerPoint(L.latLng(p.coord.lat + 3, p.coord.lng));
+        const degPx = Math.abs(pt.y - northPt.y) / 3;
+        const sizeM = 0.35 + (p.c.programs / maxPrograms) * 0.65;
+        const R = Math.max(degPx * 4.0 * sizeM, 14);
+        const dist = Math.hypot(pt.x - cx, pt.y - cy);
+        if (dist < R && dist < bestDist) { bestDist = dist; best = p; }
+      }
+
+      if (best) {
+        onHoverRef.current({ c: best.c, coord: best.coord, screenX: e.clientX, screenY: e.clientY });
+      } else {
+        onHoverRef.current(null);
+      }
+    };
+
+    const handleLeave = () => onHoverRef.current(null);
+    container.addEventListener("mousemove", handleMove);
+    container.addEventListener("mouseleave", handleLeave);
+    return () => {
+      container.removeEventListener("mousemove", handleMove);
+      container.removeEventListener("mouseleave", handleLeave);
+    };
+  }, [map, points, maxPrograms]);
+
+  return null;
+}
+
 // ─── World Leaflet Heatmap ───────────────────────────────────────────────────
 type MapMode = "rate" | "programs" | "revenue";
 type CountryStat = { name: string; programs: number; seats: number; booked: number; bookedVal: number; rate: number };
@@ -309,6 +361,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
   const [mode, setMode] = useState<MapMode>("rate");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fsCounter, setFsCounter] = useState(0);
+  const [hoverInfo, setHoverInfo] = useState<HoverInfo>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -398,58 +451,50 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
           <MapInvalidator trigger={fsCounter} />
           {/* Canvas handles radial gradient glow visuals */}
           <CanvasHeatLayer points={points} mode={mode} maxPrograms={maxPrograms} maxRevenue={maxRevenue} />
-          {/* Invisible CircleMarkers for hover tooltips */}
-          {points.map(({ c, coord }) => {
-            const rateColor = c.rate >= 80 ? "#EF4444" : c.rate >= 55 ? "#F97316" : c.rate >= 30 ? "#EAB308" : "#22C55E";
-            return (
-              <CircleMarker
-                key={c.name}
-                center={[coord.lat, coord.lng]}
-                radius={28}
-                pathOptions={{ fillColor: "transparent", fillOpacity: 0, stroke: false }}
-              >
-                <LTooltip
-                  direction="top"
-                  offset={[0, -8]}
-                  opacity={1}
-                  sticky
-                  className="leaflet-heatmap-tooltip"
-                >
-                  <div style={{
-                    background: "#fff",
-                    borderRadius: 10,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
-                    padding: "10px 14px",
-                    fontSize: 12,
-                    lineHeight: 1.7,
-                    minWidth: 170,
-                    border: "1px solid #e5e7eb",
-                    position: "relative",
-                    zIndex: 9999,
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#111", marginBottom: 2 }}>{c.name}</div>
-                    <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 6 }}>📍 {coord.city}</div>
-                    <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#6b7280" }}>โปรแกรม</span>
-                        <strong style={{ color: "#111" }}>{c.programs}</strong>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#6b7280" }}>Booking Rate</span>
-                        <strong style={{ color: rateColor }}>{c.rate}%</strong>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
-                        <strong style={{ color: "#6d28d9" }}>{fmtMB(c.bookedVal)}</strong>
-                      </div>
-                    </div>
-                  </div>
-                </LTooltip>
-              </CircleMarker>
-            );
-          })}
+          {/* HoverHandler: tracks mouse over glow, sets hoverInfo in parent */}
+          <HoverHandler points={points} maxPrograms={maxPrograms} onHover={setHoverInfo} />
         </MapContainer>
       </div>
+
+      {/* React tooltip — rendered outside Leaflet, always above everything */}
+      {hoverInfo && (() => {
+        const { c, coord, screenX, screenY } = hoverInfo;
+        const rateColor = c.rate >= 80 ? "#EF4444" : c.rate >= 55 ? "#F97316" : c.rate >= 30 ? "#EAB308" : "#22C55E";
+        return (
+          <div style={{
+            position: "fixed",
+            left: screenX + 14,
+            top: screenY - 130,
+            zIndex: 99999,
+            pointerEvents: "none",
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+            padding: "12px 16px",
+            minWidth: 180,
+            fontSize: 12,
+            lineHeight: 1.7,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#111", marginBottom: 2 }}>{c.name}</div>
+            <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 8 }}>📍 {coord.city}</div>
+            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#6b7280" }}>โปรแกรม</span>
+                <strong style={{ color: "#111" }}>{c.programs}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#6b7280" }}>Booking Rate</span>
+                <strong style={{ color: rateColor }}>{c.rate}%</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
+                <strong style={{ color: "#7c3aed" }}>{fmtMB(c.bookedVal)}</strong>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Legend */}
       <div className="flex items-center gap-3 px-4 py-2 border-t border-border shrink-0 flex-wrap">
@@ -1087,27 +1132,4 @@ export default function StockDashboard() {
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">{u.airline} · ว่าง {u.quota}/{u.seats} ที่นั่ง</p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] font-bold" style={{ color }}>{pct}%</span>
-                      <span className="text-[9px] text-muted-foreground/60">{daysAway}d</span>
-                    </div>
-                    <div className="w-1.5 h-8 rounded-full shrink-0" style={{ background: `${color}20` }}>
-                      <div className="w-full rounded-full transition-all" style={{ height: `${pct}%`, background: color }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Footer ── */}
-        <div className="text-center py-4">
-          <p className="text-[11px] text-muted-foreground/50">
-            Standard Tour CRM · Stock Dashboard · ข้อมูลอ้างอิงจาก Periods ที่บันทึกในระบบ
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
+                    <div className="flex flex-col i
