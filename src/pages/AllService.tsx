@@ -1369,6 +1369,21 @@ ${catBlocks}
                 const hasPeriods = (t.periods?.length ?? 0) > 0;
                 const isExpanded = expanded.has(t.id);
                 const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
+                // ── Period-level filter (matches tour-level logic but applied per period) ──
+                const visiblePeriods = (t.periods ?? []).filter((p) => {
+                  if (filterPromo && !(typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)) return false;
+                  if (filterStatus === "ยกเลิก"  && !p.cancelled) return false;
+                  if (filterStatus === "ปิดกรุ๊ป" && (p.cancelled || p.quota !== 0)) return false;
+                  if (filterStatus === "ว่าง"     && (p.cancelled || p.quota <= 0))  return false;
+                  if (filterTags.length > 0 && !filterTags.every((tag) => (p.tags ?? []).includes(tag))) return false;
+                  if ((filterDateFrom || filterDateTo)) {
+                    const d = p.start_date ?? "";
+                    if (filterDateFrom && d < filterDateFrom) return false;
+                    if (filterDateTo   && d > filterDateTo)   return false;
+                  }
+                  return true;
+                });
+                const periodFilterActive = !!(filterStatus || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
                 const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
                 const priceMin = prices.length ? Math.min(...prices) : t.price_per_seat;
                 const priceMax = prices.length ? Math.max(...prices) : t.price_per_seat;
@@ -1392,7 +1407,7 @@ ${catBlocks}
                           <button onClick={() => hasPeriods && toggleExpand(t.id)}
                             className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
                             style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
-                            {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
+                            {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
                             {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                           </button>
                           {t.continent && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
@@ -1477,7 +1492,7 @@ ${catBlocks}
                             <button onClick={() => hasPeriods && toggleExpand(t.id)}
                               className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] mt-0.5"
                               style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
-                              {hasPeriods ? `${t.periods!.length} Period` : "ยังไม่มี"}
+                              {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
                               {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                             </button>
                           </div>
@@ -1588,9 +1603,7 @@ ${catBlocks}
                     {/* ════ MOBILE period cards (< sm) ════ */}
                     <div className="sm:hidden border-t anim-slide-down" style={{background: "#FAFAFA"}}>
                       <div className="p-3 space-y-2">
-                        {t.periods!.filter((p) =>
-                          !filterPromo || (typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)
-                        ).map((p, pIdx) => {
+                        {visiblePeriods.map((p, pIdx) => {
                           const pid = p.period_id;
                           const hasPending = pendingQuota[pid] !== undefined;
                           const currentQuota = hasPending ? pendingQuota[pid] : p.quota;
@@ -1825,9 +1838,7 @@ ${catBlocks}
                         </div>
                         {/* Period Cards — w-full stretches to container */}
                         <div className="px-3 py-1.5 space-y-1 w-full">
-                        {[...t.periods!].filter((p) =>
-                          !filterPromo || (typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)
-                        ).sort((a, b) => {
+                        {[...visiblePeriods].sort((a, b) => {
                           const dir = periodSort.dir === 'asc' ? 1 : -1;
                           if (periodSort.field === 'date')  return dir * ((a.start_date || '') < (b.start_date || '') ? -1 : 1);
                           if (periodSort.field === 'price') return dir * (a.price_per_seat - b.price_per_seat);
