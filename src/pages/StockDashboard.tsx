@@ -212,6 +212,11 @@ type CountryStat = { name: string; programs: number; seats: number; booked: numb
 function MapInvalidator({ trigger }: { trigger: number }) {
   const map = useMap();
   useEffect(() => { setTimeout(() => map.invalidateSize(), 150); }, [map, trigger]);
+  // Boost tooltip pane above canvas (z-450) — CSS @layer base can't override Leaflet's inline style
+  useEffect(() => {
+    const pane = map.getPane("tooltipPane");
+    if (pane) pane.style.setProperty("z-index", "9000", "important");
+  }, [map]);
   return null;
 }
 
