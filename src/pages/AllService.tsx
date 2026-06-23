@@ -225,6 +225,15 @@ const TOUR_TYPE_CHIPS = [
   "City Break","Adventure","Honeymoon","บริษัท","Shopping","Luxury","ประวัติศาสตร์","ทะเล",
 ];
 
+// ── normalize category string จาก Excel → TourCategory ─────────────────────
+// Excel อาจส่ง "Domestic Tour" / "domestic" / "ภายในประเทศ" ฯลฯ
+function normalizeTourCat(raw: string): TourCategory {
+  const s = raw.trim().toLowerCase();
+  if (s.startsWith("domestic") || s.includes("ในประเทศ") || s.includes("ภายใน")) return "Domestic";
+  if (s.startsWith("incentive") || s.includes("กรุ๊ป"))                           return "Incentive";
+  return "International Tour";
+}
+
 /* ========= Tour ========= */
 const TOUR_FIELDS: ExcelField[] = [
   { key: "category",       header: "ประเภท",                    example: "International Tour" },
@@ -692,7 +701,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         // สร้างทัวร์ใหม่ครั้งเดียว และรับ ID กลับมาเพื่อ addPeriod ต่อ
         const seats = Number(firstRow.total_seats ?? 0);
         const newId = addTour({
-          category:       (firstRow.category as TourCategory) || "International Tour",
+          category:       normalizeTourCat(String(firstRow.category ?? "")),
           code,
           title:          String(firstRow.city ?? ""),
           city:           String(firstRow.city ?? ""),
