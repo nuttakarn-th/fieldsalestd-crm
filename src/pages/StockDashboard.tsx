@@ -280,7 +280,7 @@ function CanvasHeatLayer({ points, mode, maxPrograms, maxRevenue }: {
   useEffect(() => {
     const container = map.getContainer();
     const canvas = document.createElement("canvas");
-    canvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:650;";
+    canvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:450;";
     container.appendChild(canvas);
     canvasRef.current = canvas;
 
@@ -403,22 +403,40 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
                 radius={28}
                 pathOptions={{ fillColor: "transparent", fillOpacity: 0, stroke: false }}
               >
-                <LTooltip direction="top" offset={[0, -12]} opacity={1} sticky>
-                  <div style={{ fontSize: 12, lineHeight: 1.6, minWidth: 155 }}>
-                    <strong style={{ display: "block", marginBottom: 4 }}>{c.name}</strong>
-                    <span style={{ color: "#888", fontSize: 11 }}>{coord.city}</span>
-                    <hr style={{ margin: "4px 0", borderColor: "#e5e7eb" }} />
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <span style={{ color: "#6b7280" }}>โปรแกรม</span>
-                      <strong>{c.programs}</strong>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <span style={{ color: "#6b7280" }}>Booking Rate</span>
-                      <strong style={{ color: rateColor }}>{c.rate}%</strong>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
-                      <strong>{fmtMB(c.bookedVal)}</strong>
+                <LTooltip
+                  direction="top"
+                  offset={[0, -8]}
+                  opacity={1}
+                  sticky
+                  className="leaflet-heatmap-tooltip"
+                >
+                  <div style={{
+                    background: "#fff",
+                    borderRadius: 10,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+                    padding: "10px 14px",
+                    fontSize: 12,
+                    lineHeight: 1.7,
+                    minWidth: 170,
+                    border: "1px solid #e5e7eb",
+                    position: "relative",
+                    zIndex: 9999,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#111", marginBottom: 2 }}>{c.name}</div>
+                    <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 6 }}>📍 {coord.city}</div>
+                    <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#6b7280" }}>โปรแกรม</span>
+                        <strong style={{ color: "#111" }}>{c.programs}</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#6b7280" }}>Booking Rate</span>
+                        <strong style={{ color: rateColor }}>{c.rate}%</strong>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
+                        <strong style={{ color: "#6d28d9" }}>{fmtMB(c.bookedVal)}</strong>
+                      </div>
                     </div>
                   </div>
                 </LTooltip>
