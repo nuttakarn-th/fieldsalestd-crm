@@ -1579,8 +1579,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
                           return (
                             <div key={pid}
                               className={`rounded-xl border overflow-hidden anim-fade-in ${hasPending ? "ring-1 ring-amber-300" : ""}`}
-                              style={{animationDelay: `${pIdx * 35}ms`}}
-                              style={{borderLeftWidth:"4px", borderLeftColor: statusColor, borderColor:`${statusColor}30`, background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white"}}
+                              style={{animationDelay: `${pIdx * 35}ms`, borderLeftWidth:"4px", borderLeftColor: statusColor, borderColor:`${statusColor}30`, background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white"}}
                             >
                               {/* Top: date + status */}
                               <div className="flex items-start justify-between px-3 pt-2.5 pb-1">
@@ -3474,3 +3473,4 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
     </div>
   );
 }
+
