@@ -5,12 +5,12 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList,
 } from "recharts";
 import { useServices, type TourItem } from "@/store/serviceStore";
 import {
   ArrowLeft, Globe2, MapPin, TrendingUp, PackageSearch,
-  CheckCircle2, XCircle, CalendarDays, Layers,
+  CheckCircle2, XCircle, CalendarDays, Layers, AlertTriangle,
 } from "lucide-react";
 
 // ─── brand palette (ใช้งานได้ทั้ง dark/light) ───────────────────────────────
@@ -36,17 +36,20 @@ const MONTH_TH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","
 
 // ─── KPI Card ───────────────────────────────────────────────────────────────
 function KPICard({
-  label, value, sub, color = C_INTL, icon: Icon,
+  label, value, sub, color = C_INTL, icon: Icon, alert = false,
 }: {
-  label: string; value: string; sub?: string; color?: string; icon: React.ElementType;
+  label: string; value: string; sub?: string; color?: string; icon: React.ElementType; alert?: boolean;
 }) {
   return (
-    <div className="bg-card rounded-2xl border border-border px-5 py-4 flex items-start gap-4 min-w-0">
+    <div className={`bg-card rounded-2xl border px-5 py-4 flex items-start gap-4 min-w-0 transition-all ${alert ? "border-red-500/50 shadow-[0_0_12px_rgba(248,113,113,0.15)]" : "border-border"}`}>
       <div className="rounded-xl p-2.5 shrink-0" style={{ background: `${color}18` }}>
         <Icon className="w-5 h-5" style={{ color }} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide truncate">{label}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide truncate">{label}</p>
+          {alert && <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />}
+        </div>
         <p className="text-2xl font-bold mt-0.5 leading-none" style={{ color }}>{value}</p>
         {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
       </div>
@@ -338,10 +341,18 @@ export default function StockDashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KPICard label="มูลค่า Capacity" value={fmtMB(global.capacityValue)} sub={`${global.activePeriods} periods`} color={C_INTL} icon={Layers} />
           <KPICard label="มูลค่าจอง"      value={fmtMB(global.bookedValue)}    sub={`${global.valueRate}% ของ capacity`} color={C_BOOKED} icon={TrendingUp} />
-          <KPICard label="Booking Rate"   value={`${global.bookingRate}%`}     sub={`${global.booked.toLocaleString()} / ${global.totalSeats.toLocaleString()} ที่`} color={C_INC} icon={CheckCircle2} />
+          <KPICard label="Booking Rate"   value={`${global.bookingRate}%`}
+            sub={`${global.booked.toLocaleString()} / ${global.totalSeats.toLocaleString()} ที่`}
+            color={global.bookingRate < 15 ? C_CANCEL : global.bookingRate < 35 ? "#FB923C" : C_INC}
+            alert={global.bookingRate < 15}
+            icon={CheckCircle2} />
           <KPICard label="ที่นั่งว่าง"   value={global.available.toLocaleString()} sub="ยังสามารถรับได้" color={C_AVAIL} icon={PackageSearch} />
           <KPICard label="Periods ทั้งหมด" value={global.activePeriods.toLocaleString()} sub={`${filteredTours.length} โปรแกรม`} color={C_DOM} icon={CalendarDays} />
-          <KPICard label="ยกเลิกแล้ว"   value={`${global.cancelledPeriods} Period`} sub={fmtMB(global.cancelledValue)} color={C_CANCEL} icon={XCircle} />
+          <KPICard label="ยกเลิกแล้ว"   value={`${global.cancelledPeriods} Period`}
+            sub={fmtMB(global.cancelledValue)}
+            color={C_CANCEL}
+            alert={global.cancelledPeriods > 0}
+            icon={XCircle} />
         </div>
 
         {/* ── Revenue by Month + Stock Health ── */}
@@ -373,7 +384,7 @@ export default function StockDashboard() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                  <YAxis tickFormatter={fmtM} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} width={50} />
+                  <YAxis tickFormatter={fmtM} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} width={56} />
                   <Tooltip content={<ChartTip />} />
                   <Area type="monotone" dataKey="capacity" name="Capacity" stroke={C_INTL}   strokeWidth={2} fill="url(#gradCap)" />
                   <Area type="monotone" dataKey="booked"   name="จอง"     stroke={C_BOOKED} strokeWidth={2} fill="url(#gradBk)"  />
@@ -388,14 +399,21 @@ export default function StockDashboard() {
           <div className="bg-card rounded-2xl border border-border p-5">
             <h2 className="text-sm font-bold text-foreground mb-1">Stock Health</h2>
             <p className="text-[11px] text-muted-foreground mb-3">สถานะที่นั่งทั้งหมด</p>
-            <ResponsiveContainer width="100%" height={150}>
-              <PieChart>
-                <Pie data={healthData} cx="50%" cy="50%" innerRadius={42} outerRadius={65} dataKey="value" paddingAngle={3}>
-                  {healthData.map((e) => <Cell key={e.name} fill={e.color} />)}
-                </Pie>
-                <Tooltip formatter={(v: number) => `${v} period`} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative">
+              <ResponsiveContainer width="100%" height={150}>
+                <PieChart>
+                  <Pie data={healthData} cx="50%" cy="50%" innerRadius={42} outerRadius={65} dataKey="value" paddingAngle={3}>
+                    {healthData.map((e) => <Cell key={e.name} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => `${v} period`} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-xl font-bold text-foreground leading-none">{global.bookingRate}%</span>
+                <span className="text-[9px] text-muted-foreground mt-0.5">จองแล้ว</span>
+              </div>
+            </div>
             <div className="space-y-2 mt-1">
               {healthData.map((d) => (
                 <div key={d.name} className="flex items-center justify-between text-xs">
@@ -459,7 +477,10 @@ export default function StockDashboard() {
                   <YAxis dataKey="name" type="category" width={72} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                   <Tooltip content={<ChartTip />} />
                   <Bar dataKey="cap"       name="Capacity"  fill={`${C_INTL}30`} radius={[0,4,4,0]} />
-                  <Bar dataKey="bookedVal" name="มูลค่าจอง" fill={C_INTL}       radius={[0,4,4,0]} />
+                  <Bar dataKey="bookedVal" name="มูลค่าจอง" fill={C_INTL}       radius={[0,4,4,0]}>
+                    <LabelList dataKey="bookedVal" position="right" formatter={(v: number) => fmtM(v)}
+                      style={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -488,9 +509,15 @@ export default function StockDashboard() {
                       <td className="py-2 font-medium text-foreground">{c.name}</td>
                       <td className="py-2 text-right text-muted-foreground">{c.programs}</td>
                       <td className="py-2 text-right">
-                        <span className="font-semibold" style={{ color: c.rate >= 70 ? C_BOOKED : c.rate >= 40 ? C_DOM : "hsl(var(--muted-foreground))" }}>
-                          {c.rate}%
-                        </span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${c.rate}%`, background: c.rate >= 70 ? C_BOOKED : c.rate >= 40 ? C_DOM : "hsl(var(--muted-foreground))" }} />
+                          </div>
+                          <span className="font-semibold text-[11px] w-8 text-right" style={{ color: c.rate >= 70 ? C_BOOKED : c.rate >= 40 ? C_DOM : "hsl(var(--muted-foreground))" }}>
+                            {c.rate}%
+                          </span>
+                        </div>
                       </td>
                       <td className="py-2 text-right font-semibold" style={{ color: C_INTL }}>{fmtMB(c.bookedVal)}</td>
                     </tr>
@@ -514,7 +541,7 @@ export default function StockDashboard() {
                   <tr>
                     <th className="text-left text-[10px] text-muted-foreground font-medium py-1.5 pr-3 w-10">เดือน</th>
                     {heatmapData.yearList.map((y) => (
-                      <th key={y} className="text-center text-[10px] text-muted-foreground font-medium py-1.5 px-1 min-w-[52px]">
+                      <th key={y} className="text-center text-[11px] text-muted-foreground font-semibold py-2 px-1 min-w-[64px]">
                         {y + 543}
                       </th>
                     ))}
@@ -531,17 +558,17 @@ export default function StockDashboard() {
                         const intensity = Math.min(count / 8, 1);
                         const bg = count === 0 ? "hsl(var(--muted))" : `rgba(167, 139, 250, ${0.1 + intensity * 0.65})`;
                         return (
-                          <td key={y} className="text-center py-0.5 px-1">
-                            <div className="rounded-lg mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105"
-                              style={{ background: bg, minHeight: 36, width: 48 }}
+                          <td key={y} className="text-center py-1 px-1">
+                            <div className="rounded-xl mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105 hover:brightness-110"
+                              style={{ background: bg, minHeight: 46, width: 58 }}
                               title={count > 0 ? `${mo} ${y + 543}: ${count} period, จอง ${rate}%` : "ไม่มี period"}>
                               {count > 0 ? (
                                 <>
-                                  <span className={`text-[12px] font-bold ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
-                                  <span className={`text-[8px] ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
+                                  <span className={`text-[15px] font-bold leading-tight ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
+                                  <span className={`text-[10px] font-medium ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
                                 </>
                               ) : (
-                                <span className="text-muted-foreground/30 text-[10px]">—</span>
+                                <span className="text-muted-foreground/30 text-[11px]">—</span>
                               )}
                             </div>
                           </td>
@@ -568,7 +595,18 @@ export default function StockDashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {/* Cancellation by month */}
           <div className="bg-card rounded-2xl border border-border p-5">
-            <SectionHeader icon={XCircle} title="การยกเลิกรายเดือน" color={C_CANCEL} />
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-4 h-4" style={{ color: C_CANCEL }} />
+                <h2 className="text-sm font-bold text-foreground">การยกเลิกรายเดือน</h2>
+              </div>
+              {global.cancelledPeriods > 0 && (
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold" style={{ color: C_CANCEL }}>{global.cancelledPeriods} Periods</p>
+                  <p className="text-[10px] text-muted-foreground">{fmtMB(global.cancelledValue)}</p>
+                </div>
+              )}
+            </div>
             {cancelByMonth.length > 0 ? (
               <ResponsiveContainer width="100%" height={180}>
                 <BarChart data={cancelByMonth} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -604,15 +642,21 @@ export default function StockDashboard() {
                 const d   = new Date(u.start);
                 const daysAway = Math.round((d.getTime() - Date.now()) / 86400000);
                 const color = u.category === "International Tour" ? C_INTL : u.category === "Domestic" ? C_DOM : C_INC;
+                const isUrgent = u.quota > 0 && u.quota <= 5;
+                const isFull   = u.quota === 0;
                 return (
-                  <div key={i} className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors">
+                  <div key={i} className={`flex items-center gap-3 p-2 rounded-xl hover:bg-muted/50 transition-colors ${isFull ? "opacity-60" : ""}`}>
                     <div className="text-center min-w-[36px]">
                       <p className="text-[10px] text-muted-foreground leading-none">{MONTH_TH[d.getMonth()]}</p>
                       <p className="text-base font-bold text-foreground leading-tight">{d.getDate()}</p>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-semibold text-foreground truncate">{u.tourCode}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{u.airline} · {u.seats - u.quota}/{u.seats} ที่</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-[11px] font-semibold text-foreground truncate">{u.tourCode}</p>
+                        {isFull   && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: `${C_CANCEL}25`, color: C_CANCEL }}>FULL</span>}
+                        {isUrgent && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0" style={{ background: `${C_DOM}25`, color: C_DOM }}>เหลือ {u.quota}</span>}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">{u.airline} · ว่าง {u.quota}/{u.seats} ที่นั่ง</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-[10px] font-bold" style={{ color }}>{pct}%</span>
