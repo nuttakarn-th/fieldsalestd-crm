@@ -1,13 +1,14 @@
 /**
  * StockDashboard.tsx — Full Stock / Tour Management Dashboard (Dark Mode)
  */
-import { useMemo, useState, useCallback, useRef, useEffect, Fragment } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList,
 } from "recharts";
-import { MapContainer, TileLayer, Circle, Tooltip as LTooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Tooltip as LTooltip, useMap } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useServices, type TourItem } from "@/store/serviceStore";
 import {
@@ -207,10 +208,91 @@ function SectionHeader({ icon: Icon, title, sub, color = C_INTL }: {
 type MapMode = "rate" | "programs" | "revenue";
 type CountryStat = { name: string; programs: number; seats: number; booked: number; bookedVal: number; rate: number };
 
-// ─── Map helper: invalidate size on fullscreen change ───────────────────────
+// ─── Map helpers ─────────────────────────────────────────────────────────────
 function MapInvalidator({ trigger }: { trigger: number }) {
   const map = useMap();
   useEffect(() => { setTimeout(() => map.invalidateSize(), 150); }, [map, trigger]);
+  return null;
+}
+
+type HeatPoint = { c: CountryStat; coord: { city: string; lat: number; lng: number } };
+type RGB = { r: number; g: number; b: number };
+
+function CanvasHeatLayer({ points, mode, maxPrograms, maxRevenue }: {
+  points: HeatPoint[]; mode: MapMode; maxPrograms: number; maxRevenue: number;
+}) {
+  const map = useMap();
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const getRGB = useCallback((c: CountryStat): RGB => {
+    if (mode === "rate") {
+      if (c.rate >= 80) return { r: 239, g: 68,  b: 68  };
+      if (c.rate >= 55) return { r: 249, g: 115, b: 22  };
+      if (c.rate >= 30) return { r: 234, g: 179, b: 8   };
+      return                   { r: 34,  g: 197, b: 94  };
+    }
+    if (mode === "programs") {
+      const t = c.programs / maxPrograms;
+      if (t >= 0.7) return { r: 124, g: 58,  b: 237 };
+      if (t >= 0.4) return { r: 167, g: 139, b: 250 };
+      return               { r: 196, g: 181, b: 253 };
+    }
+    const t = c.bookedVal / maxRevenue;
+    if (t >= 0.7) return { r: 2,   g: 132, b: 199 };
+    if (t >= 0.4) return { r: 56,  g: 189, b: 248 };
+    return               { r: 186, g: 230, b: 253 };
+  }, [mode, maxPrograms, maxRevenue]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const size = map.getSize();
+    canvas.width  = size.x;
+    canvas.height = size.y;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, size.x, size.y);
+
+    for (const { c, coord } of points) {
+      const pt = map.latLngToContainerPoint(L.latLng(coord.lat, coord.lng));
+      // pixel radius: compare point to 1 degree north
+      const northPt = map.latLngToContainerPoint(L.latLng(coord.lat + 3, coord.lng));
+      const degPx = Math.abs(pt.y - northPt.y) / 3;
+      const sizeM  = 0.35 + (c.programs / maxPrograms) * 0.65;
+      const R = Math.max(degPx * (4.0 * sizeM), 14); // ~4° radius scaled by intensity
+
+      const { r, g, b } = getRGB(c);
+      const grad = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, R);
+      grad.addColorStop(0,    `rgba(${r},${g},${b},0.92)`);
+      grad.addColorStop(0.10, `rgba(${r},${g},${b},0.80)`);
+      grad.addColorStop(0.25, `rgba(${r},${g},${b},0.55)`);
+      grad.addColorStop(0.50, `rgba(${r},${g},${b},0.25)`);
+      grad.addColorStop(0.75, `rgba(${r},${g},${b},0.08)`);
+      grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
+
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, R, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+  }, [map, points, getRGB, maxPrograms]);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText = "position:absolute;top:0;left:0;pointer-events:none;z-index:650;";
+    container.appendChild(canvas);
+    canvasRef.current = canvas;
+
+    draw();
+    map.on("move moveend zoomend resize", draw);
+    return () => {
+      map.off("move moveend zoomend resize", draw);
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      canvasRef.current = null;
+    };
+  }, [map, draw]);
+
   return null;
 }
 
@@ -243,25 +325,6 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
 
   const maxPrograms = useMemo(() => Math.max(...countryStats.map((c) => c.programs), 1), [countryStats]);
   const maxRevenue  = useMemo(() => Math.max(...countryStats.map((c) => c.bookedVal), 1), [countryStats]);
-
-  const getCircleColor = useCallback((c: CountryStat): string => {
-    if (mode === "rate") {
-      if (c.rate >= 80) return "#EF4444";
-      if (c.rate >= 55) return "#F97316";
-      if (c.rate >= 30) return "#EAB308";
-      return "#22C55E";
-    }
-    if (mode === "programs") {
-      const t = c.programs / maxPrograms;
-      if (t >= 0.7) return "#7C3AED";
-      if (t >= 0.4) return "#A78BFA";
-      return "#C4B5FD";
-    }
-    const t = c.bookedVal / maxRevenue;
-    if (t >= 0.7) return "#0284C7";
-    if (t >= 0.4) return "#38BDF8";
-    return "#BAE6FD";
-  }, [mode, maxPrograms, maxRevenue]);
 
   const points = useMemo(() =>
     countryStats
@@ -328,51 +391,38 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
             maxZoom={18}
           />
           <MapInvalidator trigger={fsCounter} />
+          {/* Canvas handles radial gradient glow visuals */}
+          <CanvasHeatLayer points={points} mode={mode} maxPrograms={maxPrograms} maxRevenue={maxRevenue} />
+          {/* Invisible CircleMarkers for hover tooltips */}
           {points.map(({ c, coord }) => {
-            const color   = getCircleColor(c);
-            const sizeM   = 0.35 + (c.programs / maxPrograms) * 0.65;
             const rateColor = c.rate >= 80 ? "#EF4444" : c.rate >= 55 ? "#F97316" : c.rate >= 30 ? "#EAB308" : "#22C55E";
-            const tooltipContent = (
-              <div style={{ fontSize: 12, lineHeight: 1.6, minWidth: 150 }}>
-                <strong style={{ display: "block", marginBottom: 4 }}>{c.name}</strong>
-                <span style={{ color: "#888", fontSize: 11 }}>{coord.city}</span>
-                <hr style={{ margin: "4px 0", borderColor: "#e5e7eb" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "#6b7280" }}>โปรแกรม</span>
-                  <strong>{c.programs}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "#6b7280" }}>Booking Rate</span>
-                  <strong style={{ color: rateColor }}>{c.rate}%</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
-                  <strong>{fmtMB(c.bookedVal)}</strong>
-                </div>
-              </div>
-            );
             return (
-              <Fragment key={c.name}>
-                <Circle
-                  center={[coord.lat, coord.lng]}
-                  radius={320000 * sizeM}
-                  pathOptions={{ fillColor: color, fillOpacity: 0.06, stroke: false }}
-                />
-                <Circle
-                  center={[coord.lat, coord.lng]}
-                  radius={170000 * sizeM}
-                  pathOptions={{ fillColor: color, fillOpacity: 0.16, stroke: false }}
-                />
-                <Circle
-                  center={[coord.lat, coord.lng]}
-                  radius={65000 * sizeM}
-                  pathOptions={{ fillColor: color, fillOpacity: 0.58, color, weight: 1.2, opacity: 0.5 }}
-                >
-                  <LTooltip direction="top" offset={[0, -8]} opacity={1}>
-                    {tooltipContent}
-                  </LTooltip>
-                </Circle>
-              </Fragment>
+              <CircleMarker
+                key={c.name}
+                center={[coord.lat, coord.lng]}
+                radius={10}
+                pathOptions={{ fillColor: "transparent", fillOpacity: 0, stroke: false }}
+              >
+                <LTooltip direction="top" offset={[0, -4]} opacity={1}>
+                  <div style={{ fontSize: 12, lineHeight: 1.6, minWidth: 155 }}>
+                    <strong style={{ display: "block", marginBottom: 4 }}>{c.name}</strong>
+                    <span style={{ color: "#888", fontSize: 11 }}>{coord.city}</span>
+                    <hr style={{ margin: "4px 0", borderColor: "#e5e7eb" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <span style={{ color: "#6b7280" }}>โปรแกรม</span>
+                      <strong>{c.programs}</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <span style={{ color: "#6b7280" }}>Booking Rate</span>
+                      <strong style={{ color: rateColor }}>{c.rate}%</strong>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
+                      <strong>{fmtMB(c.bookedVal)}</strong>
+                    </div>
+                  </div>
+                </LTooltip>
+              </CircleMarker>
             );
           })}
         </MapContainer>
