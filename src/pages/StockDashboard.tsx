@@ -156,8 +156,8 @@ type CountryStat = { name: string; programs: number; seats: number; booked: numb
 
 function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
   const [mode, setMode] = useState<MapMode>("rate");
-  const [zoom, setZoom] = useState(1);
-  const [center, setCenter] = useState<[number, number]>([20, 10]);
+  const [zoom, setZoom] = useState(1.8);
+  const [center, setCenter] = useState<[number, number]>([100, 20]); // default: เอเชีย
   const [tooltip, setTooltip] = useState<{ name: string; iso: string; x: number; y: number } | null>(null);
 
   // build lookup: ISO numeric string → country data
@@ -200,7 +200,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
   const tooltipData = tooltip ? byIso[tooltip.iso] : null;
 
   return (
-    <div className="bg-card rounded-2xl border border-border p-5 h-full flex flex-col">
+    <div className="bg-card rounded-2xl border border-border p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
               className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
               <ZoomIn className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
-            <button onClick={() => { setZoom(1); setCenter([20, 10]); }}
+            <button onClick={() => { setZoom(1.8); setCenter([100, 20]); }}
               className="px-2 py-1 rounded-lg border border-border hover:bg-muted text-[10px] text-muted-foreground transition-colors">
               reset
             </button>
@@ -240,7 +240,7 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
       </div>
 
       {/* Map */}
-      <div className="relative rounded-xl overflow-hidden flex-1 min-h-[200px]" style={{ background: "hsl(var(--muted)/0.3)" }}>
+      <div className="relative rounded-xl overflow-hidden aspect-[8/5]" style={{ background: "hsl(var(--muted)/0.3)" }}>
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{ scale: 110, center: [15, 15] }}
@@ -725,14 +725,14 @@ export default function StockDashboard() {
         </div>
 
         {/* ── World Map + Heatmap (side-by-side on XL) ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
           {/* World Map — 2/3 width */}
-          <div className="xl:col-span-2 flex flex-col">
+          <div className="xl:col-span-2">
             <WorldMapSection countryStats={countryStats} />
           </div>
 
           {/* Period Heatmap — 1/3 width */}
-          <div className="bg-card rounded-2xl border border-border p-4 h-full">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-3">
               <CalendarDays className="w-4 h-4" style={{ color: C_INTL }} />
               <h2 className="text-sm font-bold text-foreground">Period Heatmap</h2>
@@ -759,17 +759,24 @@ export default function StockDashboard() {
                           const cell = heatmapData.grid[mi]?.[y];
                           const count = cell?.periods ?? 0;
                           const rate  = cell && cell.seats > 0 ? Math.round((cell.booked / cell.seats) * 100) : 0;
-                          const intensity = Math.min(count / 8, 1);
-                          const bg = count === 0 ? "hsl(var(--muted))" : `rgba(167,139,250,${0.1 + intensity * 0.65})`;
+                          // สี เขียว→เหลือง→ส้ม→แดง ตาม booking rate
+                          const heatColor = (r: number) => {
+                            if (r >= 80) return { bg: "rgba(239,68,68,0.85)",  text: "#fff",     sub: "rgba(255,255,255,0.8)" };
+                            if (r >= 55) return { bg: "rgba(249,115,22,0.80)", text: "#fff",     sub: "rgba(255,255,255,0.8)" };
+                            if (r >= 30) return { bg: "rgba(234,179,8,0.75)",  text: "#78350f",  sub: "rgba(120,53,15,0.7)"  };
+                            if (r >  0)  return { bg: "rgba(34,197,94,0.65)",  text: "#14532d",  sub: "rgba(20,83,45,0.7)"   };
+                            return            { bg: "rgba(34,197,94,0.25)",  text: "#166534",  sub: "rgba(22,101,52,0.6)"  };
+                          };
+                          const clr = count > 0 ? heatColor(rate) : null;
                           return (
                             <td key={y} className="text-center py-0.5 px-0.5">
                               <div className="rounded-md mx-auto flex flex-col items-center justify-center cursor-default transition-transform hover:scale-105"
-                                style={{ background: bg, height: 36, width: 52 }}
+                                style={{ background: clr ? clr.bg : "hsl(var(--muted))", height: 36, width: 52 }}
                                 title={count > 0 ? `${mo} ${y+543}: ${count} periods, จอง ${rate}%` : "ไม่มี period"}>
-                                {count > 0 ? (
+                                {count > 0 && clr ? (
                                   <>
-                                    <span className={`text-[13px] font-bold leading-none ${intensity > 0.5 ? "text-white" : "text-violet-300"}`}>{count}</span>
-                                    <span className={`text-[9px] ${intensity > 0.5 ? "text-violet-100" : "text-violet-400"}`}>{rate}%</span>
+                                    <span className="text-[13px] font-bold leading-none" style={{ color: clr.text }}>{count}</span>
+                                    <span className="text-[9px]" style={{ color: clr.sub }}>{rate}%</span>
                                   </>
                                 ) : (
                                   <span className="text-muted-foreground/25 text-[10px]">—</span>
@@ -782,12 +789,19 @@ export default function StockDashboard() {
                     ))}
                   </tbody>
                 </table>
-                <div className="flex items-center gap-1 mt-2">
-                  <span className="text-[9px] text-muted-foreground">น้อย</span>
-                  {[0.1, 0.3, 0.5, 0.7, 0.9].map((op, i) => (
-                    <div key={i} className="w-3.5 h-3 rounded-sm" style={{ background: `rgba(167,139,250,${op})` }} />
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {[
+                    { bg: "rgba(34,197,94,0.35)",  label: "0%" },
+                    { bg: "rgba(34,197,94,0.65)",  label: "<30%" },
+                    { bg: "rgba(234,179,8,0.75)",  label: "30–54%" },
+                    { bg: "rgba(249,115,22,0.80)", label: "55–79%" },
+                    { bg: "rgba(239,68,68,0.85)",  label: "80%+" },
+                  ].map((l) => (
+                    <div key={l.label} className="flex items-center gap-1">
+                      <div className="w-3.5 h-3 rounded-sm" style={{ background: l.bg }} />
+                      <span className="text-[9px] text-muted-foreground">{l.label}</span>
+                    </div>
                   ))}
-                  <span className="text-[9px] text-muted-foreground">มาก</span>
                 </div>
               </div>
             ) : (
