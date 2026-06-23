@@ -296,7 +296,8 @@ function CanvasHeatLayer({ points, mode, maxPrograms, maxRevenue }: {
   return null;
 }
 
-// ─── HoverHandler: mouse-based hover → React tooltip (bypasses Leaflet z-index) ─
+
+// ─── React tooltip types + HoverHandler ──────────────────────────────────────
 type HoverInfo = {
   c: CountryStat;
   coord: { city: string; lat: number; lng: number };
@@ -315,15 +316,12 @@ function HoverHandler({ points, maxPrograms, onHover }: {
 
   useEffect(() => {
     const container = map.getContainer();
-
     const handleMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
-
       let best: HeatPoint | null = null;
       let bestDist = Infinity;
-
       for (const p of points) {
         const pt = map.latLngToContainerPoint(L.latLng(p.coord.lat, p.coord.lng));
         const northPt = map.latLngToContainerPoint(L.latLng(p.coord.lat + 3, p.coord.lng));
@@ -333,14 +331,10 @@ function HoverHandler({ points, maxPrograms, onHover }: {
         const dist = Math.hypot(pt.x - cx, pt.y - cy);
         if (dist < R && dist < bestDist) { bestDist = dist; best = p; }
       }
-
-      if (best) {
-        onHoverRef.current({ c: best.c, coord: best.coord, screenX: e.clientX, screenY: e.clientY });
-      } else {
-        onHoverRef.current(null);
-      }
+      onHoverRef.current(best
+        ? { c: best.c, coord: best.coord, screenX: e.clientX, screenY: e.clientY }
+        : null);
     };
-
     const handleLeave = () => onHoverRef.current(null);
     container.addEventListener("mousemove", handleMove);
     container.addEventListener("mouseleave", handleLeave);
@@ -451,12 +445,12 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
           <MapInvalidator trigger={fsCounter} />
           {/* Canvas handles radial gradient glow visuals */}
           <CanvasHeatLayer points={points} mode={mode} maxPrograms={maxPrograms} maxRevenue={maxRevenue} />
-          {/* HoverHandler: tracks mouse over glow, sets hoverInfo in parent */}
+          {/* HoverHandler: mouse-based hover, sets hoverInfo in parent */}
           <HoverHandler points={points} maxPrograms={maxPrograms} onHover={setHoverInfo} />
         </MapContainer>
       </div>
 
-      {/* React tooltip — rendered outside Leaflet, always above everything */}
+      {/* React tooltip — renders outside Leaflet DOM, position:fixed, z-99999 */}
       {hoverInfo && (() => {
         const { c, coord, screenX, screenY } = hoverInfo;
         const rateColor = c.rate >= 80 ? "#EF4444" : c.rate >= 55 ? "#F97316" : c.rate >= 30 ? "#EAB308" : "#22C55E";
@@ -464,30 +458,30 @@ function WorldMapSection({ countryStats }: { countryStats: CountryStat[] }) {
           <div style={{
             position: "fixed",
             left: screenX + 14,
-            top: screenY - 130,
+            top: Math.max(10, screenY - 140),
             zIndex: 99999,
             pointerEvents: "none",
             background: "#fff",
             border: "1px solid #e5e7eb",
             borderRadius: 12,
-            boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+            boxShadow: "0 8px 30px rgba(0,0,0,0.20)",
             padding: "12px 16px",
-            minWidth: 180,
+            minWidth: 186,
             fontSize: 12,
             lineHeight: 1.7,
           }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: "#111", marginBottom: 2 }}>{c.name}</div>
             <div style={{ color: "#9ca3af", fontSize: 11, marginBottom: 8 }}>📍 {coord.city}</div>
             <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
                 <span style={{ color: "#6b7280" }}>โปรแกรม</span>
                 <strong style={{ color: "#111" }}>{c.programs}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
                 <span style={{ color: "#6b7280" }}>Booking Rate</span>
                 <strong style={{ color: rateColor }}>{c.rate}%</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
                 <span style={{ color: "#6b7280" }}>มูลค่าจอง</span>
                 <strong style={{ color: "#7c3aed" }}>{fmtMB(c.bookedVal)}</strong>
               </div>
@@ -1132,4 +1126,27 @@ export default function StockDashboard() {
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">{u.airline} · ว่าง {u.quota}/{u.seats} ที่นั่ง</p>
                     </div>
-                    <div className="flex flex-col i
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] font-bold" style={{ color }}>{pct}%</span>
+                      <span className="text-[9px] text-muted-foreground/60">{daysAway}d</span>
+                    </div>
+                    <div className="w-1.5 h-8 rounded-full shrink-0" style={{ background: `${color}20` }}>
+                      <div className="w-full rounded-full transition-all" style={{ height: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="text-center py-4">
+          <p className="text-[11px] text-muted-foreground/50">
+            Standard Tour CRM · Stock Dashboard · ข้อมูลอ้างอิงจาก Periods ที่บันทึกในระบบ
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

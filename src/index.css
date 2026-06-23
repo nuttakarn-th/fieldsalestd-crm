@@ -171,8 +171,8 @@
   }
   .anim-tab-enter { animation: fadeInTab 0.22s ease-out both; }
   .anim-card-in   { animation: cardIn 0.18s ease-out both; }
-
-  /* ── Leaflet heatmap tooltip — strip default styles, show above canvas ── */
+}
+ /* ── Leaflet heatmap tooltip — strip default styles, show above canvas ── */
   .leaflet-heatmap-tooltip {
     background: transparent !important;
     border: none !important;
