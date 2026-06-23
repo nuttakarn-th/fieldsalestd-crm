@@ -146,7 +146,8 @@ export default function CalendarPlan() {
     const dayRoutes = routesByDay.get(dayKey) ?? [];
     // ถ้าระบุ routeId มาเลย ใช้เลย; ไม่งั้นใช้ route แรก (หรือ null = สร้างใหม่)
     const resolvedRouteId = routeId ?? dayRoutes[0]?.route_id ?? null;
-    let form = { customer_id: "none", place_name: "", address: "", purpose: PURPOSES[0], planned_time: "09:00", note: "" };
+    const defaultTime = dayKey === todayKey ? nowHHMM() : "09:00";
+    let form = { customer_id: "none", place_name: "", address: "", purpose: PURPOSES[0], planned_time: defaultTime, note: "" };
     if (customerId) {
       const c = customers.find((x: any) => x.customer_id === customerId);
       if (c) { form = { ...form, customer_id: c.customer_id, place_name: (c as any).company || c.full_name, address: (c as any).tel ?? "" }; }
@@ -462,19 +463,21 @@ export default function CalendarPlan() {
           ))}
         </div>
 
-        {/* Day grid */}
-        <div className="flex-1 overflow-x-auto">
-          <div className="grid min-w-[700px]" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
-            {weekDays.map((day, i) => {
-              const dk = ymd(day);
-              const dayRoutes = routesByDay.get(dk) ?? [];
-              const totalStops = dayRoutes.reduce((s, r) => s + r.stops.length, 0);
-              const isToday = dk === todayKey;
-              const isSat = i === 5;
-              return (
-                <div key={dk} className={cn("border-r border-gray-200 min-h-[calc(100vh-230px)] flex flex-col", isSat && "bg-gray-50")}>
-                  {/* Day header */}
-                  <div className={cn("px-2 py-2 border-b border-gray-200 flex items-center gap-1.5 sticky top-[105px] bg-white z-10", isSat && "bg-gray-50")}>
+        {/* Day grid — 2-row layout เพื่อแก้ sticky overlap ใน overflow-x container */}
+        <div className="flex-1 overflow-x-auto overflow-y-auto">
+          <div className="min-w-[700px]">
+
+            {/* ROW 1: Sticky day-header row */}
+            <div className="grid sticky top-0 z-10 bg-white border-b shadow-sm"
+              style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+              {weekDays.map((day, i) => {
+                const dk = ymd(day);
+                const dayRoutes = routesByDay.get(dk) ?? [];
+                const totalStops = dayRoutes.reduce((s, r) => s + r.stops.length, 0);
+                const isToday = dk === todayKey;
+                const isSat = i === 5;
+                return (
+                  <div key={dk} className={cn("px-2 py-2 border-r border-gray-200 flex items-center gap-1.5", isSat && "bg-gray-50")}>
                     <span className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0", isToday ? "text-white" : "text-gray-600")}
                       style={{ background: isToday ? "#534AB7" : "transparent" }}>
                       {format(day, "d")}
@@ -482,11 +485,22 @@ export default function CalendarPlan() {
                     <p className="text-[11px] font-medium text-gray-500">{DAY_LABELS_SHORT[i]}</p>
                     {totalStops > 0 && <span className="ml-auto text-[10px] text-muted-foreground">{totalStops} จุด</span>}
                   </div>
-                  {/* Stops — แสดงจากทุก route */}
-                  <div className="flex-1 p-2 space-y-1.5 overflow-y-auto">
+                );
+              })}
+            </div>
+
+            {/* ROW 2: Day content (ไม่มี sticky ภายใน) */}
+            <div className="grid" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+              {weekDays.map((day, i) => {
+                const dk = ymd(day);
+                const dayRoutes = routesByDay.get(dk) ?? [];
+                const isToday = dk === todayKey;
+                const isSat = i === 5;
+                return (
+                  <div key={dk} className={cn("border-r border-gray-200 min-h-[60vh] p-2 space-y-1.5", isSat && "bg-gray-50")}>
+                    {/* Stops จากทุก route */}
                     {dayRoutes.map((route, ri) => (
                       <div key={route.route_id} className={cn(dayRoutes.length > 1 && ri > 0 && "mt-2 pt-2 border-t border-dashed border-purple-100")}>
-                        {/* Route label — แสดงเมื่อมีหลาย route เป็น tiny chip ไม่ใช่ divider */}
                         {dayRoutes.length > 1 && (
                           <p className="text-[9px] text-purple-400 font-semibold uppercase tracking-wide mb-1 truncate px-0.5">
                             {route.title || `Route ${ri + 1}`}
@@ -518,17 +532,25 @@ export default function CalendarPlan() {
                         ))}
                       </div>
                     ))}
-                    {/* ปุ่ม + เพิ่มจุด เดียว ไม่ว่ามีกี่ route */}
+
+                    {/* ปุ่ม action — แสดงเฉพาะวันธรรมดา */}
                     {!isSat && (
-                      <button onClick={() => openAdd(dk)}
-                        className="w-full border border-dashed border-gray-300 rounded-lg py-2 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 mt-1">
-                        <Plus className="w-3 h-3" /> เพิ่มจุด
-                      </button>
+                      <div className="flex flex-col gap-1 pt-1">
+                        <button onClick={() => openAdd(dk)}
+                          className="w-full border border-dashed border-gray-300 rounded-lg py-1.5 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
+                          <Plus className="w-3 h-3" /> เพิ่มจุด
+                        </button>
+                        <button onClick={() => openCreateRoute(dk)}
+                          className="w-full border border-dashed border-purple-200 rounded-lg py-1.5 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
+                          <Plus className="w-3 h-3" /> สร้าง Route
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
           </div>
         </div>
 
@@ -957,7 +979,12 @@ export default function CalendarPlan() {
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">เวลา</label>
-                <Input type="time" className="mt-1 h-9 text-sm" value={stopForm.planned_time} onChange={(e) => setStopForm((f) => ({ ...f, planned_time: e.target.value }))} />
+                <TimeInput24
+                  value={stopForm.planned_time}
+                  onChange={(v) => setStopForm((f) => ({ ...f, planned_time: v }))}
+                  min={addOpen?.dayKey === todayKey ? nowHHMM() : undefined}
+                  className="mt-1 w-full"
+                />
               </div>
             </div>
             <div>
