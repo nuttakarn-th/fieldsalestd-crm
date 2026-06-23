@@ -10,7 +10,7 @@ import {
   ArrowRight, AlertCircle, CheckCheck, FileUp, GripVertical, Trash2,
 } from "lucide-react";
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, useDroppable,
   type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -69,7 +69,7 @@ function StatusBadge({ status }: { status: StopStatus }) {
   );
 }
 
-// ─── SortableStop card ────────────────────────────────────────────────────────
+// ─── SortableStop card (compact) ─────────────────────────────────────────────
 interface SortableStopProps {
   stop: { stop_id: string; place_name: string; address: string; purpose: string; planned_time?: string; status: string };
   routeId: string;
@@ -85,31 +85,47 @@ function SortableStop({ stop, routeId: _routeId, isPast, onDelete }: SortableSto
   };
   return (
     <div ref={setNodeRef} style={style}
-      className={cn("rounded-lg border text-[11px] bg-white flex items-stretch mb-1.5 group relative overflow-hidden",
+      className={cn("rounded-md border text-[11px] bg-white flex items-stretch mb-1 group relative overflow-hidden",
         isPast ? "border-gray-200 opacity-60" : "border-purple-100 shadow-sm"
       )}>
       {/* Drag handle */}
       {!isPast && (
         <div {...attributes} {...listeners}
-          className="flex items-center justify-center w-5 shrink-0 bg-gray-50 border-r border-purple-50 cursor-grab active:cursor-grabbing touch-none">
-          <GripVertical className="w-3 h-3 text-gray-300 group-hover:text-gray-400" />
+          className="flex items-center justify-center w-4 shrink-0 bg-gray-50 border-r border-purple-50 cursor-grab active:cursor-grabbing touch-none">
+          <GripVertical className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-400" />
         </div>
       )}
-      <div className="flex-1 p-2 min-w-0">
-        <div className="flex items-start justify-between gap-1">
-          <p className="font-semibold leading-tight truncate">{stop.place_name}</p>
+      {/* Compact 2-line content */}
+      <div className="flex-1 px-1.5 py-1 min-w-0">
+        <div className="flex items-center gap-1">
+          <p className="font-semibold leading-tight truncate flex-1">{stop.place_name}</p>
+          {stop.planned_time && (
+            <span className="text-[9px] font-medium text-purple-500 shrink-0 tabular-nums">{stop.planned_time}</span>
+          )}
           {!isPast && (
-            <button onClick={onDelete}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center text-red-400 hover:bg-red-50 shrink-0">
-              <Trash2 className="w-3 h-3" />
+            <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 rounded flex items-center justify-center text-red-400 hover:bg-red-50 shrink-0 ml-0.5">
+              <Trash2 className="w-2.5 h-2.5" />
             </button>
           )}
         </div>
-        <p className="text-muted-foreground truncate text-[10px]">{stop.purpose}</p>
-        {stop.planned_time && (
-          <p className="text-muted-foreground mt-0.5 text-[10px]"><Clock className="w-3 h-3 inline mr-0.5" />{stop.planned_time}</p>
-        )}
+        <p className="text-muted-foreground truncate text-[9px] leading-tight">{stop.purpose}</p>
       </div>
+    </div>
+  );
+}
+
+// ─── DroppableDay (ทำให้แต่ละวันรับ drop ข้ามวันได้) ─────────────────────────
+function DroppableDay({ id, disabled, children, className }: {
+  id: string; disabled: boolean; children: React.ReactNode; className?: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id, disabled });
+  return (
+    <div ref={setNodeRef} className={cn(
+      className,
+      isOver && !disabled && "ring-2 ring-purple-300 ring-inset bg-purple-50/20",
+    )}>
+      {children}
     </div>
   );
 }
@@ -198,6 +214,16 @@ export default function CalendarPlan() {
   const [activeStopId, setActiveStopId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  // PendingMove — รอ confirm ก่อน apply (cross-route / cross-day)
+  type PendingMove = {
+    type: "cross-route" | "cross-day";
+    stop: { stop_id: string; place_name: string; purpose: string };
+    srcRoute: { route_id: string; date: string };
+    destRouteId: string | null;   // null = ต้องสร้าง route ใหม่ที่ปลายทาง
+    destDayKey: string;
+  };
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+
   // หา stop จาก id (ค้นทุก route ใน weekRoutes)
   const findStopMeta = (stopId: string) => {
     for (const route of weekRoutes) {
@@ -218,34 +244,82 @@ export default function CalendarPlan() {
 
     const srcMeta = findStopMeta(String(active.id));
     if (!srcMeta) return;
+    const overId = String(over.id);
 
-    // Case A: ลากข้าม route (over.id เป็น route_id ปลายทาง)
-    const destRoute = weekRoutes.find((r) => r.route_id === String(over.id));
-    if (destRoute && destRoute.route_id !== srcMeta.route.route_id) {
-      // เพิ่มใน route ปลายทาง
-      addStop(destRoute.route_id, {
-        place_name:   srcMeta.stop.place_name,
-        address:      srcMeta.stop.address,
-        purpose:      srcMeta.stop.purpose,
-        planned_time: srcMeta.stop.planned_time,
-        customer_id:  srcMeta.stop.customer_id,
-        note:         srcMeta.stop.note,
+    // Case A: ลากไปวัน droppable (dateKey เช่น "2026-06-25")
+    const isDayKey = /^\d{4}-\d{2}-\d{2}$/.test(overId);
+    if (isDayKey) {
+      if (overId === srcMeta.route.date) return; // same day — ignore
+      const dayRoutes = routesByDay.get(overId) ?? [];
+      const destRouteId = dayRoutes[0]?.route_id ?? null;
+      setPendingMove({
+        type: "cross-day",
+        stop: { stop_id: srcMeta.stop.stop_id, place_name: srcMeta.stop.place_name, purpose: srcMeta.stop.purpose },
+        srcRoute: { route_id: srcMeta.route.route_id, date: srcMeta.route.date },
+        destRouteId,
+        destDayKey: overId,
       });
-      // ลบจาก route ต้นทาง
-      deleteStop(srcMeta.route.route_id, srcMeta.stop.stop_id);
       return;
     }
 
-    // Case B: เรียงลำดับใน route เดียวกัน
-    const dstMeta = findStopMeta(String(over.id));
-    if (!dstMeta || dstMeta.route.route_id !== srcMeta.route.route_id) return;
+    // Case B: ลากไป route อื่น (over.id เป็น route_id)
+    const destRoute = weekRoutes.find((r) => r.route_id === overId);
+    if (destRoute && destRoute.route_id !== srcMeta.route.route_id) {
+      setPendingMove({
+        type: destRoute.date !== srcMeta.route.date ? "cross-day" : "cross-route",
+        stop: { stop_id: srcMeta.stop.stop_id, place_name: srcMeta.stop.place_name, purpose: srcMeta.stop.purpose },
+        srcRoute: { route_id: srcMeta.route.route_id, date: srcMeta.route.date },
+        destRouteId: destRoute.route_id,
+        destDayKey: destRoute.date,
+      });
+      return;
+    }
 
+    // Case C: ลากไป stop ใน route อื่น (รวมข้ามวัน)
+    const dstMeta = findStopMeta(overId);
+    if (dstMeta && dstMeta.route.route_id !== srcMeta.route.route_id) {
+      setPendingMove({
+        type: dstMeta.route.date !== srcMeta.route.date ? "cross-day" : "cross-route",
+        stop: { stop_id: srcMeta.stop.stop_id, place_name: srcMeta.stop.place_name, purpose: srcMeta.stop.purpose },
+        srcRoute: { route_id: srcMeta.route.route_id, date: srcMeta.route.date },
+        destRouteId: dstMeta.route.route_id,
+        destDayKey: dstMeta.route.date,
+      });
+      return;
+    }
+
+    // Case D: เรียงลำดับใน route เดียวกัน (apply ทันที ไม่ต้อง confirm)
+    if (!dstMeta || dstMeta.route.route_id !== srcMeta.route.route_id) return;
     const stops = srcMeta.route.stops;
     const oldIdx = stops.findIndex((s) => s.stop_id === String(active.id));
-    const newIdx = stops.findIndex((s) => s.stop_id === String(over.id));
+    const newIdx = stops.findIndex((s) => s.stop_id === overId);
     if (oldIdx === -1 || newIdx === -1) return;
     const newOrder = arrayMove(stops, oldIdx, newIdx).map((s) => s.stop_id);
     reorderStops(srcMeta.route.route_id, newOrder);
+  };
+
+  // ── Confirm pending move ──────────────────────────────────────────────────
+  const confirmMove = () => {
+    if (!pendingMove) return;
+    const srcMeta = findStopMeta(pendingMove.stop.stop_id);
+    if (!srcMeta) { setPendingMove(null); return; }
+
+    let finalDestRouteId = pendingMove.destRouteId;
+    if (!finalDestRouteId) {
+      const dateLabel = format(new Date(pendingMove.destDayKey + "T00:00:00"), "d MMM yyyy", { locale: th });
+      finalDestRouteId = addRoute(currentRep as never, pendingMove.destDayKey, `แผนเยี่ยมลูกค้า ${dateLabel}`);
+    }
+    addStop(finalDestRouteId, {
+      place_name:   srcMeta.stop.place_name,
+      address:      srcMeta.stop.address,
+      purpose:      srcMeta.stop.purpose,
+      planned_time: srcMeta.stop.planned_time,
+      customer_id:  srcMeta.stop.customer_id,
+      note:         srcMeta.stop.note,
+    });
+    deleteStop(srcMeta.route.route_id, srcMeta.stop.stop_id);
+    toast.success("✅ ย้ายจุดเยี่ยมแล้ว");
+    setPendingMove(null);
   };
 
   const openAdd = (dayKey: string, customerId?: string, routeId?: string) => {
@@ -614,7 +688,7 @@ export default function CalendarPlan() {
                 const isPast = dk < todayKey;
                 const isSat = i === 5;
                 return (
-                  <div key={dk} className={cn(
+                  <DroppableDay key={dk} id={dk} disabled={isPast} className={cn(
                     "border-r border-gray-200 min-h-[60vh] p-2",
                     isSat && "bg-gray-50",
                     isPast && "bg-gray-50/50",
@@ -675,7 +749,7 @@ export default function CalendarPlan() {
                         <Plus className="w-3.5 h-3.5" /> สร้าง Route
                       </button>
                     )}
-                  </div>
+                  </DroppableDay>
                 );
               })}
             </div>
@@ -689,14 +763,67 @@ export default function CalendarPlan() {
             const meta = findStopMeta(activeStopId);
             if (!meta) return null;
             return (
-              <div className="rounded-lg border border-purple-300 bg-white shadow-xl text-[11px] p-2 w-40 opacity-90">
+              <div className="rounded-lg border-2 border-purple-400 bg-white shadow-xl text-[11px] p-2 w-44 opacity-95 rotate-1">
                 <p className="font-semibold truncate">{meta.stop.place_name}</p>
                 <p className="text-muted-foreground text-[10px] truncate">{meta.stop.purpose}</p>
+                {meta.stop.planned_time && (
+                  <p className="text-[9px] text-purple-500 mt-0.5">{meta.stop.planned_time}</p>
+                )}
               </div>
             );
           })()}
         </DragOverlay>
         </DndContext>
+
+        {/* ── Confirmation Dialog (cross-route / cross-day) ─────────────── */}
+        <Dialog open={!!pendingMove} onOpenChange={(open) => { if (!open) setPendingMove(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <ArrowRight className="w-4 h-4 text-purple-500" />
+                {pendingMove?.type === "cross-day" ? "ย้ายจุดข้ามวัน" : "ย้ายจุดข้าม Route"}
+              </DialogTitle>
+            </DialogHeader>
+            {pendingMove && (
+              <div className="space-y-3 text-sm">
+                <div className="rounded-lg bg-purple-50 border border-purple-100 px-3 py-2">
+                  <p className="font-semibold text-purple-900">{pendingMove.stop.place_name}</p>
+                  <p className="text-[11px] text-purple-600 mt-0.5">{pendingMove.stop.purpose}</p>
+                </div>
+                <div className="flex items-center gap-2 text-[12px]">
+                  <div className="flex-1 text-center rounded bg-gray-50 border px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">จาก</p>
+                    <p className="font-semibold text-gray-700">
+                      {format(new Date(pendingMove.srcRoute.date + "T00:00:00"), "d MMM", { locale: th })}
+                    </p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-purple-400 shrink-0" />
+                  <div className="flex-1 text-center rounded bg-purple-50 border border-purple-200 px-2 py-1.5">
+                    <p className="text-[10px] text-muted-foreground">ไป</p>
+                    <p className="font-semibold text-purple-700">
+                      {format(new Date(pendingMove.destDayKey + "T00:00:00"), "d MMM", { locale: th })}
+                    </p>
+                  </div>
+                </div>
+                {!pendingMove.destRouteId && (
+                  <p className="text-[11px] text-amber-600 bg-amber-50 rounded px-2 py-1 border border-amber-100">
+                    ⚠️ วันปลายทางยังไม่มี Route — จะสร้าง Route ใหม่ให้อัตโนมัติ
+                  </p>
+                )}
+              </div>
+            )}
+            <DialogFooter className="gap-2 mt-1">
+              <Button variant="outline" size="sm" onClick={() => setPendingMove(null)}>
+                ยกเลิก
+              </Button>
+              <Button size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={confirmMove}>
+                <CheckCheck className="w-3.5 h-3.5 mr-1.5" /> บันทึกการย้าย
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Suggested customers */}
         {suggested.length > 0 && (
