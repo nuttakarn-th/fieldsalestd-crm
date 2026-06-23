@@ -7,8 +7,14 @@ import {
   CalendarRange, CalendarDays, Download, Upload, FileSpreadsheet, FileDown,
   ChevronLeft, ChevronRight, Plus, CheckCircle2, XCircle, SkipForward,
   Clock, Phone, User, Lightbulb, Loader2, Lock, MapPin, History,
-  ArrowRight, AlertCircle, CheckCheck, FileUp,
+  ArrowRight, AlertCircle, CheckCheck, FileUp, GripVertical, Trash2,
 } from "lucide-react";
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter,
+  type DragStartEvent, type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -63,19 +69,65 @@ function StatusBadge({ status }: { status: StopStatus }) {
   );
 }
 
+// ─── SortableStop card ────────────────────────────────────────────────────────
+interface SortableStopProps {
+  stop: { stop_id: string; place_name: string; address: string; purpose: string; planned_time?: string; status: string };
+  routeId: string;
+  isPast: boolean;
+  onDelete: () => void;
+}
+function SortableStop({ stop, routeId: _routeId, isPast, onDelete }: SortableStopProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stop.stop_id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}
+      className={cn("rounded-lg border text-[11px] bg-white flex items-stretch mb-1.5 group relative overflow-hidden",
+        isPast ? "border-gray-200 opacity-60" : "border-purple-100 shadow-sm"
+      )}>
+      {/* Drag handle */}
+      {!isPast && (
+        <div {...attributes} {...listeners}
+          className="flex items-center justify-center w-5 shrink-0 bg-gray-50 border-r border-purple-50 cursor-grab active:cursor-grabbing touch-none">
+          <GripVertical className="w-3 h-3 text-gray-300 group-hover:text-gray-400" />
+        </div>
+      )}
+      <div className="flex-1 p-2 min-w-0">
+        <div className="flex items-start justify-between gap-1">
+          <p className="font-semibold leading-tight truncate">{stop.place_name}</p>
+          {!isPast && (
+            <button onClick={onDelete}
+              className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center text-red-400 hover:bg-red-50 shrink-0">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        <p className="text-muted-foreground truncate text-[10px]">{stop.purpose}</p>
+        {stop.planned_time && (
+          <p className="text-muted-foreground mt-0.5 text-[10px]"><Clock className="w-3 h-3 inline mr-0.5" />{stop.planned_time}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function CalendarPlan() {
   const user = useCurrentUser();
   const currentRep = user?.full_name ?? "";
 
-  const { routes, customers, addRoute, addStop, deleteStop, updateStop } = useCRM(
+  const { routes, customers, addRoute, addStop, deleteStop, updateStop, reorderStops } = useCRM(
     useShallow((s) => ({
-      routes:     s.routes,
-      customers:  s.customers,
-      addRoute:   s.addRoute,
-      addStop:    s.addStop,
-      deleteStop: s.deleteStop,
-      updateStop: s.updateStop,
+      routes:       s.routes,
+      customers:    s.customers,
+      addRoute:     s.addRoute,
+      addStop:      s.addStop,
+      deleteStop:   s.deleteStop,
+      updateStop:   s.updateStop,
+      reorderStops: s.reorderStops,
     })),
   );
   const crmRaw = useCRM((s) => s);
@@ -141,6 +193,60 @@ export default function CalendarPlan() {
       return !lv || differenceInDays(today, lv) >= 30;
     }).slice(0, 8);
   }, [customers, routes]);
+
+  // ── DnD (drag-and-drop stops) ──────────────────────────────────────────────
+  const [activeStopId, setActiveStopId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // หา stop จาก id (ค้นทุก route ใน weekRoutes)
+  const findStopMeta = (stopId: string) => {
+    for (const route of weekRoutes) {
+      const stop = route.stops.find((s) => s.stop_id === stopId);
+      if (stop) return { stop, route };
+    }
+    return null;
+  };
+
+  const handleDragStart = (e: DragStartEvent) => {
+    setActiveStopId(String(e.active.id));
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    setActiveStopId(null);
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+
+    const srcMeta = findStopMeta(String(active.id));
+    if (!srcMeta) return;
+
+    // Case A: ลากข้าม route (over.id เป็น route_id ปลายทาง)
+    const destRoute = weekRoutes.find((r) => r.route_id === String(over.id));
+    if (destRoute && destRoute.route_id !== srcMeta.route.route_id) {
+      // เพิ่มใน route ปลายทาง
+      addStop(destRoute.route_id, {
+        place_name:   srcMeta.stop.place_name,
+        address:      srcMeta.stop.address,
+        purpose:      srcMeta.stop.purpose,
+        planned_time: srcMeta.stop.planned_time,
+        customer_id:  srcMeta.stop.customer_id,
+        note:         srcMeta.stop.note,
+      });
+      // ลบจาก route ต้นทาง
+      deleteStop(srcMeta.route.route_id, srcMeta.stop.stop_id);
+      return;
+    }
+
+    // Case B: เรียงลำดับใน route เดียวกัน
+    const dstMeta = findStopMeta(String(over.id));
+    if (!dstMeta || dstMeta.route.route_id !== srcMeta.route.route_id) return;
+
+    const stops = srcMeta.route.stops;
+    const oldIdx = stops.findIndex((s) => s.stop_id === String(active.id));
+    const newIdx = stops.findIndex((s) => s.stop_id === String(over.id));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const newOrder = arrayMove(stops, oldIdx, newIdx).map((s) => s.stop_id);
+    reorderStops(srcMeta.route.route_id, newOrder);
+  };
 
   const openAdd = (dayKey: string, customerId?: string, routeId?: string) => {
     const dayRoutes = routesByDay.get(dayKey) ?? [];
@@ -463,7 +569,9 @@ export default function CalendarPlan() {
           ))}
         </div>
 
-        {/* Day grid — 2-row layout เพื่อแก้ sticky overlap ใน overflow-x container */}
+        {/* Day grid — DnD wrapper ครอบทั้งหมด */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter}
+          onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-auto">
           <div className="min-w-[700px]">
 
@@ -475,76 +583,97 @@ export default function CalendarPlan() {
                 const dayRoutes = routesByDay.get(dk) ?? [];
                 const totalStops = dayRoutes.reduce((s, r) => s + r.stops.length, 0);
                 const isToday = dk === todayKey;
+                const isPast = dk < todayKey;
                 const isSat = i === 5;
                 return (
-                  <div key={dk} className={cn("px-2 py-2 border-r border-gray-200 flex items-center gap-1.5", isSat && "bg-gray-50")}>
+                  <div key={dk} className={cn(
+                    "px-2 py-2 border-r border-gray-200 flex items-center gap-1.5",
+                    isSat && "bg-gray-50",
+                    isPast && "opacity-60",
+                  )}>
                     <span className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0", isToday ? "text-white" : "text-gray-600")}
                       style={{ background: isToday ? "#534AB7" : "transparent" }}>
                       {format(day, "d")}
                     </span>
                     <p className="text-[11px] font-medium text-gray-500">{DAY_LABELS_SHORT[i]}</p>
-                    {totalStops > 0 && <span className="ml-auto text-[10px] text-muted-foreground">{totalStops} จุด</span>}
+                    <div className="ml-auto flex items-center gap-1">
+                      {isPast && <Lock className="w-3 h-3 text-gray-300" />}
+                      {totalStops > 0 && <span className="text-[10px] text-muted-foreground">{totalStops} จุด</span>}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* ROW 2: Day content (ไม่มี sticky ภายใน) */}
+            {/* ROW 2: Day content */}
             <div className="grid" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
               {weekDays.map((day, i) => {
                 const dk = ymd(day);
                 const dayRoutes = routesByDay.get(dk) ?? [];
                 const isToday = dk === todayKey;
+                const isPast = dk < todayKey;
                 const isSat = i === 5;
                 return (
-                  <div key={dk} className={cn("border-r border-gray-200 min-h-[60vh] p-2 space-y-1.5", isSat && "bg-gray-50")}>
-                    {/* Stops จากทุก route */}
+                  <div key={dk} className={cn(
+                    "border-r border-gray-200 min-h-[60vh] p-2",
+                    isSat && "bg-gray-50",
+                    isPast && "bg-gray-50/50",
+                  )}>
+                    {/* ── วันผ่านมา: แสดงผลอย่างเดียว ── */}
+                    {isPast && dayRoutes.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-24 gap-1 opacity-30">
+                        <Lock className="w-4 h-4 text-gray-400" />
+                        <p className="text-[10px] text-gray-400">วันผ่านมา</p>
+                      </div>
+                    )}
+
+                    {/* ── แสดง route แต่ละ route (รวม past) ── */}
                     {dayRoutes.map((route, ri) => (
-                      <div key={route.route_id} className={cn(dayRoutes.length > 1 && ri > 0 && "mt-2 pt-2 border-t border-dashed border-purple-100")}>
-                        {dayRoutes.length > 1 && (
-                          <p className="text-[9px] text-purple-400 font-semibold uppercase tracking-wide mb-1 truncate px-0.5">
+                      <div key={route.route_id}
+                        className={cn("rounded-lg border mb-2", isPast ? "border-gray-200 bg-white/60" : "border-purple-100 bg-white shadow-sm")}>
+                        {/* Route header */}
+                        <div className={cn("flex items-center gap-1.5 px-2 py-1.5 border-b rounded-t-lg",
+                          isPast ? "border-gray-100 bg-gray-50/80" : "border-purple-50 bg-purple-50/60")}>
+                          <span className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide truncate flex-1">
                             {route.title || `Route ${ri + 1}`}
-                          </p>
-                        )}
-                        {route.stops.map((stop) => (
-                          <div key={stop.stop_id} className={cn("rounded-lg p-2 border text-[11px] group relative mb-1.5",
-                            stop.status === "completed" ? "bg-green-50 border-green-100 opacity-75"
-                              : stop.status === "skipped" ? "bg-gray-50 border-gray-200 opacity-60"
-                              : "bg-white border-purple-100")}>
-                            <div className="flex items-start justify-between gap-1 mb-0.5">
-                              <p className={cn("font-semibold leading-tight pr-10", stop.status === "completed" && "line-through text-gray-500")}>{stop.place_name}</p>
-                              <StatusBadge status={stop.status} />
-                            </div>
-                            <p className="text-muted-foreground truncate">{stop.purpose}</p>
-                            {stop.planned_time && <p className="text-muted-foreground mt-0.5"><Clock className="w-3 h-3 inline mr-0.5" />{stop.planned_time}</p>}
-                            {stop.address && <p className="text-muted-foreground truncate"><Phone className="w-3 h-3 inline mr-0.5" />{stop.address}</p>}
-                            {stop.status === "planned" && (
-                              <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
-                                <button title="เสร็จ" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "completed", completed_at: new Date().toISOString() })}
-                                  className="w-5 h-5 rounded flex items-center justify-center bg-green-100 text-green-700 hover:bg-green-200"><CheckCircle2 className="w-3 h-3" /></button>
-                                <button title="ข้าม" onClick={() => updateStop(route.route_id, stop.stop_id, { status: "skipped" })}
-                                  className="w-5 h-5 rounded flex items-center justify-center bg-gray-100 text-gray-500 hover:bg-gray-200"><SkipForward className="w-3 h-3" /></button>
-                                <button title="ลบ" onClick={() => deleteStop(route.route_id, stop.stop_id)}
-                                  className="w-5 h-5 rounded flex items-center justify-center bg-red-50 text-red-400 hover:bg-red-100"><XCircle className="w-3 h-3" /></button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground shrink-0">{route.stops.length} จุด</span>
+                        </div>
+
+                        {/* Stops — DnD sortable */}
+                        <div className="p-1.5">
+                          <SortableContext items={route.stops.map((s) => s.stop_id)} strategy={verticalListSortingStrategy}>
+                            {route.stops.map((stop) => (
+                              <SortableStop
+                                key={stop.stop_id}
+                                stop={stop}
+                                routeId={route.route_id}
+                                isPast={isPast}
+                                onDelete={() => deleteStop(route.route_id, stop.stop_id)}
+                              />
+                            ))}
+                          </SortableContext>
+                          {route.stops.length === 0 && (
+                            <p className="text-[10px] text-center text-gray-300 py-2">ยังไม่มีจุดเยี่ยม</p>
+                          )}
+
+                          {/* + เพิ่มจุด ใน route นี้ (เฉพาะวันปัจจุบัน+อนาคต) */}
+                          {!isPast && !isSat && (
+                            <button onClick={() => openAdd(dk, undefined, route.route_id)}
+                              className="w-full border border-dashed border-purple-200 rounded-lg py-1 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-0.5 mt-1">
+                              <Plus className="w-3 h-3" /> เพิ่มจุด
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
 
-                    {/* ปุ่ม action — แสดงเฉพาะวันธรรมดา */}
-                    {!isSat && (
-                      <div className="flex flex-col gap-1 pt-1">
-                        <button onClick={() => openAdd(dk)}
-                          className="w-full border border-dashed border-gray-300 rounded-lg py-1.5 text-[11px] text-gray-400 hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
-                          <Plus className="w-3 h-3" /> เพิ่มจุด
-                        </button>
-                        <button onClick={() => openCreateRoute(dk)}
-                          className="w-full border border-dashed border-purple-200 rounded-lg py-1.5 text-[10px] text-purple-400 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1">
-                          <Plus className="w-3 h-3" /> สร้าง Route
-                        </button>
-                      </div>
+                    {/* ── สร้าง Route ใหม่ (เฉพาะวันธรรมดา ปัจจุบัน+อนาคต) ── */}
+                    {!isPast && !isSat && (
+                      <button onClick={() => openCreateRoute(dk)}
+                        className="w-full border-2 border-dashed border-purple-200 rounded-lg py-2.5 text-[11px] text-purple-500 hover:border-purple-400 hover:bg-purple-50 transition-colors flex items-center justify-center gap-1 font-medium">
+                        <Plus className="w-3.5 h-3.5" /> สร้าง Route
+                      </button>
                     )}
                   </div>
                 );
@@ -553,6 +682,21 @@ export default function CalendarPlan() {
 
           </div>
         </div>
+
+        {/* DragOverlay — stop card ที่กำลัง drag */}
+        <DragOverlay>
+          {activeStopId && (() => {
+            const meta = findStopMeta(activeStopId);
+            if (!meta) return null;
+            return (
+              <div className="rounded-lg border border-purple-300 bg-white shadow-xl text-[11px] p-2 w-40 opacity-90">
+                <p className="font-semibold truncate">{meta.stop.place_name}</p>
+                <p className="text-muted-foreground text-[10px] truncate">{meta.stop.purpose}</p>
+              </div>
+            );
+          })()}
+        </DragOverlay>
+        </DndContext>
 
         {/* Suggested customers */}
         {suggested.length > 0 && (
