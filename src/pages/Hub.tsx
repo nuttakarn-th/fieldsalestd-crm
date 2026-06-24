@@ -68,10 +68,10 @@ function CompactCard({ tile, rgb }: { tile: CompactTile; rgb: string }) {
     <Link to={tile.to} className="group">
       <div
         className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all duration-150 group-hover:-translate-y-px group-hover:brightness-110 cursor-pointer select-none"
-        style={{ background: `rgba(${rgb},0.15)`, border: `1.5px solid rgba(${rgb},0.30)` }}
+        style={{ background: `rgba(${rgb},0.22)`, border: `1.5px solid rgba(${rgb},0.45)` }}
       >
-        <tile.icon className="w-3.5 h-3.5 shrink-0 text-white/80" strokeWidth={2} />
-        <span className="text-[11px] font-semibold text-white/90 leading-tight truncate">{tile.title}</span>
+        <tile.icon className="w-3.5 h-3.5 shrink-0 text-white/90" strokeWidth={2} />
+        <span className="text-[11px] font-semibold text-white leading-tight truncate">{tile.title}</span>
       </div>
     </Link>
   );
@@ -91,7 +91,7 @@ function SectionRow({
         <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>
           {label}
         </span>
-        <div className="flex-1 h-px" style={{ background: `${color}28` }} />
+        <div className="flex-1 h-px" style={{ background: `${color}55` }} />
       </div>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${c}, 1fr)` }}>
         {tiles.map((t) => <CompactCard key={t.title} tile={t} rgb={rgb} />)}
