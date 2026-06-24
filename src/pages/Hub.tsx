@@ -67,11 +67,11 @@ function CompactCard({ tile, rgb }: { tile: CompactTile; rgb: string }) {
   return (
     <Link to={tile.to} className="group">
       <div
-        className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:brightness-115 group-hover:shadow-lg active:scale-[0.97] cursor-pointer select-none"
+        className="flex items-center gap-2.5 rounded-xl px-3 py-3 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:brightness-115 group-hover:shadow-lg active:scale-[0.97] cursor-pointer select-none"
         style={{ background: `rgba(${rgb},0.22)`, border: `1.5px solid rgba(${rgb},0.45)` }}
       >
-        <tile.icon className="w-3.5 h-3.5 shrink-0 text-white/90" strokeWidth={2} />
-        <span className="text-[11px] font-semibold text-white leading-tight truncate">{tile.title}</span>
+        <tile.icon className="w-4 h-4 shrink-0 text-white/90" strokeWidth={2} />
+        <span className="text-[12px] font-semibold text-white leading-tight truncate">{tile.title}</span>
       </div>
     </Link>
   );
@@ -89,14 +89,12 @@ function SectionRow({
       className="animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-[13px] leading-none">{emoji}</span>
-        <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>
-          {label}
-        </span>
-        <div className="flex-1 h-px" style={{ background: `${color}55` }} />
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+        <span className="text-[11px] font-bold" style={{ color }}>{label}</span>
+        <div className="flex-1 h-px" style={{ background: `${color}33` }} />
       </div>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: c >= 5 ? `repeat(auto-fill, minmax(100px, 1fr))` : `repeat(${c}, 1fr)` }}>
+      <div className="grid gap-2" style={{ gridTemplateColumns: c >= 5 ? `repeat(auto-fill, minmax(110px, 1fr))` : `repeat(${c}, 1fr)` }}>
         {tiles.map((t) => <CompactCard key={t.title} tile={t} rgb={rgb} />)}
       </div>
     </div>
@@ -164,7 +162,7 @@ function MarketingCategorisedGrid() {
     .slice(0, 3);
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3.5">
       {/* ── Hero: Marketing Hub ──────────────────────────────────────────── */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
       <Link to="/app/marketing-hub" className="group">
