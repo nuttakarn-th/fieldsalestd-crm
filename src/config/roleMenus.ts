@@ -163,31 +163,41 @@ const salesMenu: RoleMenu = {
 const marketingMenu: RoleMenu = {
   sections: [
     {
+      // หน้าแรกของ Marketing — Intelligence Feed ที่รู้ทุก Signal
       category: "OVERVIEW",
-      items: [{ title: "Marketing Dashboard", url: "/marketing-dashboard", icon: LayoutDashboard, end: true }],
-    },
-    {
-      category: "CUSTOMER",
       items: [
-        { title: "Leads/Customers", url: "/marketing-customers", icon: Users },
-        { title: "Marketing Leads", url: "/app/marketing-leads", icon: UserPlus },
+        { title: "Marketing Hub",         url: "/app/marketing-hub",      icon: Megaphone, end: true },
       ],
     },
     {
-      category: "MARKETING",
+      // เครื่องมือสร้าง Content & Campaign
+      category: "CAMPAIGNS",
       items: [
-        { title: "Campaign Management",   url: "/marketing-campaigns",    icon: Megaphone },
+        { title: "Campaign Management",   url: "/app/campaigns",          icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",     icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",       icon: Target },
-        { title: "Marketing Hub",         url: "/app/marketing-hub",       icon: Megaphone },
-        { title: "Service and Stock",     url: "/app/all-service",         icon: PackageSearch },
+      ],
+    },
+    {
+      // ข้อมูลลูกค้าและ Lead
+      category: "CUSTOMERS",
+      items: [
+        { title: "Leads/Customers",       url: "/app/customers",          icon: Users },
+        { title: "Marketing Leads",       url: "/app/marketing-leads",    icon: UserPlus },
+      ],
+    },
+    {
+      // ติดตาม Stock โปรแกรม
+      category: "STOCK",
+      items: [
+        { title: "Service and Stock",     url: "/app/all-service",        icon: PackageSearch },
         { title: "Stock Analytics",       url: "/app/stock-analytics",    icon: TrendingUp },
       ],
     },
     {
-      category: "REPORT & DATA",
+      category: "REPORTS",
       items: [
-        { title: "Marketing Report", url: "/marketing-report", icon: BarChart3 },
+        { title: "Marketing Report",      url: "/app/marketing-report",   icon: BarChart3 },
       ],
     },
   ],
