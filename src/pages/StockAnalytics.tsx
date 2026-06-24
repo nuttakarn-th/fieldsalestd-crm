@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, Cell, PieChart, Pie,
 } from "recharts";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
 import type { TourPeriod, TourItem } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -174,7 +174,7 @@ export default function StockAnalytics() {
 
   const [yearA, setYearA] = useState(CE_NOW);          // ปีปัจจุบัน (หลัก)
   const [yearB, setYearB] = useState(CE_NOW - 1);      // ปีเปรียบเทียบ
-  const [activeTab, setActiveTab] = useState<"yoy" | "pacing">("yoy");
+  const [activeTab, setActiveTab] = useState<"yoy" | "pacing" | "predictive">("yoy");
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
   const [pacingData, setPacingData] = useState<{ date: string; booked: number; label: string }[]>([]);
@@ -313,7 +313,7 @@ export default function StockAnalytics() {
 
         {/* ── Tab switcher ── */}
         <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit">
-          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"]] as const).map(([tab, label]) => (
+          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"]] as const).map(([tab, label]) => (
             <button key={tab} type="button"
               onClick={() => { setActiveTab(tab); if (tab === "pacing") loadPacingData(); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -573,6 +573,11 @@ export default function StockAnalytics() {
 
         </>)}
 
+        {/* ── PREDICTIVE TAB ── */}
+        {activeTab === "predictive" && (
+          <PredictiveTab allPeriods={allPeriods} yearA={yearA} />
+        )}
+
       </div>
     </div>
   );
@@ -766,6 +771,306 @@ function RecentEventsLog() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PHASE 3 — PREDICTIVE TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface PredictiveTabProps { allPeriods: PeriodRow[]; yearA: number; }
+
+function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
+  // ── active periods (not cancelled, future or current year) ──────────────────
+  const activePeriods = allPeriods.filter((p) => !p.cancelled && p.start_date);
+
+  // ── Country fill-rate analysis ──────────────────────────────────────────────
+  type CountryInsight = {
+    country: string;
+    periods: number;
+    avgFillRate: number;   // %
+    totalSeats: number;
+    bookedSeats: number;
+    remainingSeats: number;
+    avgPrice: number;
+    projectedRevenue: number;     // remaining × avgPrice × avgFillRate
+    confirmedRevenue: number;     // booked × avgPrice
+    recommendation: "เพิ่ม Period" | "ดีแล้ว" | "ระวัง";
+    urgency: "high" | "medium" | "low";
+  };
+
+  const countryInsights = useMemo((): CountryInsight[] => {
+    const map = new Map<string, { periods: number; ts: number; bk: number; rev: number; remaining: number }>();
+    for (const p of activePeriods) {
+      const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
+        ? p.special_price : p.price_per_seat;
+      const bk = p.total_seats - p.quota;
+      const c = map.get(p.country) ?? { periods: 0, ts: 0, bk: 0, rev: 0, remaining: 0 };
+      map.set(p.country, {
+        periods: c.periods + 1,
+        ts: c.ts + p.total_seats,
+        bk: c.bk + bk,
+        rev: c.rev + bk * price,
+        remaining: c.remaining + p.quota,
+      });
+    }
+    return [...map.entries()].map(([country, d]) => {
+      const avgFillRate = d.ts > 0 ? Math.round(d.bk / d.ts * 100) : 0;
+      const avgPrice = d.bk > 0 ? Math.round(d.rev / d.bk) : 0;
+      const projectedRevenue = Math.round(d.remaining * avgPrice * (avgFillRate / 100));
+      const recommendation: CountryInsight["recommendation"] =
+        avgFillRate >= 75 ? "เพิ่ม Period" : avgFillRate >= 40 ? "ดีแล้ว" : "ระวัง";
+      const urgency: CountryInsight["urgency"] =
+        avgFillRate >= 80 ? "high" : avgFillRate >= 60 ? "medium" : "low";
+      return {
+        country,
+        periods: d.periods,
+        avgFillRate,
+        totalSeats: d.ts,
+        bookedSeats: d.bk,
+        remainingSeats: d.remaining,
+        avgPrice,
+        projectedRevenue,
+        confirmedRevenue: d.rev,
+        recommendation,
+        urgency,
+      };
+    }).sort((a, b) => b.avgFillRate - a.avgFillRate);
+  }, [activePeriods]);
+
+  // ── Revenue projection ───────────────────────────────────────────────────────
+  const totalConfirmed = countryInsights.reduce((s, c) => s + c.confirmedRevenue, 0);
+  const totalProjectedExtra = countryInsights.reduce((s, c) => s + c.projectedRevenue, 0);
+  const totalSeats = countryInsights.reduce((s, c) => s + c.totalSeats, 0);
+  const totalBooked = countryInsights.reduce((s, c) => s + c.bookedSeats, 0);
+  const totalRemaining = countryInsights.reduce((s, c) => s + c.remainingSeats, 0);
+  const overallFillRate = totalSeats > 0 ? Math.round(totalBooked / totalSeats * 100) : 0;
+
+  // optimistic: fill remaining at current rate; conservative: 70% of current rate
+  const projOptimistic = totalConfirmed + totalProjectedExtra;
+  const projConservative = totalConfirmed + Math.round(totalProjectedExtra * 0.7);
+
+  // ── Next 12 months demand forecast (from historical month patterns) ───────────
+  const monthDemand = useMemo(() => {
+    const now = new Date();
+    const results = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const m = d.getMonth() + 1;
+      // historical fill rate for this month (all years)
+      const ps = allPeriods.filter((p) => !p.cancelled && p.start_date && new Date(p.start_date).getMonth() + 1 === m);
+      const ts = ps.reduce((s, p) => s + p.total_seats, 0);
+      const bk = ps.reduce((s, p) => s + (p.total_seats - p.quota), 0);
+      const rate = ts > 0 ? Math.round(bk / ts * 100) : 0;
+      // upcoming periods in this month
+      const upcoming = allPeriods.filter((p) => !p.cancelled && p.start_date && (() => {
+        const pd = new Date(p.start_date!);
+        return pd.getFullYear() === d.getFullYear() && pd.getMonth() + 1 === m && pd >= now;
+      })());
+      results.push({
+        label: d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" }),
+        month: m,
+        year: d.getFullYear(),
+        historicalRate: rate,
+        upcomingPeriods: upcoming.length,
+        upcomingSeats: upcoming.reduce((s, p) => s + p.total_seats, 0),
+      });
+    }
+    return results;
+  }, [allPeriods]);
+
+  const recColor = (r: CountryInsight["recommendation"]) =>
+    r === "เพิ่ม Period" ? { bg: "#D1FAE5", text: "#065F46", border: "#6EE7B7" }
+    : r === "ดีแล้ว"    ? { bg: "#EFF6FF", text: "#1E40AF", border: "#BFDBFE" }
+    : { bg: "#FEF2F2", text: "#991B1B", border: "#FECACA" };
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Revenue Projection Banner ── */}
+      <div className="rounded-2xl border p-5 shadow-sm overflow-hidden relative"
+        style={{ background: "linear-gradient(135deg, #7C3AED 0%, #EC4899 100%)" }}>
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+        <div className="relative">
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet className="w-5 h-5 text-white/80" />
+            <h2 className="text-sm font-bold text-white">Revenue Projection (ปีปัจจุบัน)</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: "ยืนยันแล้ว", value: fmtMB(totalConfirmed), sub: `${totalBooked} ที่นั่ง`, color: "text-white" },
+              { label: "คาดการณ์ (Conservative)", value: fmtMB(projConservative), sub: `fill rate ×70%`, color: "text-white/90" },
+              { label: "คาดการณ์ (Optimistic)", value: fmtMB(projOptimistic), sub: `fill rate ×100%`, color: "text-white/90" },
+              { label: "ที่นั่งว่างเหลือ", value: totalRemaining.toLocaleString(), sub: `Fill rate ปัจจุบัน ${overallFillRate}%`, color: "text-white/80" },
+            ].map(({ label, value, sub, color }) => (
+              <div key={label} className="bg-white/10 rounded-xl px-4 py-3">
+                <p className="text-[10px] text-white/60 font-semibold uppercase tracking-wide mb-1">{label}</p>
+                <p className={`text-xl font-bold ${color} leading-none`}>{value}</p>
+                <p className="text-[10px] text-white/50 mt-1">{sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Capacity Recommendations ── */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b flex items-center gap-2">
+          <Lightbulb className="w-4 h-4 text-amber-500" />
+          <h2 className="text-sm font-bold text-foreground">Capacity Recommendations</h2>
+          <span className="text-xs text-muted-foreground ml-1">— วิเคราะห์จาก fill rate ต่อประเทศ</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/20 text-muted-foreground">
+                <th className="text-left px-4 py-2 font-semibold">ประเทศ</th>
+                <th className="text-right px-3 py-2 font-semibold">Period</th>
+                <th className="text-right px-3 py-2 font-semibold">ที่นั่งทั้งหมด</th>
+                <th className="text-right px-3 py-2 font-semibold">จองแล้ว</th>
+                <th className="text-right px-3 py-2 font-semibold">Fill Rate</th>
+                <th className="text-right px-3 py-2 font-semibold">Revenue ยืนยัน</th>
+                <th className="text-right px-3 py-2 font-semibold">Revenue คาด</th>
+                <th className="text-center px-4 py-2 font-semibold">แนะนำ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {countryInsights.map((ci) => {
+                const rc = recColor(ci.recommendation);
+                const rateColor = ci.avgFillRate >= 75 ? "#EF4444" : ci.avgFillRate >= 50 ? "#F97316" : ci.avgFillRate >= 30 ? "#EAB308" : "#10B981";
+                return (
+                  <tr key={ci.country} className="border-t border-border/40 hover:bg-muted/10">
+                    <td className="px-4 py-2.5 font-medium text-foreground">{ci.country}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{ci.periods}</td>
+                    <td className="px-3 py-2.5 text-right">{ci.totalSeats.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-bold">{ci.bookedSeats.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <div className="w-14 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${ci.avgFillRate}%`, background: rateColor }} />
+                        </div>
+                        <span className="font-bold w-8 text-right" style={{ color: rateColor }}>{ci.avgFillRate}%</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-violet-600">{fmtMB(ci.confirmedRevenue)}</td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">+{fmtMB(ci.projectedRevenue)}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border"
+                        style={{ background: rc.bg, color: rc.text, borderColor: rc.border }}>
+                        {ci.recommendation === "เพิ่ม Period" && "🔥 "}
+                        {ci.recommendation === "ระวัง" && "⚠ "}
+                        {ci.recommendation === "ดีแล้ว" && "✓ "}
+                        {ci.recommendation}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {/* Legend */}
+        <div className="px-5 py-2.5 border-t bg-muted/10 flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300 inline-block"/>✓ ดีแล้ว = fill 40–74% — เหมาะสม</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-50 border border-green-200 inline-block"/>🔥 เพิ่ม Period = fill ≥ 75% — demand สูง ควรเปิดเพิ่ม</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-50 border border-red-200 inline-block"/>⚠ ระวัง = fill &lt; 40% — อาจ over-supply หรือต้องโปรโมท</span>
+        </div>
+      </div>
+
+      {/* ── Next 12 Months Demand Forecast ── */}
+      <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity className="w-4 h-4 text-pink-500" />
+          <h2 className="text-sm font-bold text-foreground">Demand Forecast — 12 เดือนข้างหน้า</h2>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          สีพื้น = historical fill rate เดือนนั้น · ตัวเลขฟ้า = period ที่เปิดขายอยู่
+        </p>
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+          {monthDemand.map((m, i) => {
+            const bg = m.historicalRate >= 75 ? "#FEE2E2" : m.historicalRate >= 50 ? "#FEF3C7"
+              : m.historicalRate >= 25 ? "#D1FAE5" : "#F0FDF4";
+            const tc = m.historicalRate >= 75 ? "#991B1B" : m.historicalRate >= 50 ? "#92400E"
+              : m.historicalRate >= 25 ? "#065F46" : "#14532D";
+            const isPast = (() => {
+              const now = new Date();
+              return new Date(m.year, m.month - 1) < new Date(now.getFullYear(), now.getMonth());
+            })();
+            return (
+              <div key={i} className={`rounded-xl p-3 border transition-all ${isPast ? "opacity-40" : ""}`}
+                style={{ background: bg, borderColor: tc + "40" }}>
+                <p className="text-[10px] font-bold mb-1" style={{ color: tc }}>{m.label}</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: tc }}>
+                      {m.historicalRate > 0 ? `${m.historicalRate}%` : "—"}
+                    </p>
+                    <p className="text-[9px] opacity-70" style={{ color: tc }}>historical</p>
+                  </div>
+                  {m.upcomingPeriods > 0 && (
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-blue-600">{m.upcomingPeriods}</p>
+                      <p className="text-[9px] text-blue-400">period</p>
+                    </div>
+                  )}
+                </div>
+                {m.historicalRate >= 75 && !isPast && (
+                  <div className="mt-1.5 text-[8px] font-bold text-red-700 bg-red-100 rounded px-1 py-0.5 text-center">HIGH DEMAND</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Quick Action Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          {
+            icon: AlertTriangle,
+            color: "#EF4444",
+            bg: "#FEF2F2",
+            title: "ต้องดูแลด่วน",
+            desc: "ประเทศ fill rate ต่ำ < 30%",
+            items: countryInsights.filter((c) => c.avgFillRate < 30).map((c) => `${c.country} (${c.avgFillRate}%)`),
+          },
+          {
+            icon: TrendingUp,
+            color: "#10B981",
+            bg: "#F0FDF4",
+            title: "เพิ่ม Period แนะนำ",
+            desc: "ประเทศ fill rate สูง ≥ 75%",
+            items: countryInsights.filter((c) => c.avgFillRate >= 75).map((c) => `${c.country} (${c.avgFillRate}%)`),
+          },
+          {
+            icon: CheckCircle2,
+            color: "#3B82F6",
+            bg: "#EFF6FF",
+            title: "สถานะดี",
+            desc: "fill rate 40–74% — balance ดี",
+            items: countryInsights.filter((c) => c.avgFillRate >= 40 && c.avgFillRate < 75).map((c) => `${c.country} (${c.avgFillRate}%)`),
+          },
+        ].map(({ icon: Icon, color, bg, title, desc, items }) => (
+          <div key={title} className="rounded-2xl border shadow-sm p-4" style={{ background: bg, borderColor: color + "30" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon className="w-4 h-4" style={{ color }} />
+              <p className="text-xs font-bold" style={{ color }}>{title}</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground mb-3">{desc}</p>
+            {items.length === 0 ? (
+              <p className="text-xs text-muted-foreground">ไม่มี</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {items.map((item) => (
+                  <span key={item} className="text-xs font-medium px-2 py-0.5 rounded-lg bg-white/60" style={{ color }}>{item}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
     </div>
   );
 }
