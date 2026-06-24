@@ -75,7 +75,7 @@ function daysFromNow(iso: string): number {
 }
 
 // ── main hook ─────────────────────────────────────────────────────────────────
-function useMarketingSignals(): MarketingSignal[] {
+export function useMarketingSignals(): MarketingSignal[] {
   const tours = useServices((s) => s.tours);
   const atRiskIds = new Set(useAtRiskPeriods().map((p) => p.periodId));
 

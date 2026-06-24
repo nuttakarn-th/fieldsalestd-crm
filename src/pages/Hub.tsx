@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
@@ -12,6 +12,8 @@ import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { useCRM } from "@/store/crmStore";
 import { useChatRead } from "@/store/chatReadStore";
+import { useAtRiskPeriods } from "@/components/AtRiskNotification";
+import { useMarketingSignals } from "@/pages/MarketingHub";
 
 const baseTiles = [
   {
@@ -58,134 +60,45 @@ const baseTiles = [
   },
 ];
 
-// ── Marketing — categorised tile groups ──────────────────────────────────────
-interface TileDef {
-  title: string; description: string;
-  icon: typeof Briefcase; to: string; gradient: string; featured?: boolean;
-}
-interface TileCategory {
-  label: string; emoji: string; color: string; tiles: TileDef[];
+// ── Marketing — 1-screen compact grid ────────────────────────────────────────────
+interface CompactTile { title: string; icon: LucideIcon; to: string; }
+
+function CompactCard({ tile, rgb }: { tile: CompactTile; rgb: string }) {
+  return (
+    <Link to={tile.to} className="group">
+      <div
+        className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all duration-150 group-hover:-translate-y-px group-hover:brightness-110 cursor-pointer select-none"
+        style={{ background: `rgba(${rgb},0.15)`, border: `1.5px solid rgba(${rgb},0.30)` }}
+      >
+        <tile.icon className="w-3.5 h-3.5 shrink-0 text-white/80" strokeWidth={2} />
+        <span className="text-[11px] font-semibold text-white/90 leading-tight truncate">{tile.title}</span>
+      </div>
+    </Link>
+  );
 }
 
-const marketingCategories: TileCategory[] = [
-  {
-    label: "Intelligence", emoji: "🎯", color: "#a855f7",
-    tiles: [
-      {
-        title: "Marketing Hub", featured: true,
-        description: "ศูนย์กลาง Signal: โปรแกรมที่ต้องโปรโมท, ใกล้เต็ม, ปิดกรุ๊ป และยกเลิก — เรียงตามความเร่งด่วน",
-        icon: Bell, to: "/app/marketing-hub",
-        gradient: "from-fuchsia-600 via-purple-600 to-violet-700",
-      },
-      {
-        title: "Ads Dashboard",
-        description: "วิเคราะห์ผล Meta Ads — อัปโหลด Excel แล้วดูกราฟ + AI วิเคราะห์แนวทางปรับปรุง",
-        icon: TrendingUp, to: "/ads-dashboard",
-        gradient: "from-violet-600 via-fuchsia-600 to-pink-600",
-      },
-      {
-        title: "Stock Analytics",
-        description: "เปรียบเทียบ Period, ที่นั่ง และ Booking Rate ปีต่อปี พร้อม Predictive Insights",
-        icon: BarChart3, to: "/app/stock-analytics",
-        gradient: "from-indigo-600 via-blue-600 to-cyan-500",
-      },
-      {
-        title: "Marketing Report",
-        description: "รายงานผลแคมเปญ, ยอดขาย และวิเคราะห์ข้อมูลการตลาด",
-        icon: BarChart3, to: "/app/marketing-report",
-        gradient: "from-amber-400 via-orange-500 to-rose-500",
-      },
-    ],
-  },
-  {
-    label: "Campaigns & Content", emoji: "📣", color: "#ec4899",
-    tiles: [
-      {
-        title: "Campaign Management",
-        description: "จัดการแคมเปญการตลาด, โปรโมชัน และติดตามผล",
-        icon: Megaphone, to: "/app/campaigns",
-        gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
-      },
-      {
-        title: "Contents Management",
-        description: "Content Calendar, Tour → Content Link, Asset Library, Post Performance — ครบในที่เดียว",
-        icon: LayoutGrid, to: "/marketing-contents",
-        gradient: "from-violet-500 via-purple-600 to-indigo-600",
-      },
-      {
-        title: "Audience Builder",
-        description: "LINE Export, FB Audience, Birthday, Cold Lead, VIP List, Interest Segment — Targeting ครบ",
-        icon: Target, to: "/audience-builder",
-        gradient: "from-sky-500 via-indigo-500 to-purple-600",
-      },
-    ],
-  },
-  {
-    label: "Customers", emoji: "👥", color: "#3b82f6",
-    tiles: [
-      {
-        title: "Leads/Customers",
-        description: "รายชื่อลูกค้า, สถานะ, ประวัติการติดต่อและข้อมูลการจอง",
-        icon: Users, to: "/app/customers",
-        gradient: "from-blue-500 via-blue-600 to-indigo-600",
-      },
-      {
-        title: "Marketing Leads",
-        description: "รายชื่อ Prospect ที่ Marketing ลงไว้ — Sales กดรับ Lead ไปติดตามได้เลย",
-        icon: UserPlus, to: "/app/marketing-leads",
-        gradient: "from-teal-500 via-emerald-500 to-cyan-500",
-      },
-    ],
-  },
-  {
-    label: "Service & Stock", emoji: "🏪", color: "#10b981",
-    tiles: [
-      {
-        title: "Service and Stock",
-        description: "ทัวร์, รถเช่า, ตั๋วเครื่องบิน, โรงแรม, วีซ่า และประกันภัย — ดู Period และสถานะที่นั่ง",
-        icon: PackageSearch, to: "/app/all-service",
-        gradient: "from-emerald-500 via-teal-500 to-cyan-500",
-      },
-    ],
-  },
-  {
-    label: "Company", emoji: "🏢", color: "#f59e0b",
-    tiles: [
-      {
-        title: "STD Presentation",
-        description: "Company Profile และช่องทางสื่อโซเชียลทั้งหมดของบริษัท",
-        icon: Sparkles, to: "/tour-presentation",
-        gradient: "from-amber-400 via-orange-500 to-rose-500",
-      },
-      {
-        title: "Gallery",
-        description: "อัลบั้มภาพสถานที่ท่องเที่ยว รีวิว และกิจกรรมของบริษัท",
-        icon: Images, to: "/gallery",
-        gradient: "from-cyan-500 via-sky-500 to-indigo-500",
-      },
-      {
-        title: "Contact us",
-        description: "Line ID, QR, เบอร์โทรแต่ละแผนก และที่อยู่บริษัท",
-        icon: Phone, to: "/contact-info",
-        gradient: "from-sky-500 via-indigo-500 to-purple-600",
-      },
-      {
-        title: "Teams",
-        description: "รายชื่อและข้อมูลทีมงานทุกตำแหน่ง พร้อมช่องทางติดต่อ",
-        icon: Users2, to: "/teams",
-        gradient: "from-violet-500 via-purple-600 to-fuchsia-600",
-      },
-    ],
-  },
-];
-
-const profileTile = {
-  title: "My Profile",
-  description: "ข้อมูลส่วนตัว นามบัตรดิจิทัล พร้อมดาวน์โหลดเป็นภาพได้",
-  icon: UserIcon,
-  to: "/profile",
-  gradient: "from-emerald-500 via-teal-500 to-cyan-600",
-};
+function SectionRow({
+  emoji, label, color, rgb, tiles, cols,
+}: {
+  emoji: string; label: string; color: string; rgb: string;
+  tiles: CompactTile[]; cols?: number;
+}) {
+  const c = cols ?? tiles.length;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-[13px] leading-none">{emoji}</span>
+        <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>
+          {label}
+        </span>
+        <div className="flex-1 h-px" style={{ background: `${color}28` }} />
+      </div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${c}, 1fr)` }}>
+        {tiles.map((t) => <CompactCard key={t.title} tile={t} rgb={rgb} />)}
+      </div>
+    </div>
+  );
+}
 
 const adminUserTile = {
   title: "Add/Edit User",
@@ -204,83 +117,76 @@ const webSettingTile = {
 };
 
 // ── Marketing categorised grid ────────────────────────────────────────────────
+// ── Marketing categorised grid ────────────────────────────────────────────
 function MarketingCategorisedGrid() {
+  const signals     = useMarketingSignals();
+  const urgentCount = signals.filter((s) => s.type === "at-risk" || s.type === "cancelled").length;
+  const fomoCount   = signals.filter((s) => s.type === "almost-full").length;
+  const totalCount  = signals.length;
+
+  const intel: CompactTile[] = [
+    { title: "Ads Dashboard",    icon: TrendingUp,    to: "/ads-dashboard" },
+    { title: "Stock Analytics",  icon: BarChart3,     to: "/app/stock-analytics" },
+    { title: "Marketing Report", icon: BarChart3,     to: "/app/marketing-report" },
+  ];
+  const campaigns: CompactTile[] = [
+    { title: "Campaign Mgmt",    icon: Megaphone,     to: "/app/campaigns" },
+    { title: "Contents",         icon: LayoutGrid,    to: "/marketing-contents" },
+    { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
+  ];
+  const custStock: CompactTile[] = [
+    { title: "Leads/Customers",  icon: Users,         to: "/app/customers" },
+    { title: "Marketing Leads",  icon: UserPlus,      to: "/app/marketing-leads" },
+    { title: "Service & Stock",  icon: PackageSearch, to: "/app/all-service" },
+  ];
+  const company: CompactTile[] = [
+    { title: "Presentation",  icon: Sparkles,  to: "/tour-presentation" },
+    { title: "Gallery",       icon: Images,    to: "/gallery" },
+    { title: "Contact us",    icon: Phone,     to: "/contact-info" },
+    { title: "Teams",         icon: Users2,    to: "/teams" },
+    { title: "My Profile",    icon: UserIcon,  to: "/profile" },
+  ];
+
   return (
-    <div className="space-y-6">
-      {marketingCategories.map((cat) => (
-        <div key={cat.label}>
-          {/* Section header */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base">{cat.emoji}</span>
-            <span
-              className="text-xs font-black uppercase tracking-widest"
-              style={{ color: cat.color }}
-            >
-              {cat.label}
-            </span>
-            <div className="flex-1 h-px" style={{ background: `${cat.color}30` }} />
+    <div className="flex flex-col gap-2.5">
+      {/* ── Hero: Marketing Hub ──────────────────────────────────────────── */}
+      <Link to="/app/marketing-hub" className="group">
+        <div
+          className="relative overflow-hidden rounded-2xl px-5 py-3.5 flex items-center gap-4 transition-all duration-150 group-hover:brightness-105"
+          style={{ background: "linear-gradient(135deg,#6d28d9 0%,#a855f7 45%,#db2777 100%)" }}
+        >
+          <div className="absolute right-0 top-0 h-full w-36 bg-white/5 skew-x-[-18deg] translate-x-10 pointer-events-none" />
+          <div className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white/15">
+            <Bell className="w-4 h-4 text-white" strokeWidth={2} />
           </div>
-
-          {/* Tiles row */}
-          <div className={`grid gap-2 ${cat.tiles.length === 1 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
-            {cat.tiles.map((t) => (
-              <Link key={t.title} to={t.to} className="group">
-                <article
-                  className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${t.gradient} text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl
-                    flex flex-row items-center gap-3 px-4 py-3
-                    sm:flex-col sm:items-start sm:px-4 sm:py-4
-                    ${t.featured ? "sm:col-span-2 sm:flex-row sm:items-center sm:gap-4 sm:py-5" : ""}`}
-                >
-                  <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-                  {t.featured && (
-                    <div className="absolute top-2 right-3 text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">HOME</div>
-                  )}
-                  <t.icon
-                    className={`relative shrink-0 ${t.featured ? "w-10 h-10" : "w-7 h-7 sm:w-8 sm:h-8"}`}
-                    strokeWidth={1.5}
-                  />
-                  <div className="relative flex-1 min-w-0">
-                    <h2
-                      className={`leading-tight ${t.featured ? "text-base sm:text-lg" : "text-sm"}`}
-                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
-                    >{t.title}</h2>
-                    <p className={`text-white/80 mt-0.5 leading-snug ${t.featured ? "text-[11px] sm:block" : "hidden sm:block text-[10px] line-clamp-2"}`}>
-                      {t.description}
-                    </p>
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1.5 opacity-90">
-                      เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </div>
-                  <ArrowRight className="sm:hidden shrink-0 w-4 h-4 opacity-60 transition-transform group-hover:translate-x-0.5" />
-                </article>
-              </Link>
-            ))}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-black text-white leading-none">Marketing Hub</span>
+              <span className="text-[8px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">HOME</span>
+              {totalCount > 0 && (
+                <span className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                  {totalCount} รายการ
+                </span>
+              )}
+            </div>
+            <p className="text-white/60 text-[10px] mt-0.5 leading-none">
+              {totalCount === 0
+                ? "ทุก Period ปกติดี 🎉"
+                : [
+                    urgentCount > 0 ? `🔥 ${urgentCount} ด่วน` : "",
+                    fomoCount   > 0 ? `📣 ${fomoCount} ใกล้เต็ม` : "",
+                  ].filter(Boolean).join("  ·  ")}
+            </p>
           </div>
+          <ArrowRight className="shrink-0 w-4 h-4 text-white/50 transition-transform group-hover:translate-x-0.5" />
         </div>
-      ))}
+      </Link>
 
-      {/* My Profile — always last */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">👤</span>
-          <span className="text-xs font-black uppercase tracking-widest text-white/40">Personal</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Link to="/profile" className="group">
-            <article className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl flex flex-row items-center gap-3 px-4 py-3 sm:flex-col sm:items-start sm:px-4 sm:py-4">
-              <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-              <UserIcon className="relative shrink-0 w-7 h-7 sm:w-8 sm:h-8" strokeWidth={1.5} />
-              <div className="relative flex-1 min-w-0">
-                <h2 className="text-sm leading-tight" style={{ fontWeight: 900 }}>My Profile</h2>
-                <p className="hidden sm:block text-[10px] text-white/80 mt-0.5 line-clamp-2 leading-snug">ข้อมูลส่วนตัว นามบัตรดิจิทัล พร้อมดาวน์โหลดเป็นภาพได้</p>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1.5 opacity-90">เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5" /></span>
-              </div>
-              <ArrowRight className="sm:hidden shrink-0 w-4 h-4 opacity-60" />
-            </article>
-          </Link>
-        </div>
-      </div>
+      {/* ── Compact rows ─────────────────────────────────────────────────────────────── */}
+      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}     cols={3} />
+      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}  cols={3} />
+      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}  cols={3} />
+      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}    cols={5} />
     </div>
   );
 }
