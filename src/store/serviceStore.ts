@@ -174,6 +174,25 @@ function sbDelete(table: string, id: string) {
   });
 }
 
+// ── Phase 2: Event logging — บันทึกทุก quota change ──────────────────────────
+function logBookingEvent(event: {
+  event_type: string;
+  tour_id: string;
+  period_id: string;
+  tour_code?: string;
+  country?: string;
+  category?: string;
+  start_date?: string | null;
+  old_quota?: number | null;
+  new_quota?: number | null;
+  delta?: number | null;
+  total_seats?: number | null;
+  actor?: string | null;
+  notes?: string | null;
+}) {
+  sbInsert("booking_events", event);
+}
+
 export const useServices = create<ServiceState>()(
   persist(
     (set, get) => ({
@@ -226,6 +245,24 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+        // Phase 2: log event
+        const createdTour = get().tours.find((t) => t.id === tourId);
+        if (createdTour) {
+          logBookingEvent({
+            event_type: "period_created",
+            tour_id: tourId,
+            period_id: period.period_id,
+            tour_code: createdTour.code,
+            country: createdTour.country,
+            category: createdTour.category,
+            start_date: period.start_date ?? null,
+            old_quota: null,
+            new_quota: period.total_seats,
+            delta: null,
+            total_seats: period.total_seats,
+            actor: (period as { created_by?: string }).created_by ?? null,
+          });
+        }
       },
 
       updatePeriod: (tourId, periodId, p) => {
@@ -241,6 +278,26 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+        // Phase 2: log event
+        const updatedTour = get().tours.find((t) => t.id === tourId);
+        const updatedPeriod = updatedTour?.periods?.find((x) => x.period_id === periodId);
+        if (updatedTour && updatedPeriod) {
+          const isCancelled = (p as { cancelled?: boolean }).cancelled;
+          logBookingEvent({
+            event_type: isCancelled ? "period_cancelled" : "period_updated",
+            tour_id: tourId,
+            period_id: periodId,
+            tour_code: updatedTour.code,
+            country: updatedTour.country,
+            category: updatedTour.category,
+            start_date: updatedPeriod.start_date ?? null,
+            old_quota: null,
+            new_quota: updatedPeriod.quota,
+            delta: null,
+            total_seats: updatedPeriod.total_seats,
+            actor: (p as { updated_by?: string }).updated_by ?? null,
+          });
+        }
       },
 
       deletePeriod: (tourId, periodId) => {
@@ -274,6 +331,25 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, quota: updated.quota });
+        // Phase 2: log event
+        const aqTour = get().tours.find((t) => t.id === tourId);
+        const aqPeriod = aqTour?.periods?.find((x) => x.period_id === periodId);
+        if (aqTour && aqPeriod) {
+          logBookingEvent({
+            event_type: "quota_adjusted",
+            tour_id: tourId,
+            period_id: periodId,
+            tour_code: aqTour.code,
+            country: aqTour.country,
+            category: aqTour.category,
+            start_date: aqPeriod.start_date ?? null,
+            old_quota: aqPeriod.quota - delta,   // before this update
+            new_quota: aqPeriod.quota,
+            delta: delta,
+            total_seats: aqPeriod.total_seats,
+            actor: updatedBy ?? null,
+          });
+        }
       },
 
       // ── Tour PDF + Publish ──────────────────────────────────────────────────

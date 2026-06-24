@@ -7,9 +7,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, Cell, PieChart, Pie,
 } from "recharts";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
-import type { TourPeriod } from "@/store/serviceStore";
+import type { TourPeriod, TourItem } from "@/store/serviceStore";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const BE = (y: number) => y + 543; // CE → Buddhist Era
@@ -173,9 +174,84 @@ export default function StockAnalytics() {
 
   const [yearA, setYearA] = useState(CE_NOW);          // ปีปัจจุบัน (หลัก)
   const [yearB, setYearB] = useState(CE_NOW - 1);      // ปีเปรียบเทียบ
+  const [activeTab, setActiveTab] = useState<"yoy" | "pacing">("yoy");
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
+  const [pacingData, setPacingData] = useState<{ date: string; booked: number; label: string }[]>([]);
+  const [pacingLoading, setPacingLoading] = useState(false);
+  const tours = useServices((s) => s.tours);
 
   const statsA = useMemo(() => calcYear(allPeriods, yearA), [allPeriods, yearA]);
   const statsB = useMemo(() => calcYear(allPeriods, yearB), [allPeriods, yearB]);
+
+  // ── Load pacing data from Supabase (period_snapshots) ────────────────────
+  const loadPacingData = async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    setPacingLoading(true);
+    const { data, error } = await supabase
+      .from("period_snapshots")
+      .select("snapshot_date, booked")
+      .order("snapshot_date", { ascending: true });
+    if (!error && data) {
+      // aggregate booked by snapshot_date
+      const agg = new Map<string, number>();
+      for (const row of data as { snapshot_date: string; booked: number }[]) {
+        agg.set(row.snapshot_date, (agg.get(row.snapshot_date) ?? 0) + row.booked);
+      }
+      setPacingData([...agg.entries()].map(([date, booked]) => ({
+        date, booked,
+        label: new Date(date).toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
+      })));
+    }
+    setPacingLoading(false);
+  };
+
+  // ── Take snapshot now ───────────────────────────────────────────────────────
+  const takeSnapshot = async () => {
+    if (!SUPABASE_ENABLED || !supabase) {
+      setSnapshotMsg("⚠ Supabase ยังไม่ได้เปิดใช้งาน");
+      return;
+    }
+    setSnapshotLoading(true);
+    setSnapshotMsg(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const rows: object[] = [];
+    for (const t of tours as TourItem[]) {
+      for (const p of t.periods ?? []) {
+        if (!p.start_date || p.cancelled) continue;
+        rows.push({
+          snapshot_date: today,
+          tour_id: t.id,
+          period_id: p.period_id,
+          tour_code: t.code,
+          country: t.country,
+          category: t.category,
+          start_date: p.start_date,
+          total_seats: p.total_seats,
+          quota: p.quota,
+          booked: p.total_seats - p.quota,
+          price_per_seat: p.price_per_seat,
+          special_price: p.special_price ?? null,
+        });
+      }
+    }
+    if (rows.length === 0) {
+      setSnapshotMsg("ไม่มี period ที่ active");
+      setSnapshotLoading(false);
+      return;
+    }
+    // upsert — ถ้า snapshot วันนี้มีแล้วให้ update
+    const { error } = await supabase
+      .from("period_snapshots")
+      .upsert(rows, { onConflict: "snapshot_date,period_id" });
+    if (error) {
+      setSnapshotMsg(`❌ Error: ${error.message}`);
+    } else {
+      setSnapshotMsg(`✅ บันทึก snapshot ${rows.length} period แล้ว (${today})`);
+      loadPacingData();
+    }
+    setSnapshotLoading(false);
+  };
 
   // monthly merged for chart
   const monthlyData = MONTHS_TH.map((label, i) => ({
@@ -234,6 +310,16 @@ export default function StockAnalytics() {
       </div>
 
       <div className="px-4 sm:px-6 py-5 space-y-6 max-w-7xl mx-auto">
+
+        {/* ── Tab switcher ── */}
+        <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit">
+          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"]] as const).map(([tab, label]) => (
+            <button key={tab} type="button"
+              onClick={() => { setActiveTab(tab); if (tab === "pacing") loadPacingData(); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >{label}</button>
+          ))}
+        </div>
 
         {/* ── Legend pills ── */}
         <div className="flex items-center gap-3 text-xs font-semibold">
@@ -400,12 +486,92 @@ export default function StockAnalytics() {
           </div>
         </div>
 
+        {activeTab === "yoy" && (<>
+
         {/* ── Seasonality Heatmap ── */}
         <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
           <h2 className="text-sm font-bold text-foreground mb-1">Seasonality — Booking Rate รายเดือน × ประเทศ (พ.ศ. {BE(yearA)})</h2>
           <p className="text-xs text-muted-foreground mb-4">ช่วยวางแผนว่าเดือนไหน ประเทศไหน ขายดีที่สุด</p>
           <SeasonalityHeatmap periods={allPeriods} year={yearA} />
         </div>
+
+        </>)}
+
+        {/* ── PACING TAB ── */}
+        {activeTab === "pacing" && (<>
+
+        {/* Snapshot control */}
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Camera className="w-4 h-4 text-violet-500" />
+                <h2 className="text-sm font-bold text-foreground">บันทึก Snapshot วันนี้</h2>
+              </div>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                กดเพื่อบันทึกสถานะที่นั่งทุก period ณ วันนี้ลงฐานข้อมูล
+                ข้อมูลจะใช้สร้าง Pacing chart แสดงว่ายอดจองสะสมเพิ่มขึ้นยังไงตามเวลา
+              </p>
+              {snapshotMsg && (
+                <p className={`text-xs mt-2 font-medium ${snapshotMsg.startsWith("✅") ? "text-emerald-600" : "text-red-500"}`}>{snapshotMsg}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={takeSnapshot}
+              disabled={snapshotLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #7C3AED, #EC4899)" }}
+            >
+              <Camera className="w-4 h-4" />
+              {snapshotLoading ? "กำลังบันทึก..." : "บันทึก Snapshot ตอนนี้"}
+            </button>
+          </div>
+          {!SUPABASE_ENABLED && (
+            <div className="mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              ⚠ Supabase ยังไม่ได้เปิดใช้งาน — ข้อมูล Snapshot จะถูกบันทึกเมื่อเปิด VITE_USE_SUPABASE=true
+            </div>
+          )}
+        </div>
+
+        {/* Pacing chart */}
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <Activity className="w-4 h-4 text-pink-500" />
+            <h2 className="text-sm font-bold text-foreground">Pacing — ยอดจองสะสมตามเวลา</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            แกน X = วันที่บันทึก Snapshot · แกน Y = ที่นั่งที่จองทั้งหมดรวมทุก period
+          </p>
+          {pacingLoading ? (
+            <div className="flex items-center justify-center h-40 text-muted-foreground text-xs gap-2">
+              <Clock className="w-4 h-4 animate-spin" />กำลังโหลด...
+            </div>
+          ) : pacingData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-3">
+              <p className="text-muted-foreground text-xs text-center">ยังไม่มีข้อมูล Snapshot<br />กด "บันทึก Snapshot ตอนนี้" เพื่อเริ่มเก็บข้อมูล</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={pacingData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                  formatter={(val) => [`${val} ที่นั่ง`, "จองสะสม"]}
+                  labelFormatter={(lbl) => `วันที่: ${lbl}`}
+                />
+                <Line dataKey="booked" stroke="#EC4899" strokeWidth={2.5} dot={{ r: 4, fill: "#EC4899" }} name="booked" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Recent events log */}
+        <RecentEventsLog />
+
+        </>)}
 
       </div>
     </div>
@@ -490,6 +656,116 @@ function SeasonalityHeatmap({ periods, year }: { periods: PeriodRow[]; year: num
           </span>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ── Recent booking events log ─────────────────────────────────────────────────
+type BookingEvent = {
+  id: string;
+  event_type: string;
+  tour_code: string | null;
+  country: string | null;
+  start_date: string | null;
+  old_quota: number | null;
+  new_quota: number | null;
+  delta: number | null;
+  actor: string | null;
+  created_at: string;
+};
+
+function RecentEventsLog() {
+  const [events, setEvents] = useState<BookingEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("booking_events")
+      .select("id, event_type, tour_code, country, start_date, old_quota, new_quota, delta, actor, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (data) setEvents(data as BookingEvent[]);
+    setLoading(false);
+  };
+
+  // load on mount
+  useState(() => { load(); });
+
+  const typeLabel: Record<string, { label: string; color: string }> = {
+    period_created:   { label: "สร้าง Period",    color: "#10B981" },
+    period_updated:   { label: "แก้ไข Period",    color: "#3B82F6" },
+    period_cancelled: { label: "ยกเลิก Period",   color: "#EF4444" },
+    quota_adjusted:   { label: "ปรับ Quota",      color: "#F59E0B" },
+    period_deleted:   { label: "ลบ Period",        color: "#6B7280" },
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="px-5 py-3 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-violet-500" />
+          <h2 className="text-sm font-bold text-foreground">Recent Activity Log</h2>
+          <span className="text-xs text-muted-foreground">(50 รายการล่าสุด)</span>
+        </div>
+        <button onClick={load} className="text-xs text-violet-600 hover:underline font-medium">
+          {loading ? "กำลังโหลด..." : "↺ Refresh"}
+        </button>
+      </div>
+      {!SUPABASE_ENABLED ? (
+        <div className="px-5 py-8 text-center text-xs text-amber-600">⚠ ต้องเปิด Supabase เพื่อดู activity log</div>
+      ) : events.length === 0 ? (
+        <div className="px-5 py-8 text-center text-xs text-muted-foreground">ยังไม่มี event — log จะเริ่มบันทึกเมื่อมีการสร้าง/แก้ไข Period</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/20 text-muted-foreground">
+                <th className="text-left px-4 py-2 font-semibold">เวลา</th>
+                <th className="text-left px-3 py-2 font-semibold">Event</th>
+                <th className="text-left px-3 py-2 font-semibold">โปรแกรม</th>
+                <th className="text-left px-3 py-2 font-semibold">ประเทศ</th>
+                <th className="text-left px-3 py-2 font-semibold">วันเดินทาง</th>
+                <th className="text-right px-3 py-2 font-semibold">Quota เดิม</th>
+                <th className="text-right px-3 py-2 font-semibold">Quota ใหม่</th>
+                <th className="text-right px-3 py-2 font-semibold">Delta</th>
+                <th className="text-left px-4 py-2 font-semibold">ผู้ทำรายการ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e) => {
+                const t = typeLabel[e.event_type] ?? { label: e.event_type, color: "#6B7280" };
+                const dt = new Date(e.created_at);
+                const timeStr = dt.toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+                return (
+                  <tr key={e.id} className="border-t border-border/40 hover:bg-muted/10">
+                    <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">{timeStr}</td>
+                    <td className="px-3 py-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: t.color }}>{t.label}</span>
+                    </td>
+                    <td className="px-3 py-2 font-medium">{e.tour_code ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">{e.country ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                      {e.start_date ? new Date(e.start_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right">{e.old_quota ?? "—"}</td>
+                    <td className="px-3 py-2 text-right">{e.new_quota ?? "—"}</td>
+                    <td className="px-3 py-2 text-right font-bold">
+                      {e.delta !== null && e.delta !== undefined ? (
+                        <span style={{ color: e.delta < 0 ? "#EF4444" : "#10B981" }}>
+                          {e.delta > 0 ? "+" : ""}{e.delta}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">{e.actor ?? "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
