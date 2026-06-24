@@ -67,7 +67,7 @@ function CompactCard({ tile, rgb }: { tile: CompactTile; rgb: string }) {
   return (
     <Link to={tile.to} className="group">
       <div
-        className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all duration-150 group-hover:-translate-y-px group-hover:brightness-110 cursor-pointer select-none"
+        className="flex items-center gap-2 rounded-xl px-3 py-2.5 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:brightness-115 group-hover:shadow-lg active:scale-[0.97] cursor-pointer select-none"
         style={{ background: `rgba(${rgb},0.22)`, border: `1.5px solid rgba(${rgb},0.45)` }}
       >
         <tile.icon className="w-3.5 h-3.5 shrink-0 text-white/90" strokeWidth={2} />
@@ -78,14 +78,17 @@ function CompactCard({ tile, rgb }: { tile: CompactTile; rgb: string }) {
 }
 
 function SectionRow({
-  emoji, label, color, rgb, tiles, cols,
+  emoji, label, color, rgb, tiles, cols, delay = 0,
 }: {
   emoji: string; label: string; color: string; rgb: string;
-  tiles: CompactTile[]; cols?: number;
+  tiles: CompactTile[]; cols?: number; delay?: number;
 }) {
   const c = cols ?? tiles.length;
   return (
-    <div>
+    <div
+      className="animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both"
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className="text-[13px] leading-none">{emoji}</span>
         <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>
@@ -155,12 +158,18 @@ function MarketingCategorisedGrid() {
     { title: "My Profile",    icon: UserIcon,  to: "/profile" },
   ];
 
+  // Top 3 urgent signals for Today's Focus
+  const topUrgent = signals
+    .filter((s) => s.type === "at-risk" || s.type === "cancelled")
+    .slice(0, 3);
+
   return (
     <div className="flex flex-col gap-2.5">
       {/* ── Hero: Marketing Hub ──────────────────────────────────────────── */}
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
       <Link to="/app/marketing-hub" className="group">
         <div
-          className="relative overflow-hidden rounded-2xl px-5 py-3.5 flex items-center gap-4 transition-all duration-150 group-hover:brightness-105"
+          className="relative overflow-hidden rounded-2xl px-5 py-3.5 flex items-center gap-4 transition-all duration-200 group-hover:brightness-108 group-hover:scale-[1.008]"
           style={{ background: "linear-gradient(135deg,#6d28d9 0%,#a855f7 45%,#db2777 100%)" }}
         >
           <div className="absolute right-0 top-0 h-full w-36 bg-white/5 skew-x-[-18deg] translate-x-10 pointer-events-none" />
@@ -172,7 +181,7 @@ function MarketingCategorisedGrid() {
               <span className="text-sm font-black text-white leading-none">Marketing Hub</span>
               <span className="text-[8px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">HOME</span>
               {totalCount > 0 && (
-                <span className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                <span className="text-[8px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full animate-pulse">
                   {totalCount} รายการ
                 </span>
               )}
@@ -186,15 +195,52 @@ function MarketingCategorisedGrid() {
                   ].filter(Boolean).join("  ·  ")}
             </p>
           </div>
-          <ArrowRight className="shrink-0 w-4 h-4 text-white/50 transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight className="shrink-0 w-4 h-4 text-white/60 transition-transform duration-200 group-hover:translate-x-2" />
         </div>
       </Link>
+      </div>
 
       {/* ── Compact rows ─────────────────────────────────────────────────────────────── */}
-      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}     cols={3} />
-      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}  cols={3} />
-      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}  cols={3} />
-      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}    cols={5} />
+      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}     cols={3} delay={80}  />
+      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}  cols={3} delay={160} />
+      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}  cols={3} delay={240} />
+      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}    cols={5} delay={320} />
+
+      {/* ── Today's Focus — top urgent tours ────────────────────────────────── */}
+      {topUrgent.length > 0 && (
+        <div
+          className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both mt-1"
+          style={{ animationDelay: "400ms" }}
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-[13px] leading-none">📌</span>
+            <span className="text-[9px] font-black uppercase tracking-widest text-red-400">
+              Today's Focus
+            </span>
+            <div className="flex-1 h-px bg-red-500/30" />
+            <Link
+              to="/app/marketing-hub"
+              className="text-[9px] text-white/30 hover:text-white/60 transition-colors"
+            >
+              ดูทั้งหมด →
+            </Link>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {topUrgent.map((s) => (
+              <Link key={s.periodId} to="/app/marketing-hub" className="group/focus">
+                <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-150 group-hover/focus:brightness-115 bg-red-500/10 border border-red-500/25">
+                  <span className="text-[10px]">{s.type === "cancelled" ? "❌" : "🔥"}</span>
+                  <span className="text-[10px] font-bold text-white/80">{s.tourCode}</span>
+                  <span className="text-[9px] text-white/40">{s.tourCity}</span>
+                  <span className="text-[9px] font-semibold" style={{ color: s.daysLeft <= 7 ? "#f87171" : "#fb923c" }}>
+                    {s.daysLeft >= 0 ? `${s.daysLeft}d` : "ยกเลิก"}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -365,3 +411,4 @@ export default function Hub() {
     </div>
   );
 }
+   
