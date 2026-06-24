@@ -21,6 +21,7 @@ import {
   Tag,
   UserPlus,
   CalendarRange,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -72,6 +73,7 @@ const adminMenu: RoleMenu = {
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
       ],
     },
     {
@@ -107,6 +109,7 @@ const salesManagerMenu: RoleMenu = {
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
       ],
     },
     {
