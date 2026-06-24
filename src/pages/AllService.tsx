@@ -2610,6 +2610,20 @@ ${catBlocks}
                 </div>
               )}
 
+              {/* 💸 วางที่นั่ง — quick toggle right after วัน/คืน */}
+              <button
+                type="button"
+                onClick={() => setPForm((f) => ({ ...f, seat_hold: !f.seat_hold }))}
+                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"
+                style={pForm.seat_hold
+                  ? { background: "#0D9488", color: "#fff", borderColor: "#0D9488" }
+                  : { borderColor: "#E5E7EB", color: "#9CA3AF" }}
+              >
+                <span className="text-sm">💸</span>
+                วางที่นั่ง
+                {pForm.seat_hold && <span className="ml-auto text-[10px] opacity-80">เปิดอยู่</span>}
+              </button>
+
               {/* ราคา + ที่นั่ง */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -2683,35 +2697,15 @@ ${catBlocks}
                 </div>
               </div>
 
-              {/* Campaign */}
+              {/* ── ตัวเลือก Chip — moved to left ── */}
               <div>
-                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">Campaign</label>
-                <Input className="h-8 text-xs mt-0.5" value={pForm.project}
-                  onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
-              </div>
-
-              {/* หมายเหตุ */}
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">หมายเหตุ</label>
-                <Input className="h-8 text-xs mt-0.5" value={pForm.note}
-                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
-              </div>
-            </div>
-
-            {/* ── RIGHT: ตัวเลือก / Tags / Footnote ── */}
-            <div className="px-4 py-3 space-y-2.5 bg-muted/10 border-t sm:border-t-0">
-
-              {/* Chip buttons */}
-              <div>
-                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">ตัวเลือก Chip</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">ตัวเลือก Chip</label>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {/* 🔥 Promotion ไม่มีในนี้ — แสดงอัตโนมัติจากราคาพิเศษ */}
                   {([
                     { key: "freeday"  as const, label: "Freeday",       color: "#7C3AED" },
                     { key: "shopping" as const, label: "ลงร้าน",        color: "#F59E0B" },
                     { key: "all_in"   as const, label: "จอง จ่าย จบ",  color: "#16A34A" },
                     { key: "vat7"     as const, label: "Vat7%",         color: "#2563EB" },
-                    { key: "seat_hold" as const, label: "💸 วางที่นั่ง", color: "#0D9488" },
                   ] as const).map(({ key, label, color }) => (
                     <button key={key} type="button"
                       onClick={() => setPForm((f) => ({ ...f, [key]: !f[key] }))}
@@ -2723,10 +2717,28 @@ ${catBlocks}
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* ── RIGHT: Campaign / หมายเหตุ / Footnote ── */}
+            <div className="px-4 py-3 space-y-2.5 bg-muted/10 border-t sm:border-t-0">
+
+              {/* Campaign */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Campaign</label>
+                <Input className="h-8 text-xs mt-0.5" value={pForm.project}
+                  onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
+              </div>
+
+              {/* หมายเหตุ */}
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
+                <Input className="h-8 text-xs mt-0.5" value={pForm.note}
+                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+              </div>
 
               {/* Footnote */}
               <div>
-                <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
                 <Input className="h-8 text-xs mt-1"
                   value={pForm.footnote}
                   onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))}
