@@ -3,6 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { useAuth, useCurrentUser, type AppRole } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/config/roleMenus";
+import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Sidebar,
@@ -105,6 +106,19 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* ── At-Risk Notification ── */}
+        <SidebarGroup className={collapsed ? "py-1" : "py-1"}>
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
+                <div className="px-1">
+                  <AtRiskNotification collapsed={collapsed} />
+                </div>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         <SidebarGroup className={collapsed ? "py-1" : "py-1.5"}>
           {!collapsed && (

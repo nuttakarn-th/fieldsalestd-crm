@@ -7,10 +7,11 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, Cell, PieChart, Pie,
 } from "recharts";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2, Bell } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
 import type { TourPeriod, TourItem } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { useAtRiskPeriods } from "@/components/AtRiskNotification";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const BE = (y: number) => y + 543; // CE → Buddhist Era
@@ -155,6 +156,97 @@ function KpiCard({ icon: Icon, label, curVal, prevVal, format, color }:
 
 // ── PIE COLORS ────────────────────────────────────────────────────────────────
 const PIE_COLORS = ["#7C3AED", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#EF4444", "#14B8A6"];
+
+// ── At-Risk Banner (ใน StockAnalytics page) ───────────────────────────────────
+function AtRiskBanner() {
+  const atRisk = useAtRiskPeriods();
+  const [collapsed, setCollapsed] = useState(true);
+  if (atRisk.length === 0) return null;
+
+  const critical = atRisk.filter((p) => p.level === "critical");
+  const warning  = atRisk.filter((p) => p.level === "warning");
+  const hasCrit  = critical.length > 0;
+
+  return (
+    <div className={`rounded-2xl border-2 overflow-hidden transition-all ${hasCrit ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+      {/* Header row */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:opacity-80 transition-opacity"
+      >
+        <Bell className={`w-4 h-4 shrink-0 ${hasCrit ? "text-red-500" : "text-amber-500"}`} />
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-bold ${hasCrit ? "text-red-700" : "text-amber-700"}`}>
+            {hasCrit ? `🚨 ${critical.length} Period ต้องโปรโมทด่วน` : `⚠ ${warning.length} Period เฝ้าระวัง`}
+            {hasCrit && warning.length > 0 && (
+              <span className="ml-2 text-xs font-normal text-amber-600">+ ⚠ {warning.length} อยู่ในเฝ้าระวัง</span>
+            )}
+          </p>
+          <p className={`text-xs ${hasCrit ? "text-red-500" : "text-amber-500"}`}>
+            fill rate &lt; 40% ใกล้วันเดินทาง — คลิกเพื่อดูรายละเอียด
+          </p>
+        </div>
+        <span className={`text-xs font-semibold shrink-0 ${hasCrit ? "text-red-400" : "text-amber-400"}`}>
+          {collapsed ? "▸ ขยาย" : "▾ ย่อ"}
+        </span>
+      </button>
+
+      {/* Collapsible period list */}
+      {!collapsed && (
+        <div className="border-t border-current/10">
+          {/* Critical */}
+          {critical.length > 0 && (
+            <div>
+              <div className="px-4 py-1.5 bg-red-100 text-[10px] font-bold uppercase text-red-600 tracking-wider">
+                🚨 ด่วนมาก — เหลือ ≤ 7 วัน ({critical.length} period)
+              </div>
+              <div className="divide-y divide-red-100">
+                {critical.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
+              </div>
+            </div>
+          )}
+          {/* Warning */}
+          {warning.length > 0 && (
+            <div>
+              <div className="px-4 py-1.5 bg-amber-100 text-[10px] font-bold uppercase text-amber-600 tracking-wider">
+                ⚠ เฝ้าระวัง — เหลือ 8–30 วัน ({warning.length} period)
+              </div>
+              <div className="divide-y divide-amber-100">
+                {warning.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
+  const isCrit = p.level === "critical";
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
+  return (
+    <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/50 transition-colors">
+      <span className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${isCrit ? "bg-red-500" : "bg-amber-400"}`}>
+        {p.daysLeft}d
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-foreground truncate">{p.tourCode} · {p.tourCity}</p>
+        <p className="text-[10px] text-muted-foreground">{p.country} · เดินทาง {fmtDate(p.startDate)}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className={`text-sm font-bold ${isCrit ? "text-red-500" : "text-amber-500"}`}>{p.fillRate}%</p>
+        <p className="text-[10px] text-muted-foreground">ว่าง {p.quota} ที่</p>
+      </div>
+      {/* mini fill bar */}
+      <div className="w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden shrink-0">
+        <div className="h-full rounded-full" style={{ width: `${p.fillRate}%`, background: isCrit ? "#EF4444" : "#F59E0B" }} />
+      </div>
+    </div>
+  );
+}
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function StockAnalytics() {
@@ -310,6 +402,9 @@ export default function StockAnalytics() {
       </div>
 
       <div className="px-4 sm:px-6 py-5 space-y-6 max-w-7xl mx-auto">
+
+        {/* ── At-Risk Alert Banner ── */}
+        <AtRiskBanner />
 
         {/* ── Tab switcher ── */}
         <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit">

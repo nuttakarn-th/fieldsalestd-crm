@@ -147,6 +147,7 @@ const salesMenu: RoleMenu = {
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
       ],
     },
     {
@@ -179,6 +180,7 @@ const marketingMenu: RoleMenu = {
         { title: "Contents Management",   url: "/marketing-contents",     icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",       icon: Target },
         { title: "Service and Stock",     url: "/service-stock",          icon: PackageSearch },
+        { title: "Stock Analytics",       url: "/app/stock-analytics",    icon: TrendingUp },
       ],
     },
     {
@@ -219,6 +221,7 @@ const obCoordinatorMenu: RoleMenu = {
       category: "SERVICES",
       items: [
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
       ],
     },
   ],
@@ -247,6 +250,7 @@ const coordinatorMenu: RoleMenu = {
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Quotation/Invoice", url: "/app/quotation", icon: FileText },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
       ],
     },
   ],
