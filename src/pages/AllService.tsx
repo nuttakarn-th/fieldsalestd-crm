@@ -985,7 +985,7 @@ ${catBlocks}
         }
       }
       if (filterSeatHold) {
-        const hasSeatHold = ps.some((p) => !!p.seat_hold);
+        const hasSeatHold = (t.periods ?? []).some((p) => !!p.seat_hold);
         if (!hasSeatHold) return false;
       }
       if (filterPromo) {
