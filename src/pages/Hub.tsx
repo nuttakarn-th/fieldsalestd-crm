@@ -96,7 +96,7 @@ function SectionRow({
         </span>
         <div className="flex-1 h-px" style={{ background: `${color}55` }} />
       </div>
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${c}, 1fr)` }}>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: c >= 5 ? `repeat(auto-fill, minmax(100px, 1fr))` : `repeat(${c}, 1fr)` }}>
         {tiles.map((t) => <CompactCard key={t.title} tile={t} rgb={rgb} />)}
       </div>
     </div>
@@ -169,10 +169,18 @@ function MarketingCategorisedGrid() {
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
       <Link to="/app/marketing-hub" className="group">
         <div
-          className="relative overflow-hidden rounded-2xl px-5 py-3.5 flex items-center gap-4 transition-all duration-200 group-hover:brightness-108 group-hover:scale-[1.008]"
+          className="relative overflow-hidden rounded-2xl px-5 py-4 flex items-center gap-4 transition-all duration-200 group-hover:brightness-108 group-hover:scale-[1.008]"
           style={{ background: "linear-gradient(135deg,#6d28d9 0%,#a855f7 45%,#db2777 100%)" }}
         >
           <div className="absolute right-0 top-0 h-full w-36 bg-white/5 skew-x-[-18deg] translate-x-10 pointer-events-none" />
+          {totalCount > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] rounded-b-2xl overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-red-400 via-amber-300 to-purple-400 opacity-70 transition-all duration-700"
+                style={{ width: `${Math.min(100, totalCount * 5)}%` }}
+              />
+            </div>
+          )}
           <div className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white/15">
             <Bell className="w-4 h-4 text-white" strokeWidth={2} />
           </div>
@@ -186,14 +194,25 @@ function MarketingCategorisedGrid() {
                 </span>
               )}
             </div>
-            <p className="text-white/60 text-[10px] mt-0.5 leading-none">
-              {totalCount === 0
-                ? "ทุก Period ปกติดี 🎉"
-                : [
-                    urgentCount > 0 ? `🔥 ${urgentCount} ด่วน` : "",
-                    fomoCount   > 0 ? `📣 ${fomoCount} ใกล้เต็ม` : "",
-                  ].filter(Boolean).join("  ·  ")}
-            </p>
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              {totalCount === 0 ? (
+                <span className="text-[9px] font-semibold text-emerald-400">✅ ทุก Period ปกติดี</span>
+              ) : (
+                <>
+                  {urgentCount > 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/30 text-red-300 border border-red-500/40">
+                      🔥 {urgentCount} ด่วน
+                    </span>
+                  )}
+                  {fomoCount > 0 && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/35">
+                      📊 {fomoCount} ใกล้เต็ม
+                    </span>
+                  )}
+                  <span className="text-[9px] text-white/35">{totalCount} รายการรวม</span>
+                </>
+              )}
+            </div>
           </div>
           <ArrowRight className="shrink-0 w-4 h-4 text-white/60 transition-transform duration-200 group-hover:translate-x-2" />
         </div>
