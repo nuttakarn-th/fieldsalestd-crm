@@ -1,10 +1,10 @@
-/* Field sale CRM — purple/pink/gold palette, Kanit font */
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Field sale CRM — purple/pink/gold palette, Kanit font */
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
@@ -171,8 +171,8 @@
   }
   .anim-tab-enter { animation: fadeInTab 0.22s ease-out both; }
   .anim-card-in   { animation: cardIn 0.18s ease-out both; }
-}
- /* ── Leaflet heatmap tooltip — strip default styles, show above canvas ── */
+
+  /* ── Leaflet heatmap tooltip — strip default styles, show above canvas ── */
   .leaflet-heatmap-tooltip {
     background: transparent !important;
     border: none !important;
