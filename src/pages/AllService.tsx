@@ -1786,22 +1786,6 @@ ${catBlocks}
                             <span className="text-xs font-semibold text-blue-700">เลือก {selectedPeriods.size} Period</span>
                             <div className="flex items-center gap-1 ml-2">
                               <button
-                                className="h-7 px-3 rounded-md text-xs font-semibold border transition-colors"
-                                style={{background:"#DC2626",color:"#fff",borderColor:"#DC2626"}}
-                                onClick={() => {
-                                  if (!confirm(`ยืนยันยกเลิก ${selectedPeriods.size} Period ที่เลือก?`)) return;
-                                  selectedPeriods.forEach((pid) => {
-                                    const tour = tours.find(t => t.periods?.some(p => p.period_id === pid));
-                                    if (!tour) return;
-                                    const period = tour.periods?.find(p => p.period_id === pid);
-                                    if (!period) return;
-                                    updatePeriod(tour.id, pid, { ...period, cancelled: true, cancel_reason: "Bulk cancel", updated_by: actorName, updated_at: new Date().toISOString() });
-                                  });
-                                  toast.success(`ยกเลิก ${selectedPeriods.size} Period แล้ว`);
-                                  setSelectedPeriods(new Set());
-                                }}
-                              >ยกเลิก Period ที่เลือก</button>
-                              <button
                                 className="h-7 px-3 rounded-md text-xs font-semibold border border-blue-300 text-blue-700 transition-colors hover:bg-blue-50"
                                 onClick={() => {
                                   const rows: Record<string, unknown>[] = [];
