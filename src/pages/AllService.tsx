@@ -296,6 +296,7 @@ const blankPeriodForm = () => ({
   shopping: false,
   all_in: false,
   vat7: false,
+  seat_hold: false,
   promo: false,
   footnote: "",
   tags: [] as string[],
@@ -358,6 +359,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterCountry, setFilterCountry] = useState("");
   const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก">("");
   const [filterPromo, setFilterPromo]     = useState(false);
+  const [filterSeatHold, setFilterSeatHold] = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
   // ── date range filter (period travel date) ──
@@ -500,6 +502,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       shopping: p.shopping ?? false,
       all_in: p.all_in ?? false,
       vat7: p.vat7 ?? false,
+      seat_hold: p.seat_hold ?? false,
       promo: p.promo ?? false,
       footnote: p.footnote ?? "",
       tags: p.tags ?? [],
@@ -544,6 +547,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       shopping: pForm.shopping || undefined,
       all_in: pForm.all_in || undefined,
       vat7: pForm.vat7 || undefined,
+      seat_hold: pForm.seat_hold || undefined,
       promo: pForm.promo || undefined,
       footnote: pForm.footnote || undefined,
       tags: pForm.tags.length > 0 ? pForm.tags : undefined,
@@ -980,6 +984,10 @@ ${catBlocks}
           if (!has) return false;
         }
       }
+      if (filterSeatHold) {
+        const hasSeatHold = ps.some((p) => !!p.seat_hold);
+        if (!hasSeatHold) return false;
+      }
       if (filterPromo) {
         const has = (t.periods ?? []).some((p) =>
           typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat
@@ -1008,16 +1016,16 @@ ${catBlocks}
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterPromo, filterTags, filterDateFrom, filterDateTo]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
   const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
 
-  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
+  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
   const clearFilters = () => {
     setFilterText(""); setFilterCat(""); setFilterCountry("");
-    setFilterStatus(""); setFilterPromo(false); setFilterTags([]);
+    setFilterStatus(""); setFilterSeatHold(false); setFilterPromo(false); setFilterTags([]);
     setFilterDateFrom(""); setFilterDateTo("");
   };
 
@@ -1053,7 +1061,7 @@ ${catBlocks}
           >
             <SlidersHorizontal className="w-4 h-4" />
             ตัวกรอง
-            {hasFilter && <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-bold flex items-center justify-center">{[filterCat, filterCountry, filterStatus, filterPromo, ...filterTags].filter(Boolean).length}</span>}
+            {hasFilter && <span className="w-4 h-4 rounded-full bg-pink-500 text-white text-[9px] font-bold flex items-center justify-center">{[filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, ...filterTags].filter(Boolean).length}</span>}
           </button>
         </div>
 
@@ -1091,6 +1099,11 @@ ${catBlocks}
                 className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground"}`}
                 style={filterPromo ? {background: "#F59E0B"} : undefined}
               >🔥 Promo</button>
+              <button
+                onClick={() => setFilterSeatHold((v) => !v)}
+                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground"}`}
+                style={filterSeatHold ? {background: "#0D9488"} : undefined}
+              >💸 วางที่นั่ง</button>
               {hasFilter && (
                 <button onClick={() => { clearFilters(); setFilterOpen(false); }} className="h-8 px-3 text-sm text-red-500 border border-red-200 rounded-lg">✕ ล้างทั้งหมด</button>
               )}
@@ -1167,6 +1180,11 @@ ${catBlocks}
               className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-300 hover:text-orange-400"}`}
               style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
             >🔥 Promo</button>
+            <button
+              onClick={() => setFilterSeatHold((v) => !v)}
+              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground hover:border-teal-400 hover:text-teal-600"}`}
+              style={filterSeatHold ? {background: "#0D9488", borderColor: "#0D9488"} : undefined}
+            >💸 วางที่นั่ง</button>
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
@@ -1398,6 +1416,7 @@ ${catBlocks}
                 const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
                 // ── Period-level filter (matches tour-level logic but applied per period) ──
                 const visiblePeriods = (t.periods ?? []).filter((p) => {
+                  if (filterSeatHold && !p.seat_hold) return false;
                   if (filterPromo && !(typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)) return false;
                   if (filterStatus === "ยกเลิก"  && !p.cancelled) return false;
                   if (filterStatus === "ปิดกรุ๊ป" && (p.cancelled || p.quota !== 0)) return false;
@@ -1410,7 +1429,7 @@ ${catBlocks}
                   }
                   return true;
                 });
-                const periodFilterActive = !!(filterStatus || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
+                const periodFilterActive = !!(filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
                 const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
                 const priceMin = prices.length ? Math.min(...prices) : t.price_per_seat;
                 const priceMax = prices.length ? Math.max(...prices) : t.price_per_seat;
@@ -1939,6 +1958,7 @@ ${catBlocks}
                                   >
                                     {p.start_date ? fmtThaiShort(p.start_date) : p.travel_date}
                                     {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThaiShort(p.end_date)}` : ""}
+                                    {p.seat_hold && <span className="ml-1" title="วางที่นั่ง">💸</span>}
                                   </div>
                                 </div>
 
@@ -2691,6 +2711,7 @@ ${catBlocks}
                     { key: "shopping" as const, label: "ลงร้าน",        color: "#F59E0B" },
                     { key: "all_in"   as const, label: "จอง จ่าย จบ",  color: "#16A34A" },
                     { key: "vat7"     as const, label: "Vat7%",         color: "#2563EB" },
+                    { key: "seat_hold" as const, label: "💸 วางที่นั่ง", color: "#0D9488" },
                   ] as const).map(({ key, label, color }) => (
                     <button key={key} type="button"
                       onClick={() => setPForm((f) => ({ ...f, [key]: !f[key] }))}

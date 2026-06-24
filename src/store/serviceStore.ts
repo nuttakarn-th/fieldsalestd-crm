@@ -42,6 +42,7 @@ export interface TourPeriod {
   special_price?: number;   // ราคาพิเศษ — เมื่อกรอก icon 🔥 แสดงอัตโนมัติ
   footnote?: string;        // ข้อความแสดงเมื่อ expand แถว
   tags?: string[];          // category tags เช่น ["ครอบครัว", "ธรรมชาติ"]
+  seat_hold?: boolean;      // วางที่นั่ง (💸 แสดงต่อท้ายวันเดินทาง)
   // ── Audit trail ──
   created_by?: string;      // ชื่อผู้ใช้ที่สร้าง period นี้
   created_at?: string;      // ISO timestamp เมื่อสร้าง
