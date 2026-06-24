@@ -116,6 +116,14 @@ const webSettingTile = {
   gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
 
+const profileTile = {
+  title: "My Profile",
+  description: "ข้อมูลส่วนตัว นามบัตรดิจิทัล พร้อมดาวน์โหลดเป็นภาพได้",
+  icon: UserIcon,
+  to: "/profile",
+  gradient: "from-emerald-500 via-teal-500 to-cyan-600",
+};
+
 // ── Marketing categorised grid ────────────────────────────────────────────────
 // ── Marketing categorised grid ────────────────────────────────────────────
 function MarketingCategorisedGrid() {
