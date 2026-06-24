@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Image, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell } from "lucide-react";
 import { useEffect } from "react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
@@ -58,62 +58,124 @@ const baseTiles = [
   },
 ];
 
-const marketingTiles = [
+// ── Marketing — categorised tile groups ──────────────────────────────────────
+interface TileDef {
+  title: string; description: string;
+  icon: typeof Briefcase; to: string; gradient: string; featured?: boolean;
+}
+interface TileCategory {
+  label: string; emoji: string; color: string; tiles: TileDef[];
+}
+
+const marketingCategories: TileCategory[] = [
   {
-    title: "Sales Dashboard",
-    description: "ภาพรวมยอดขาย, Lead, Pipeline และเป้าหมายของทีม",
-    icon: LayoutDashboard,
-    to: "/marketing-dashboard",
-    gradient: "from-purple-600 via-violet-600 to-indigo-600",
+    label: "Intelligence", emoji: "🎯", color: "#a855f7",
+    tiles: [
+      {
+        title: "Marketing Hub", featured: true,
+        description: "ศูนย์กลาง Signal: โปรแกรมที่ต้องโปรโมท, ใกล้เต็ม, ปิดกรุ๊ป และยกเลิก — เรียงตามความเร่งด่วน",
+        icon: Bell, to: "/app/marketing-hub",
+        gradient: "from-fuchsia-600 via-purple-600 to-violet-700",
+      },
+      {
+        title: "Ads Dashboard",
+        description: "วิเคราะห์ผล Meta Ads — อัปโหลด Excel แล้วดูกราฟ + AI วิเคราะห์แนวทางปรับปรุง",
+        icon: TrendingUp, to: "/ads-dashboard",
+        gradient: "from-violet-600 via-fuchsia-600 to-pink-600",
+      },
+      {
+        title: "Stock Analytics",
+        description: "เปรียบเทียบ Period, ที่นั่ง และ Booking Rate ปีต่อปี พร้อม Predictive Insights",
+        icon: BarChart3, to: "/app/stock-analytics",
+        gradient: "from-indigo-600 via-blue-600 to-cyan-500",
+      },
+      {
+        title: "Marketing Report",
+        description: "รายงานผลแคมเปญ, ยอดขาย และวิเคราะห์ข้อมูลการตลาด",
+        icon: BarChart3, to: "/app/marketing-report",
+        gradient: "from-amber-400 via-orange-500 to-rose-500",
+      },
+    ],
   },
   {
-    title: "Leads/Customers",
-    description: "รายชื่อลูกค้า, สถานะ, ประวัติการติดต่อและข้อมูลการจอง",
-    icon: Users,
-    to: "/marketing-customers",
-    gradient: "from-blue-500 via-blue-600 to-indigo-600",
+    label: "Campaigns & Content", emoji: "📣", color: "#ec4899",
+    tiles: [
+      {
+        title: "Campaign Management",
+        description: "จัดการแคมเปญการตลาด, โปรโมชัน และติดตามผล",
+        icon: Megaphone, to: "/app/campaigns",
+        gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
+      },
+      {
+        title: "Contents Management",
+        description: "Content Calendar, Tour → Content Link, Asset Library, Post Performance — ครบในที่เดียว",
+        icon: LayoutGrid, to: "/marketing-contents",
+        gradient: "from-violet-500 via-purple-600 to-indigo-600",
+      },
+      {
+        title: "Audience Builder",
+        description: "LINE Export, FB Audience, Birthday, Cold Lead, VIP List, Interest Segment — Targeting ครบ",
+        icon: Target, to: "/audience-builder",
+        gradient: "from-sky-500 via-indigo-500 to-purple-600",
+      },
+    ],
   },
   {
-    title: "Campaign Management",
-    description: "จัดการแคมเปญการตลาด, โปรโมชัน และติดตามผล",
-    icon: Megaphone,
-    to: "/marketing-campaigns",
-    gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
+    label: "Customers", emoji: "👥", color: "#3b82f6",
+    tiles: [
+      {
+        title: "Leads/Customers",
+        description: "รายชื่อลูกค้า, สถานะ, ประวัติการติดต่อและข้อมูลการจอง",
+        icon: Users, to: "/app/customers",
+        gradient: "from-blue-500 via-blue-600 to-indigo-600",
+      },
+      {
+        title: "Marketing Leads",
+        description: "รายชื่อ Prospect ที่ Marketing ลงไว้ — Sales กดรับ Lead ไปติดตามได้เลย",
+        icon: UserPlus, to: "/app/marketing-leads",
+        gradient: "from-teal-500 via-emerald-500 to-cyan-500",
+      },
+    ],
   },
   {
-    title: "Contents Management",
-    description: "Content Calendar, Tour → Content Link, Asset Library, Post Performance — ครบในที่เดียว",
-    icon: LayoutGrid,
-    to: "/marketing-contents",
-    gradient: "from-violet-500 via-purple-600 to-indigo-600",
+    label: "Service & Stock", emoji: "🏪", color: "#10b981",
+    tiles: [
+      {
+        title: "Service and Stock",
+        description: "ทัวร์, รถเช่า, ตั๋วเครื่องบิน, โรงแรม, วีซ่า และประกันภัย — ดู Period และสถานะที่นั่ง",
+        icon: PackageSearch, to: "/app/all-service",
+        gradient: "from-emerald-500 via-teal-500 to-cyan-500",
+      },
+    ],
   },
   {
-    title: "Audience Builder",
-    description: "LINE Export, FB Audience, Birthday, Cold Lead, VIP List, Interest Segment — เครื่องมือ Targeting ครบ",
-    icon: Target,
-    to: "/audience-builder",
-    gradient: "from-rose-500 via-pink-500 to-fuchsia-600",
-  },
-  {
-    title: "Marketing Leads",
-    description: "รายชื่อ Prospect ที่ Marketing ลงไว้ — Sales กดรับ Lead ไปติดตามได้เลย",
-    icon: UserPlus,
-    to: "/app/marketing-leads",
-    gradient: "from-teal-500 via-emerald-500 to-cyan-500",
-  },
-  {
-    title: "Marketing Report",
-    description: "รายงานผลแคมเปญ, ยอดขาย และวิเคราะห์ข้อมูลการตลาด",
-    icon: BarChart3,
-    to: "/marketing-report",
-    gradient: "from-amber-400 via-orange-500 to-rose-500",
-  },
-  {
-    title: "Ads Dashboard",
-    description: "วิเคราะห์ผล Meta Ads — อัปโหลด Excel แล้วดูกราฟ + AI วิเคราะห์แนวทางปรับปรุง",
-    icon: TrendingUp,
-    to: "/ads-dashboard",
-    gradient: "from-violet-600 via-fuchsia-600 to-pink-600",
+    label: "Company", emoji: "🏢", color: "#f59e0b",
+    tiles: [
+      {
+        title: "STD Presentation",
+        description: "Company Profile และช่องทางสื่อโซเชียลทั้งหมดของบริษัท",
+        icon: Sparkles, to: "/tour-presentation",
+        gradient: "from-amber-400 via-orange-500 to-rose-500",
+      },
+      {
+        title: "Gallery",
+        description: "อัลบั้มภาพสถานที่ท่องเที่ยว รีวิว และกิจกรรมของบริษัท",
+        icon: Images, to: "/gallery",
+        gradient: "from-cyan-500 via-sky-500 to-indigo-500",
+      },
+      {
+        title: "Contact us",
+        description: "Line ID, QR, เบอร์โทรแต่ละแผนก และที่อยู่บริษัท",
+        icon: Phone, to: "/contact-info",
+        gradient: "from-sky-500 via-indigo-500 to-purple-600",
+      },
+      {
+        title: "Teams",
+        description: "รายชื่อและข้อมูลทีมงานทุกตำแหน่ง พร้อมช่องทางติดต่อ",
+        icon: Users2, to: "/teams",
+        gradient: "from-violet-500 via-purple-600 to-fuchsia-600",
+      },
+    ],
   },
 ];
 
@@ -140,6 +202,88 @@ const webSettingTile = {
   to: "/web-setting",
   gradient: "from-slate-600 via-zinc-700 to-neutral-800",
 };
+
+// ── Marketing categorised grid ────────────────────────────────────────────────
+function MarketingCategorisedGrid() {
+  return (
+    <div className="space-y-6">
+      {marketingCategories.map((cat) => (
+        <div key={cat.label}>
+          {/* Section header */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">{cat.emoji}</span>
+            <span
+              className="text-xs font-black uppercase tracking-widest"
+              style={{ color: cat.color }}
+            >
+              {cat.label}
+            </span>
+            <div className="flex-1 h-px" style={{ background: `${cat.color}30` }} />
+          </div>
+
+          {/* Tiles row */}
+          <div className={`grid gap-2 ${cat.tiles.length === 1 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+            {cat.tiles.map((t) => (
+              <Link key={t.title} to={t.to} className="group">
+                <article
+                  className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${t.gradient} text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl
+                    flex flex-row items-center gap-3 px-4 py-3
+                    sm:flex-col sm:items-start sm:px-4 sm:py-4
+                    ${t.featured ? "sm:col-span-2 sm:flex-row sm:items-center sm:gap-4 sm:py-5" : ""}`}
+                >
+                  <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+                  {t.featured && (
+                    <div className="absolute top-2 right-3 text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">HOME</div>
+                  )}
+                  <t.icon
+                    className={`relative shrink-0 ${t.featured ? "w-10 h-10" : "w-7 h-7 sm:w-8 sm:h-8"}`}
+                    strokeWidth={1.5}
+                  />
+                  <div className="relative flex-1 min-w-0">
+                    <h2
+                      className={`leading-tight ${t.featured ? "text-base sm:text-lg" : "text-sm"}`}
+                      style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900 }}
+                    >{t.title}</h2>
+                    <p className={`text-white/80 mt-0.5 leading-snug ${t.featured ? "text-[11px] sm:block" : "hidden sm:block text-[10px] line-clamp-2"}`}>
+                      {t.description}
+                    </p>
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1.5 opacity-90">
+                      เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                  <ArrowRight className="sm:hidden shrink-0 w-4 h-4 opacity-60 transition-transform group-hover:translate-x-0.5" />
+                </article>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* My Profile — always last */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">👤</span>
+          <span className="text-xs font-black uppercase tracking-widest text-white/40">Personal</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Link to="/profile" className="group">
+            <article className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 text-white shadow-elegant transition-all group-hover:-translate-y-0.5 group-hover:shadow-2xl flex flex-row items-center gap-3 px-4 py-3 sm:flex-col sm:items-start sm:px-4 sm:py-4">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+              <UserIcon className="relative shrink-0 w-7 h-7 sm:w-8 sm:h-8" strokeWidth={1.5} />
+              <div className="relative flex-1 min-w-0">
+                <h2 className="text-sm leading-tight" style={{ fontWeight: 900 }}>My Profile</h2>
+                <p className="hidden sm:block text-[10px] text-white/80 mt-0.5 line-clamp-2 leading-snug">ข้อมูลส่วนตัว นามบัตรดิจิทัล พร้อมดาวน์โหลดเป็นภาพได้</p>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-semibold mt-1.5 opacity-90">เข้าใช้งาน <ArrowRight className="w-2.5 h-2.5" /></span>
+              </div>
+              <ArrowRight className="sm:hidden shrink-0 w-4 h-4 opacity-60" />
+            </article>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StaleLeadBtn() {
   const leads     = useCRM((s) => s.leads);
@@ -210,9 +354,8 @@ export default function Hub() {
   if (!user) return <Navigate to="/login" replace />;
   const effectiveRole: AppRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
   const isMarketing = effectiveRole === "Marketing";
-  const sharedTiles = baseTiles.filter((t) => isMarketing ? t.to !== "/app" : true);
+  const sharedTiles = baseTiles.filter((t) => !isMarketing);
   const tiles = [
-    ...(isMarketing ? marketingTiles : []),
     ...sharedTiles,
     ...(effectiveRole === "Admin" ? [adminUserTile, webSettingTile] : []),
     profileTile,
@@ -246,22 +389,25 @@ export default function Hub() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col sm:justify-center max-w-5xl w-full mx-auto px-4 sm:px-6 py-3 sm:py-8">
+      <main className="flex-1 flex flex-col max-w-5xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-8">
         {/* Title */}
-        <div className="flex flex-col items-center mb-6 sm:mb-8">
+        <div className={`flex flex-col ${isMarketing ? "items-start mb-5" : "items-center mb-6 sm:mb-8 sm:justify-center"}`}>
           <h2
             className="tracking-tighter leading-none text-white sm:whitespace-nowrap"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: "clamp(2.5rem, 9.5vw, 8.5rem)" }}
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: isMarketing ? "clamp(1.8rem, 5vw, 3.5rem)" : "clamp(2.5rem, 9.5vw, 8.5rem)" }}
           >
-            Standard Tour Hub.
+            {isMarketing ? "Marketing Hub." : "Standard Tour Hub."}
           </h2>
-          <p className="text-white/40 mt-2 text-sm sm:text-base">ระบบติดตามการขาย และจัดการลูกค้า Standard Tour</p>
+          <p className="text-white/40 mt-1 text-sm">
+            {isMarketing ? `สวัสดี ${user.full_name} — เลือกเครื่องมือด้านล่างเพื่อเริ่มงาน` : "ระบบติดตามการขาย และจัดการลูกค้า Standard Tour"}
+          </p>
         </div>
 
-        {/* Grid:
-            Mobile  → 1 column (horizontal card — ครบทุกเมนูใน 1 หน้า)
-            Tablet  → 3 column vertical card
-            Desktop → 4–5 column compact vertical card              */}
+        {/* ── Marketing: categorised layout ── */}
+        {isMarketing && <MarketingCategorisedGrid />}
+
+        {/* ── Other roles: flat grid ── */}
+        {!isMarketing && (
         <div className="grid grid-cols-1 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
           {tiles.map((t) => (
             <Link key={t.title} to={t.to} className="group">
@@ -296,6 +442,7 @@ export default function Hub() {
             </Link>
           ))}
         </div>
+        )}
       </main>
 
       <ChatWidget />
