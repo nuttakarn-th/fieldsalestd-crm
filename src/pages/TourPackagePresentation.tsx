@@ -25,7 +25,7 @@ import {
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2, Copy,
   SlidersHorizontal, Check, Search, Maximize2, Minimize2,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1298,7 +1298,7 @@ function PackageCard({
   }
 
   return (
-    <article className="group bg-card rounded-2xl border shadow-sm overflow-hidden flex flex-col hover:shadow-lg transition-all hover:-translate-y-0.5">
+    <article id={`pkg-card-${pkg.id}`} className="group bg-card rounded-2xl border shadow-sm overflow-hidden flex flex-col hover:shadow-lg transition-all hover:-translate-y-0.5">
       {/* Cover 1:1 — คลิกที่รูปเปิด flipbook ได้เลย */}
       <div
         className="relative aspect-square bg-muted/30 overflow-hidden cursor-pointer"
@@ -2156,6 +2156,23 @@ export default function TourPackagePresentation() {
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // ── Deep-link: ?pkg=<id> — auto-open flipbook when shared link is opened ──
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const pkgId = searchParams.get("pkg");
+    if (!pkgId || packages.length === 0 || flipbookPkg) return;
+    const found = packages.find((p) => p.id === pkgId);
+    if (found) {
+      setFlipbookPkg(found);
+      // Scroll card into view after a brief delay
+      setTimeout(() => {
+        const el = document.getElementById(`pkg-card-${pkgId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 400);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, searchParams]);
 
   // ── Filter options ─────────────────────────────────────────────────────────
   const allContinents = useMemo(() => [...new Set(packages.map(p => p.continent).filter(Boolean))].sort(), [packages]);
