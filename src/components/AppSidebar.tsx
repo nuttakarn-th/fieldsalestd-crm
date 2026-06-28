@@ -4,6 +4,7 @@ import { useAuth, useCurrentUser, type AppRole } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/config/roleMenus";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
+import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Sidebar,
@@ -107,10 +108,15 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* ── At-Risk Notification ── */}
+        {/* ── Notifications ── */}
         <SidebarGroup className={collapsed ? "py-1" : "py-1"}>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
+              <SidebarMenuItem>
+                <div className="px-1">
+                  <NewProgramNotification collapsed={collapsed} />
+                </div>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <div className="px-1">
                   <AtRiskNotification collapsed={collapsed} />
