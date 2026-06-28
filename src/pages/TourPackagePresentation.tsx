@@ -1282,7 +1282,10 @@ function PackageCard({
   const clr = CONTINENT_COLORS[pkg.continent] ?? { bg: "bg-muted", text: "text-muted-foreground", border: "border-border", emoji: "🌍" };
 
   async function handleShare() {
-    const shareUrl = `${window.location.origin}/tour-packages?pkg=${pkg.id}`;
+    // /api/share?pkg=xxx → Vercel serverless fn ที่ inject OG meta tags ถูกต้อง
+    // แล้ว redirect ผู้ใช้จริงไปหน้า /tour-packages?pkg=xxx ทันที
+    // (Facebook / LINE bots ไม่รัน JS → เห็น OG tags ของโปรแกรมนี้โดยเฉพาะ)
+    const shareUrl = `${window.location.origin}/api/share?pkg=${pkg.id}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: pkg.title, text: `${pkg.title} — Standard Tour`, url: shareUrl });
