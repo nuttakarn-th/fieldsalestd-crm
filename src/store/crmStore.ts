@@ -208,12 +208,14 @@ export const SOURCES: Source[] = ["Field Sale", "FB", "Line OA", "Website", "Tik
 export const BU_TYPES: BUType[] = ["ทัวร์ต่างประเทศ", "ทัวร์ภายในประเทศ", "เช่ารถ ท่องเที่ยว", "จองตั๋วเครื่องบิน"];
 
 export type ContentStatus   = "Draft" | "Scheduled" | "Published" | "Done";
-export type ContentChannel  = "Facebook" | "Instagram" | "LINE";
+export type ContentChannel  = "Facebook" | "Instagram" | "TikTok" | "LINE" | "YouTube" | "Lemon8" | "X" | "LinkedIn";
+export type ContentType     = "Single Photo" | "Photo Album" | "Short VDO" | "Long VDO";
 export interface ContentPost {
   post_id:          string;
   title:            string;
   caption:          string;
-  channel:          ContentChannel;
+  channels:         ContentChannel[];   // multi-select platforms (เปลี่ยนจาก channel เดิม)
+  content_type:     ContentType;        // ประเภท content
   scheduled_date:   string; // YYYY-MM-DD
   status:           ContentStatus;
   campaign_id?:     string;
@@ -226,8 +228,9 @@ export interface ContentPost {
   shares?:          number;
   leads_generated?: number;
 }
-export const CONTENT_CHANNELS: ContentChannel[] = ["Facebook", "Instagram", "LINE"];
+export const CONTENT_CHANNELS: ContentChannel[] = ["Facebook", "Instagram", "TikTok", "LINE", "YouTube", "Lemon8", "X", "LinkedIn"];
 export const CONTENT_STATUSES: ContentStatus[]  = ["Draft", "Scheduled", "Published", "Done"];
+export const CONTENT_TYPES:    ContentType[]    = ["Single Photo", "Photo Album", "Short VDO", "Long VDO"];
 
 /** Template กรอบรูปสำหรับ Photo Frame Studio — เก็บเป็น base64 dataUrl */
 export interface ContentTemplate {

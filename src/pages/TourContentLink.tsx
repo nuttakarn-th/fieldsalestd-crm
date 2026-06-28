@@ -122,7 +122,8 @@ export default function TourContentLink() {
     addContentPost({
       title:          idea.title,
       caption:        idea.caption,
-      channel:        idea.channel,
+      channels:       [idea.channel],
+      content_type:   "Single Photo" as const,
       scheduled_date: new Date().toISOString().slice(0, 10),
       status:         "Draft",
       tour_id:        selected?.id,

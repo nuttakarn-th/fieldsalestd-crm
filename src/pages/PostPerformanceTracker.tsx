@@ -12,7 +12,12 @@ import type { ContentPost, ContentChannel } from "@/store/crmStore";
 const CH_COLOR: Record<ContentChannel, string> = {
   Facebook:  "text-blue-600 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/40",
   Instagram: "text-pink-600 bg-pink-100 dark:text-pink-300 dark:bg-pink-900/40",
+  TikTok:    "text-slate-900 bg-slate-100 dark:text-slate-200 dark:bg-slate-800",
   LINE:      "text-green-600 bg-green-100 dark:text-green-300 dark:bg-green-900/40",
+  YouTube:   "text-red-600 bg-red-100 dark:text-red-300 dark:bg-red-900/40",
+  Lemon8:    "text-yellow-700 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/40",
+  X:         "text-slate-900 bg-slate-100 dark:text-slate-200 dark:bg-slate-800",
+  LinkedIn:  "text-blue-700 bg-blue-100 dark:text-blue-300 dark:bg-blue-900/40",
 };
 function ChannelIcon({ ch }: { ch: ContentChannel }) {
   if (ch === "Facebook")  return <Facebook  className="w-3 h-3" />;
@@ -89,7 +94,7 @@ export default function PostPerformanceTracker() {
 
   // ── Sorted + filtered list ─────────────────────────────────────────────────
   const sorted = useMemo(() => {
-    let list = contentPosts.filter((p) => filterCh === "All" || p.channel === filterCh);
+    let list = contentPosts.filter((p) => filterCh === "All" || (p.channels ?? []).includes(filterCh));
     list = [...list].sort((a, b) => {
       let va = 0, vb = 0;
       if (sortBy === "date")  { va = a.scheduled_date.localeCompare(b.scheduled_date); return sortDir === "asc" ? va : -va; }
@@ -144,14 +149,14 @@ export default function PostPerformanceTracker() {
             <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4">
               <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">🏆 สร้าง Lead สูงสุด</p>
               <p className="font-semibold text-sm truncate">{topByLeads.title}</p>
-              <p className="text-xs text-muted-foreground">{topByLeads.leads_generated} leads · {topByLeads.channel} · {fmtDate(topByLeads.scheduled_date)}</p>
+              <p className="text-xs text-muted-foreground">{topByLeads.leads_generated} leads · {(topByLeads.channels?.[0] ?? "Facebook")} · {fmtDate(topByLeads.scheduled_date)}</p>
             </div>
           )}
           {topByReach && (topByReach.reach ?? 0) > 0 && (
             <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
               <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">📡 Reach สูงสุด</p>
               <p className="font-semibold text-sm truncate">{topByReach.title}</p>
-              <p className="text-xs text-muted-foreground">{(topByReach.reach ?? 0).toLocaleString()} reach · {topByReach.channel} · {fmtDate(topByReach.scheduled_date)}</p>
+              <p className="text-xs text-muted-foreground">{(topByReach.reach ?? 0).toLocaleString()} reach · {(topByReach.channels?.[0] ?? "Facebook")} · {fmtDate(topByReach.scheduled_date)}</p>
             </div>
           )}
         </div>
@@ -213,8 +218,8 @@ export default function PostPerformanceTracker() {
                   </div>
                 </div>
                 {/* Channel */}
-                <span className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${CH_COLOR[p.channel]}`}>
-                  <ChannelIcon ch={p.channel} /> {p.channel}
+                <span className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${CH_COLOR[p.channels?.[0] ?? "Facebook"]}`}>
+                  <ChannelIcon ch={p.channels?.[0] ?? "Facebook"} /> {p.channels?.join(" + ") ?? "Facebook"}
                 </span>
                 {/* Editable metrics */}
                 <NumField value={p.reach}           onChange={(v) => updateContentPost(p.post_id, { reach: v })}           icon={TrendingUp}    placeholder="—" />
