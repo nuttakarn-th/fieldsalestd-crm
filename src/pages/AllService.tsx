@@ -332,7 +332,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [form, setForm]       = useState(blankTourForm());
   const [pdfFile, setPdfFile] = useState<File | null>(null);       // optional PDF ใน dialog
   const [uploadingNewPdf, setUploadingNewPdf] = useState(false);   // spinner ขณะอัปโหลด
-  const pendingNewTourIdRef = React.useRef<string | null>(null); // useRef: ไม่ trigger re-render → ไม่มี cleanup race
+  // ── Wizard step (Approach A): เปลี่ยน content ใน dialog เดิม ──
+  const [dialogStep, setDialogStep] = useState<"tour" | "period">("tour");
+  const [wizardTourId, setWizardTourId] = useState<string>("");
 
   // ── period dialog ──
   const [pOpen, setPOpen]         = useState(false);
@@ -345,25 +347,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const toggleExpand = (id: string) =>
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
-  // ── เปิด Period dialog หลัง tour dialog ปิดสนิท ──────────────────────────────
-  // ใช้ useRef แทน useState เพื่อหลีกเลี่ยง cleanup race condition:
-  // - useState: setPending(null) → re-render → React runs cleanup → clearTimeout!
-  // - useRef:   ref.current = null ไม่ trigger re-render → ไม่มี cleanup → timer fires ✓
-  useEffect(() => {
-    if (!open && pendingNewTourIdRef.current) {
-      const id = pendingNewTourIdRef.current;
-      pendingNewTourIdRef.current = null;
-      const t = window.setTimeout(() => {
-        setPTourId(id);
-        setPEditId(null);
-        setPForm(blankPeriodForm());
-        setExpanded((prev) => new Set([...prev, id]));
-        setPOpen(true);
-      }, 300);
-      return () => window.clearTimeout(t);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // ── (Wizard Approach A — no useEffect needed, dialog stays open) ──
 
   // ── inline quota pending edit (per period_id) ──
   const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
@@ -451,7 +435,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   }, [form.startDate, form.returnDate]);
 
   // ── program open/submit ──
-  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setPdfFile(null); setShowAllChips(false); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setPdfFile(null); setShowAllChips(false); setDialogStep("tour"); setWizardTourId(""); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
@@ -493,31 +477,32 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     };
     if (editId) {
       updateTour(editId, { ...payload, updated_by: actorName });
-    } else {
-      const newId = addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [], created_by: actorName, updated_by: actorName });
-    }
-    if (editId) {
       toast.success("อัปเดตโปรแกรมแล้ว");
       setOpen(false);
     } else {
-      toast.success("เพิ่มโปรแกรมใหม่แล้ว");
-      setOpen(false);
-      // ── อัปโหลด PDF (ถ้ามี) แล้วเปิด Period dialog ทันที ──
+      // ── สร้างโปรแกรมใหม่ ──
+      const newId = addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [], created_by: actorName, updated_by: actorName });
+      toast.success("✅ บันทึกโปรแกรมแล้ว — เพิ่ม Period ได้เลย");
+      // อัปโหลด PDF async ถ้ามี (ไม่ block wizard)
       if (pdfFile) {
-        // อัปโหลด PDF async — ไม่ block การสร้าง Period dialog
         const fileToUpload = pdfFile;
-        setPdfFile(null); // clear ก่อน async
+        setPdfFile(null);
         setUploadingNewPdf(true);
         uploadTourPDF(newId, fileToUpload)
           .then((url) => {
             setUploadingNewPdf(false);
             if (url) toast.success("📄 อัปโหลด PDF สำเร็จ");
-            else toast.error("อัปโหลด PDF ล้มเหลว — ลองใหม่จากปุ่ม PDF ใน row");
+            else toast.error("อัปโหลด PDF ล้มเหลว — ลองอัปโหลดทีหลังจากปุ่ม PDF ในรายการ");
           })
           .catch(() => { setUploadingNewPdf(false); toast.error("อัปโหลด PDF ล้มเหลว"); });
       }
-      // รอให้ main dialog ปิดสนิท (animation เสร็จ) แล้วค่อยเปิด Period dialog
-      pendingNewTourIdRef.current = newId;
+      // ── Wizard Step 2: เปลี่ยน dialog content เป็น Period form (ไม่ปิด dialog เลย) ──
+      setWizardTourId(newId);
+      setPTourId(newId);
+      setPEditId(null);
+      setPForm(blankPeriodForm());
+      setExpanded((prev) => new Set([...prev, newId]));
+      setDialogStep("period");
     }
   };
 
@@ -610,6 +595,49 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       toast.success("เพิ่ม period ใหม่แล้ว");
     }
     setPOpen(false);
+  };
+
+  // ── Wizard: บันทึก Period แล้วปิด main dialog ──
+  const submitPeriodWizard = () => {
+    if (!pForm.start_date) { toast.error("ระบุวันที่เดินทาง"); return; }
+    if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
+    const seats = Number(pForm.total_seats || 0);
+    const travelDate = genTravelDate(pForm.start_date, pForm.end_date, pForm.days, pForm.nights);
+    const now = new Date().toISOString();
+    const payload: Omit<TourPeriod, "period_id"> = {
+      start_date: pForm.start_date,
+      end_date: pForm.end_date || undefined,
+      nights: pForm.nights ? Number(pForm.nights) : undefined,
+      days: pForm.days ? Number(pForm.days) : undefined,
+      travel_date: travelDate,
+      price_per_seat: Number(pForm.price_per_seat || 0),
+      special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
+      total_seats: seats,
+      quota: seats,
+      airline_code: pForm.airline_code || undefined,
+      departure_city: pForm.departure_city || undefined,
+      project: pForm.project || undefined,
+      note: pForm.note || undefined,
+      cancelled: pForm.cancelled || undefined,
+      cancel_reason: pForm.cancelled ? (pForm.cancel_reason || undefined) : undefined,
+      freeday: pForm.freeday || undefined,
+      shopping: pForm.shopping || undefined,
+      all_in: pForm.all_in || undefined,
+      vat7: pForm.vat7 || undefined,
+      seat_hold: pForm.seat_hold || undefined,
+      promo: pForm.promo || undefined,
+      footnote: pForm.footnote || undefined,
+      tags: pForm.tags.length > 0 ? pForm.tags : undefined,
+      updated_by: actorName,
+      updated_at: now,
+      created_by: actorName,
+      created_at: now,
+    };
+    addPeriod(wizardTourId, payload);
+    toast.success("🎉 เพิ่ม Period แรกเรียบร้อย!");
+    setOpen(false);
+    setDialogStep("tour");
+    setWizardTourId("");
   };
 
   // Auto-calc days/nights when period start/end date changes — skipped if user overrode manually
@@ -2304,9 +2332,15 @@ ${catBlocks}
         </div>
       )}
 
-      {/* ── Program Dialog ── */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg w-[calc(100vw-24px)] sm:w-auto rounded-2xl">
+      {/* ── Program Dialog (2-step wizard: tour → period) ── */}
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setDialogStep("tour"); setWizardTourId(""); } }}>
+        <DialogContent className={dialogStep === "period"
+          ? "max-w-[700px] w-[calc(100vw-16px)] sm:w-auto p-0 gap-0 rounded-2xl"
+          : "max-w-lg w-[calc(100vw-24px)] sm:w-auto rounded-2xl"
+        }>
+
+          {/* ══ STEP 1: ข้อมูลโปรแกรม ══ */}
+          {dialogStep === "tour" && (<>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <PackageSearch className="w-4 h-4" style={{color: "#7C3AED"}} />
@@ -2579,7 +2613,7 @@ ${catBlocks}
             )}
 
             <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-              💡 หลังบันทึกโปรแกรม ระบบจะเปิดหน้าต่าง "เพิ่ม Period" ทันที — ไม่ต้องค้นหาโปรแกรมอีก
+              💡 หลังบันทึกโปรแกรม ระบบจะให้เพิ่ม Period ได้ทันทีในหน้าต่างนี้ — ไม่ต้องปิดหรือค้นหาโปรแกรมอีก
             </p>
           </div>
 
@@ -2590,6 +2624,186 @@ ${catBlocks}
               {editId ? "บันทึก" : pdfFile ? "บันทึก + เพิ่ม Period" : "บันทึก → เพิ่ม Period"}
             </Button>
           </div>
+          </>)}
+
+          {/* ══ STEP 2: เพิ่ม Period (wizard) ══ */}
+          {dialogStep === "period" && (<>
+          {/* Header */}
+          <DialogHeader className="px-4 pt-4 pb-2.5 border-b">
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              <span className="text-green-600 font-semibold">✅ บันทึกโปรแกรมแล้ว</span>
+              <span className="text-xs font-normal text-muted-foreground">— เพิ่ม Period แรกได้เลย</span>
+              <span className="ml-auto text-xs font-normal text-muted-foreground bg-muted rounded px-2 py-0.5">
+                {tours.find((t) => t.id === wizardTourId)?.code || tours.find((t) => t.id === wizardTourId)?.city}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Period form body — same layout as Period dialog */}
+          <div className="overflow-y-auto max-h-[70vh] sm:max-h-none sm:overflow-visible">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:divide-x">
+
+            {/* LEFT: ข้อมูลพื้นฐาน */}
+            <div className="px-4 py-3 space-y-2.5">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">วันเดินทาง *</label>
+                  <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.start_date}
+                    onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">วันกลับ</label>
+                  <Input className="h-8 text-xs mt-0.5" type="date" value={pForm.end_date}
+                    onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
+                </div>
+              </div>
+
+              {pForm.start_date && pForm.end_date && pForm.days ? (
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-300 bg-amber-50/60" : "border-primary/20 bg-primary/8"}`}>
+                  <CalendarDays className={`w-3 h-3 shrink-0 ${pForm.manualNights ? "text-amber-500" : "text-primary"}`} />
+                  <div className="flex items-center gap-0.5">
+                    <input type="number" min={1} max={30}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-card focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      value={pForm.days}
+                      onChange={(e) => { const d = Number(e.target.value); if (d > 0) setPForm((f) => ({ ...f, days: String(d), nights: String(Math.max(0, d - 1)), manualNights: true })); }}
+                    />
+                    <span className={`text-xs font-semibold ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}>วัน</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <input type="number" min={0} max={30}
+                      className={`w-8 h-5 text-center text-xs font-bold rounded border-0 bg-transparent outline-none focus:bg-card focus:border focus:border-primary/40 focus:rounded ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}
+                      value={pForm.nights}
+                      onChange={(e) => { const n = Number(e.target.value); if (n >= 0) setPForm((f) => ({ ...f, nights: String(n), days: String(n + 1), manualNights: true })); }}
+                    />
+                    <span className={`text-xs font-semibold ${pForm.manualNights ? "text-amber-700" : "text-primary"}`}>คืน</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground flex-1 truncate">{fmtThai(pForm.start_date)} – {fmtThai(pForm.end_date)}</span>
+                  {pForm.manualNights ? (
+                    <button type="button" title="รีเซ็ตเป็นการคำนวณอัตโนมัติ"
+                      onClick={() => setPForm((f) => { const s = new Date(f.start_date); const e2 = new Date(f.end_date); const n = (!isNaN(s.getTime()) && !isNaN(e2.getTime())) ? Math.round((e2.getTime() - s.getTime()) / 86400000) : 0; return { ...f, nights: String(n), days: String(n + 1), manualNights: false }; })}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 shrink-0 whitespace-nowrap">✏️ Manual · ↺ Auto</button>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/60 shrink-0 whitespace-nowrap">Auto</span>
+                  )}
+                </div>
+              ) : (
+                <div className="h-7 rounded-lg border border-dashed border-border flex items-center justify-center">
+                  <span className="text-[10px] text-muted-foreground/40">เลือกวันเดินทางและวันกลับ</span>
+                </div>
+              )}
+
+              <button type="button" onClick={() => setPForm((f) => ({ ...f, seat_hold: !f.seat_hold }))}
+                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"
+                style={pForm.seat_hold ? { background: "#0D9488", color: "#fff", borderColor: "#0D9488" } : { borderColor: "#E5E7EB", color: "#9CA3AF" }}>
+                <span className="text-sm">💸</span>
+                วางที่นั่ง
+                {pForm.seat_hold && <span className="ml-auto text-[10px] opacity-80">เปิดอยู่</span>}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">ราคาปกติ (฿) *</label>
+                  <Input className="h-8 text-xs mt-0.5" type="number" min={0}
+                    value={pForm.price_per_seat} onChange={(e) => setPForm({ ...pForm, price_per_seat: e.target.value })} placeholder="29500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">ที่นั่งทั้งหมด *</label>
+                  <Input className="h-8 text-xs mt-0.5" type="number" min={0}
+                    value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  ราคาพิเศษ (฿)
+                  {pForm.special_price && Number(pForm.special_price) > 0 && Number(pForm.special_price) < Number(pForm.price_per_seat) && <span className="ml-1.5 text-orange-500">🔥 auto</span>}
+                </label>
+                <div className="relative mt-0.5">
+                  <Input className={`h-8 text-xs pr-8 ${pForm.special_price && Number(pForm.special_price) < Number(pForm.price_per_seat) ? "border-orange-300 bg-orange-50/40" : ""}`}
+                    type="number" min={0} value={pForm.special_price}
+                    onChange={(e) => setPForm({ ...pForm, special_price: e.target.value })} placeholder="ว่างเปล่า = ไม่มีโปรโมชั่น" />
+                  {pForm.special_price && Number(pForm.special_price) > 0 && Number(pForm.special_price) < Number(pForm.price_per_seat) && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-sm">🔥</span>}
+                </div>
+                {pForm.special_price && pForm.price_per_seat && Number(pForm.special_price) < Number(pForm.price_per_seat) && <p className="text-[9px] text-orange-500 mt-0.5">ลด {(Number(pForm.price_per_seat) - Number(pForm.special_price)).toLocaleString()} บาท</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">สายการบิน</label>
+                  <Input className="h-8 text-xs mt-0.5" value={pForm.airline_code}
+                    onChange={(e) => setPForm({ ...pForm, airline_code: e.target.value })} placeholder="FD, TG, VZ..." />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold text-pink-500 uppercase tracking-wide">บิน (ต้นทาง)</label>
+                  <div className="flex gap-1 mt-0.5">
+                    {(["", "CNX", "DMK", "BKK"] as const).map((city) => (
+                      <button key={city || "none"} type="button"
+                        onClick={() => setPForm((f) => ({ ...f, departure_city: city }))}
+                        className="flex-1 h-8 rounded-md text-xs font-bold border transition-all"
+                        style={pForm.departure_city === city
+                          ? { background: city ? "#EC4899" : "#F3F4F6", color: city ? "#fff" : "#9CA3AF", borderColor: city ? "#EC4899" : "#E5E7EB" }
+                          : { borderColor: "#E5E7EB", color: "#9CA3AF", background: "transparent" }}>
+                        {city || "–"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">ตัวเลือก Chip</label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {([
+                    { key: "freeday"  as const, label: "Freeday",      color: "#7C3AED" },
+                    { key: "shopping" as const, label: "ลงร้าน",       color: "#F59E0B" },
+                    { key: "all_in"   as const, label: "จอง จ่าย จบ", color: "#16A34A" },
+                    { key: "vat7"     as const, label: "Vat7%",        color: "#2563EB" },
+                  ] as const).map(({ key, label, color }) => (
+                    <button key={key} type="button"
+                      onClick={() => setPForm((f) => ({ ...f, [key]: !f[key] }))}
+                      className="px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all"
+                      style={pForm[key] ? {background: color, color: "#fff", borderColor: color} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT: Campaign / หมายเหตุ / Footnote */}
+            <div className="px-4 py-3 space-y-2.5 bg-muted/10 border-t sm:border-t-0">
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Campaign</label>
+                <Input className="h-8 text-xs mt-0.5" value={pForm.project}
+                  onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
+                <Input className="h-8 text-xs mt-0.5" value={pForm.note}
+                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Footnote</label>
+                <Input className="h-8 text-xs mt-1" value={pForm.footnote}
+                  onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))} placeholder="บริษัท ABC ประมาณ 10 ท่าน VIP..." />
+              </div>
+            </div>
+          </div>
+          </div>
+
+          {/* Footer wizard */}
+          <div className="border-t px-4 py-2.5 shrink-0 flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => { setOpen(false); setDialogStep("tour"); setWizardTourId(""); }}>
+              ข้ามไปก่อน
+            </Button>
+            <Button size="sm" onClick={submitPeriodWizard} style={{background: "#16A34A", color: "#fff"}} className="hover:opacity-90">
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              บันทึก Period
+            </Button>
+          </div>
+          </>)}
+
         </DialogContent>
       </Dialog>
 
