@@ -330,6 +330,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [open, setOpen]       = useState(false);
   const [editId, setEditId]   = useState<string | null>(null);
   const [form, setForm]       = useState(blankTourForm());
+  const [pdfFile, setPdfFile] = useState<File | null>(null);       // optional PDF ใน dialog
+  const [uploadingNewPdf, setUploadingNewPdf] = useState(false);   // spinner ขณะอัปโหลด
 
   // ── period dialog ──
   const [pOpen, setPOpen]         = useState(false);
@@ -428,7 +430,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   }, [form.startDate, form.returnDate]);
 
   // ── program open/submit ──
-  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setShowAllChips(false); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(blankTourForm()); setPdfFile(null); setShowAllChips(false); setOpen(true); };
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
@@ -471,9 +473,23 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     if (editId) {
       updateTour(editId, { ...payload, updated_by: actorName });
     } else {
-      addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [], created_by: actorName, updated_by: actorName });
+      const newId = addTour({ ...payload, period: "", price_per_seat: 0, total_seats: 0, quota: 0, periods: [], created_by: actorName, updated_by: actorName });
     }
-    toast.success(editId ? "อัปเดตโปรแกรมแล้ว" : "เพิ่มโปรแกรมใหม่แล้ว"); setOpen(false);
+    if (editId) {
+      toast.success("อัปเดตโปรแกรมแล้ว");
+      setOpen(false);
+    } else {
+      toast.success("เพิ่มโปรแกรมใหม่แล้ว");
+      setOpen(false);
+      // ── อัปโหลด PDF (ถ้ามี) แล้วเปิด Period dialog ทันที ──
+      if (pdfFile) {
+        setUploadingNewPdf(true);
+        uploadTourPDF(newId, pdfFile).then(() => setUploadingNewPdf(false));
+      }
+      // เปิด Period dialog ทันที (ไม่ต้องค้นหาโปรแกรมทีหลัง)
+      setTimeout(() => openAddPeriod(newId), 100);
+    }
+    setPdfFile(null);
   };
 
   // ── period open/submit ──
@@ -2492,15 +2508,57 @@ ${catBlocks}
               />
             </div>
 
+            {/* ── PDF Upload (optional) ── */}
+            {!editId && (
+              <div className="border border-dashed rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-all">
+                <p className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5z"/></svg>
+                  อัปโหลด PDF โปรแกรม
+                  <span className="font-normal text-muted-foreground">(ไม่บังคับ — สามารถอัปโหลดทีหลังได้)</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="new-tour-pdf-upload" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-background hover:bg-accent cursor-pointer text-xs font-medium transition-all">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    เลือกไฟล์ PDF
+                  </label>
+                  <input
+                    id="new-tour-pdf-upload"
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      if (f.size > 20 * 1024 * 1024) { toast.error("ไฟล์ PDF ใหญ่เกิน 20 MB"); return; }
+                      setPdfFile(f);
+                    }}
+                  />
+                  {pdfFile ? (
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <svg className="w-3.5 h-3.5 text-red-500 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5z"/></svg>
+                      <span className="text-xs text-foreground truncate">{pdfFile.name}</span>
+                      <button type="button" onClick={() => setPdfFile(null)} className="ml-auto shrink-0 text-muted-foreground hover:text-red-500">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">ยังไม่ได้เลือกไฟล์</span>
+                  )}
+                </div>
+              </div>
+            )}
+
             <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-              💡 หลังเพิ่มโปรแกรมแล้ว กดปุ่ม "+ Period" เพื่อเพิ่มวันเดินทางและราคาแต่ละรอบ
+              💡 หลังบันทึกโปรแกรม ระบบจะเปิดหน้าต่าง "เพิ่ม Period" ทันที — ไม่ต้องค้นหาโปรแกรมอีก
             </p>
           </div>
 
           <div className="flex gap-2 pt-1">
             <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>ยกเลิก</Button>
             <Button className="flex-1 hover:opacity-90" onClick={submit} style={{background: "#16A34A", color: "#FFFFFF"}}>
-              <Save className="w-3.5 h-3.5 mr-1.5" />บันทึกโปรแกรม
+              <Save className="w-3.5 h-3.5 mr-1.5" />
+              {editId ? "บันทึก" : pdfFile ? "บันทึก + เพิ่ม Period" : "บันทึก → เพิ่ม Period"}
             </Button>
           </div>
         </DialogContent>
