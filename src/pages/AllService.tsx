@@ -346,13 +346,21 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   // ── เปิด Period dialog หลัง tour dialog ปิดสนิท ──────────────────────────────
+  // Bug note: ถ้าใช้ return () => clearTimeout(t) — React จะ run cleanup ทันทีที่
+  // setPendingNewTourId(null) trigger re-render → ยกเลิก timeout ก่อนทำงาน
+  // Fix: ไม่ใส่ cleanup → timer ทำงานได้ตามปกติ
   useEffect(() => {
     if (!open && pendingNewTourId) {
       const id = pendingNewTourId;
       setPendingNewTourId(null);
-      // รอ animation exit ของ Dialog เสร็จก่อน (~300ms) แล้วเปิด Period
-      const t = setTimeout(() => openAddPeriod(id), 350);
-      return () => clearTimeout(t);
+      // ไม่ใส่ return cleanup เพราะ cleanup จะยกเลิก timer ก่อนที่มันจะ fire
+      setTimeout(() => {
+        setPTourId(id);
+        setPEditId(null);
+        setPForm(blankPeriodForm());
+        setExpanded((prev) => new Set([...prev, id]));
+        setPOpen(true);
+      }, 300);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, pendingNewTourId]);
