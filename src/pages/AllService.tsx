@@ -332,7 +332,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [form, setForm]       = useState(blankTourForm());
   const [pdfFile, setPdfFile] = useState<File | null>(null);       // optional PDF ใน dialog
   const [uploadingNewPdf, setUploadingNewPdf] = useState(false);   // spinner ขณะอัปโหลด
-  const [pendingNewTourId, setPendingNewTourId] = useState<string | null>(null); // รอเปิด Period หลัง dialog ปิด
+  const pendingNewTourIdRef = React.useRef<string | null>(null); // useRef: ไม่ trigger re-render → ไม่มี cleanup race
 
   // ── period dialog ──
   const [pOpen, setPOpen]         = useState(false);
@@ -346,24 +346,24 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   // ── เปิด Period dialog หลัง tour dialog ปิดสนิท ──────────────────────────────
-  // Bug note: ถ้าใช้ return () => clearTimeout(t) — React จะ run cleanup ทันทีที่
-  // setPendingNewTourId(null) trigger re-render → ยกเลิก timeout ก่อนทำงาน
-  // Fix: ไม่ใส่ cleanup → timer ทำงานได้ตามปกติ
+  // ใช้ useRef แทน useState เพื่อหลีกเลี่ยง cleanup race condition:
+  // - useState: setPending(null) → re-render → React runs cleanup → clearTimeout!
+  // - useRef:   ref.current = null ไม่ trigger re-render → ไม่มี cleanup → timer fires ✓
   useEffect(() => {
-    if (!open && pendingNewTourId) {
-      const id = pendingNewTourId;
-      setPendingNewTourId(null);
-      // ไม่ใส่ return cleanup เพราะ cleanup จะยกเลิก timer ก่อนที่มันจะ fire
-      setTimeout(() => {
+    if (!open && pendingNewTourIdRef.current) {
+      const id = pendingNewTourIdRef.current;
+      pendingNewTourIdRef.current = null;
+      const t = window.setTimeout(() => {
         setPTourId(id);
         setPEditId(null);
         setPForm(blankPeriodForm());
         setExpanded((prev) => new Set([...prev, id]));
         setPOpen(true);
       }, 300);
+      return () => window.clearTimeout(t);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, pendingNewTourId]);
+  }, [open]);
 
   // ── inline quota pending edit (per period_id) ──
   const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
@@ -504,13 +504,21 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       setOpen(false);
       // ── อัปโหลด PDF (ถ้ามี) แล้วเปิด Period dialog ทันที ──
       if (pdfFile) {
+        // อัปโหลด PDF async — ไม่ block การสร้าง Period dialog
+        const fileToUpload = pdfFile;
+        setPdfFile(null); // clear ก่อน async
         setUploadingNewPdf(true);
-        uploadTourPDF(newId, pdfFile).then(() => setUploadingNewPdf(false));
+        uploadTourPDF(newId, fileToUpload)
+          .then((url) => {
+            setUploadingNewPdf(false);
+            if (url) toast.success("📄 อัปโหลด PDF สำเร็จ");
+            else toast.error("อัปโหลด PDF ล้มเหลว — ลองใหม่จากปุ่ม PDF ใน row");
+          })
+          .catch(() => { setUploadingNewPdf(false); toast.error("อัปโหลด PDF ล้มเหลว"); });
       }
       // รอให้ main dialog ปิดสนิท (animation เสร็จ) แล้วค่อยเปิด Period dialog
-      setPendingNewTourId(newId);
+      pendingNewTourIdRef.current = newId;
     }
-    setPdfFile(null);
   };
 
   // ── period open/submit ──
