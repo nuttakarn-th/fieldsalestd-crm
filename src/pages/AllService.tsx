@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -504,6 +504,98 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       setExpanded((prev) => new Set([...prev, newId]));
       setDialogStep("period");
     }
+  };
+
+  // ── Duplicate Program (Option B): copy + periods ล้างวันที่ ──
+  const duplicateTour = (srcId: string) => {
+    const src = tours.find((t) => t.id === srcId);
+    if (!src) return;
+    const newCode = src.code ? `${src.code}-COPY` : "";
+    const newId = addTour({
+      category: src.category,
+      code: newCode,
+      city: src.city,
+      title: src.title,
+      country: src.country,
+      countries: src.countries,
+      continent: src.continent,
+      duration: src.duration,
+      period: "",
+      price_per_seat: 0,
+      total_seats: 0,
+      quota: 0,
+      note: src.note,
+      tour_types: src.tour_types,
+      description: src.description,
+      periods: [],
+      // ไม่ copy pdf_url / is_published
+      created_by: actorName,
+      updated_by: actorName,
+    });
+    // copy periods ทั้งหมด แต่ล้างวันที่ออก (คงราคา/ที่นั่ง/airline ไว้)
+    const now = new Date().toISOString();
+    (src.periods ?? []).forEach((p) => {
+      addPeriod(newId, {
+        start_date: "",
+        end_date: undefined,
+        travel_date: "",
+        nights: p.nights,
+        days: p.days,
+        price_per_seat: p.price_per_seat,
+        special_price: p.special_price,
+        total_seats: p.total_seats,
+        quota: p.total_seats,   // reset quota = full seats
+        airline_code: p.airline_code,
+        departure_city: p.departure_city,
+        project: p.project,
+        note: p.note,
+        freeday: p.freeday,
+        shopping: p.shopping,
+        all_in: p.all_in,
+        vat7: p.vat7,
+        seat_hold: p.seat_hold,
+        promo: p.promo,
+        footnote: p.footnote,
+        tags: p.tags,
+        created_by: actorName,
+        updated_by: actorName,
+        created_at: now,
+        updated_at: now,
+      });
+    });
+    setExpanded((prev) => new Set([...prev, newId]));
+    toast.success(`✅ Duplicate แล้ว — รหัส ${newCode || "(ไม่มีรหัส)"} · ${(src.periods ?? []).length} Period (ล้างวันที่แล้ว)`);
+  };
+
+  // ── Duplicate Period: pre-fill form ล้างวันที่ เปิด dialog ทันที ──
+  const openDuplicatePeriod = (tourId: string, p: TourPeriod) => {
+    setPTourId(tourId);
+    setPEditId(null);
+    setPForm({
+      start_date: "",       // ล้างวันที่
+      end_date: "",
+      nights: String(p.nights ?? ""),
+      days: String(p.days ?? ""),
+      manualNights: !!(p.nights),
+      price_per_seat: String(p.price_per_seat),
+      special_price: p.special_price ? String(p.special_price) : "",
+      total_seats: String(p.total_seats),
+      airline_code: p.airline_code ?? "",
+      departure_city: (p.departure_city ?? "") as "" | "CNX" | "DMK" | "BKK",
+      project: p.project ?? "",
+      note: p.note ?? "",
+      cancelled: false,
+      cancel_reason: "",
+      freeday: p.freeday ?? false,
+      shopping: p.shopping ?? false,
+      all_in: p.all_in ?? false,
+      vat7: p.vat7 ?? false,
+      seat_hold: p.seat_hold ?? false,
+      promo: p.promo ?? false,
+      footnote: p.footnote ?? "",
+      tags: p.tags ?? [],
+    });
+    setPOpen(true);
   };
 
   // ── period open/submit ──
@@ -1574,6 +1666,14 @@ ${catBlocks}
                                 )}
                               </div>
                             )}
+                            {canEdit && (
+                              <button
+                                className="w-full mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                                onClick={() => duplicateTour(t.id)}
+                              >
+                                <Copy className="w-3 h-3" /> Duplicate โปรแกรมนี้
+                              </button>
+                            )}
                           </PopoverContent>
                         </Popover>
                       )}
@@ -1584,7 +1684,13 @@ ${catBlocks}
                       )}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0">
-                          {t.pdf_url && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>{t.is_published ? "🌐 Live" : "PDF"}</span>}
+                          {t.pdf_url && (
+                            <a href={t.pdf_url} target="_blank" rel="noopener noreferrer"
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}
+                              title="เปิด PDF โปรแกรม">
+                              {t.is_published ? "🌐 Live" : "📄 PDF"}
+                            </a>
+                          )}
                           {t.pdf_url ? (
                             <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF" onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบ PDF แล้ว"); }}><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
                           ) : (
@@ -1666,6 +1772,14 @@ ${catBlocks}
                                     )}
                                   </div>
                                 )}
+                                {canEdit && (
+                                  <button
+                                    className="w-full mt-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-[11px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                                    onClick={() => duplicateTour(t.id)}
+                                  >
+                                    <Copy className="w-3 h-3" /> Duplicate โปรแกรมนี้
+                                  </button>
+                                )}
                               </PopoverContent>
                             </Popover>
                           )}
@@ -1688,6 +1802,9 @@ ${catBlocks}
                             <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem onClick={() => openEdit(t.id)}>
                                 <Pencil className="w-3.5 h-3.5 mr-2" /> แก้ไขโปรแกรม
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => duplicateTour(t.id)}>
+                                <Copy className="w-3.5 h-3.5 mr-2" /> Duplicate โปรแกรม
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {t.pdf_url ? (
@@ -1805,6 +1922,7 @@ ${catBlocks}
                                     </>
                                   )}
                                   <div className="ml-auto flex items-center gap-0.5">
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Duplicate Period" onClick={() => openDuplicatePeriod(t.id, p)}><Copy className="w-3.5 h-3.5 text-muted-foreground" /></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-4 h-4" /></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { const booked = p.total_seats - p.quota; const ok = booked > 0 ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`) : confirm("ลบ Period นี้?"); if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive/70" /></Button>
                                   </div>
@@ -2209,7 +2327,10 @@ ${catBlocks}
                                     )}
                                   </div>
                                   {canEdit && (
-                                    <div className="flex gap-0.5 shrink-0 w-[44px]">
+                                    <div className="flex gap-0.5 shrink-0 w-[66px]">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicate Period" onClick={() => openDuplicatePeriod(t.id, p)}>
+                                        <Copy className="w-3 h-3 text-muted-foreground" />
+                                      </Button>
                                       <Button size="icon" variant="ghost" className="h-6 w-6" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
                                         <Pencil className="w-3 h-3" />
                                       </Button>
