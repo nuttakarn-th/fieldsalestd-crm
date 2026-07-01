@@ -332,6 +332,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [form, setForm]       = useState(blankTourForm());
   const [pdfFile, setPdfFile] = useState<File | null>(null);       // optional PDF ใน dialog
   const [uploadingNewPdf, setUploadingNewPdf] = useState(false);   // spinner ขณะอัปโหลด
+  const [pendingNewTourId, setPendingNewTourId] = useState<string | null>(null); // รอเปิด Period หลัง dialog ปิด
 
   // ── period dialog ──
   const [pOpen, setPOpen]         = useState(false);
@@ -343,6 +344,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [expanded, setExpanded]   = useState<Set<string>>(new Set());
   const toggleExpand = (id: string) =>
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+
+  // ── เปิด Period dialog หลัง tour dialog ปิดสนิท ──────────────────────────────
+  useEffect(() => {
+    if (!open && pendingNewTourId) {
+      const id = pendingNewTourId;
+      setPendingNewTourId(null);
+      // รอ animation exit ของ Dialog เสร็จก่อน (~300ms) แล้วเปิด Period
+      const t = setTimeout(() => openAddPeriod(id), 350);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pendingNewTourId]);
 
   // ── inline quota pending edit (per period_id) ──
   const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
@@ -486,8 +499,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         setUploadingNewPdf(true);
         uploadTourPDF(newId, pdfFile).then(() => setUploadingNewPdf(false));
       }
-      // เปิด Period dialog ทันที (ไม่ต้องค้นหาโปรแกรมทีหลัง)
-      setTimeout(() => openAddPeriod(newId), 100);
+      // รอให้ main dialog ปิดสนิท (animation เสร็จ) แล้วค่อยเปิด Period dialog
+      setPendingNewTourId(newId);
     }
     setPdfFile(null);
   };
