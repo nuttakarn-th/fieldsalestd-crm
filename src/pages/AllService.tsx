@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -376,6 +376,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [selectedPeriods, setSelectedPeriods] = useState<Set<string>>(new Set());
   // ── import error reporting ──
   const [importErrors, setImportErrors] = useState<{row: number; code: string; issue: string}[]>([]);
+
+  // ── program sort state ──
+  type TourSortKey = "name" | "code" | "date" | "added";
+  const [tourSort, setTourSort] = useState<TourSortKey>("name");
 
   // ── period sort state ──
   const [periodSort, setPeriodSort] = useState<{field: 'date'|'price'|'quota'; dir: 'asc'|'desc'}>({field: 'date', dir: 'asc'});
@@ -1126,7 +1130,25 @@ ${catBlocks}
     [tours],
   );
   const filteredTours = useMemo(() => {
-    return tours.filter((t) => {
+    const sorted = [...tours].sort((a, b) => {
+      if (tourSort === "name") {
+        const na = (a.title || a.city || "").trim();
+        const nb = (b.title || b.city || "").trim();
+        return na.localeCompare(nb, "th", { sensitivity: "base" });
+      }
+      if (tourSort === "code") {
+        return (a.code || "").localeCompare(b.code || "", "th", { sensitivity: "base" });
+      }
+      if (tourSort === "date") {
+        // เรียงตาม start_date ของ Period แรกที่ใกล้สุด (ไม่รวมยกเลิก)
+        const aDate = (a.periods ?? []).filter((p) => !p.cancelled && p.start_date).map((p) => p.start_date!).sort()[0] ?? "9999";
+        const bDate = (b.periods ?? []).filter((p) => !p.cancelled && p.start_date).map((p) => p.start_date!).sort()[0] ?? "9999";
+        return aDate.localeCompare(bDate);
+      }
+      // "added" — เพิ่งเพิ่มล่าสุดขึ้นก่อน
+      return 0; // ไม่ sort = insertion order
+    });
+    return sorted.filter((t) => {
       if (filterText) {
         const q = filterText.toLowerCase();
         if (
@@ -1181,7 +1203,7 @@ ${catBlocks}
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
@@ -1233,6 +1255,19 @@ ${catBlocks}
         {/* ── MOBILE: expandable filter panel ── */}
         {filterOpen && (
           <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-border mt-1 anim-filter">
+            {/* Sort row */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
+                <SelectTrigger className="h-9 text-sm flex-1 border-dashed"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">ชื่อโปรแกรม A→Z</SelectItem>
+                  <SelectItem value="code">รหัสทัวร์ A→Z</SelectItem>
+                  <SelectItem value="date">วันเดินทางใกล้สุด</SelectItem>
+                  <SelectItem value="added">เพิ่มเข้าล่าสุด</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="กลุ่มทัวร์" /></SelectTrigger>
@@ -1353,6 +1388,21 @@ ${catBlocks}
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
+            {/* ── Sort selector ── */}
+            <div className="ml-auto flex items-center gap-1.5 shrink-0">
+              <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
+              <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
+                <SelectTrigger className="h-8 text-xs w-[150px] border-dashed">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">ชื่อโปรแกรม A→Z</SelectItem>
+                  <SelectItem value="code">รหัสทัวร์ A→Z</SelectItem>
+                  <SelectItem value="date">วันเดินทางใกล้สุด</SelectItem>
+                  <SelectItem value="added">เพิ่มเข้าล่าสุด</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             {CATEGORY_TAGS.map((tag) => (
