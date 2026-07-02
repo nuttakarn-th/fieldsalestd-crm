@@ -1588,146 +1588,147 @@ ${catBlocks}
           { label: "Inc",  color: "#7C3AED", seats: stats.incSeats,  booked: stats.incBooked  },
         ].filter((c) => c.seats > 0);
         return (
-          <div className="hidden sm:flex items-stretch border-b border-border bg-card divide-x divide-border overflow-x-auto">
-            {/* ── Label ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 shrink-0">
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
-              <span className="text-[10px] text-muted-foreground/50 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
-            </div>
-
-            {/* ── 🎯 เป้าหมาย ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0">
-              <span className="text-[18px] font-bold text-foreground leading-none">{stats.targetSeats.toLocaleString()}</span>
-              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">🎯 เป้าหมาย</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-muted mt-1.5">
-                <div className="h-full rounded-full transition-all bg-indigo-500" style={{width:`${bookingPct}%`}} />
+          <div className="hidden sm:block border-b border-border bg-card">
+            {/* ══ ROW 1: Seat stats + toggles + Dashboard ══ */}
+            <div className="flex items-stretch divide-x divide-border">
+              {/* Label */}
+              <div className="flex flex-col justify-center px-3 py-2 shrink-0 w-[90px]">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">📊 Stock</span>
+                <span className="text-[10px] text-muted-foreground/40 mt-0.5">{stats.periods} Period</span>
               </div>
-            </div>
-
-            {/* ── ⏳ รอเดินทาง ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
-              <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[18px] font-bold" style={{color:"#F472B6"}}>{stats.waitingBooked.toLocaleString()}</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">{waitingPct}%</span>
-              </div>
-              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">⏳ รอเดินทาง</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-pink-500/20">
-                <div className="h-full rounded-full transition-all" style={{width:`${waitingPct}%`, background:"#F472B6"}} />
-              </div>
-            </div>
-
-            {/* ── ✅ เดินทางแล้ว ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
-              <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[18px] font-bold" style={{color:"#4ADE80"}}>{stats.travelledBooked.toLocaleString()}</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">{travelPct}%</span>
-              </div>
-              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">✅ เดินทางแล้ว</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-green-500/20">
-                <div className="h-full rounded-full transition-all bg-green-400" style={{width:`${travelPct}%`}} />
-              </div>
-            </div>
-
-            {/* ── 💰 มูลค่า Capacity ── */}
-            {stats.capacityValue > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0 bg-indigo-500/5">
-                <span className="text-[13px] font-bold text-indigo-400 leading-none">฿{fmtVal(stats.capacityValue)}</span>
-                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">💰 มูลค่ารวมทั้งหมด</span>
-              </div>
-            )}
-
-            {/* ── 📈 มูลค่าที่จอง ── */}
-            {stats.capacityValue > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[140px] shrink-0 bg-emerald-500/5">
-                <div className="flex items-baseline gap-1.5 leading-none">
-                  <span className="text-[13px] font-bold text-emerald-400">฿{fmtVal(stats.bookedValue)}</span>
-                  <span className="text-[10px] font-semibold text-emerald-600">{bookedPct}%</span>
+              {/* 🎯 เป้าหมาย */}
+              <div className="flex flex-col justify-center px-3 py-2 flex-1 min-w-0">
+                <div className="flex items-baseline gap-1 leading-none">
+                  <span className="text-[17px] font-bold text-foreground">{stats.targetSeats.toLocaleString()}</span>
+                  <span className="text-[10px] font-medium text-muted-foreground">{bookingPct}%</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">📈 มูลค่าปัจจุบัน</span>
-                <div className="h-1.5 rounded-full overflow-hidden w-[80px] bg-emerald-500/20">
-                  <div className="h-full rounded-full transition-all bg-emerald-400" style={{width:`${bookedPct}%`}} />
+                <span className="text-[10px] text-muted-foreground mt-0.5 truncate">🎯 เป้าหมาย</span>
+                <div className="h-1 rounded-full overflow-hidden bg-muted mt-1">
+                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{width:`${bookingPct}%`}} />
                 </div>
               </div>
-            )}
-
-            {/* ── Category Breakdown ── */}
-            {catItems.length > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[160px] shrink-0">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 whitespace-nowrap">🗂 Category</span>
-                <div className="flex flex-col gap-1">
-                  {catItems.map((c) => {
-                    const pct = c.seats > 0 ? Math.round((c.booked / c.seats) * 100) : 0;
-                    return (
-                      <div key={c.label} className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold w-7 shrink-0" style={{color: c.color}}>{c.label}</span>
-                        <div className="h-1.5 rounded-full overflow-hidden flex-1 min-w-[50px] bg-muted">
-                          <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background: c.color}} />
-                        </div>
-                        <span className="text-[9px] text-muted-foreground w-14 text-right shrink-0">
-                          {c.booked}/{c.seats} ({pct}%)
-                        </span>
-                      </div>
-                    );
-                  })}
+              {/* ⏳ รอเดินทาง */}
+              <div className="flex flex-col justify-center px-3 py-2 flex-1 min-w-0">
+                <div className="flex items-baseline gap-1 leading-none">
+                  <span className="text-[17px] font-bold" style={{color:"#F472B6"}}>{stats.waitingBooked.toLocaleString()}</span>
+                  <span className="text-[10px] font-medium text-muted-foreground">{waitingPct}%</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground mt-0.5 truncate">⏳ รอเดินทาง</span>
+                <div className="h-1 rounded-full overflow-hidden bg-pink-500/20 mt-1">
+                  <div className="h-full rounded-full transition-all" style={{width:`${waitingPct}%`, background:"#F472B6"}} />
                 </div>
               </div>
-            )}
-
-            {/* ── ❌ ยกเลิก — clickable toggle ── */}
-            {stats.cancelledPeriods > 0 && (
-              <button
-                onClick={() => setShowCancelled((v) => !v)}
-                className={`flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0 transition-all text-left border-b-2 ${
-                  effectiveShowCancelled
-                    ? "bg-red-500/10 border-red-400"
-                    : "bg-red-500/5 border-transparent hover:bg-red-500/10 hover:border-red-300"
-                }`}
-                title={effectiveShowCancelled ? "คลิกเพื่อซ่อน Period ที่ยกเลิก" : "คลิกเพื่อแสดง Period ที่ยกเลิกด้วย"}
-              >
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-[15px] font-bold text-red-400 leading-none">{stats.cancelledSeats.toLocaleString()} ที่</span>
-                  {effectiveShowCancelled && <span className="text-[9px] font-bold text-red-400 bg-red-500/20 px-1 py-0.5 rounded">แสดงอยู่</span>}
+              {/* ✅ เดินทางแล้ว */}
+              <div className="flex flex-col justify-center px-3 py-2 flex-1 min-w-0">
+                <div className="flex items-baseline gap-1 leading-none">
+                  <span className="text-[17px] font-bold" style={{color:"#4ADE80"}}>{stats.travelledBooked.toLocaleString()}</span>
+                  <span className="text-[10px] font-medium text-muted-foreground">{travelPct}%</span>
                 </div>
-                {stats.cancelledValue > 0 && (
-                  <span className="text-[10px] font-semibold text-red-400/70 leading-none mt-0.5">฿{fmtVal(stats.cancelledValue)}</span>
+                <span className="text-[10px] text-muted-foreground mt-0.5 truncate">✅ เดินทางแล้ว</span>
+                <div className="h-1 rounded-full overflow-hidden bg-green-500/20 mt-1">
+                  <div className="h-full rounded-full bg-green-400 transition-all" style={{width:`${travelPct}%`}} />
+                </div>
+              </div>
+              {/* Divider */}
+              <div className="w-px bg-border" />
+              {/* ❌ ยกเลิก toggle */}
+              {stats.cancelledPeriods > 0 && (
+                <button
+                  onClick={() => setShowCancelled((v) => !v)}
+                  className={`flex flex-col justify-center px-3 py-2 shrink-0 transition-all text-left border-b-2 ${
+                    effectiveShowCancelled ? "bg-red-500/10 border-red-400" : "bg-transparent border-transparent hover:bg-red-500/8"
+                  }`}
+                  title={effectiveShowCancelled ? "ซ่อน Period ที่ยกเลิก" : "แสดง Period ที่ยกเลิก"}
+                >
+                  <div className="flex items-center gap-1 leading-none">
+                    <span className="text-[14px] font-bold text-red-400">{stats.cancelledSeats.toLocaleString()}</span>
+                    {effectiveShowCancelled && <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded font-bold">ON</span>}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">❌ ยกเลิก</span>
+                </button>
+              )}
+              {/* 📦 Archive toggle */}
+              {archivedPeriodItems.length > 0 && (
+                <button
+                  onClick={() => setShowArchived((v) => !v)}
+                  className={`flex flex-col justify-center px-3 py-2 shrink-0 transition-all text-left border-b-2 ${
+                    effectiveShowArchived ? "bg-slate-500/10 border-slate-400" : "bg-transparent border-transparent hover:bg-muted/50"
+                  }`}
+                  title={effectiveShowArchived ? "ซ่อน Period ที่ Archive" : "แสดง Period ที่ Archive"}
+                >
+                  <div className="flex items-center gap-1 leading-none">
+                    <span className="text-[14px] font-bold text-muted-foreground">{archivedPeriodItems.length}</span>
+                    {effectiveShowArchived && <span className="text-[8px] bg-slate-500/20 text-slate-400 px-1 rounded font-bold">ON</span>}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">📦 Archive</span>
+                </button>
+              )}
+              {/* Dashboard */}
+              <div className="flex items-center px-3 shrink-0 ml-auto border-l border-border">
+                <button
+                  onClick={() => window.location.href = "/app/stock-dashboard"}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors whitespace-nowrap"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  Dashboard
+                </button>
+              </div>
+            </div>
+
+            {/* ══ ROW 2: Value stats + Category breakdown ══ */}
+            {(stats.capacityValue > 0 || catItems.length > 0) && (
+              <div className="flex items-center divide-x divide-border border-t border-border/60 bg-muted/20">
+                {/* 💰 มูลค่ารวมทั้งหมด */}
+                {stats.capacityValue > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
+                    <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">💰 รวมทั้งหมด</span>
+                    <span className="text-[13px] font-bold text-indigo-400">฿{fmtVal(stats.capacityValue)}</span>
+                  </div>
                 )}
-                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">❌ ยกเลิก ({stats.cancelledPeriods} trip)</span>
-              </button>
+                {/* 📈 มูลค่าปัจจุบัน */}
+                {stats.capacityValue > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 bg-emerald-500/5">
+                    <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">📈 ปัจจุบัน</span>
+                    <span className="text-[13px] font-bold text-emerald-400">฿{fmtVal(stats.bookedValue)}</span>
+                    <div className="flex items-center gap-1">
+                      <div className="h-1.5 w-16 rounded-full overflow-hidden bg-emerald-500/20">
+                        <div className="h-full rounded-full bg-emerald-400 transition-all" style={{width:`${bookedPct}%`}} />
+                      </div>
+                      <span className="text-[10px] font-semibold text-emerald-500">{bookedPct}%</span>
+                    </div>
+                  </div>
+                )}
+                {/* ❌ มูลค่ายกเลิก */}
+                {stats.cancelledValue > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 shrink-0 bg-red-500/5">
+                    <span className="text-[10px] font-medium text-muted-foreground whitespace-nowrap">❌ ยกเลิก</span>
+                    <span className="text-[13px] font-bold text-red-400">฿{fmtVal(stats.cancelledValue)}</span>
+                  </div>
+                )}
+                {/* 🗂 Category bars */}
+                {catItems.length > 0 && (
+                  <div className="flex items-center gap-3 px-3 py-1.5 flex-1 min-w-0">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide shrink-0">🗂 Category</span>
+                    {catItems.map((c) => {
+                      const pct = c.seats > 0 ? Math.round((c.booked / c.seats) * 100) : 0;
+                      return (
+                        <div key={c.label} className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold" style={{color: c.color}}>{c.label}</span>
+                          <div className="h-1.5 w-20 rounded-full overflow-hidden bg-muted">
+                            <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background: c.color}} />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{c.booked}/{c.seats}</span>
+                          <span className="text-[10px] font-semibold" style={{color: c.color}}>{pct}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
-
-            {/* ── 📦 Archive — clickable toggle ── */}
-            {archivedPeriodItems.length > 0 && (
-              <button
-                onClick={() => setShowArchived((v) => !v)}
-                className={`flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 transition-all text-left border-b-2 ${
-                  effectiveShowArchived
-                    ? "bg-slate-500/10 border-slate-400"
-                    : "bg-muted/30 border-transparent hover:bg-muted/60 hover:border-slate-300"
-                }`}
-                title={effectiveShowArchived ? "คลิกเพื่อซ่อน Period ที่ Archive" : "คลิกเพื่อแสดง Period ที่ Archive ด้วย"}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
-                  {effectiveShowArchived && <span className="text-[9px] font-bold text-slate-400 bg-slate-500/20 px-1 py-0.5 rounded">แสดงอยู่</span>}
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive</span>
-              </button>
-            )}
-
-            {/* ── Dashboard ── */}
-            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border ml-auto">
-              <button
-                onClick={() => window.location.href = "/app/stock-dashboard"}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors whitespace-nowrap"
-                title="ดู Dashboard เต็มรูปแบบ"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                  <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
-                </svg>
-                Dashboard
-              </button>
-            </div>
           </div>
         );
       })()}
