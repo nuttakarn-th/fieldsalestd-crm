@@ -1650,6 +1650,12 @@ ${catBlocks}
                 // ── Period-level filter (matches tour-level logic but applied per period) ──
                 const visiblePeriods = (t.periods ?? []).filter((p) => {
                   if (!showArchived && p.archived) return false;
+                  // ซ่อน period ที่ end_date เกิน 7 วันแล้ว แม้ archived field ยังไม่ sync
+                  if (!showArchived && !p.cancelled && !p.archived && p.end_date) {
+                    const _today = new Date(); _today.setHours(0,0,0,0);
+                    const _cutoff = new Date(_today); _cutoff.setDate(_cutoff.getDate() - 7);
+                    if (new Date(p.end_date + "T00:00:00") <= _cutoff) return false;
+                  }
                   if (filterSeatHold && !p.seat_hold) return false;
                   if (filterPromo && !(typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)) return false;
                   if (filterStatus === "ยกเลิก"  && !p.cancelled) return false;
