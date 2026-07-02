@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, Play, CheckCircle2, Clock, Timer, UserPlus, Flag, ChevronRight, Camera, X, Loader2, Locate, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -423,8 +424,8 @@ export default function Mission() {
             </p>
             <div>
               <Label className="text-sm font-medium">วันที่ต้องการย้ายไป *</Label>
-              <Input
-                type="date" lang="th-TH"
+              <ThaiDateInput
+                
                 value={skipDate}
                 onChange={(e) => setSkipDate(e.target.value)}
                 className="mt-1.5"

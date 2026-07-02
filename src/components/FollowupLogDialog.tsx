@@ -4,6 +4,7 @@
  * Fields: ผลการติดต่อ (pills) + หมายเหตุ (optional) + วันนัดครั้งต่อไป
  */
 import { useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { ClipboardCheck, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -186,8 +187,8 @@ export function FollowupLogDialog({ lead, customerName, open, onOpenChange }: Fo
                   ))}
                 </div>
                 {/* Custom date */}
-                <input
-                  type="date" lang="th-TH"
+                <ThaiDateInput
+                  
                   value={nextDate}
                   onChange={(e) => setNextDate(e.target.value)}
                   className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { Pencil, AlertCircle, Calendar, Users, RefreshCw, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -211,7 +212,7 @@ export default function Pipeline() {
             </div>
             <div>
               <Label>นัด Follow-up รอบถัดไป</Label>
-              <Input type="date" lang="th-TH" value={newFollowup} onChange={(e) => setNewFollowup(e.target.value)} />
+              <ThaiDateInput value={newFollowup} onChange={(e) => setNewFollowup(e.target.value)} />
               <p className="text-[11px] text-muted-foreground mt-1">เว้นว่างถ้ายังไม่นัด</p>
             </div>
           </div>

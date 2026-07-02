@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
@@ -1356,16 +1357,16 @@ ${catBlocks}
             {/* Date range filter */}
             <div className="flex items-center gap-1 border border-border rounded-md px-2 h-8">
               <CalendarDays className="w-3 h-3 text-muted-foreground shrink-0" />
-              <input
-                type="date" lang="th-TH"
+              <ThaiDateInput
+                
                 className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ตั้งแต่"
                 value={filterDateFrom}
                 onChange={(e) => setFilterDateFrom(e.target.value)}
               />
               <span className="text-muted-foreground/40 text-xs">–</span>
-              <input
-                type="date" lang="th-TH"
+              <ThaiDateInput
+                
                 className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ถึง"
                 value={filterDateTo}
@@ -2826,12 +2827,12 @@ ${catBlocks}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">วันเดินทาง *</label>
-                  <Input className="h-8 text-xs mt-0.5" type="date" lang="th-TH" value={pForm.start_date}
+                  <ThaiDateInput className="h-8 text-xs mt-0.5" value={pForm.start_date}
                     onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">วันกลับ</label>
-                  <Input className="h-8 text-xs mt-0.5" type="date" lang="th-TH" value={pForm.end_date}
+                  <ThaiDateInput className="h-8 text-xs mt-0.5" value={pForm.end_date}
                     onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
                 </div>
               </div>
@@ -3008,12 +3009,12 @@ ${catBlocks}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">วันเดินทาง *</label>
-                  <Input className="h-8 text-xs mt-0.5" type="date" lang="th-TH" value={pForm.start_date}
+                  <ThaiDateInput className="h-8 text-xs mt-0.5" value={pForm.start_date}
                     onChange={(e) => setPForm({ ...pForm, start_date: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-[10px] font-semibold text-muted-foregrounduppercase tracking-wide">วันกลับ *</label>
-                  <Input className="h-8 text-xs mt-0.5" type="date" lang="th-TH" value={pForm.end_date}
+                  <ThaiDateInput className="h-8 text-xs mt-0.5" value={pForm.end_date}
                     onChange={(e) => setPForm({ ...pForm, end_date: e.target.value })} min={pForm.start_date} />
                 </div>
               </div>

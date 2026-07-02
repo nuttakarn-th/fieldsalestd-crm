@@ -4,6 +4,7 @@
  * Fields: ชื่อ + เบอร์ + ประเภทบริการ + requirement_tags + urgency + หมายเหตุ
  */
 import { useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { Zap, X, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -261,8 +262,8 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
                   </button>
                 ))}
               </div>
-              <input
-                type="date" lang="th-TH"
+              <ThaiDateInput
+                
                 value={followup}
                 onChange={(e) => setFollowup(e.target.value)}
                 className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"

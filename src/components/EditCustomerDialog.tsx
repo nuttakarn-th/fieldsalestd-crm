@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +51,7 @@ export function EditCustomerDialog({ customer, onClose }: { customer: Customer |
               <div><Label>Line ID</Label><Input value={data.line_id} onChange={(e) => setData({ ...data, line_id: e.target.value })} /></div>
               <div><Label>อีเมล</Label><Input type="email" value={data.email ?? ""} onChange={(e) => setData({ ...data, email: e.target.value || undefined })} placeholder="example@email.com" /></div>
               <div><Label>จังหวัด</Label><Input value={data.province ?? ""} onChange={(e) => setData({ ...data, province: e.target.value || undefined })} placeholder="เช่น กรุงเทพฯ" /></div>
-              <div><Label>วันเกิด</Label><Input type="date" lang="th-TH" value={data.birthday ?? ""} onChange={(e) => setData({ ...data, birthday: e.target.value || undefined })} /></div>
+              <div><Label>วันเกิด</Label><ThaiDateInput value={data.birthday ?? ""} onChange={(e) => setData({ ...data, birthday: e.target.value || undefined })} /></div>
               <div>
                 <Label>ช่องทาง</Label>
                 <Select value={data.source} onValueChange={(v) => setData({ ...data, source: v as Source })}>

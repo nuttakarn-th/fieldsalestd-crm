@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Save, Trash2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -162,8 +163,8 @@ export default function QuotationForm() {
           <div className="md:col-span-2"><Label>ที่อยู่</Label><Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} /></div>
           <div><Label>เลขประจำตัวผู้เสียภาษี</Label><Input value={customerTaxId} onChange={(e) => setCustomerTaxId(e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>วันที่ออก</Label><Input type="date" lang="th-TH" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
-            {docType === "quotation" && <div><Label>ใช้ได้ถึง</Label><Input type="date" lang="th-TH" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>}
+            <div><Label>วันที่ออก</Label><ThaiDateInput value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
+            {docType === "quotation" && <div><Label>ใช้ได้ถึง</Label><ThaiDateInput value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>}
           </div>
         </div>
       </section>
