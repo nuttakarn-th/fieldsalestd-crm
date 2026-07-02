@@ -1456,11 +1456,25 @@ ${catBlocks}
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
-            {/* ── Sort selector ── */}
-            <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          </div>
+          {/* ── Tag chips + Sort ── */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+            {CATEGORY_TAGS.map((tag) => (
+              <button key={tag}
+                onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
+                style={filterTags.includes(tag)
+                  ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
+                  : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+              >{tag}</button>
+            ))}
+            </div>
+            {/* Sort — right-aligned on same row as tags */}
+            <div className="ml-auto flex items-center gap-1.5 shrink-0 pl-2">
               <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
               <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
-                <SelectTrigger className="h-8 text-xs w-[150px] border-dashed">
+                <SelectTrigger className="h-7 text-xs w-[150px] border-dashed">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1471,17 +1485,6 @@ ${catBlocks}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {CATEGORY_TAGS.map((tag) => (
-              <button key={tag}
-                onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
-                style={filterTags.includes(tag)
-                  ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                  : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
-              >{tag}</button>
-            ))}
           </div>
         </div>
       </div>
