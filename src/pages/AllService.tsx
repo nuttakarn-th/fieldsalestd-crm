@@ -390,12 +390,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterText, setFilterText]       = useState("");
   const [filterCat, setFilterCat]         = useState<TourCategory | "">("");
   const [filterCountry, setFilterCountry] = useState("");
-  const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก">("");
+  const [filterStatus, setFilterStatus]   = useState<"" | "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก" | "archive">("");
   const [filterPromo, setFilterPromo]     = useState(false);
   const [filterSeatHold, setFilterSeatHold] = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
   const [showArchived, setShowArchived]   = useState(false);
+  // sync showArchived with status filter
+  const effectiveShowArchived = showArchived || filterStatus === "archive";
   // ── date range filter (period travel date) ──
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo,   setFilterDateTo]   = useState("");
@@ -1159,9 +1161,13 @@ ${catBlocks}
   const filteredTours = useMemo(() => {
     const sorted = [...tours].filter((t) => {
       if (t.archived) return false;
-      if (!showArchived) {
+      if (!effectiveShowArchived) {
         const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
         if (activePeriods.length > 0 && activePeriods.every((p) => p.archived)) return false;
+      }
+      // archive mode: only show tours that have archived periods
+      if (filterStatus === "archive") {
+        return (t.periods ?? []).some((p) => p.archived);
       }
       return true;
     }).sort((a, b) => {
@@ -1236,7 +1242,7 @@ ${catBlocks}
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived, effectiveShowArchived]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
@@ -1327,13 +1333,14 @@ ${catBlocks}
                   {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+              <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก" | "archive")}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="สถานะ" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">ทุกสถานะ</SelectItem>
                   <SelectItem value="ว่าง">ว่าง</SelectItem>
                   <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
                   <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
+                  <SelectItem value="archive">📦 Archive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1396,13 +1403,14 @@ ${catBlocks}
                 {allCountries.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก")}>
+            <Select value={filterStatus || "__all__"} onValueChange={(v) => setFilterStatus(v === "__all__" ? "" : v as "ว่าง" | "ปิดกรุ๊ป" | "ยกเลิก" | "archive")}>
               <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue placeholder="สถานะทั้งหมด" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">สถานะทั้งหมด</SelectItem>
                 <SelectItem value="ว่าง">ว่าง</SelectItem>
                 <SelectItem value="ปิดกรุ๊ป">ปิดกรุ๊ป</SelectItem>
                 <SelectItem value="ยกเลิก">ยกเลิก</SelectItem>
+                <SelectItem value="archive">📦 Archive</SelectItem>
               </SelectContent>
             </Select>
             {/* Date range filter */}
@@ -1594,7 +1602,7 @@ ${catBlocks}
                 title="กดเพื่อดู Period ที่เดินทางแล้ว (Archive)"
               >
                 <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
-                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive {showArchived ? "✓" : ""}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive {effectiveShowArchived ? "✓" : ""}</span>
               </div>
             )}
             {/* Dashboard button */}
@@ -1649,9 +1657,12 @@ ${catBlocks}
                 const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
                 // ── Period-level filter (matches tour-level logic but applied per period) ──
                 const visiblePeriods = (t.periods ?? []).filter((p) => {
-                  if (!showArchived && p.archived) return false;
+                  if (filterStatus === "archive") {
+                    return !!p.archived; // archive mode — show ONLY archived periods
+                  }
+                  if (!effectiveShowArchived && p.archived) return false;
                   // ซ่อน period ที่ end_date เกิน 7 วันแล้ว แม้ archived field ยังไม่ sync
-                  if (!showArchived && !p.cancelled && !p.archived && p.end_date) {
+                  if (!effectiveShowArchived && !p.cancelled && !p.archived && p.end_date) {
                     const _today = new Date(); _today.setHours(0,0,0,0);
                     const _cutoff = new Date(_today); _cutoff.setDate(_cutoff.getDate() - 7);
                     if (new Date(p.end_date + "T00:00:00") <= _cutoff) return false;
@@ -2540,7 +2551,7 @@ ${catBlocks}
       )}
 
       {/* ── คลังโปรแกรม — Archived Periods ── */}
-      {showArchived && archivedPeriodItems.length > 0 && (
+      {effectiveShowArchived && archivedPeriodItems.length > 0 && (
         <div className="mt-6 px-4 sm:px-6">
           <div className="flex items-center gap-2 mb-3">
             <Archive className="w-4 h-4 text-slate-400" />
