@@ -1188,15 +1188,15 @@ ${catBlocks}
       if (filterCountry && t.country !== filterCountry) return false;
       if (filterStatus) {
         const periods = t.periods ?? [];
-        if (periods.length > 0) {
-          const has = periods.some((p) => {
-            if (filterStatus === "ยกเลิก") return !!p.cancelled;
-            if (filterStatus === "ปิดกรุ๊ป") return !p.cancelled && p.quota === 0;
-            if (filterStatus === "ว่าง") return !p.cancelled && p.quota > 0;
-            return true;
-          });
-          if (!has) return false;
-        }
+        // ถ้าไม่มี period เลย → ไม่ตรงกับ filter สถานะใดๆ
+        if (periods.length === 0) return false;
+        const has = periods.some((p) => {
+          if (filterStatus === "ยกเลิก") return !!p.cancelled;
+          if (filterStatus === "ปิดกรุ๊ป") return !p.cancelled && p.quota === 0;
+          if (filterStatus === "ว่าง") return !p.cancelled && p.quota > 0;
+          return true;
+        });
+        if (!has) return false;
       }
       if (filterSeatHold) {
         const hasSeatHold = (t.periods ?? []).some((p) => !!p.seat_hold);
