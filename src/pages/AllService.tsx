@@ -396,8 +396,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
   const [showArchived, setShowArchived]   = useState(false);
+  const [showCancelled, setShowCancelled] = useState(false);
   // sync showArchived with status filter
-  const effectiveShowArchived = showArchived || filterStatus === "archive";
+  const effectiveShowArchived  = showArchived || filterStatus === "archive";
+  const effectiveShowCancelled = showCancelled || filterStatus === "ยกเลิก";
   // ── date range filter (period travel date) ──
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo,   setFilterDateTo]   = useState("");
@@ -1162,8 +1164,13 @@ ${catBlocks}
     const sorted = [...tours].filter((t) => {
       if (t.archived) return false;
       if (!effectiveShowArchived) {
-        const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
-        if (activePeriods.length > 0 && activePeriods.every((p) => p.archived)) return false;
+        const nonCancelledPeriods = (t.periods ?? []).filter((p) => !p.cancelled);
+        if (nonCancelledPeriods.length > 0 && nonCancelledPeriods.every((p) => p.archived)) return false;
+      }
+      // hide tours where all periods are cancelled (when not showing cancelled)
+      if (!effectiveShowCancelled) {
+        const nonCancelledPeriods = (t.periods ?? []).filter((p) => !p.cancelled);
+        if ((t.periods ?? []).length > 0 && nonCancelledPeriods.length === 0) return false;
       }
       // archive mode: only show tours that have archived periods
       if (filterStatus === "archive") {
@@ -1203,6 +1210,7 @@ ${catBlocks}
         const periods = t.periods ?? [];
         if (periods.length === 0) return false;
         const has = periods.some((p) => {
+          if (!effectiveShowCancelled && p.cancelled) return false;
           if (filterStatus === "ยกเลิก") return !!p.cancelled;
           if (filterStatus === "ปิดกรุ๊ป") return !p.cancelled && p.quota === 0;
           if (filterStatus === "ว่าง") return !p.cancelled && p.quota > 0;
@@ -1242,13 +1250,18 @@ ${catBlocks}
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived, effectiveShowArchived]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived, showCancelled, effectiveShowArchived, effectiveShowCancelled]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
   const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
 
   // archived periods — flat list of { tour, period }
+  const cancelledPeriodCount = useMemo(() =>
+    tours.reduce((n, t) => n + (t.periods ?? []).filter((p) => p.cancelled).length, 0),
+    [tours]
+  );
+
   const archivedPeriodItems = useMemo(() => {
     const items: Array<{ tour: typeof tours[0]; period: NonNullable<typeof tours[0]["periods"]>[0] }> = [];
     tours.forEach((t) => {
@@ -1264,6 +1277,7 @@ ${catBlocks}
     setFilterText(""); setFilterCat(""); setFilterCountry("");
     setFilterStatus(""); setFilterSeatHold(false); setFilterPromo(false); setFilterTags([]);
     setFilterDateFrom(""); setFilterDateTo("");
+    setShowCancelled(false); setShowArchived(false);
   };
 
   return (
@@ -1518,6 +1532,47 @@ ${catBlocks}
         </div>
       </div>
 
+      {/* ── Add-on toggles: show cancelled / archived ── */}
+      {(cancelledPeriodCount > 0 || archivedPeriodItems.length > 0) && (
+        <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap px-4 sm:px-6 py-2 border-b border-border bg-muted/20">
+          <span className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wide shrink-0">แสดงเพิ่มเติม:</span>
+          {cancelledPeriodCount > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer select-none group">
+              <div
+                onClick={() => setShowCancelled((v) => !v)}
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${effectiveShowCancelled ? "bg-red-500 border-red-500" : "border-muted-foreground/40 group-hover:border-red-400"}`}
+              >
+                {effectiveShowCancelled && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </div>
+              <span
+                onClick={() => setShowCancelled((v) => !v)}
+                className={`text-xs font-medium transition-colors ${effectiveShowCancelled ? "text-red-500" : "text-muted-foreground group-hover:text-foreground"}`}
+              >
+                ❌ รวม Period ที่ยกเลิก
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">({cancelledPeriodCount})</span>
+              </span>
+            </label>
+          )}
+          {archivedPeriodItems.length > 0 && (
+            <label className="flex items-center gap-2 cursor-pointer select-none group">
+              <div
+                onClick={() => setShowArchived((v) => !v)}
+                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${effectiveShowArchived ? "bg-slate-600 border-slate-600" : "border-muted-foreground/40 group-hover:border-slate-400"}`}
+              >
+                {effectiveShowArchived && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </div>
+              <span
+                onClick={() => setShowArchived((v) => !v)}
+                className={`text-xs font-medium transition-colors ${effectiveShowArchived ? "text-slate-400" : "text-muted-foreground group-hover:text-foreground"}`}
+              >
+                📦 รวม Period ที่ Archive แล้ว
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">({archivedPeriodItems.length})</span>
+              </span>
+            </label>
+          )}
+        </div>
+      )}
+
       {/* ── STOCK SUMMARY BAR — 3-way seat split + cancelled + archive ── */}
       {(() => {
         const today = new Date();
@@ -1661,6 +1716,8 @@ ${catBlocks}
                     return !!p.archived; // archive mode — show ONLY archived periods
                   }
                   if (!effectiveShowArchived && p.archived) return false;
+                  // hide cancelled by default unless checkbox or status filter active
+                  if (!effectiveShowCancelled && p.cancelled) return false;
                   // ซ่อน period ที่ end_date เกิน 7 วันแล้ว แม้ archived field ยังไม่ sync
                   if (!effectiveShowArchived && !p.cancelled && !p.archived && p.end_date) {
                     const _today = new Date(); _today.setHours(0,0,0,0);
