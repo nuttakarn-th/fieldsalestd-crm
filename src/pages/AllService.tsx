@@ -2079,7 +2079,7 @@ ${catBlocks}
                           <div className="w-[46px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">บิน</div>
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">เดินทาง</div>
                           <div className="w-2 shrink-0" />
-                          <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">FD</div>
+                          <div className="w-14 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">Freeday</div>
                           <div className="w-9 shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">ร้าน</div>
                           <div className="w-[62px] shrink-0 text-[10px] font-semibold text-muted-foreground tracking-wide whitespace-nowrap text-center">จอง จ่าย จบ</div>
                           <div className="w-[40px] shrink-0 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap text-center">Vat7%</div>
@@ -2218,8 +2218,8 @@ ${catBlocks}
                                   <div className="w-px h-5 bg-border" />
                                 </div>
 
-                                {/* 6. FREEDAY chip — "FD" abbreviated */}
-                                <div className="w-9 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
+                                {/* 6. FREEDAY chip */}
+                                <div className="w-14 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.freeday
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="Freeday" style={{background: "#7C3AED"}}>FD</span>
                                     : <span className="text-gray-200 text-[10px]">–</span>}
