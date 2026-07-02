@@ -1523,54 +1523,88 @@ ${catBlocks}
 
 
 
-      {/* ── STOCK SUMMARY BAR — 3-way seat split + cancelled + archive ── */}
+      {/* ── STOCK SUMMARY BAR — seats + value + category ── */}
       {(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const allActiveTours = tours.filter((t) => !t.archived);
+        const fmtVal = (v: number) =>
+          v >= 1_000_000
+            ? `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)} ล้าน`
+            : v >= 1_000 ? `${(v / 1_000).toFixed(v % 1_000 === 0 ? 0 : 1)}K` : v.toLocaleString();
         const stats = allActiveTours.reduce(
           (acc, t) => {
+            const cat = (t.category ?? "").toLowerCase();
             (t.periods ?? []).forEach((p) => {
               if (p.archived) return;
+              const pVal = p.total_seats * (p.price_per_seat ?? 0);
               if (p.cancelled) {
                 acc.cancelledPeriods += 1;
                 acc.cancelledSeats   += p.total_seats;
+                acc.cancelledValue   += pVal;
               } else {
                 const booked = Math.max(0, p.total_seats - p.quota);
-                acc.targetSeats += p.total_seats;
-                acc.periods     += 1;
+                const bookedVal = booked * (p.price_per_seat ?? 0);
+                acc.targetSeats    += p.total_seats;
+                acc.periods        += 1;
+                acc.capacityValue  += pVal;
+                acc.bookedValue    += bookedVal;
                 const startDate = p.start_date ? new Date(p.start_date + "T00:00:00") : null;
                 if (startDate && startDate >= today) {
-                  acc.waitingBooked += booked;
+                  acc.waitingBooked      += booked;
+                  acc.waitingValue       += bookedVal;
+                  // category seats
+                  if (cat.includes("inter") || cat.includes("ต่างประเทศ") || cat.includes("intl")) {
+                    acc.intlSeats += p.total_seats; acc.intlBooked += booked;
+                  } else if (cat.includes("incent")) {
+                    acc.incSeats += p.total_seats; acc.incBooked += booked;
+                  } else {
+                    acc.domSeats += p.total_seats; acc.domBooked += booked;
+                  }
                 } else {
-                  acc.travelledBooked += booked;
+                  acc.travelledBooked    += booked;
+                  acc.travelledValue     += bookedVal;
                 }
               }
             });
             return acc;
           },
-          { targetSeats: 0, waitingBooked: 0, travelledBooked: 0, periods: 0, cancelledPeriods: 0, cancelledSeats: 0 }
+          {
+            targetSeats: 0, waitingBooked: 0, travelledBooked: 0, periods: 0,
+            capacityValue: 0, bookedValue: 0, waitingValue: 0, travelledValue: 0,
+            cancelledPeriods: 0, cancelledSeats: 0, cancelledValue: 0,
+            intlSeats: 0, intlBooked: 0, domSeats: 0, domBooked: 0, incSeats: 0, incBooked: 0,
+          }
         );
         if (stats.periods === 0 && stats.cancelledPeriods === 0) return null;
         const totalBooked = stats.waitingBooked + stats.travelledBooked;
         const bookingPct  = stats.targetSeats > 0 ? Math.round((totalBooked / stats.targetSeats) * 100) : 0;
         const waitingPct  = stats.targetSeats > 0 ? Math.round((stats.waitingBooked / stats.targetSeats) * 100) : 0;
         const travelPct   = stats.targetSeats > 0 ? Math.round((stats.travelledBooked / stats.targetSeats) * 100) : 0;
+        const bookedPct   = stats.capacityValue > 0 ? Math.round((stats.bookedValue / stats.capacityValue) * 100) : 0;
+        const catItems = [
+          { label: "Intl", color: "#16A34A", seats: stats.intlSeats, booked: stats.intlBooked },
+          { label: "Dom",  color: "#F59E0B", seats: stats.domSeats,  booked: stats.domBooked  },
+          { label: "Inc",  color: "#7C3AED", seats: stats.incSeats,  booked: stats.incBooked  },
+        ].filter((c) => c.seats > 0);
         return (
           <div className="hidden sm:flex items-stretch border-b border-border bg-card divide-x divide-border overflow-x-auto">
+            {/* ── Label ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 shrink-0">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
               <span className="text-[10px] text-muted-foreground/50 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
             </div>
-            {/* 🎯 เป้าหมาย */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0">
+
+            {/* ── 🎯 เป้าหมาย ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0">
               <span className="text-[18px] font-bold text-foreground leading-none">{stats.targetSeats.toLocaleString()}</span>
               <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">🎯 เป้าหมาย</span>
               <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-muted mt-1.5">
                 <div className="h-full rounded-full transition-all bg-indigo-500" style={{width:`${bookingPct}%`}} />
               </div>
             </div>
-            {/* ⏳ รอเดินทาง */}
+
+            {/* ── ⏳ รอเดินทาง ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
                 <span className="text-[18px] font-bold" style={{color:"#F472B6"}}>{stats.waitingBooked.toLocaleString()}</span>
@@ -1581,7 +1615,8 @@ ${catBlocks}
                 <div className="h-full rounded-full transition-all" style={{width:`${waitingPct}%`, background:"#F472B6"}} />
               </div>
             </div>
-            {/* ✅ เดินทางแล้ว */}
+
+            {/* ── ✅ เดินทางแล้ว ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
                 <span className="text-[18px] font-bold" style={{color:"#4ADE80"}}>{stats.travelledBooked.toLocaleString()}</span>
@@ -1592,25 +1627,75 @@ ${catBlocks}
                 <div className="h-full rounded-full transition-all bg-green-400" style={{width:`${travelPct}%`}} />
               </div>
             </div>
-            {/* ❌ ยกเลิก — clickable toggle */}
+
+            {/* ── 💰 มูลค่า Capacity ── */}
+            {stats.capacityValue > 0 && (
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0 bg-indigo-500/5">
+                <span className="text-[13px] font-bold text-indigo-400 leading-none">฿{fmtVal(stats.capacityValue)}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">💰 มูลค่ารวมทั้งหมด</span>
+              </div>
+            )}
+
+            {/* ── 📈 มูลค่าที่จอง ── */}
+            {stats.capacityValue > 0 && (
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[140px] shrink-0 bg-emerald-500/5">
+                <div className="flex items-baseline gap-1.5 leading-none">
+                  <span className="text-[13px] font-bold text-emerald-400">฿{fmtVal(stats.bookedValue)}</span>
+                  <span className="text-[10px] font-semibold text-emerald-600">{bookedPct}%</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">📈 มูลค่าปัจจุบัน</span>
+                <div className="h-1.5 rounded-full overflow-hidden w-[80px] bg-emerald-500/20">
+                  <div className="h-full rounded-full transition-all bg-emerald-400" style={{width:`${bookedPct}%`}} />
+                </div>
+              </div>
+            )}
+
+            {/* ── Category Breakdown ── */}
+            {catItems.length > 0 && (
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[160px] shrink-0">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 whitespace-nowrap">🗂 Category</span>
+                <div className="flex flex-col gap-1">
+                  {catItems.map((c) => {
+                    const pct = c.seats > 0 ? Math.round((c.booked / c.seats) * 100) : 0;
+                    return (
+                      <div key={c.label} className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-bold w-7 shrink-0" style={{color: c.color}}>{c.label}</span>
+                        <div className="h-1.5 rounded-full overflow-hidden flex-1 min-w-[50px] bg-muted">
+                          <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background: c.color}} />
+                        </div>
+                        <span className="text-[9px] text-muted-foreground w-14 text-right shrink-0">
+                          {c.booked}/{c.seats} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── ❌ ยกเลิก — clickable toggle ── */}
             {stats.cancelledPeriods > 0 && (
               <button
                 onClick={() => setShowCancelled((v) => !v)}
-                className={`flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0 transition-all text-left border-b-2 ${
+                className={`flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0 transition-all text-left border-b-2 ${
                   effectiveShowCancelled
                     ? "bg-red-500/10 border-red-400"
                     : "bg-red-500/5 border-transparent hover:bg-red-500/10 hover:border-red-300"
                 }`}
                 title={effectiveShowCancelled ? "คลิกเพื่อซ่อน Period ที่ยกเลิก" : "คลิกเพื่อแสดง Period ที่ยกเลิกด้วย"}
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-baseline gap-1.5">
                   <span className="text-[15px] font-bold text-red-400 leading-none">{stats.cancelledSeats.toLocaleString()} ที่</span>
                   {effectiveShowCancelled && <span className="text-[9px] font-bold text-red-400 bg-red-500/20 px-1 py-0.5 rounded">แสดงอยู่</span>}
                 </div>
+                {stats.cancelledValue > 0 && (
+                  <span className="text-[10px] font-semibold text-red-400/70 leading-none mt-0.5">฿{fmtVal(stats.cancelledValue)}</span>
+                )}
                 <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">❌ ยกเลิก ({stats.cancelledPeriods} trip)</span>
               </button>
             )}
-            {/* 📦 Archive — clickable toggle */}
+
+            {/* ── 📦 Archive — clickable toggle ── */}
             {archivedPeriodItems.length > 0 && (
               <button
                 onClick={() => setShowArchived((v) => !v)}
@@ -1628,7 +1713,8 @@ ${catBlocks}
                 <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive</span>
               </button>
             )}
-            {/* Dashboard button */}
+
+            {/* ── Dashboard ── */}
             <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border ml-auto">
               <button
                 onClick={() => window.location.href = "/app/stock-dashboard"}
