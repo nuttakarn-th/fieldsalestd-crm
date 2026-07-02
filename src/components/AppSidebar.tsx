@@ -5,6 +5,7 @@ import { useCRM } from "@/store/crmStore";
 import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/config/roleMenus";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
+import { ReadyToTravelNotification } from "@/components/ReadyToTravelNotification";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Sidebar,
@@ -122,6 +123,13 @@ export function AppSidebar() {
                   <AtRiskNotification collapsed={collapsed} />
                 </div>
               </SidebarMenuItem>
+              {effectiveRole === "OB Co-ordinator" && (
+                <SidebarMenuItem>
+                  <div className="px-1">
+                    <ReadyToTravelNotification collapsed={collapsed} />
+                  </div>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

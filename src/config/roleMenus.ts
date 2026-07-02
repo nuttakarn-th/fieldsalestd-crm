@@ -22,6 +22,7 @@ import {
   UserPlus,
   CalendarRange,
   TrendingUp,
+  Trophy,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -233,6 +234,12 @@ const obCoordinatorMenu: RoleMenu = {
       items: [
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
+      ],
+    },
+    {
+      category: "INCENTIVE",
+      items: [
+        { title: "Incentive Pipeline", url: "/app/incentive-pipeline", icon: Trophy },
       ],
     },
   ],

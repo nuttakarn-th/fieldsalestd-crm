@@ -49,6 +49,7 @@ import AllServicePage from "./pages/AllServicePage.tsx";
 import MarketingDashboardPage from "./pages/MarketingDashboardPage.tsx";
 import StockDashboard from "./pages/StockDashboard.tsx";
 import StockAnalytics from "./pages/StockAnalytics.tsx";
+import IncentivePipeline from "./pages/IncentivePipeline.tsx";
 import CustomersPage from "./pages/CustomersPage.tsx";
 import CampaignsPage from "./pages/CampaignsPage.tsx";
 import MarketingReportPage from "./pages/MarketingReportPage.tsx";
@@ -184,6 +185,7 @@ const App = () => (
             <Route path="calendar-plan" element={<CalendarPlan />} />
             <Route path="stock-dashboard" element={<StockDashboard />} />
             <Route path="stock-analytics" element={<StockAnalytics />} />
+            <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
