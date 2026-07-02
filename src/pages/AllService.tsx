@@ -1369,14 +1369,7 @@ ${catBlocks}
                 className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground"}`}
                 style={filterSeatHold ? {background: "#0D9488"} : undefined}
               >💸 วางที่นั่ง</button>
-              {archivedPeriodItems.length > 0 && (
-                <button
-                  onClick={() => setShowArchived((v) => !v)}
-                  className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground"}`}
-                  style={showArchived ? {background: "#334155"} : undefined}
-                  title={`${archivedPeriodItems.length} Period ที่ Archive แล้ว`}
-                >📦 Archive {showArchived ? "✓" : `(${archivedPeriodItems.length})`}</button>
-              )}
+
               {hasFilter && (
                 <button onClick={() => { clearFilters(); setFilterOpen(false); }} className="h-8 px-3 text-sm text-red-500 border border-red-200 rounded-lg">✕ ล้างทั้งหมด</button>
               )}
@@ -1459,14 +1452,7 @@ ${catBlocks}
               className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground hover:border-teal-400 hover:text-teal-600"}`}
               style={filterSeatHold ? {background: "#0D9488", borderColor: "#0D9488"} : undefined}
             >💸 วางที่นั่ง</button>
-            {archivedPeriodItems.length > 0 && (
-              <button
-                onClick={() => setShowArchived((v) => !v)}
-                className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground hover:border-slate-400 hover:text-slate-400"}`}
-                style={showArchived ? {background: "#334155", borderColor: "#334155"} : undefined}
-                title={`${archivedPeriodItems.length} Period ที่ Archive แล้ว`}
-              >📦 Archive {showArchived ? "✓" : `(${archivedPeriodItems.length})`}</button>
-            )}
+
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
@@ -1534,8 +1520,8 @@ ${catBlocks}
 
       {/* ── Add-on toggles: show cancelled / archived ── */}
       {(cancelledPeriodCount > 0 || archivedPeriodItems.length > 0) && (
-        <div className="flex items-center gap-x-5 gap-y-1.5 flex-wrap px-4 sm:px-6 py-2 border-b border-border bg-muted/20">
-          <span className="text-[11px] font-semibold text-muted-foreground/60 uppercase tracking-wide shrink-0">แสดงเพิ่มเติม:</span>
+        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap px-4 sm:px-6 py-2.5 border-b border-border/60 bg-muted/30">
+          <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-wider shrink-0">แสดงเพิ่มเติม</span>
           {cancelledPeriodCount > 0 && (
             <label className="flex items-center gap-2 cursor-pointer select-none group">
               <div
@@ -1651,13 +1637,9 @@ ${catBlocks}
             )}
             {/* 📦 Archive */}
             {archivedPeriodItems.length > 0 && (
-              <div
-                className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => setShowArchived((v) => !v)}
-                title="กดเพื่อดู Period ที่เดินทางแล้ว (Archive)"
-              >
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 bg-muted/30">
                 <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
-                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive {effectiveShowArchived ? "✓" : ""}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive</span>
               </div>
             )}
             {/* Dashboard button */}
