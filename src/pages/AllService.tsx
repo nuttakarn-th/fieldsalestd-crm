@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -316,6 +316,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const deleteTourPDF          = useServices((s) => s.deleteTourPDF);
   const togglePublish          = useServices((s) => s.togglePublish);
   const adjustPeriodQuota      = useServices((s) => s.adjustPeriodQuota);
+  const archiveTour            = useServices((s) => s.archiveTour);
+  const restoreTour            = useServices((s) => s.restoreTour);
   const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
   const currentUser            = useCurrentUser();
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
@@ -326,6 +328,29 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const unsub = subscribeToursRealtime();
     return unsub;
   }, [subscribeToursRealtime]);
+
+  // ── Auto-archive: โปรแกรมที่ period สุดท้ายกลับมาแล้ว 7 วัน ──
+  const autoArchiveDone = React.useRef(false);
+  useEffect(() => {
+    if (autoArchiveDone.current || isLoadingTours || tours.length === 0) return;
+    autoArchiveDone.current = true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cutoff = new Date(today);
+    cutoff.setDate(cutoff.getDate() - 7); // 7 วันหลังกลับ
+    tours.forEach((t) => {
+      if (t.archived) return;
+      const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled && p.end_date);
+      if (activePeriods.length === 0) return;
+      const allEnded = activePeriods.every((p) => {
+        const endDate = new Date(p.end_date! + "T00:00:00");
+        return endDate <= cutoff;
+      });
+      if (allEnded) {
+        archiveTour(t.id, "ระบบ (Auto)");
+      }
+    });
+  }, [tours, isLoadingTours, archiveTour]);
 
   // ── program dialog ──
   const [open, setOpen]       = useState(false);
@@ -370,6 +395,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [filterSeatHold, setFilterSeatHold] = useState(false);
   const [filterTags, setFilterTags]       = useState<string[]>([]);
   const [filterOpen, setFilterOpen]       = useState(false);
+  const [showArchived, setShowArchived]   = useState(false);
   // ── date range filter (period travel date) ──
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo,   setFilterDateTo]   = useState("");
@@ -1131,7 +1157,7 @@ ${catBlocks}
     [tours],
   );
   const filteredTours = useMemo(() => {
-    const sorted = [...tours].sort((a, b) => {
+    const sorted = [...tours].filter((t) => showArchived ? true : !t.archived).sort((a, b) => {
       if (tourSort === "name") {
         const na = (a.title || a.city || "").trim();
         const nb = (b.title || b.city || "").trim();
@@ -1204,11 +1230,12 @@ ${catBlocks}
       }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived]);
 
-  const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
-  const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
-  const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
+  const intlTours     = useMemo(() => filteredTours.filter((t) => t.category === "International Tour" && !t.archived), [filteredTours]);
+  const domTours      = useMemo(() => filteredTours.filter((t) => t.category === "Domestic" && !t.archived),          [filteredTours]);
+  const incTours      = useMemo(() => filteredTours.filter((t) => t.category === "Incentive" && !t.archived),         [filteredTours]);
+  const archivedTours = useMemo(() => tours.filter((t) => !!t.archived), [tours]);
 
   const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
   const clearFilters = () => {
@@ -1305,6 +1332,16 @@ ${catBlocks}
                 className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground"}`}
                 style={filterSeatHold ? {background: "#0D9488"} : undefined}
               >💸 วางที่นั่ง</button>
+              {archivedTours.length > 0 && (
+                <button
+                  onClick={() => setShowArchived((v) => !v)}
+                  className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground"}`}
+                  style={showArchived ? {background: "#475569"} : undefined}
+                >
+                  <Archive className="w-3.5 h-3.5 inline mr-1" />
+                  คลัง ({archivedTours.length})
+                </button>
+              )}
               {hasFilter && (
                 <button onClick={() => { clearFilters(); setFilterOpen(false); }} className="h-8 px-3 text-sm text-red-500 border border-red-200 rounded-lg">✕ ล้างทั้งหมด</button>
               )}
@@ -1389,6 +1426,16 @@ ${catBlocks}
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
+            {archivedTours.length > 0 && (
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors flex items-center gap-1.5 ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground hover:border-slate-400 hover:text-slate-600"}`}
+                style={showArchived ? {background: "#475569", borderColor: "#475569"} : undefined}
+              >
+                <Archive className="w-3 h-3" />
+                คลัง ({archivedTours.length})
+              </button>
+            )}
             {/* ── Sort selector ── */}
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
               <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
@@ -1451,107 +1498,111 @@ ${catBlocks}
         </div>
       </div>
 
-      {/* ── STOCK SUMMARY BAR ── */}
+      {/* ── STOCK SUMMARY BAR — 3-way seat split + cancelled + archive ── */}
       {(() => {
-        const stats = filteredTours.reduce(
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // รวมจากทุก tour (ไม่รวม archived) เพื่อภาพรวม
+        const allActiveTours = tours.filter((t) => !t.archived);
+        const stats = allActiveTours.reduce(
           (acc, t) => {
             (t.periods ?? []).forEach((p) => {
-              if (!p.cancelled) {
-                const bookedSeats = p.total_seats - p.quota;
-                acc.totalSeats  += p.total_seats;
-                acc.booked      += bookedSeats;
-                acc.available   += p.quota;
-                acc.periods     += 1;
-                acc.totalValue  += p.total_seats * p.price_per_seat;
-                acc.bookedValue += bookedSeats   * p.price_per_seat;
-              } else {
+              if (p.cancelled) {
                 acc.cancelledPeriods += 1;
                 acc.cancelledSeats   += p.total_seats;
-                acc.cancelledValue   += p.total_seats * p.price_per_seat;
+              } else {
+                const booked = Math.max(0, p.total_seats - p.quota);
+                acc.targetSeats += p.total_seats;
+                acc.periods     += 1;
+                // แยก: ยังไม่เดินทาง vs เดินทางแล้ว (by start_date)
+                const startDate = p.start_date ? new Date(p.start_date + "T00:00:00") : null;
+                if (startDate && startDate >= today) {
+                  acc.waitingBooked += booked;  // จองแล้วยังไม่เดินทาง
+                } else {
+                  acc.travelledBooked += booked; // จองแล้วเดินทางแล้ว
+                }
               }
             });
             return acc;
           },
-          { totalSeats: 0, booked: 0, available: 0, periods: 0, totalValue: 0, bookedValue: 0, cancelledPeriods: 0, cancelledSeats: 0, cancelledValue: 0 }
+          { targetSeats: 0, waitingBooked: 0, travelledBooked: 0, periods: 0, cancelledPeriods: 0, cancelledSeats: 0 }
         );
         if (stats.periods === 0 && stats.cancelledPeriods === 0) return null;
-        const pct      = stats.totalSeats  > 0 ? Math.round((stats.booked      / stats.totalSeats)  * 100) : 0;
-        const valuePct = stats.totalValue  > 0 ? Math.round((stats.bookedValue / stats.totalValue)  * 100) : 0;
-        const fmtVal   = (v: number) => v >= 1_000_000
+
+        const totalBooked = stats.waitingBooked + stats.travelledBooked;
+        const bookingPct  = stats.targetSeats > 0 ? Math.round((totalBooked / stats.targetSeats) * 100) : 0;
+        const waitingPct  = stats.targetSeats > 0 ? Math.round((stats.waitingBooked / stats.targetSeats) * 100) : 0;
+        const travelPct   = stats.targetSeats > 0 ? Math.round((stats.travelledBooked / stats.targetSeats) * 100) : 0;
+
+        const fmtVal = (v: number) => v >= 1_000_000
           ? `${(v / 1_000_000).toFixed(v % 1_000_000 === 0 ? 0 : 1)} ล้าน`
           : v.toLocaleString();
-        // ── category breakdown data ──
-        const catBreakdown = [
-          { label: "Intl", tours: intlTours, color: "#16A34A", bg: "#DCFCE7" },
-          { label: "Dom",  tours: domTours,  color: "#F59E0B", bg: "#FEF3C7" },
-          { label: "Inc",  tours: incTours,  color: "#7C3AED", bg: "#EDE9FE" },
-        ] as const;
+        void fmtVal;
 
         return (
           <div className="hidden sm:flex items-stretch border-b border-border bg-card divide-x divide-border overflow-x-auto">
-            {/* ── Label chip ── */}
+            {/* ── Label ── */}
             <div className="flex flex-col justify-center px-4 py-2.5 shrink-0">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">📊 Stock</span>
               <span className="text-[10px] text-muted-foreground/50 mt-0.5 whitespace-nowrap">{stats.periods} Period</span>
             </div>
 
-            {/* ── ที่นั่งรวม ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[88px] shrink-0">
-              <span className="text-[18px] font-bold text-foreground leading-none">{stats.totalSeats.toLocaleString()}</span>
-              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">ที่นั่งรวม</span>
+            {/* ── 🎯 เป้าหมายที่นั่ง ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0">
+              <span className="text-[18px] font-bold text-foreground leading-none">{stats.targetSeats.toLocaleString()}</span>
+              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">🎯 เป้าหมาย</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-muted mt-1.5">
+                <div className="h-full rounded-full transition-all bg-indigo-500" style={{width:`${bookingPct}%`}} />
+              </div>
             </div>
 
-            {/* ── จองแล้ว + progress ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[108px] shrink-0">
+            {/* ── ⏳ จองแล้วยังไม่เดินทาง ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[18px] font-bold" style={{color:"#F472B6"}}>{stats.booked.toLocaleString()}</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">{pct}%</span>
+                <span className="text-[18px] font-bold" style={{color:"#F472B6"}}>{stats.waitingBooked.toLocaleString()}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{waitingPct}%</span>
               </div>
-              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">จองแล้ว</span>
+              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">⏳ รอเดินทาง</span>
               <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-pink-500/20">
-                <div className="h-full rounded-full transition-all" style={{width:`${pct}%`, background:"#F472B6"}} />
+                <div className="h-full rounded-full transition-all" style={{width:`${waitingPct}%`, background:"#F472B6"}} />
               </div>
             </div>
 
-            {/* ── ว่าง ── */}
-            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[80px] shrink-0">
-              <span className="text-[18px] font-bold leading-none" style={{color:"#4ADE80"}}>{stats.available.toLocaleString()}</span>
-              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">ว่าง</span>
-            </div>
-
-            {/* ── มูลค่า Capacity ── */}
-            <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0">
-              <span className="text-[15px] font-bold text-foreground leading-none">฿{fmtVal(stats.totalValue)}</span>
-              <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">💰 Capacity</span>
-            </div>
-
-            {/* ── มูลค่าจอง + progress ── */}
-            <div className="hidden lg:flex flex-col justify-center px-4 py-2.5 min-w-[130px] shrink-0">
+            {/* ── ✅ จองแล้วเดินทางแล้ว ── */}
+            <div className="flex flex-col justify-center px-4 py-2.5 min-w-[118px] shrink-0">
               <div className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[15px] font-bold" style={{color:"#A78BFA"}}>฿{fmtVal(stats.bookedValue)}</span>
-                <span className="text-[11px] font-semibold text-muted-foreground">{valuePct}%</span>
+                <span className="text-[18px] font-bold" style={{color:"#4ADE80"}}>{stats.travelledBooked.toLocaleString()}</span>
+                <span className="text-[11px] font-semibold text-muted-foreground">{travelPct}%</span>
               </div>
-              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">มูลค่าจอง</span>
-              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-purple-500/20">
-                <div className="h-full rounded-full transition-all" style={{width:`${valuePct}%`, background:"#A78BFA"}} />
+              <span className="text-[10px] text-muted-foreground mt-1 mb-1.5 whitespace-nowrap">✅ เดินทางแล้ว</span>
+              <div className="h-1.5 rounded-full overflow-hidden w-[72px] bg-green-500/20">
+                <div className="h-full rounded-full transition-all bg-green-400" style={{width:`${travelPct}%`}} />
               </div>
             </div>
 
-            {/* ── ยกเลิก ── */}
+            {/* ── ❌ ยกเลิก ── */}
             {stats.cancelledPeriods > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[120px] shrink-0 bg-red-500/5">
-                <div className="flex items-baseline gap-1.5 leading-none">
-                  <span className="text-[15px] font-bold text-red-400">{stats.cancelledPeriods} Period</span>
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1 mb-0.5 whitespace-nowrap">❌ ยกเลิกแล้ว</span>
-                <span className="text-[10px] font-semibold text-red-400 whitespace-nowrap">
-                  ฿{fmtVal(stats.cancelledValue)} <span className="text-[9px] font-normal text-muted-foreground/60">({stats.cancelledSeats.toLocaleString()} ที่)</span>
-                </span>
+              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0 bg-red-500/5">
+                <span className="text-[15px] font-bold text-red-400 leading-none">{stats.cancelledSeats.toLocaleString()} ที่</span>
+                <span className="text-[10px] text-muted-foreground mt-1 mb-0.5 whitespace-nowrap">❌ ยกเลิก ({stats.cancelledPeriods} trip)</span>
+              </div>
+            )}
+
+            {/* ── 📦 Archive ── */}
+            {archivedTours.length > 0 && (
+              <div
+                className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setShowArchived((v) => !v)}
+                title="กดเพื่อ toggle ดูโปรแกรมที่ Archive แล้ว"
+              >
+                <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedTours.length}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive {showArchived ? "✓" : ""}</span>
               </div>
             )}
 
             {/* ── Dashboard button ── */}
-            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border">
+            <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border ml-auto">
               <button
                 onClick={() => window.location.href = "/app/stock-dashboard"}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 transition-colors whitespace-nowrap"
@@ -1563,36 +1614,6 @@ ${catBlocks}
                 </svg>
                 Dashboard
               </button>
-            </div>
-
-            {/* ── Category breakdown ── */}
-            <div className="hidden xl:flex items-center gap-3 px-4 ml-auto shrink-0">
-              <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide">แยกประเภท</span>
-              {catBreakdown.map(({ label, tours: catTours, color, bg }) => {
-                const cs = catTours.reduce((a, t) => {
-                  (t.periods ?? []).filter(p => !p.cancelled).forEach(p => {
-                    a.total  += p.total_seats;
-                    a.booked += (p.total_seats - p.quota);
-                  });
-                  return a;
-                }, { total: 0, booked: 0 });
-                if (cs.total === 0) return null;
-                const cp = Math.round((cs.booked / cs.total) * 100);
-                return (
-                  <div key={label} className="flex flex-col items-center gap-1" title={`${label}: ${cp}% จอง (${cs.booked}/${cs.total})`}>
-                    <span className="text-[10px] font-bold" style={{color}}>{label}</span>
-                    <div className="relative w-9 h-9 shrink-0">
-                      <svg viewBox="0 0 36 36" className="w-9 h-9 -rotate-90">
-                        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" stroke={bg} />
-                        <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" stroke={color}
-                          strokeDasharray={`${cp * 0.942} 94.2`} strokeLinecap="round" />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold" style={{color}}>{cp}%</span>
-                    </div>
-                    <span className="text-[8px] text-muted-foreground whitespace-nowrap">{cs.booked}/{cs.total}</span>
-                  </div>
-                );
-              })}
             </div>
           </div>
         );
@@ -1881,6 +1902,16 @@ ${catBlocks}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuSeparator />
+                              {!t.archived && (
+                                <DropdownMenuItem onClick={() => {
+                                  if (confirm(`📦 Archive โปรแกรม ${t.code}?\n\nโปรแกรมจะถูกซ่อนจากหน้าหลักและย้ายไปคลังโปรแกรม`)) {
+                                    archiveTour(t.id, actorName);
+                                    toast.success("Archive แล้ว — ดูได้ใน คลังโปรแกรม");
+                                  }
+                                }}>
+                                  <Archive className="w-3.5 h-3.5 mr-2 text-muted-foreground" /> Archive โปรแกรม
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด\n\nยืนยันการลบหรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}>
                                 <Trash2 className="w-3.5 h-3.5 mr-2" /> ลบโปรแกรม
                               </DropdownMenuItem>
@@ -2509,6 +2540,84 @@ ${catBlocks}
           )}
         </div>
       )}
+
+      {/* ── คลังโปรแกรม (Archive section) ── */}
+      {showArchived && archivedTours.length > 0 && (() => {
+        // จัดกลุ่มตามปี (จาก archived_at หรือ end_date สุดท้าย)
+        const grouped: Record<string, typeof archivedTours> = {};
+        archivedTours.forEach((t) => {
+          const lastEndDate = [...(t.periods ?? [])].filter(p => p.end_date).sort((a,b) => (b.end_date!).localeCompare(a.end_date!)).map(p=>p.end_date!)[0];
+          const yearStr = t.archived_at
+            ? String(new Date(t.archived_at).getFullYear())
+            : lastEndDate
+              ? String(new Date(lastEndDate + "T00:00:00").getFullYear())
+              : "ไม่ระบุปี";
+          if (!grouped[yearStr]) grouped[yearStr] = [];
+          grouped[yearStr].push(t);
+        });
+        const years = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+        return (
+          <div className="mt-4 mx-4 sm:mx-6 mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-200 shrink-0">
+                <Archive className="w-5 h-5 text-slate-500" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-slate-600">📦 คลังโปรแกรม</p>
+                <p className="text-xs text-muted-foreground">โปรแกรมที่ปิดกรุ๊ปแล้ว — {archivedTours.length} รายการ</p>
+              </div>
+            </div>
+            {years.map((year) => (
+              <div key={year} className="mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">{year}</p>
+                <div className="space-y-1.5">
+                  {grouped[year].sort((a,b) => (b.archived_at ?? "").localeCompare(a.archived_at ?? "")).map((t) => {
+                    const periods = t.periods ?? [];
+                    const activePeriods = periods.filter(p => !p.cancelled);
+                    const totalBooked = activePeriods.reduce((s,p) => s + Math.max(0, p.total_seats - p.quota), 0);
+                    const totalSeats  = activePeriods.reduce((s,p) => s + p.total_seats, 0);
+                    const cancelledCnt = periods.filter(p => p.cancelled).length;
+                    const lastDate = [...activePeriods].filter(p=>p.end_date).sort((a,b)=>(b.end_date!).localeCompare(a.end_date!)).map(p=>p.end_date!)[0];
+                    const archiveDate = t.archived_at ? new Date(t.archived_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"}) : "";
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                        {/* Category dot */}
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{background: t.category === "International Tour" ? "#16A34A" : t.category === "Domestic" ? "#F59E0B" : "#7C3AED"}} />
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-muted-foreground">{t.code}</span>
+                            <span className="text-xs text-foreground truncate">{t.title ?? t.city}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground">{activePeriods.length} trip · {totalBooked}/{totalSeats} ที่</span>
+                            {cancelledCnt > 0 && <span className="text-[10px] text-red-400">ยกเลิก {cancelledCnt} trip</span>}
+                            {lastDate && <span className="text-[10px] text-muted-foreground/60">กลับ {new Date(lastDate+"T00:00:00").toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"2-digit"})}</span>}
+                          </div>
+                        </div>
+                        {/* Archive info + Restore */}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {archiveDate && <span className="text-[9px] text-muted-foreground/60">Archive {archiveDate}</span>}
+                          {t.archived_by && <span className="text-[9px] text-muted-foreground/40">โดย {t.archived_by}</span>}
+                          {canEdit && (
+                            <button
+                              onClick={() => { restoreTour(t.id); toast.success(`คืน ${t.code} กลับแล้ว`); }}
+                              className="flex items-center gap-1 text-[10px] font-semibold text-indigo-500 hover:text-indigo-600 transition-colors mt-0.5"
+                              title="คืนกลับ Active"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Restore
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── Program Dialog (2-step wizard: tour → period) ── */}
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setDialogStep("tour"); setWizardTourId(""); } }}>

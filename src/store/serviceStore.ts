@@ -75,6 +75,10 @@ export interface TourItem {
   continent?: string;       // ทวีป (auto-calc จากประเทศ)
   tour_types?: string[];    // ประเภททัวร์ chips เช่น ["ครอบครัว", "Premium"]
   description?: string;     // คำอธิบายโปรแกรม
+  // ── Archive system (v250) ──
+  archived?: boolean;       // โปรแกรมถูก Archive แล้ว (ซ่อนจากหน้าหลัก)
+  archived_at?: string;     // ISO timestamp เมื่อ Archive
+  archived_by?: string;     // ชื่อผู้ที่ Archive
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
@@ -140,6 +144,11 @@ interface ServiceState {
   addInsurance: (i: Omit<InsuranceItem, "id">) => void;
   updateInsurance: (id: string, p: Partial<InsuranceItem>) => void;
   deleteInsurance: (id: string) => void;
+
+  /** Archive โปรแกรมทัวร์ (ซ่อนจากหน้าหลัก แต่ไม่ลบข้อมูล) */
+  archiveTour: (id: string, archivedBy?: string) => void;
+  /** คืนโปรแกรมทัวร์จาก Archive กลับมา Active */
+  restoreTour: (id: string) => void;
 
   /** อัปโหลด PDF โปรแกรมทัวร์ไป Supabase Storage แล้วบันทึก pdf_url */
   uploadTourPDF: (tourId: string, file: File) => Promise<string | null>;
@@ -222,6 +231,17 @@ export const useServices = create<ServiceState>()(
       deleteTour: (id) => {
         set({ tours: get().tours.filter((x) => x.id !== id) });
         sbDelete("tours", id);
+      },
+      archiveTour: (id, archivedBy) => {
+        const now = new Date().toISOString();
+        const patch = { archived: true, archived_at: now, archived_by: archivedBy ?? "ระบบ" };
+        set({ tours: get().tours.map((x) => (x.id === id ? { ...x, ...patch } : x)) });
+        sbUpdate("tours", id, patch);
+      },
+      restoreTour: (id) => {
+        const patch = { archived: false, archived_at: null as unknown as undefined, archived_by: null as unknown as undefined };
+        set({ tours: get().tours.map((x) => (x.id === id ? { ...x, archived: false, archived_at: undefined, archived_by: undefined } : x)) });
+        sbUpdate("tours", id, patch);
       },
       adjustQuota: (tourId, delta) => {
         const tour = get().tours.find((x) => x.id === tourId);
