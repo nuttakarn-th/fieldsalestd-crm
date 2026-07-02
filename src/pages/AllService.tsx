@@ -323,6 +323,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
   const currentUser            = useCurrentUser();
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
+  const role                   = currentUser?.role ?? "";
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   // ── Subscribe Supabase Realtime เมื่อ component mount ──
