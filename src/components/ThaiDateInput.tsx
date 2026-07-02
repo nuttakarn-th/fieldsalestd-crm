@@ -33,13 +33,15 @@ export function ThaiDateInput({
     ? value.split("-").reverse().join("/")
     : "";
 
-  // showPicker() is the reliable cross-Chrome way to open the native date picker
+  // showPicker() triggers the native date picker programmatically.
+  // Must be called inside a user-gesture handler (onClick ✓).
   const handleClick = () => {
-    if (!disabled) {
+    if (!disabled && inputRef.current) {
       try {
-        inputRef.current?.showPicker();
+        inputRef.current.showPicker();
       } catch {
-        inputRef.current?.click();
+        // Fallback: focus the input so keyboard navigation still works
+        inputRef.current.focus();
       }
     }
   };
@@ -47,24 +49,25 @@ export function ThaiDateInput({
   return (
     <div
       className={cn(
-        "relative flex items-center h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer",
+        "relative flex items-center h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer select-none",
         disabled && "opacity-50 cursor-not-allowed pointer-events-none",
         className
       )}
       onClick={handleClick}
     >
-      {/* Visual display */}
+      {/* Visual display — pointer-events-none so the click bubbles up to the div */}
       <span
         className={cn(
-          "flex-1 select-none truncate",
+          "flex-1 truncate pointer-events-none",
           !displayVal && "text-muted-foreground"
         )}
       >
         {displayVal || "วว/ดด/ปปปป"}
       </span>
-      <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0" />
+      <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0 pointer-events-none" />
 
-      {/* Hidden native date input — sr-only keeps it accessible but invisible */}
+      {/* Native date input: full-size, opacity-0 (NOT sr-only/clipped — showPicker needs the
+          element to be in the layout, unclipped, for Chrome to accept the call) */}
       <input
         ref={inputRef}
         type="date"
@@ -77,7 +80,9 @@ export function ThaiDateInput({
         id={id}
         name={name}
         tabIndex={-1}
-        className="sr-only"
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        style={{ zIndex: -1 }}
       />
     </div>
   );
