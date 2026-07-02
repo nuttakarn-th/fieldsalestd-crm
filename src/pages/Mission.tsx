@@ -424,7 +424,7 @@ export default function Mission() {
             <div>
               <Label className="text-sm font-medium">วันที่ต้องการย้ายไป *</Label>
               <Input
-                type="date"
+                type="date" lang="th-TH"
                 value={skipDate}
                 onChange={(e) => setSkipDate(e.target.value)}
                 className="mt-1.5"

@@ -187,7 +187,7 @@ export function FollowupLogDialog({ lead, customerName, open, onOpenChange }: Fo
                 </div>
                 {/* Custom date */}
                 <input
-                  type="date"
+                  type="date" lang="th-TH"
                   value={nextDate}
                   onChange={(e) => setNextDate(e.target.value)}
                   className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"

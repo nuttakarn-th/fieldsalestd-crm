@@ -238,7 +238,7 @@ export function CustomerLeadDialog({
             <div><Label>Line ID</Label><Input value={lineId} onChange={(e) => setLineId(e.target.value)} /></div>
             <div><Label>อีเมล <span className="text-[10px] text-muted-foreground">(สำหรับส่งใบเสนอราคา / Ads)</span></Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" /></div>
             <div><Label>จังหวัด <span className="text-[10px] text-muted-foreground">(Geo-targeting)</span></Label><Input value={province} onChange={(e) => setProvince(e.target.value)} placeholder="เช่น กรุงเทพฯ, เชียงใหม่" /></div>
-            <div><Label>วันเกิด <span className="text-[10px] text-muted-foreground">(Birthday campaign)</span></Label><Input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} /></div>
+            <div><Label>วันเกิด <span className="text-[10px] text-muted-foreground">(Birthday campaign)</span></Label><Input type="date" lang="th-TH" value={birthday} onChange={(e) => setBirthday(e.target.value)} /></div>
             <div>
               <Label>ช่องทางที่มา</Label>
               <Select value={source} onValueChange={(v) => setSource(v as Source)}>
@@ -481,7 +481,7 @@ export function CustomerLeadDialog({
                 <SelectContent>{URGENCY_OPTIONS.map((u) => <SelectItem key={u.val} value={u.val}>{u.emoji} {u.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>นัด Follow Up</Label><Input type="date" value={nextFollowUp} onChange={(e) => setNextFollowUp(e.target.value)} /></div>
+            <div><Label>นัด Follow Up</Label><Input type="date" lang="th-TH" value={nextFollowUp} onChange={(e) => setNextFollowUp(e.target.value)} /></div>
           </div>
           <div><Label>มูลค่าเสนอราคา (THB)</Label><Input type="number" value={quotedPrice} onChange={(e) => setQuotedPrice(e.target.value)} placeholder="0" /></div>
           <div>

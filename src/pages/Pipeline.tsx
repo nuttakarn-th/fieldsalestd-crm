@@ -211,7 +211,7 @@ export default function Pipeline() {
             </div>
             <div>
               <Label>นัด Follow-up รอบถัดไป</Label>
-              <Input type="date" value={newFollowup} onChange={(e) => setNewFollowup(e.target.value)} />
+              <Input type="date" lang="th-TH" value={newFollowup} onChange={(e) => setNewFollowup(e.target.value)} />
               <p className="text-[11px] text-muted-foreground mt-1">เว้นว่างถ้ายังไม่นัด</p>
             </div>
           </div>

@@ -162,8 +162,8 @@ export default function QuotationForm() {
           <div className="md:col-span-2"><Label>ที่อยู่</Label><Input value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} /></div>
           <div><Label>เลขประจำตัวผู้เสียภาษี</Label><Input value={customerTaxId} onChange={(e) => setCustomerTaxId(e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>วันที่ออก</Label><Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
-            {docType === "quotation" && <div><Label>ใช้ได้ถึง</Label><Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>}
+            <div><Label>วันที่ออก</Label><Input type="date" lang="th-TH" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></div>
+            {docType === "quotation" && <div><Label>ใช้ได้ถึง</Label><Input type="date" lang="th-TH" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div>}
           </div>
         </div>
       </section>

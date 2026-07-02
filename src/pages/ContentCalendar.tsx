@@ -431,7 +431,7 @@ export default function ContentCalendar() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1 block">วันที่โพสต์</label>
-                  <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                  <input type="date" lang="th-TH" className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
                     value={form.scheduled_date} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })}/>
                 </div>
                 <div>

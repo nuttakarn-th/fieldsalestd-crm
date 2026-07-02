@@ -1023,11 +1023,11 @@ export default function CalendarPlan() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">ตั้งแต่วันที่</label>
-                  <Input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-9 text-sm" />
+                  <Input type="date" lang="th-TH" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="h-9 text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">ถึงวันที่</label>
-                  <Input type="date" value={exportTo} min={exportFrom} onChange={(e) => setExportTo(e.target.value)} className="h-9 text-sm" />
+                  <Input type="date" lang="th-TH" value={exportTo} min={exportFrom} onChange={(e) => setExportTo(e.target.value)} className="h-9 text-sm" />
                 </div>
               </div>
             </div>
