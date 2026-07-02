@@ -2957,12 +2957,12 @@ ${catBlocks}
                   onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">โครงการ</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.note}
                   onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
               </div>
               <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Footnote</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
                 <Input className="h-8 text-xs mt-1" value={pForm.footnote}
                   onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))} placeholder="บริษัท ABC ประมาณ 10 ท่าน VIP..." />
               </div>
@@ -3192,16 +3192,16 @@ ${catBlocks}
                   onChange={(e) => setPForm({ ...pForm, project: e.target.value })} placeholder="campaign name..." />
               </div>
 
-              {/* หมายเหตุ */}
+              {/* โครงการ */}
               <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">โครงการ</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.note}
                   onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
               </div>
 
-              {/* Footnote */}
+              {/* หมายเหตุ */}
               <div>
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Footnote (กด ▶ ขยายแถว)</label>
+                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ (กด ▶ ขยายแถว)</label>
                 <Input className="h-8 text-xs mt-1"
                   value={pForm.footnote}
                   onChange={(e) => setPForm((f) => ({ ...f, footnote: e.target.value }))}
