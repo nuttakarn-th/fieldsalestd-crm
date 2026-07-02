@@ -318,6 +318,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const adjustPeriodQuota      = useServices((s) => s.adjustPeriodQuota);
   const archiveTour            = useServices((s) => s.archiveTour);
   const restoreTour            = useServices((s) => s.restoreTour);
+  const archivePeriod          = useServices((s) => s.archivePeriod);
+  const restorePeriod          = useServices((s) => s.restorePeriod);
   const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
   const currentUser            = useCurrentUser();
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
@@ -329,7 +331,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     return unsub;
   }, [subscribeToursRealtime]);
 
-  // ── Auto-archive: โปรแกรมที่ period สุดท้ายกลับมาแล้ว 7 วัน ──
+  // ── Auto-archive: Period ที่กลับมาแล้วเกิน 7 วัน → archive เฉพาะ Period นั้น ──
   const autoArchiveDone = React.useRef(false);
   useEffect(() => {
     if (autoArchiveDone.current || isLoadingTours || tours.length === 0) return;
@@ -337,20 +339,17 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const cutoff = new Date(today);
-    cutoff.setDate(cutoff.getDate() - 7); // 7 วันหลังกลับ
+    cutoff.setDate(cutoff.getDate() - 7); // 7 วันหลัง end_date
     tours.forEach((t) => {
-      if (t.archived) return;
-      const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled && p.end_date);
-      if (activePeriods.length === 0) return;
-      const allEnded = activePeriods.every((p) => {
-        const endDate = new Date(p.end_date! + "T00:00:00");
-        return endDate <= cutoff;
+      (t.periods ?? []).forEach((p) => {
+        if (p.cancelled || p.archived || !p.end_date) return;
+        const endDate = new Date(p.end_date + "T00:00:00");
+        if (endDate <= cutoff) {
+          archivePeriod(t.id, p.period_id, "ระบบ (Auto)");
+        }
       });
-      if (allEnded) {
-        archiveTour(t.id, "ระบบ (Auto)");
-      }
     });
-  }, [tours, isLoadingTours, archiveTour]);
+  }, [tours, isLoadingTours, archivePeriod]);
 
   // ── program dialog ──
   const [open, setOpen]       = useState(false);
@@ -1157,7 +1156,15 @@ ${catBlocks}
     [tours],
   );
   const filteredTours = useMemo(() => {
-    const sorted = [...tours].filter((t) => showArchived ? true : !t.archived).sort((a, b) => {
+    const sorted = [...tours].filter((t) => {
+      if (t.archived) return false; // tour-level manual archive always hides
+      if (!showArchived) {
+        // hide tour if ALL non-cancelled periods are archived
+        const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
+        if (activePeriods.length > 0 && activePeriods.every((p) => p.archived)) return false;
+      }
+      return true;
+    }).sort((a, b) => {
       if (tourSort === "name") {
         const na = (a.title || a.city || "").trim();
         const nb = (b.title || b.city || "").trim();
@@ -1232,10 +1239,20 @@ ${catBlocks}
     });
   }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived]);
 
-  const intlTours     = useMemo(() => filteredTours.filter((t) => t.category === "International Tour" && !t.archived), [filteredTours]);
-  const domTours      = useMemo(() => filteredTours.filter((t) => t.category === "Domestic" && !t.archived),          [filteredTours]);
-  const incTours      = useMemo(() => filteredTours.filter((t) => t.category === "Incentive" && !t.archived),         [filteredTours]);
-  const archivedTours = useMemo(() => tours.filter((t) => !!t.archived), [tours]);
+  const intlTours     = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
+  const domTours      = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
+  const incTours      = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
+  // archived periods — flat list of { tour, period } จากทุก tour
+  const archivedPeriodItems = useMemo(() => {
+    const items: Array<{ tour: typeof tours[0]; period: NonNullable<typeof tours[0]["periods"]>[0] }> = [];
+    tours.forEach((t) => {
+      (t.periods ?? []).forEach((p) => {
+        if (p.archived) items.push({ tour: t, period: p });
+      });
+    });
+    // เรียงจาก archived_at ล่าสุดก่อน
+    return items.sort((a, b) => (b.period.archived_at ?? "").localeCompare(a.period.archived_at ?? ""));
+  }, [tours]);
 
   const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
   const clearFilters = () => {
@@ -1332,14 +1349,14 @@ ${catBlocks}
                 className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground"}`}
                 style={filterSeatHold ? {background: "#0D9488"} : undefined}
               >💸 วางที่นั่ง</button>
-              {archivedTours.length > 0 && (
+              {archivedPeriodItems.length > 0 && (
                 <button
                   onClick={() => setShowArchived((v) => !v)}
                   className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground"}`}
                   style={showArchived ? {background: "#475569"} : undefined}
                 >
                   <Archive className="w-3.5 h-3.5 inline mr-1" />
-                  คลัง ({archivedTours.length})
+                  คลัง ({archivedPeriodItems.length})
                 </button>
               )}
               {hasFilter && (
@@ -1426,14 +1443,14 @@ ${catBlocks}
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
-            {archivedTours.length > 0 && (
+            {archivedPeriodItems.length > 0 && (
               <button
                 onClick={() => setShowArchived((v) => !v)}
                 className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors flex items-center gap-1.5 ${showArchived ? "text-white border-slate-600" : "border-border text-muted-foreground hover:border-slate-400 hover:text-slate-600"}`}
                 style={showArchived ? {background: "#475569", borderColor: "#475569"} : undefined}
               >
                 <Archive className="w-3 h-3" />
-                คลัง ({archivedTours.length})
+                คลัง ({archivedPeriodItems.length})
               </button>
             )}
             {/* ── Sort selector ── */}
@@ -1589,14 +1606,14 @@ ${catBlocks}
               </div>
             )}
 
-            {/* ── 📦 Archive ── */}
-            {archivedTours.length > 0 && (
+            {/* ── 📦 Archive (period-level) ── */}
+            {archivedPeriodItems.length > 0 && (
               <div
                 className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => setShowArchived((v) => !v)}
-                title="กดเพื่อ toggle ดูโปรแกรมที่ Archive แล้ว"
+                title="กดเพื่อดู Period ที่เดินทางแล้ว (Archive)"
               >
-                <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedTours.length}</span>
+                <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
                 <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive {showArchived ? "✓" : ""}</span>
               </div>
             )}
@@ -1653,6 +1670,8 @@ ${catBlocks}
                 const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
                 // ── Period-level filter (matches tour-level logic but applied per period) ──
                 const visiblePeriods = (t.periods ?? []).filter((p) => {
+                  // archived periods: ซ่อนจากตารางหลัก (ยกเว้น toggle เปิด)
+                  if (p.archived && !showArchived) return false;
                   if (filterSeatHold && !p.seat_hold) return false;
                   if (filterPromo && !(typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)) return false;
                   if (filterStatus === "ยกเลิก"  && !p.cancelled) return false;
@@ -2541,21 +2560,22 @@ ${catBlocks}
         </div>
       )}
 
-      {/* ── คลังโปรแกรม (Archive section) ── */}
-      {showArchived && archivedTours.length > 0 && (() => {
-        // จัดกลุ่มตามปี (จาก archived_at หรือ end_date สุดท้าย)
-        const grouped: Record<string, typeof archivedTours> = {};
-        archivedTours.forEach((t) => {
-          const lastEndDate = [...(t.periods ?? [])].filter(p => p.end_date).sort((a,b) => (b.end_date!).localeCompare(a.end_date!)).map(p=>p.end_date!)[0];
-          const yearStr = t.archived_at
-            ? String(new Date(t.archived_at).getFullYear())
-            : lastEndDate
-              ? String(new Date(lastEndDate + "T00:00:00").getFullYear())
+      {/* ── คลังโปรแกรม — Period-level Archive ── */}
+      {showArchived && archivedPeriodItems.length > 0 && (() => {
+        // จัดกลุ่มตามปี (จาก end_date ของ period)
+        type ArchiveItem = typeof archivedPeriodItems[0];
+        const grouped: Record<string, ArchiveItem[]> = {};
+        archivedPeriodItems.forEach((item) => {
+          const yearStr = item.period.end_date
+            ? String(new Date(item.period.end_date + "T00:00:00").getFullYear())
+            : item.period.archived_at
+              ? String(new Date(item.period.archived_at).getFullYear())
               : "ไม่ระบุปี";
           if (!grouped[yearStr]) grouped[yearStr] = [];
-          grouped[yearStr].push(t);
+          grouped[yearStr].push(item);
         });
         const years = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+        const fmtD = (d?: string) => d ? new Date(d + "T00:00:00").toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"}) : "–";
         return (
           <div className="mt-4 mx-4 sm:mx-6 mb-6">
             <div className="flex items-center gap-3 mb-3">
@@ -2564,46 +2584,47 @@ ${catBlocks}
               </div>
               <div>
                 <p className="font-bold text-sm text-slate-600">📦 คลังโปรแกรม</p>
-                <p className="text-xs text-muted-foreground">โปรแกรมที่ปิดกรุ๊ปแล้ว — {archivedTours.length} รายการ</p>
+                <p className="text-xs text-muted-foreground">Period ที่เดินทางแล้ว — {archivedPeriodItems.length} trip</p>
               </div>
             </div>
             {years.map((year) => (
-              <div key={year} className="mb-4">
+              <div key={year} className="mb-5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2 px-1">{year}</p>
                 <div className="space-y-1.5">
-                  {grouped[year].sort((a,b) => (b.archived_at ?? "").localeCompare(a.archived_at ?? "")).map((t) => {
-                    const periods = t.periods ?? [];
-                    const activePeriods = periods.filter(p => !p.cancelled);
-                    const totalBooked = activePeriods.reduce((s,p) => s + Math.max(0, p.total_seats - p.quota), 0);
-                    const totalSeats  = activePeriods.reduce((s,p) => s + p.total_seats, 0);
-                    const cancelledCnt = periods.filter(p => p.cancelled).length;
-                    const lastDate = [...activePeriods].filter(p=>p.end_date).sort((a,b)=>(b.end_date!).localeCompare(a.end_date!)).map(p=>p.end_date!)[0];
-                    const archiveDate = t.archived_at ? new Date(t.archived_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"}) : "";
+                  {grouped[year].map(({ tour: t, period: p }) => {
+                    const booked = Math.max(0, p.total_seats - p.quota);
+                    const archiveDate = p.archived_at ? new Date(p.archived_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"}) : "";
+                    const catColor = t.category === "International Tour" ? "#16A34A" : t.category === "Domestic" ? "#F59E0B" : "#7C3AED";
                     return (
-                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-colors">
+                      <div key={p.period_id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/20 border border-border/40 hover:bg-muted/40 transition-colors">
                         {/* Category dot */}
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{background: t.category === "International Tour" ? "#16A34A" : t.category === "Domestic" ? "#F59E0B" : "#7C3AED"}} />
-                        {/* Info */}
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{background: catColor}} />
+                        {/* Tour + Period info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-muted-foreground">{t.code}</span>
+                            <span className="text-xs font-bold" style={{color: catColor}}>{t.code}</span>
                             <span className="text-xs text-foreground truncate">{t.title ?? t.city}</span>
+                            {p.airline_code && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{p.airline_code}</span>}
                           </div>
                           <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                            <span className="text-[10px] text-muted-foreground">{activePeriods.length} trip · {totalBooked}/{totalSeats} ที่</span>
-                            {cancelledCnt > 0 && <span className="text-[10px] text-red-400">ยกเลิก {cancelledCnt} trip</span>}
-                            {lastDate && <span className="text-[10px] text-muted-foreground/60">กลับ {new Date(lastDate+"T00:00:00").toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"2-digit"})}</span>}
+                            <span className="text-[10px] font-medium text-muted-foreground">
+                              {fmtD(p.start_date)} – {fmtD(p.end_date)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              จอง {booked}/{p.total_seats} ที่
+                            </span>
+                            {p.quota === 0 && <span className="text-[10px] font-bold text-pink-500">ปิดกรุ๊ป</span>}
+                            {p.archived_by && <span className="text-[9px] text-muted-foreground/50">Archive โดย {p.archived_by}</span>}
                           </div>
                         </div>
-                        {/* Archive info + Restore */}
+                        {/* Archive date + Restore */}
                         <div className="flex flex-col items-end gap-1 shrink-0">
-                          {archiveDate && <span className="text-[9px] text-muted-foreground/60">Archive {archiveDate}</span>}
-                          {t.archived_by && <span className="text-[9px] text-muted-foreground/40">โดย {t.archived_by}</span>}
+                          {archiveDate && <span className="text-[9px] text-muted-foreground/50">{archiveDate}</span>}
                           {canEdit && (
                             <button
-                              onClick={() => { restoreTour(t.id); toast.success(`คืน ${t.code} กลับแล้ว`); }}
+                              onClick={() => { restorePeriod(t.id, p.period_id); toast.success(`คืน ${t.code} · ${fmtD(p.start_date)} กลับแล้ว`); }}
                               className="flex items-center gap-1 text-[10px] font-semibold text-indigo-500 hover:text-indigo-600 transition-colors mt-0.5"
-                              title="คืนกลับ Active"
+                              title="คืน Period กลับ Active"
                             >
                               <RotateCcw className="w-3 h-3" /> Restore
                             </button>
@@ -4131,14 +4152,4 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(r.id)}><Pencil className="w-3.5 h-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { if (confirm("ลบรายการนี้?")) onDelete(r.id); }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      )}
-      {dialog}
-    </div>
-  );
-}
-
+              

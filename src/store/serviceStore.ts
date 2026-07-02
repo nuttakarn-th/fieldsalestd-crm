@@ -48,6 +48,10 @@ export interface TourPeriod {
   created_at?: string;      // ISO timestamp เมื่อสร้าง
   updated_by?: string;      // ชื่อผู้ใช้ที่แก้ไขล่าสุด
   updated_at?: string;      // ISO timestamp เมื่อแก้ไขล่าสุด
+  // ── Period Archive (v252) ──
+  archived?: boolean;       // Period ถูก Archive แล้ว (ซ่อนจากตาราง)
+  archived_at?: string;     // ISO timestamp เมื่อ Archive
+  archived_by?: string;     // ชื่อผู้ที่ Archive
 }
 
 export interface TourItem {
@@ -145,10 +149,14 @@ interface ServiceState {
   updateInsurance: (id: string, p: Partial<InsuranceItem>) => void;
   deleteInsurance: (id: string) => void;
 
-  /** Archive โปรแกรมทัวร์ (ซ่อนจากหน้าหลัก แต่ไม่ลบข้อมูล) */
+  /** Archive โปรแกรมทัวร์ทั้งหมด (ซ่อนจากหน้าหลัก แต่ไม่ลบข้อมูล) */
   archiveTour: (id: string, archivedBy?: string) => void;
   /** คืนโปรแกรมทัวร์จาก Archive กลับมา Active */
   restoreTour: (id: string) => void;
+  /** Archive เฉพาะ Period ที่ระบุ */
+  archivePeriod: (tourId: string, periodId: string, archivedBy?: string) => void;
+  /** คืน Period จาก Archive กลับมา Active */
+  restorePeriod: (tourId: string, periodId: string) => void;
 
   /** อัปโหลด PDF โปรแกรมทัวร์ไป Supabase Storage แล้วบันทึก pdf_url */
   uploadTourPDF: (tourId: string, file: File) => Promise<string | null>;
@@ -242,6 +250,35 @@ export const useServices = create<ServiceState>()(
         const patch = { archived: false, archived_at: null as unknown as undefined, archived_by: null as unknown as undefined };
         set({ tours: get().tours.map((x) => (x.id === id ? { ...x, archived: false, archived_at: undefined, archived_by: undefined } : x)) });
         sbUpdate("tours", id, patch);
+      },
+      archivePeriod: (tourId, periodId, archivedBy) => {
+        const now = new Date().toISOString();
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = (t.periods ?? []).map((p) =>
+            p.period_id === periodId
+              ? { ...p, archived: true, archived_at: now, archived_by: archivedBy ?? "ระบบ" }
+              : p
+          );
+          return { ...t, periods };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods });
+      },
+      restorePeriod: (tourId, periodId) => {
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          const periods = (t.periods ?? []).map((p) =>
+            p.period_id === periodId
+              ? { ...p, archived: false, archived_at: undefined, archived_by: undefined }
+              : p
+          );
+          return { ...t, periods };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: updated.periods });
       },
       adjustQuota: (tourId, delta) => {
         const tour = get().tours.find((x) => x.id === tourId);
@@ -521,38 +558,4 @@ export const useServices = create<ServiceState>()(
             cars.data?.length       && `cars ${cars.data.length}`,
             flights.data?.length    && `flights ${flights.data.length}`,
             hotels.data?.length     && `hotels ${hotels.data.length}`,
-            visas.data?.length      && `visas ${visas.data.length}`,
-            insurances.data?.length && `insurances ${insurances.data.length}`,
-          ].filter(Boolean).join(", ");
-          if (summary) console.info(`[supabase] โหลด services: ${summary}`);
-        } catch (e) {
-          console.error("[supabase] load services ล้มเหลว:", e);
-        } finally {
-          set({ isLoadingTours: false });
-        }
-      },
-
-      subscribeToursRealtime: () => {
-        if (!SUPABASE_ENABLED || !supabase) return () => {};
-        let debounceTimer: ReturnType<typeof setTimeout>;
-        const channel = supabase
-          .channel("tours-realtime")
-          .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => {
-            // debounce 600ms เพื่อไม่ให้ reload ซ้ำเร็วเกินไปเมื่อมีหลาย event
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-              get().loadFromSupabase();
-            }, 600);
-          })
-          .subscribe((status) => {
-            console.info("[supabase] tours realtime:", status);
-          });
-        return () => {
-          clearTimeout(debounceTimer);
-          supabase.removeChannel(channel);
-        };
-      },
-    }),
-    { name: "stdtour-services-v4" },
-  ),
-);
+            visas.data?.length      && `visas ${visas.d
