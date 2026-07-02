@@ -1735,9 +1735,15 @@ ${catBlocks}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0">
                           {t.pdf_url && (
-                            <a href={t.pdf_url} target="_blank" rel="noopener noreferrer"
+                            <a
+                              href={t.is_published
+                                ? `/tour-packages?pkg=tour_${t.id}`  // หน้า flipbook ที่ลูกค้าเห็น
+                                : t.pdf_url}                          // ยังไม่ publish → เปิด PDF ตรงๆ
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}
-                              title="เปิด PDF โปรแกรม">
+                              title={t.is_published ? "เปิดหน้าโปรแกรมที่ลูกค้าเห็น" : "เปิด PDF โปรแกรม"}
+                            >
                               {t.is_published ? "🌐 Live" : "📄 PDF"}
                             </a>
                           )}
