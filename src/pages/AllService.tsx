@@ -1518,46 +1518,7 @@ ${catBlocks}
         </div>
       </div>
 
-      {/* ── Add-on toggles: show cancelled / archived ── */}
-      {(cancelledPeriodCount > 0 || archivedPeriodItems.length > 0) && (
-        <div className="flex items-center gap-x-6 gap-y-2 flex-wrap px-4 sm:px-6 py-2.5 border-b border-border/60 bg-muted/30">
-          <span className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-wider shrink-0">แสดงเพิ่มเติม</span>
-          {cancelledPeriodCount > 0 && (
-            <label className="flex items-center gap-2 cursor-pointer select-none group">
-              <div
-                onClick={() => setShowCancelled((v) => !v)}
-                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${effectiveShowCancelled ? "bg-red-500 border-red-500" : "border-muted-foreground/40 group-hover:border-red-400"}`}
-              >
-                {effectiveShowCancelled && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </div>
-              <span
-                onClick={() => setShowCancelled((v) => !v)}
-                className={`text-xs font-medium transition-colors ${effectiveShowCancelled ? "text-red-500" : "text-muted-foreground group-hover:text-foreground"}`}
-              >
-                ❌ รวม Period ที่ยกเลิก
-                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">({cancelledPeriodCount})</span>
-              </span>
-            </label>
-          )}
-          {archivedPeriodItems.length > 0 && (
-            <label className="flex items-center gap-2 cursor-pointer select-none group">
-              <div
-                onClick={() => setShowArchived((v) => !v)}
-                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${effectiveShowArchived ? "bg-slate-600 border-slate-600" : "border-muted-foreground/40 group-hover:border-slate-400"}`}
-              >
-                {effectiveShowArchived && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </div>
-              <span
-                onClick={() => setShowArchived((v) => !v)}
-                className={`text-xs font-medium transition-colors ${effectiveShowArchived ? "text-slate-400" : "text-muted-foreground group-hover:text-foreground"}`}
-              >
-                📦 รวม Period ที่ Archive แล้ว
-                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">({archivedPeriodItems.length})</span>
-              </span>
-            </label>
-          )}
-        </div>
-      )}
+
 
       {/* ── STOCK SUMMARY BAR — 3-way seat split + cancelled + archive ── */}
       {(() => {
@@ -1628,19 +1589,41 @@ ${catBlocks}
                 <div className="h-full rounded-full transition-all bg-green-400" style={{width:`${travelPct}%`}} />
               </div>
             </div>
-            {/* ❌ ยกเลิก */}
+            {/* ❌ ยกเลิก — clickable toggle */}
             {stats.cancelledPeriods > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0 bg-red-500/5">
-                <span className="text-[15px] font-bold text-red-400 leading-none">{stats.cancelledSeats.toLocaleString()} ที่</span>
+              <button
+                onClick={() => setShowCancelled((v) => !v)}
+                className={`flex flex-col justify-center px-4 py-2.5 min-w-[110px] shrink-0 transition-all text-left border-b-2 ${
+                  effectiveShowCancelled
+                    ? "bg-red-500/10 border-red-400"
+                    : "bg-red-500/5 border-transparent hover:bg-red-500/10 hover:border-red-300"
+                }`}
+                title={effectiveShowCancelled ? "คลิกเพื่อซ่อน Period ที่ยกเลิก" : "คลิกเพื่อแสดง Period ที่ยกเลิกด้วย"}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[15px] font-bold text-red-400 leading-none">{stats.cancelledSeats.toLocaleString()} ที่</span>
+                  {effectiveShowCancelled && <span className="text-[9px] font-bold text-red-400 bg-red-500/20 px-1 py-0.5 rounded">แสดงอยู่</span>}
+                </div>
                 <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">❌ ยกเลิก ({stats.cancelledPeriods} trip)</span>
-              </div>
+              </button>
             )}
-            {/* 📦 Archive */}
+            {/* 📦 Archive — clickable toggle */}
             {archivedPeriodItems.length > 0 && (
-              <div className="flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 bg-muted/30">
-                <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
+              <button
+                onClick={() => setShowArchived((v) => !v)}
+                className={`flex flex-col justify-center px-4 py-2.5 min-w-[100px] shrink-0 transition-all text-left border-b-2 ${
+                  effectiveShowArchived
+                    ? "bg-slate-500/10 border-slate-400"
+                    : "bg-muted/30 border-transparent hover:bg-muted/60 hover:border-slate-300"
+                }`}
+                title={effectiveShowArchived ? "คลิกเพื่อซ่อน Period ที่ Archive" : "คลิกเพื่อแสดง Period ที่ Archive ด้วย"}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[15px] font-bold text-muted-foreground leading-none">{archivedPeriodItems.length}</span>
+                  {effectiveShowArchived && <span className="text-[9px] font-bold text-slate-400 bg-slate-500/20 px-1 py-0.5 rounded">แสดงอยู่</span>}
+                </div>
                 <span className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">📦 Archive</span>
-              </div>
+              </button>
             )}
             {/* Dashboard button */}
             <div className="flex items-center pl-3 pr-2 shrink-0 border-l border-border ml-auto">
