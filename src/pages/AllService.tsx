@@ -4027,4 +4027,9 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
           </div>
         ))}
       </div>
-    
+      )}
+      {dialog}
+    </div>
+  );
+}
+
