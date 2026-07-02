@@ -2959,7 +2959,7 @@ ${catBlocks}
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">โครงการ</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.note}
-                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="หมายเลข หรือรายละเอียดข้อมูลโครงการ" />
               </div>
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">หมายเหตุ</label>
@@ -3196,7 +3196,7 @@ ${catBlocks}
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">โครงการ</label>
                 <Input className="h-8 text-xs mt-0.5" value={pForm.note}
-                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="วางที่นั่งแล้ว / ราคาพิเศษ..." />
+                  onChange={(e) => setPForm({ ...pForm, note: e.target.value })} placeholder="หมายเลข หรือรายละเอียดข้อมูลโครงการ" />
               </div>
 
               {/* หมายเหตุ */}
@@ -4027,9 +4027,4 @@ function SimpleTable({ title, cols, rows, canEdit, onAdd, onEdit, onDelete, dial
           </div>
         ))}
       </div>
-      )}
-      {dialog}
-    </div>
-  );
-}
-
+    

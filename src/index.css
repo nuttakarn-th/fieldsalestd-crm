@@ -187,3 +187,17 @@
     z-index: 9000 !important;
   }
 }
+
+/* ── Placeholder color — lighter across all inputs / textareas ── */
+::placeholder {
+  color: hsl(285 10% 72%) !important;
+  opacity: 1;
+}
+::-webkit-input-placeholder {
+  color: hsl(285 10% 72%);
+  opacity: 1;
+}
+::-moz-placeholder {
+  color: hsl(285 10% 72%);
+  opacity: 1;
+}
