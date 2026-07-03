@@ -1633,35 +1633,49 @@ ${catBlocks}
               <div className="w-px bg-border" />
               {/* ❌ ยกเลิก toggle */}
               {stats.cancelledPeriods > 0 && (
-                <button
-                  onClick={() => setShowCancelled((v) => !v)}
-                  className={`flex flex-col justify-center px-3 py-2 shrink-0 transition-all text-left border-b-2 ${
-                    effectiveShowCancelled ? "bg-red-500/10 border-red-400" : "bg-transparent border-transparent hover:bg-red-500/8"
-                  }`}
-                  title={effectiveShowCancelled ? "ซ่อน Period ที่ยกเลิก" : "แสดง Period ที่ยกเลิก"}
-                >
-                  <div className="flex items-center gap-1 leading-none">
-                    <span className="text-[14px] font-bold text-red-400">{stats.cancelledSeats.toLocaleString()}</span>
-                    {effectiveShowCancelled && <span className="text-[8px] bg-red-500/20 text-red-400 px-1 rounded font-bold">ON</span>}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">❌ ยกเลิก</span>
-                </button>
+                <div className="flex items-center px-2 py-1.5 shrink-0">
+                  <button
+                    onClick={() => setShowCancelled((v) => !v)}
+                    title={effectiveShowCancelled ? "ซ่อน Period ที่ยกเลิก" : "แสดง Period ที่ยกเลิก"}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                      effectiveShowCancelled
+                        ? "bg-red-500/15 border-red-400 text-red-400 shadow-sm"
+                        : "bg-muted/40 border-border text-muted-foreground hover:border-red-300 hover:bg-red-500/8 hover:text-red-400"
+                    }`}
+                  >
+                    <span className="text-[15px] font-bold leading-none">{stats.cancelledSeats.toLocaleString()}</span>
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] font-semibold whitespace-nowrap">❌ ยกเลิก</span>
+                      <span className="text-[9px] opacity-60 whitespace-nowrap">{stats.cancelledPeriods} trip</span>
+                    </span>
+                    <span className={`w-3 h-3 rounded-full border-2 shrink-0 transition-colors ${
+                      effectiveShowCancelled ? "bg-red-400 border-red-400" : "bg-transparent border-current opacity-40"
+                    }`} />
+                  </button>
+                </div>
               )}
               {/* 📦 Archive toggle */}
               {archivedPeriodItems.length > 0 && (
-                <button
-                  onClick={() => setShowArchived((v) => !v)}
-                  className={`flex flex-col justify-center px-3 py-2 shrink-0 transition-all text-left border-b-2 ${
-                    effectiveShowArchived ? "bg-slate-500/10 border-slate-400" : "bg-transparent border-transparent hover:bg-muted/50"
-                  }`}
-                  title={effectiveShowArchived ? "ซ่อน Period ที่ Archive" : "แสดง Period ที่ Archive"}
-                >
-                  <div className="flex items-center gap-1 leading-none">
-                    <span className="text-[14px] font-bold text-muted-foreground">{archivedPeriodItems.length}</span>
-                    {effectiveShowArchived && <span className="text-[8px] bg-slate-500/20 text-slate-400 px-1 rounded font-bold">ON</span>}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">📦 Archive</span>
-                </button>
+                <div className="flex items-center px-2 py-1.5 shrink-0">
+                  <button
+                    onClick={() => setShowArchived((v) => !v)}
+                    title={effectiveShowArchived ? "ซ่อน Period ที่ Archive" : "แสดง Period ที่ Archive"}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                      effectiveShowArchived
+                        ? "bg-amber-500/15 border-amber-400 text-amber-400 shadow-sm"
+                        : "bg-muted/40 border-border text-muted-foreground hover:border-amber-300 hover:bg-amber-500/8 hover:text-amber-500"
+                    }`}
+                  >
+                    <span className="text-[15px] font-bold leading-none">{archivedPeriodItems.length}</span>
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="text-[10px] font-semibold whitespace-nowrap">📦 Archive</span>
+                      <span className="text-[9px] opacity-60 whitespace-nowrap">period</span>
+                    </span>
+                    <span className={`w-3 h-3 rounded-full border-2 shrink-0 transition-colors ${
+                      effectiveShowArchived ? "bg-amber-400 border-amber-400" : "bg-transparent border-current opacity-40"
+                    }`} />
+                  </button>
+                </div>
               )}
               {/* Dashboard */}
               <div className="flex items-center px-3 shrink-0 ml-auto border-l border-border">
