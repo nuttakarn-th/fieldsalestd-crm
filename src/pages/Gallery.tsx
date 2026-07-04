@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Plus, Images, Trash2, X, Check, Pencil, Flame, Globe2,
-  SlidersHorizontal, ChevronDown, ChevronUp,
+  SlidersHorizontal, ChevronDown, ChevronUp, Search,
 } from "lucide-react";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
 import { useGallery, type GalleryAlbum } from "@/store/galleryStore";
@@ -222,6 +222,7 @@ export default function Gallery() {
   // Filter
   const [activeCountry, setActiveCountry] = useState<string | null>(null);
   const [filterOpen, setFilterOpen]       = useState(false); // mobile
+  const [searchQuery, setSearchQuery]     = useState("");
 
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
@@ -242,10 +243,18 @@ export default function Gallery() {
     () => albums.filter(a => a.is_highlight).slice(0, 3),
     [albums]
   );
-  const filteredAlbums = useMemo(
-    () => activeCountry ? albums.filter(a => a.country === activeCountry) : albums,
-    [albums, activeCountry]
-  );
+  const filteredAlbums = useMemo(() => {
+    let list = activeCountry ? albums.filter(a => a.country === activeCountry) : albums;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        (a.country ?? "").toLowerCase().includes(q) ||
+        (a.description ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [albums, activeCountry, searchQuery]);
   const highlightCount = albums.filter(a => a.is_highlight).length;
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -423,6 +432,36 @@ export default function Gallery() {
 
           {/* ══ RIGHT: Highlight section + Album grid ══ */}
           <div className="flex-1 min-w-0 space-y-5">
+
+            {/* ── Search bar ── */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="ค้นหาจากชื่ออัลบั้ม หรือ ประเทศ..."
+                className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-border bg-card text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:border-violet-400 transition-all shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Search result count */}
+            {searchQuery.trim() && (
+              <p className="text-sm text-muted-foreground -mt-2">
+                พบ <span className="font-semibold text-foreground">{filteredAlbums.length}</span> อัลบั้ม
+                {filteredAlbums.length === 0 && (
+                  <button onClick={() => setSearchQuery("")} className="ml-2 text-violet-600 hover:underline text-xs">ล้างการค้นหา</button>
+                )}
+              </p>
+            )}
 
             {/* Highlight featured albums */}
             {highlightAlbums.length > 0 && (
