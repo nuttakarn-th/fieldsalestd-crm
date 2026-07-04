@@ -127,6 +127,21 @@ function PeriodQuotaBar({ quota, total_seats, canEdit, tourId, periodId }: {
   );
 }
 
+// ── Date → searchable string (ISO + Thai month + Buddhist year) ──────────────
+const _TH_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const _TH_LONG  = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+function _dateSearch(d?: string | null): string {
+  if (!d) return "";
+  const parts = d.split("-");
+  const y = parseInt(parts[0] ?? "0", 10);
+  const m = parseInt(parts[1] ?? "0", 10);
+  const day = parts[2] ?? "";
+  const mi = m - 1;
+  const buddistFull = (y + 543).toString();
+  const buddistShort = buddistFull.slice(2);
+  return [d, day, _TH_SHORT[mi] ?? "", _TH_LONG[mi] ?? "", buddistFull, buddistShort].join(" ");
+}
+
 export default function AllService() {
   const user = useCurrentUser();
   const canEdit = user ? canEditServices(user.role) : false;
@@ -1198,11 +1213,16 @@ ${catBlocks}
     return sorted.filter((t) => {
       if (filterText) {
         const q = filterText.toLowerCase();
-        if (
-          !t.city.toLowerCase().includes(q) &&
-          !t.code.toLowerCase().includes(q) &&
-          !t.country.toLowerCase().includes(q)
-        ) return false;
+        const matchesMeta =
+          t.city.toLowerCase().includes(q) ||
+          t.code.toLowerCase().includes(q) ||
+          t.country.toLowerCase().includes(q) ||
+          (t.name ?? "").toLowerCase().includes(q);
+        const matchesPeriod = (t.periods ?? []).some((p) =>
+          _dateSearch(p.start_date).toLowerCase().includes(q) ||
+          _dateSearch(p.end_date).toLowerCase().includes(q)
+        );
+        if (!matchesMeta && !matchesPeriod) return false;
       }
       if (filterCat && t.category !== filterCat) return false;
       if (filterCountry && t.country !== filterCountry) return false;
@@ -1303,7 +1323,7 @@ ${catBlocks}
         <div className="flex items-center gap-2 sm:hidden">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-            <Input className="pl-8 h-9 text-sm" placeholder="ค้นหา..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+            <Input className="pl-8 h-9 text-sm" placeholder="ค้นหา รหัส / เมือง / วันที่..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
           </div>
           <button
             onClick={() => setFilterOpen((v) => !v)}
@@ -1394,7 +1414,7 @@ ${catBlocks}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[160px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-              <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
+              <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ / วันที่..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
             </div>
             <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
               <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
