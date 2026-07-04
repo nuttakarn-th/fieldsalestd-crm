@@ -1824,9 +1824,22 @@ ${catBlocks}
                     if (filterDateFrom && d < filterDateFrom) return false;
                     if (filterDateTo   && d > filterDateTo)   return false;
                   }
+                  // ── ถ้า filterText match ผ่าน period date (ไม่ใช่ meta) → ซ่อน period ที่ไม่ตรง ──
+                  if (filterText) {
+                    const q = filterText.toLowerCase();
+                    const metaMatch =
+                      t.city.toLowerCase().includes(q) ||
+                      t.code.toLowerCase().includes(q) ||
+                      t.country.toLowerCase().includes(q) ||
+                      (t.name ?? "").toLowerCase().includes(q);
+                    if (!metaMatch) {
+                      const periodDateStr = (_dateSearch(p.start_date) + " " + _dateSearch(p.end_date)).toLowerCase();
+                      if (!periodDateStr.includes(q)) return false;
+                    }
+                  }
                   return true;
                 });
-                const periodFilterActive = !!(filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
+                const periodFilterActive = !!(filterText || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
                 const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
                 const priceMin = prices.length ? Math.min(...prices) : t.price_per_seat;
                 const priceMax = prices.length ? Math.max(...prices) : t.price_per_seat;
