@@ -118,16 +118,17 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden gap-0">
-          {/* Header */}
-          <DialogHeader className="px-5 pt-5 pb-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+        <DialogContent className="max-w-sm p-0 overflow-hidden gap-0 flex flex-col max-h-[92vh]">
+          {/* Header — ติดบน */}
+          <DialogHeader className="shrink-0 px-5 pt-5 pb-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
             <DialogTitle className="flex items-center gap-2 text-white">
               <Zap className="w-4 h-4" /> Quick Lead Capture
             </DialogTitle>
             <p className="text-[11px] text-white/75 mt-0.5">เพิ่ม Lead ด่วน — กรอกแค่ข้อมูลสำคัญ</p>
           </DialogHeader>
 
-          <div className="px-5 py-4 space-y-3.5">
+          {/* Body — scroll ได้ */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
             {/* ชื่อ + เบอร์ */}
             <div className="grid grid-cols-2 gap-2">
               <div className="col-span-2 space-y-1">
@@ -297,8 +298,8 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="px-5 pb-5 flex flex-col gap-2">
+          {/* Footer — ติดล่าง */}
+          <div className="shrink-0 px-5 pb-5 pt-2 flex flex-col gap-2 border-t bg-background">
             <Button
               onClick={handleSubmit}
               disabled={saving}
