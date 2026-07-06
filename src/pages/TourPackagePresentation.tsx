@@ -2150,18 +2150,29 @@ export default function TourPackagePresentation() {
   const [uploadingPdf, setUploadingPdf]   = useState(false);
   const [uploadingCoverId, setUploadingCoverId] = useState<string | null>(null);
 
-  // Filters
-  const [activeContinents, setActiveContinents] = useState<Set<string>>(new Set());
-  const [activeTourTypes,  setActiveTourTypes]  = useState<Set<string>>(new Set());
-  const [activeCountries,  setActiveCountries]  = useState<Set<string>>(new Set());
-  const [searchQuery,      setSearchQuery]      = useState("");
+  // Filters — initialized from URL params for shareable links
+  const [activeContinents, setActiveContinents] = useState<Set<string>>(() => {
+    const v = new URLSearchParams(window.location.search).get("c");
+    return v ? new Set(v.split(",").filter(Boolean)) : new Set();
+  });
+  const [activeTourTypes, setActiveTourTypes] = useState<Set<string>>(() => {
+    const v = new URLSearchParams(window.location.search).get("t");
+    return v ? new Set(v.split(",").filter(Boolean)) : new Set();
+  });
+  const [activeCountries, setActiveCountries] = useState<Set<string>>(() => {
+    const v = new URLSearchParams(window.location.search).get("co");
+    return v ? new Set(v.split(",").filter(Boolean)) : new Set();
+  });
+  const [searchQuery, setSearchQuery] = useState(() =>
+    new URLSearchParams(window.location.search).get("q") ?? ""
+  );
 
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // ── Deep-link: ?pkg=<id> — auto-open flipbook when shared link is opened ──
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const pkgId = searchParams.get("pkg");
     if (!pkgId || packages.length === 0 || flipbookPkg) return;
@@ -2176,6 +2187,19 @@ export default function TourPackagePresentation() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages, searchParams]);
+
+  // ── Sync filter state → URL params (keeps ?pkg= if present) ──
+  useEffect(() => {
+    const params = new URLSearchParams();
+    const pkg = new URLSearchParams(window.location.search).get("pkg");
+    if (pkg) params.set("pkg", pkg);
+    if (activeContinents.size > 0) params.set("c", [...activeContinents].join(","));
+    if (activeTourTypes.size  > 0) params.set("t", [...activeTourTypes].join(","));
+    if (activeCountries.size  > 0) params.set("co", [...activeCountries].join(","));
+    if (searchQuery.trim())         params.set("q", searchQuery.trim());
+    setSearchParams(params, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeContinents, activeTourTypes, activeCountries, searchQuery]);
 
   // ── Filter options ─────────────────────────────────────────────────────────
   const allContinents = useMemo(() => [...new Set(packages.map(p => p.continent).filter(Boolean))].sort(), [packages]);
@@ -2388,24 +2412,37 @@ export default function TourPackagePresentation() {
       {/* ── Staff: Share Link bar ── */}
       {user && (
         <div className="max-w-screen-2xl mx-auto px-3 sm:px-5 lg:px-8 pt-3 flex items-center gap-2">
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 text-xs text-muted-foreground bg-muted/50 border border-border/60 rounded-lg px-3 py-2 font-mono truncate select-all">
-            <Link2 className="w-3.5 h-3.5 shrink-0 text-violet-500" />
-            <span className="truncate">{`${window.location.origin}/tour-packages`}</span>
+          {/* URL display — shows filter params when active */}
+          <div className={`flex items-center gap-1.5 flex-1 min-w-0 text-xs border rounded-lg px-3 py-2 font-mono truncate select-all transition-colors ${
+            hasActiveFilter
+              ? "bg-violet-50 border-violet-300 text-violet-700 dark:bg-violet-950/30 dark:border-violet-600"
+              : "bg-muted/50 border-border/60 text-muted-foreground"
+          }`}>
+            <Link2 className={`w-3.5 h-3.5 shrink-0 ${hasActiveFilter ? "text-violet-500" : "text-violet-400"}`} />
+            <span className="truncate">{window.location.href}</span>
           </div>
+          {/* Filter badge */}
+          {hasActiveFilter && (
+            <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full bg-violet-600 text-white whitespace-nowrap">
+              {activeContinents.size + activeTourTypes.size + activeCountries.size + (searchQuery.trim() ? 1 : 0)} filter
+            </span>
+          )}
+          {/* Copy button */}
           <button
             onClick={() => {
-              const url = `${window.location.origin}/tour-packages`;
               if (navigator.clipboard) {
-                navigator.clipboard.writeText(url).then(() => toast.success("คัดลอกลิงก์แล้ว ✓"));
+                navigator.clipboard.writeText(window.location.href).then(() =>
+                  toast.success(hasActiveFilter ? "คัดลอกลิงก์พร้อม Filter แล้ว 🔗" : "คัดลอกลิงก์แล้ว ✓")
+                );
               } else {
-                toast.info(url);
+                toast.info(window.location.href);
               }
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white shrink-0 transition-all hover:scale-105 active:scale-95"
             style={{ background: "linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%)" }}
           >
             <Copy className="w-3.5 h-3.5" />
-            คัดลอกลิงก์
+            {hasActiveFilter ? "Copy Link + Filter" : "คัดลอกลิงก์"}
           </button>
         </div>
       )}
