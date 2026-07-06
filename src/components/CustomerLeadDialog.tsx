@@ -20,7 +20,7 @@ import { useServices } from "@/store/serviceStore";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-const TH_DAYS_SHORT   = ["อา.","จ.","อ.","พ.","พฤ.","ศ.","ส."];
+const TH_DAYS_SHORT   = ["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
 const TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
 const ALL_MONTHS_KEY = "__all__"; // sentinel = ทุกเดือน (ไม่กรอง)
@@ -43,7 +43,7 @@ function fmtThaiDate(iso?: string): string {
   if (!iso) return "—";
   const d = new Date(iso + "T00:00:00");
   const yy = String(d.getFullYear() + 543).slice(-2);
-  return `${TH_DAYS_SHORT[d.getDay()]} ${d.getDate()} ${TH_MONTHS_SHORT[d.getMonth()]} ${yy}`;
+  return `(${TH_DAYS_SHORT[d.getDay()]}) ${d.getDate()} ${TH_MONTHS_SHORT[d.getMonth()]} ${yy}`;
 }
 /** 🟢 plenty · 🟡 ≤20% หรือ ≤3 ที่ · 🔴 FULL */
 function seatEmoji(quota: number, total: number): string {
