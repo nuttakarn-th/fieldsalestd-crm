@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCRM, BU_TYPES, REQUIREMENT_TAGS, SOURCES, type BUType, type Urgency, type Source } from "@/store/crmStore";
+import { useCRM, BU_TYPES, MONTHS, REQUIREMENT_TAGS, SOURCES, type BUType, type Urgency, type Source } from "@/store/crmStore";
 import { useCurrentUser } from "@/store/authStore";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { toast } from "sonner";
@@ -37,6 +37,8 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   const [phone,     setPhone]     = useState("");
   const [buType,    setBuType]    = useState<BUType>("ทัวร์ต่างประเทศ");
   const [source,    setSource]    = useState<Source>("Field Sale");
+  const [travelMonth, setTravelMonth] = useState("");
+  const [pax,       setPax]       = useState("2");
   const [tags,      setTags]      = useState<string[]>([]);
   const [urgency,   setUrgency]   = useState<Urgency>("Cold");
   const [note,      setNote]      = useState("");
@@ -61,7 +63,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
 
   const reset = () => {
     setName(""); setPhone(""); setBuType("ทัวร์ต่างประเทศ");
-    setTags([]); setSource("Field Sale"); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false);
+    setTags([]); setSource("Field Sale"); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false); setTravelMonth(""); setPax("2");
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
@@ -91,8 +93,8 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
         assigned_to: rep,
         bu_type: buType,
         program: tags.length > 0 ? tags.join(", ") : buType,
-        pax_count: 2,
-        travel_month: "",
+        pax_count: parseInt(pax) || 2,
+        travel_month: travelMonth,
         tour_type: "",
         budget_range: "",
         urgency,
@@ -186,6 +188,30 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
                     {SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* เดือนเดินทาง + Pax */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">เดือนเดินทาง</label>
+                <Select value={travelMonth || "__none__"} onValueChange={(v) => setTravelMonth(v === "__none__" ? "" : v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="ยังไม่ระบุ" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
+                    {MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">จำนวน Pax</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={pax}
+                  onChange={(e) => setPax(e.target.value)}
+                  className="h-9 text-sm"
+                />
               </div>
             </div>
 
