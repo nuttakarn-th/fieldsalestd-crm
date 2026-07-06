@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
-import { Pencil, AlertCircle, Calendar, Users, RefreshCw, User as UserIcon } from "lucide-react";
+import { Pencil, AlertCircle, Calendar, Users, RefreshCw, User as UserIcon, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
 } from "@/store/crmStore";
 import { useCurrentUser } from "@/store/authStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
+import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 
 export default function Pipeline() {
   const leads = useCRM((s) => s.leads);
@@ -29,6 +30,7 @@ export default function Pipeline() {
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [addLeadCustomerId, setAddLeadCustomerId] = useState<string | null>(null);
   const [pendingLost, setPendingLost] = useState<string | null>(null);
   const [reason, setReason] = useState(LOST_REASONS[0]);
 
@@ -131,8 +133,15 @@ export default function Pipeline() {
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {items.map((lead) => {
                   const c = cust(lead.customer_id);
+                  const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
                   return (
                     <div key={lead.lead_id} className="bg-card rounded-lg p-3 border shadow-soft hover:shadow-pop transition-smooth">
+                      {/* ⚠️ Quick Inquiry — ยังไม่มีข้อมูลติดต่อ */}
+                      {noContact && (
+                        <div className="bg-warning/10 text-warning-foreground text-[11px] px-2 py-1 rounded mb-2 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 shrink-0" /> Quick Inquiry — ยังไม่มีข้อมูลติดต่อ
+                        </div>
+                      )}
                       {isLostStatus(lead.status) && lead.lost_reason && (
                         <div className="bg-destructive/10 text-destructive text-[11px] px-2 py-1 rounded mb-2 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3 shrink-0" /> {lead.lost_reason}
@@ -149,6 +158,9 @@ export default function Pipeline() {
                               <UserIcon className="w-3.5 h-3.5" />
                             </button>
                           )}
+                          <button onClick={() => setAddLeadCustomerId(lead.customer_id)} title="สร้าง Lead ใหม่ (ลูกค้าเดิม)" className="text-muted-foreground hover:text-success">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => openStatusDialog(lead)} title="Update Status + Note + Follow-up" className="text-muted-foreground hover:text-primary">
                             <RefreshCw className="w-3.5 h-3.5" />
                           </button>
@@ -201,6 +213,13 @@ export default function Pipeline() {
       </Dialog>
 
       <EditCustomerDialog customer={editingCustomer} onClose={() => setEditingCustomer(null)} />
+
+      {/* สร้าง Lead ใหม่ให้ลูกค้าเดิม — เปิดจากปุ่ม ➕ บน card */}
+      <CustomerLeadDialog
+        open={!!addLeadCustomerId}
+        onOpenChange={(v) => { if (!v) setAddLeadCustomerId(null); }}
+        prefilledCustomerId={addLeadCustomerId ?? undefined}
+      />
 
       <Dialog open={!!statusOpen} onOpenChange={(o) => !o && setStatusOpen(null)}>
         <DialogContent className="max-w-md">

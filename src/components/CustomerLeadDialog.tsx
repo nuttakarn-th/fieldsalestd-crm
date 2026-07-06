@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
+import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,24 +8,33 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS, LEAD_CATEGORIES,
-  type Source, type SalesRep, type BUType, type Urgency, type LeadCategory,
+  useCRM, SOURCES, BU_TYPES, MONTHS, BUDGETS, TOUR_TYPES, URGENCY_OPTIONS,
+  LEAD_STATUSES, OB_LEAD_STATUSES, OB_STAGE_META,
+  type Source, type SalesRep, type BUType, type Urgency, type LeadStatus,
 } from "@/store/crmStore";
 import { useActiveSalesNames, useAuth } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 
-const SERVICE_INTERESTS = [
-  { key: "ทัวร์ต่างประเทศ", label: "✈️ ทัวร์ต่างประเทศ" },
-  { key: "ทัวร์ภายในประเทศ", label: "🏔️ ทัวร์ภายในประเทศ" },
-  { key: "เช่ารถ ท่องเที่ยว", label: "🚗 เช่ารถ" },
-  { key: "จองตั๋วเครื่องบิน", label: "🎫 ตั๋วเครื่องบิน" },
-  { key: "โรงแรม", label: "🏨 โรงแรม" },
-  { key: "Visa", label: "📋 Visa" },
-  { key: "ประกันการเดินทาง", label: "🛡️ ประกัน" },
-];
+// ── helpers ──────────────────────────────────────────────────────────────────
+const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+
+function matchesMonth(start_date: string | undefined, travelMonth: string): boolean {
+  if (!start_date) return true;
+  const mIdx = TH_MONTHS.indexOf(travelMonth);
+  if (mIdx < 0) return true;
+  const m = parseInt((start_date.split("-")[1]) ?? "0", 10);
+  return m === mIdx + 1;
+}
+function monthFromISO(start_date?: string): string {
+  if (!start_date) return MONTHS[0] ?? "มกราคม";
+  const m = parseInt((start_date.split("-")[1]) ?? "1", 10) - 1;
+  return TH_MONTHS[m] ?? "มกราคม";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function CustomerLeadDialog({
   open,
@@ -35,64 +45,73 @@ export function CustomerLeadDialog({
   onOpenChange: (v: boolean) => void;
   prefilledCustomerId?: string;
 }) {
-  // ใช้ primitive selector แทน useCurrentUser() object
-  // เพื่อป้องกัน useEffect([currentUser]) re-run ทุกครั้ง users array replace (Zustand v5)
   const currentUserFullName = useAuth(
     (s) => s.users.find((u) => u.user_id === s.currentUserId)?.full_name ?? null
   );
   const isOB = useAuth(
     (s) => s.users.find((u) => u.user_id === s.currentUserId)?.role === "OB Co-ordinator"
   );
-  const customers = useCRM((s) => s.customers);
+  const customers  = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
-  const addCustomer = useCRM((s) => s.addCustomer);
+  const addCustomer    = useCRM((s) => s.addCustomer);
   const updateCustomer = useCRM((s) => s.updateCustomer);
-  const addLead = useCRM((s) => s.addLead);
-
-  const tours = useServices((s) => s.tours);
-  const cars = useServices((s) => s.cars);
+  const addLead        = useCRM((s) => s.addLead);
+  const tours   = useServices((s) => s.tours);
+  const cars    = useServices((s) => s.cars);
   const flights = useServices((s) => s.flights);
 
-  const [mode, setMode] = useState<"new" | "existing">("new");
-  const [existingId, setExistingId] = useState("");
+  // UI state
+  const [mode, setMode]                   = useState<"new" | "existing">("new");
+  const [existingId, setExistingId]       = useState("");
+  const [showEnrichment, setShowEnrichment] = useState(false);
 
-  // --- Customer fields ---
-  const [fullName, setFullName] = useState("");
-  const [company, setCompany] = useState("");
-  const [phone, setPhone] = useState("");
-  const [lineId, setLineId] = useState("");
-  const [email, setEmail] = useState("");
-  const [province, setProvince] = useState("");
-  const [birthday, setBirthday] = useState("");
-  const [interests, setInterests] = useState<string[]>([]);
-  const [meetingNote, setMeetingNote] = useState("");
-  const [source, setSource] = useState<Source>("Line OA");
-
+  // ── Zone 1: Intent ──────────────────────────────────────────────────────────
+  const [source, setSource]               = useState<Source>("Line OA");
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
-  const [owner, setOwner] = useState<SalesRep>((SALES_REPS[0] ?? "") as SalesRep);
+  const [owner, setOwner]                 = useState<SalesRep>((SALES_REPS[0] ?? "") as SalesRep);
+  const [buType, setBuType]               = useState<BUType>("ทัวร์ต่างประเทศ");
+  const [intProgram, setIntProgram]       = useState("__custom__");
+  const [tourId, setTourId]               = useState<string | undefined>(undefined);
+  const [periodId, setPeriodId]           = useState<string | undefined>(undefined);
+  const [carServiceId, setCarServiceId]   = useState("__custom__");
+  const [flightServiceId, setFlightServiceId] = useState("__custom__");
+  const [intNote, setIntNote]             = useState("");
+  const [domProvince, setDomProvince]     = useState("");
+  const [carDetail, setCarDetail]         = useState("");
+  const [flightDetail, setFlightDetail]   = useState("");
+  const [travelMonth, setTravelMonth]     = useState(MONTHS[0] ?? "มกราคม");
+  const [pax, setPax]                     = useState("2");
+  const [urgency, setUrgency]             = useState<Urgency>("Warm");
+
+  // ── Zone 2: Contact ─────────────────────────────────────────────────────────
+  const [fullName, setFullName]           = useState("");
+  const [phone, setPhone]                 = useState("");
+  const [lineId, setLineId]               = useState("");
+  const [email, setEmail]                 = useState("");
+
+  // ── Zone 3: Enrichment ──────────────────────────────────────────────────────
+  const [budget, setBudget]               = useState(BUDGETS[0] ?? "<30k");
+  const [tourType, setTourType]           = useState(TOUR_TYPES[0] ?? "ครอบครัว");
+  const [province, setProvince]           = useState("");
+  const [company, setCompany]             = useState("");
+  const [nextFollowUp, setNextFollowUp]   = useState(new Date().toISOString().split("T")[0]);
+  const [meetingNote, setMeetingNote]     = useState("");
+
+  // ── Smart Status ─────────────────────────────────────────────────────────────
+  const smartStatus = useMemo<LeadStatus>(() => {
+    if (isOB) return "ตอบแล้ว";
+    if (phone.trim() || lineId.trim()) return "Contacted";
+    return "New";
+  }, [isOB, phone, lineId]);
+  const [statusOverride, setStatusOverride] = useState<LeadStatus | "__auto__">("__auto__");
+  const finalStatus: LeadStatus = statusOverride === "__auto__" ? smartStatus : statusOverride;
+  const isInquiry = !isOB && !phone.trim() && !lineId.trim();
+  const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
+
+  // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!owner && SALES_REPS[0]) setOwner(SALES_REPS[0]);
   }, [owner, SALES_REPS]);
-
-  // --- Lead fields ---
-  const [buType, setBuType] = useState<BUType>("ทัวร์ต่างประเทศ");
-  const [intProgram, setIntProgram] = useState("__custom__");
-  const [tourId, setTourId]   = useState<string | undefined>(undefined); // FK → TourItem.id
-  const [periodId, setPeriodId] = useState<string | undefined>(undefined); // FK → TourPeriod.period_id
-  const [carServiceId, setCarServiceId] = useState("__custom__");
-  const [flightServiceId, setFlightServiceId] = useState("__custom__");
-  const [intNote, setIntNote] = useState("");
-  const [domProvince, setDomProvince] = useState("");
-  const [carDetail, setCarDetail] = useState("");
-  const [flightDetail, setFlightDetail] = useState("");
-  const [travelMonth, setTravelMonth] = useState(MONTHS[0]);
-  const [pax, setPax] = useState("2");
-  const [budget, setBudget] = useState(BUDGETS[0]);
-  const [tourType, setTourType] = useState(TOUR_TYPES[0]);
-  const [urgency, setUrgency] = useState<Urgency>("Warm");
-  const [nextFollowUp, setNextFollowUp] = useState(new Date().toISOString().split("T")[0]);
-  const [quotedPrice, setQuotedPrice] = useState("");
-  const [leadCategory, setLeadCategory] = useState<LeadCategory>("บริษัทเอกชน");
 
   useEffect(() => {
     if (open) {
@@ -101,7 +120,6 @@ export function CustomerLeadDialog({
     }
   }, [open, currentRep, currentUserFullName]);
 
-  // Pre-fill existing customer when launched from CustomerDetail page
   useEffect(() => {
     if (open && prefilledCustomerId) {
       setMode("existing");
@@ -115,54 +133,49 @@ export function CustomerLeadDialog({
       if (c) {
         setFullName(c.full_name);
         setCompany(c.company === "-" ? "" : c.company);
-        setPhone(c.phone);
+        setPhone(c.phone === "-" ? "" : c.phone);
         setLineId(c.line_id);
         setEmail(c.email ?? "");
         setProvince(c.province ?? "");
-        setBirthday(c.birthday ?? "");
-        setInterests(c.interests ?? []);
         setMeetingNote(c.note ?? "");
         setSource(c.source);
       }
     }
   }, [existingId, mode, customers]);
 
-  // Auto-tick interest when buType changes
+  // Clear periodId ถ้า travelMonth เปลี่ยนแล้ว period เดิมไม่อยู่ในเดือนใหม่
   useEffect(() => {
-    if (buType && !interests.includes(buType)) {
-      setInterests((prev) => [...new Set([...prev, buType])]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buType]);
+    if (!periodId || !tourId) return;
+    const period = (tours.find((x) => x.id === tourId)?.periods ?? []).find((p) => p.period_id === periodId);
+    if (period && !matchesMonth(period.start_date, travelMonth)) setPeriodId(undefined);
+  }, [travelMonth, tourId, periodId, tours]);
 
-  const toggleInterest = (key: string) => {
-    setInterests((prev) =>
-      prev.includes(key) ? prev.filter((i) => i !== key) : [...prev, key],
-    );
-  };
-
+  // ── Reset ────────────────────────────────────────────────────────────────────
   const reset = () => {
-    setMode("new"); setExistingId(""); setFullName(""); setCompany(""); setPhone(""); setLineId("");
-    setEmail(""); setProvince(""); setBirthday(""); setInterests([]); setMeetingNote("");
-    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ"); setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined); setIntNote("");
+    setMode("new"); setExistingId(""); setShowEnrichment(false);
+    setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ");
+    setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined);
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
-    setDomProvince(""); setCarDetail(""); setFlightDetail(""); setPax("2"); setQuotedPrice("");
-    setUrgency("Warm"); setNextFollowUp(new Date().toISOString().split("T")[0]);
-    setLeadCategory("บริษัทเอกชน");
+    setIntNote(""); setDomProvince(""); setCarDetail(""); setFlightDetail("");
+    setTravelMonth(MONTHS[0] ?? "มกราคม"); setPax("2"); setUrgency("Warm");
+    setFullName(""); setPhone(""); setLineId(""); setEmail("");
+    setBudget(BUDGETS[0] ?? "<30k"); setTourType(TOUR_TYPES[0] ?? "ครอบครัว");
+    setProvince(""); setCompany(""); setNextFollowUp(new Date().toISOString().split("T")[0]);
+    setMeetingNote(""); setStatusOverride("__auto__");
   };
 
+  // ── Submit ───────────────────────────────────────────────────────────────────
   const submit = () => {
-    if (!fullName || !phone) {
-      toast.error("กรุณากรอกชื่อและเบอร์โทร");
-      return;
-    }
+    if (!fullName.trim()) { toast.error("กรุณากรอกชื่อลูกค้า"); return; }
+
     let cid = existingId;
     const customerPatch = {
-      full_name: fullName, company: company || "-", phone, line_id: lineId,
+      full_name: fullName,
+      company: company || "-",
+      phone: phone || "-",
+      line_id: lineId,
       email: email || undefined,
       province: province || undefined,
-      birthday: birthday || undefined,
-      interests: interests.length > 0 ? interests : undefined,
       note: meetingNote || undefined,
       source,
     };
@@ -171,21 +184,28 @@ export function CustomerLeadDialog({
     } else if (existingId) {
       updateCustomer(existingId, customerPatch);
     } else {
-      toast.error("กรุณาเลือกลูกค้าเดิม");
-      return;
+      toast.error("กรุณาเลือกลูกค้าเดิม"); return;
     }
 
     let program = "";
-    if (buType === "ทัวร์ต่างประเทศ") program = intProgram === "__custom__" ? intNote : intProgram;
-    else if (buType === "ทัวร์ภายในประเทศ") program = intProgram === "__custom__" ? `ทัวร์ในประเทศ: จ.${domProvince}` : intProgram;
-    else if (buType === "เช่ารถ ท่องเที่ยว") program = carServiceId === "__custom__" ? `เช่ารถ: ${carDetail}` : (() => { const c = cars.find((x) => x.id === carServiceId); return c ? `เช่ารถ: ${c.name} ${c.type}` : carDetail; })();
-    else program = flightServiceId === "__custom__" ? `จองตั๋ว: ${flightDetail}` : (() => { const f = flights.find((x) => x.id === flightServiceId); return f ? `จองตั๋ว: ${f.airline} ${f.route}` : flightDetail; })();
+    if (buType === "ทัวร์ต่างประเทศ")
+      program = intProgram === "__custom__" ? intNote : intProgram;
+    else if (buType === "ทัวร์ภายในประเทศ")
+      program = intProgram === "__custom__" ? `ทัวร์ในประเทศ: จ.${domProvince}` : intProgram;
+    else if (buType === "เช่ารถ ท่องเที่ยว")
+      program = carServiceId === "__custom__"
+        ? `เช่ารถ: ${carDetail}`
+        : (() => { const c = cars.find((x) => x.id === carServiceId); return c ? `เช่ารถ: ${c.name} ${c.type}` : carDetail; })();
+    else
+      program = flightServiceId === "__custom__"
+        ? `จองตั๋ว: ${flightDetail}`
+        : (() => { const f = flights.find((x) => x.id === flightServiceId); return f ? `จองตั๋ว: ${f.airline} ${f.route}` : flightDetail; })();
 
     addLead({
       customer_id: cid,
       assigned_to: owner,
       bu_type: buType,
-      lead_category: leadCategory,
+      lead_category: "ลูกค้าทั่วไป",
       scope: buType === "ทัวร์ภายในประเทศ" ? "Domestic" : "International",
       program,
       tour_id: tourId,
@@ -196,21 +216,76 @@ export function CustomerLeadDialog({
       budget_range: budget,
       urgency,
       next_followup_date: nextFollowUp,
-      quoted_price: parseFloat(quotedPrice) || 0,
-      status: isOB ? "ตอบแล้ว" : "New",
+      quoted_price: 0,
+      status: finalStatus,
     });
-    toast.success("สร้าง Lead สำเร็จ");
+
+    toast.success(isInquiry ? "บันทึก Quick Inquiry แล้ว (⚠️ ยังไม่มีข้อมูลติดต่อ)" : "สร้าง Lead สำเร็จ");
     reset();
     onOpenChange(false);
   };
 
+  // ── Period selector (reusable) ───────────────────────────────────────────────
+  const PeriodSelector = () => {
+    const allPeriods = tours.find((x) => x.id === tourId)?.periods ?? [];
+    if (allPeriods.length === 0) return null;
+    const filtered = allPeriods.filter((p) => matchesMonth(p.start_date, travelMonth));
+    return (
+      <div>
+        <Label className="text-xs">
+          เลือกวันเดินทาง (Period)
+          {filtered.length > 0
+            ? <span className="ml-1 text-muted-foreground">— {filtered.length} Period ใน{travelMonth}</span>
+            : <span className="ml-1 text-warning-foreground">— ไม่มี Period ในเดือน{travelMonth}</span>}
+        </Label>
+        {filtered.length > 0 ? (
+          <Select value={periodId ?? "__none__"} onValueChange={(v) => {
+            if (v !== "__none__") {
+              const p = allPeriods.find((x) => x.period_id === v);
+              if (p?.start_date) setTravelMonth(monthFromISO(p.start_date));
+            }
+            setPeriodId(v === "__none__" ? undefined : v);
+          }}>
+            <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
+            <SelectContent className="max-h-60">
+              <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
+              {filtered.map((p) => (
+                <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
+                  {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
+                  {p.quota === 0 ? " 🔴 FULL" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-[11px] text-muted-foreground bg-muted/40 rounded px-2 py-1.5">
+            💡 เปลี่ยนเดือนเดินทางด้านบน หรือเลือก "— ยังไม่ระบุ —" หากยังไม่แน่ใจ
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>เพิ่มลูกค้า / สร้าง Lead ใหม่</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            เพิ่มลูกค้า / สร้าง Lead ใหม่
+            {isInquiry ? (
+              <Badge variant="outline" className="text-warning-foreground border-warning/50 bg-warning/10 text-[11px] font-normal">
+                <AlertTriangle className="w-3 h-3 mr-1" />Quick Inquiry
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-success border-success/50 bg-success/10 text-[11px] font-normal">
+                ✅ Full Lead
+              </Badge>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
+        {/* ลูกค้าใหม่ / เดิม */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "new" | "existing")}>
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="new">🆕 ลูกค้าใหม่</TabsTrigger>
@@ -232,17 +307,11 @@ export function CustomerLeadDialog({
           <TabsContent value="new" />
         </Tabs>
 
-        {/* ── ข้อมูลลูกค้า ── */}
+        {/* ══ Zone 1: ความต้องการ (Intent) ══════════════════════════════════════ */}
         <div className="space-y-3">
-          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">👤 ข้อมูลลูกค้า</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div><Label>ชื่อลูกค้า *</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
-            <div><Label>บริษัท / องค์กร</Label><Input value={company} onChange={(e) => setCompany(e.target.value)} /></div>
-            <div><Label>เบอร์โทร *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-            <div><Label>Line ID</Label><Input value={lineId} onChange={(e) => setLineId(e.target.value)} /></div>
-            <div><Label>อีเมล <span className="text-[10px] text-muted-foreground">(สำหรับส่งใบเสนอราคา / Ads)</span></Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" /></div>
-            <div><Label>จังหวัด <span className="text-[10px] text-muted-foreground">(Geo-targeting)</span></Label><Input value={province} onChange={(e) => setProvince(e.target.value)} placeholder="เช่น กรุงเทพฯ, เชียงใหม่" /></div>
-            <div><Label>วันเกิด <span className="text-[10px] text-muted-foreground">(Birthday campaign)</span></Label><ThaiDateInput value={birthday} onChange={(e) => setBirthday(e.target.value)} /></div>
+          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">📋 ความต้องการ</p>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>ช่องทางที่มา</Label>
               <Select value={source} onValueChange={(v) => setSource(v as Source)}>
@@ -259,159 +328,74 @@ export function CustomerLeadDialog({
             </div>
           </div>
 
-          {/* บริการที่สนใจ */}
           <div>
-            <Label>บริการที่สนใจ <span className="text-[10px] text-muted-foreground">(เลือกได้หลายอย่าง)</span></Label>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2">
-              {SERVICE_INTERESTS.map((s) => (
-                <div key={s.key} className="flex items-center gap-1.5">
-                  <Checkbox
-                    id={`int-${s.key}`}
-                    checked={interests.includes(s.key)}
-                    onCheckedChange={() => toggleInterest(s.key)}
-                  />
-                  <label htmlFor={`int-${s.key}`} className="text-sm cursor-pointer select-none">{s.label}</label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* หมายเหตุการพบลูกค้า */}
-          <div>
-            <Label>หมายเหตุ / บันทึกการพบลูกค้า <span className="text-[10px] text-muted-foreground">(ชอบอะไร, ไม่ชอบอะไร, ข้อสังเกต)</span></Label>
-            <Textarea
-              value={meetingNote}
-              onChange={(e) => setMeetingNote(e.target.value)}
-              placeholder="เช่น ชอบทัวร์ญี่ปุ่น ไม่เอาจีน / งบ 40k ต่อท่าน / ติดต่อได้หลัง 18.00 น."
-              className="min-h-[70px]"
-            />
-          </div>
-        </div>
-
-        {/* ── รายละเอียดบริการ (Lead) ── */}
-        <div className="border-t pt-3 space-y-3">
-          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">📋 รายละเอียดบริการ (Lead)</p>
-          <div>
-            <Label>ประเภทบริการ (BU Type)</Label>
-            <Select value={buType} onValueChange={(v) => setBuType(v as BUType)}>
+            <Label>ประเภทบริการ</Label>
+            <Select value={buType} onValueChange={(v) => {
+              setBuType(v as BUType);
+              setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined);
+            }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>{BU_TYPES.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
             </Select>
           </div>
 
-          {buType === "ทัวร์ต่างประเทศ" && (
+          {/* Tour selectors */}
+          {(buType === "ทัวร์ต่างประเทศ" || buType === "ทัวร์ภายในประเทศ") && (
             <>
-              <Label>โปรแกรมทัวร์ <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span></Label>
-              <Select value={intProgram} onValueChange={(v) => {
-                setIntProgram(v); setPeriodId(undefined);
-                if (v !== "__custom__") {
-                  const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
-                  setTourId(t?.id);
-                } else { setTourId(undefined); }
-              }}>
-                <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(["International Tour", "Incentive"] as const).map((cat) => {
-                    const items = tours.filter((t) => t.category === cat);
-                    if (items.length === 0) return null;
-                    return (
-                      <div key={cat}>
-                        <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{cat}</div>
-                        {items.map((t) => (
-                          <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
-                            {t.code} · {t.city} ({t.duration})
-                          </SelectItem>
-                        ))}
-                      </div>
+              <div>
+                <Label>
+                  โปรแกรมทัวร์{" "}
+                  <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span>
+                </Label>
+                <Select value={intProgram} onValueChange={(v) => {
+                  setIntProgram(v); setPeriodId(undefined);
+                  if (v !== "__custom__") {
+                    const cat = buType === "ทัวร์ต่างประเทศ"
+                      ? (["International Tour", "Incentive"] as const)
+                      : (["Domestic"] as const);
+                    const t = tours.find((x) =>
+                      (cat as readonly string[]).includes(x.category) &&
+                      `${x.code} - ${x.city} ${x.duration}` === v
                     );
-                  })}
-                  <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">อื่นๆ</div>
-                  <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* Period selector — แสดงเมื่อทัวร์ที่เลือกมี periods[] */}
-              {tourId && (() => {
-                const selectedTour = tours.find((x) => x.id === tourId);
-                const periods = selectedTour?.periods ?? [];
-                if (periods.length === 0) return null;
-                return (
-                  <div>
-                    <Label className="text-xs">เลือกวันเดินทาง (Period) *</Label>
-                    <Select value={periodId ?? "__none__"} onValueChange={(v) => setPeriodId(v === "__none__" ? undefined : v)}>
-                      <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
-                        {periods.map((p) => (
-                          <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
-                            {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
-                            {p.quota === 0 ? " 🔴 FULL" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })()}
-              {intProgram === "__custom__" && (
-                <Textarea placeholder="ระบุโปรแกรมที่ต้องการ..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
-              )}
-              {tours.filter((t) => t.category === "International Tour" || t.category === "Incentive").length === 0 && (
-                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
-                  ⚠️ ยังไม่มีโปรแกรมทัวร์ต่างประเทศใน All Service — Admin เพิ่มได้ที่หน้า "All Service"
-                </p>
-              )}
-            </>
-          )}
-          {buType === "ทัวร์ภายในประเทศ" && (
-            <>
-              <Label>โปรแกรมทัวร์ในประเทศ</Label>
-              <Select value={intProgram} onValueChange={(v) => {
-                setIntProgram(v); setPeriodId(undefined);
-                if (v !== "__custom__") {
-                  const t = tours.find((x) => `${x.code} - ${x.city} ${x.duration}` === v);
-                  setTourId(t?.id);
-                } else { setTourId(undefined); }
-              }}>
-                <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {tours.filter((t) => t.category === "Domestic").map((t) => (
-                    <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
-                      {t.code} · {t.city} ({t.duration})
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__custom__">📝 ระบุจังหวัด/รายละเอียดเอง...</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* Period selector Domestic */}
-              {tourId && (() => {
-                const selectedTour = tours.find((x) => x.id === tourId);
-                const periods = selectedTour?.periods ?? [];
-                if (periods.length === 0) return null;
-                return (
-                  <div>
-                    <Label className="text-xs">เลือกวันเดินทาง (Period)</Label>
-                    <Select value={periodId ?? "__none__"} onValueChange={(v) => setPeriodId(v === "__none__" ? undefined : v)}>
-                      <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
-                        {periods.map((p) => (
-                          <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
-                            {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
-                            {p.quota === 0 ? " 🔴 FULL" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                );
-              })()}
-              {intProgram === "__custom__" && (
-                <Input value={domProvince} onChange={(e) => setDomProvince(e.target.value)} placeholder="เช่น เชียงใหม่ 3 วัน 2 คืน" />
-              )}
+                    setTourId(t?.id);
+                  } else { setTourId(undefined); }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {buType === "ทัวร์ต่างประเทศ" && (["International Tour", "Incentive"] as const).map((cat) => {
+                      const items = tours.filter((t) => t.category === cat);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={cat}>
+                          <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{cat}</div>
+                          {items.map((t) => (
+                            <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
+                              {t.code} · {t.city} ({t.duration})
+                            </SelectItem>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {buType === "ทัวร์ภายในประเทศ" && tours.filter((t) => t.category === "Domestic").map((t) => (
+                      <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
+                        {t.code} · {t.city} ({t.duration})
+                      </SelectItem>
+                    ))}
+                    <div className="px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">อื่นๆ</div>
+                    <SelectItem value="__custom__">📝 ระบุเอง...</SelectItem>
+                  </SelectContent>
+                </Select>
+                {intProgram === "__custom__" && buType === "ทัวร์ต่างประเทศ" && (
+                  <Textarea className="mt-2" placeholder="ระบุโปรแกรมที่ต้องการ..." value={intNote} onChange={(e) => setIntNote(e.target.value)} />
+                )}
+                {intProgram === "__custom__" && buType === "ทัวร์ภายในประเทศ" && (
+                  <Input className="mt-2" value={domProvince} onChange={(e) => setDomProvince(e.target.value)} placeholder="เช่น เชียงใหม่ 3 วัน 2 คืน" />
+                )}
+              </div>
             </>
           )}
           {buType === "เช่ารถ ท่องเที่ยว" && (
-            <>
+            <div>
               <Label>รถเช่า</Label>
               <Select value={carServiceId} onValueChange={setCarServiceId}>
                 <SelectTrigger><SelectValue placeholder="เลือกรถ..." /></SelectTrigger>
@@ -423,17 +407,12 @@ export function CustomerLeadDialog({
                 </SelectContent>
               </Select>
               {carServiceId === "__custom__" && (
-                <Textarea placeholder="รายละเอียดรถเช่า..." value={carDetail} onChange={(e) => setCarDetail(e.target.value)} />
+                <Textarea className="mt-2" placeholder="รายละเอียดรถเช่า..." value={carDetail} onChange={(e) => setCarDetail(e.target.value)} />
               )}
-              {cars.length === 0 && (
-                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
-                  ⚠️ ยังไม่มีรถเช่าใน All Service
-                </p>
-              )}
-            </>
+            </div>
           )}
           {buType === "จองตั๋วเครื่องบิน" && (
-            <>
+            <div>
               <Label>เที่ยวบิน</Label>
               <Select value={flightServiceId} onValueChange={setFlightServiceId}>
                 <SelectTrigger><SelectValue placeholder="เลือกเที่ยวบิน..." /></SelectTrigger>
@@ -445,17 +424,13 @@ export function CustomerLeadDialog({
                 </SelectContent>
               </Select>
               {flightServiceId === "__custom__" && (
-                <Textarea placeholder="รายละเอียดเที่ยวบิน..." value={flightDetail} onChange={(e) => setFlightDetail(e.target.value)} />
+                <Textarea className="mt-2" placeholder="รายละเอียดเที่ยวบิน..." value={flightDetail} onChange={(e) => setFlightDetail(e.target.value)} />
               )}
-              {flights.length === 0 && (
-                <p className="text-[11px] text-warning-foreground bg-warning/15 border border-warning/40 rounded px-2 py-1">
-                  ⚠️ ยังไม่มีเที่ยวบินใน All Service
-                </p>
-              )}
-            </>
+            </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {/* เดือน BEFORE Period */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>เดือนเดินทาง</Label>
               <Select value={travelMonth} onValueChange={setTravelMonth}>
@@ -463,43 +438,150 @@ export function CustomerLeadDialog({
                 <SelectContent>{MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>จำนวน Pax</Label><Input type="number" value={pax} onChange={(e) => setPax(e.target.value)} /></div>
             <div>
-              <Label>งบประมาณ/ท่าน</Label>
-              <Select value={budget} onValueChange={setBudget}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{BUDGETS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-              </Select>
+              <Label>จำนวน Pax</Label>
+              <Input type="number" min="1" value={pax} onChange={(e) => setPax(e.target.value)} />
             </div>
-            <div>
-              <Label>ประเภททัวร์</Label>
-              <Select value={tourType} onValueChange={setTourType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TOUR_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>ความเร่งด่วน</Label>
-              <Select value={urgency} onValueChange={(v) => setUrgency(v as Urgency)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{URGENCY_OPTIONS.map((u) => <SelectItem key={u.val} value={u.val}>{u.emoji} {u.label}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label>นัด Follow Up</Label><ThaiDateInput value={nextFollowUp} onChange={(e) => setNextFollowUp(e.target.value)} /></div>
           </div>
-          <div><Label>มูลค่าเสนอราคา (THB)</Label><Input type="number" value={quotedPrice} onChange={(e) => setQuotedPrice(e.target.value)} placeholder="0" /></div>
+
+          {/* Period (filtered by month above, auto-fills month when selected) */}
+          {tourId && <PeriodSelector />}
+
           <div>
-            <Label>หมวดหมู่ลูกค้า (Lead Category)</Label>
-            <Select value={leadCategory} onValueChange={(v) => setLeadCategory(v as LeadCategory)}>
+            <Label>ความเร่งด่วน</Label>
+            <Select value={urgency} onValueChange={(v) => setUrgency(v as Urgency)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{LEAD_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              <SelectContent>{URGENCY_OPTIONS.map((u) => <SelectItem key={u.val} value={u.val}>{u.emoji} {u.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* ══ Zone 2: ข้อมูลติดต่อ (Contact) ═══════════════════════════════════ */}
+        <div className="border-t pt-3 space-y-3">
+          <p className="text-sm font-semibold text-muted-foreground border-b pb-1">
+            👤 ข้อมูลติดต่อ
+            {isInquiry && (
+              <span className="ml-2 text-[10px] font-normal text-warning-foreground">
+                ⚠️ กรอกเบอร์หรือ LINE เพื่อ Upgrade เป็น Full Lead
+              </span>
+            )}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>ชื่อลูกค้า *</Label>
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="ชื่อจริง / Nickname / ชื่อ LINE" />
+            </div>
+            <div>
+              <Label>
+                เบอร์โทร{" "}
+                <span className="text-[10px] text-muted-foreground">(ไม่บังคับ)</span>
+              </Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <Label>Line ID</Label>
+              <Input value={lineId} onChange={(e) => setLineId(e.target.value)} />
+            </div>
+            <div>
+              <Label>อีเมล</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" />
+            </div>
+          </div>
+        </div>
+
+        {/* ══ Zone 3: รายละเอียดเพิ่มเติม (Enrichment, collapsible) ════════════ */}
+        <div className="border-t pt-3">
+          <button
+            type="button"
+            onClick={() => setShowEnrichment((v) => !v)}
+            className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors w-full pb-2"
+          >
+            {showEnrichment ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            📊 รายละเอียดเพิ่มเติม
+            {!showEnrichment && <span className="text-[10px] font-normal">(คลิกเพื่อขยาย)</span>}
+          </button>
+
+          {showEnrichment && (
+            <div className="space-y-3 mt-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>งบประมาณ/ท่าน</Label>
+                  <Select value={budget} onValueChange={setBudget}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{BUDGETS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>ประเภททัวร์</Label>
+                  <Select value={tourType} onValueChange={setTourType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{TOUR_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>จังหวัด <span className="text-[10px] text-muted-foreground">(Geo)</span></Label>
+                  <Input value={province} onChange={(e) => setProvince(e.target.value)} placeholder="เช่น กรุงเทพฯ, เชียงใหม่" />
+                </div>
+                <div>
+                  <Label>บริษัท / องค์กร</Label>
+                  <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label>นัด Follow Up</Label>
+                <ThaiDateInput value={nextFollowUp} onChange={(e) => setNextFollowUp(e.target.value)} />
+              </div>
+              <div>
+                <Label>หมายเหตุ / บันทึก</Label>
+                <Textarea
+                  value={meetingNote}
+                  onChange={(e) => setMeetingNote(e.target.value)}
+                  placeholder="เช่น ชอบทัวร์ญี่ปุ่น ไม่เอาจีน / งบ 40k ต่อท่าน / ติดต่อได้หลัง 18.00 น."
+                  className="min-h-[60px]"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ══ Smart Status ═══════════════════════════════════════════════════════ */}
+        <div className="border-t pt-3 bg-muted/20 rounded-lg px-3 pb-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            📍 Lead จะเข้า Pipeline ที่:{" "}
+            <span className="font-semibold text-foreground">{finalStatus}</span>
+            {statusOverride === "__auto__" && (
+              <span className="ml-1 text-[10px]">
+                {isOB
+                  ? "(OB — อัตโนมัติ)"
+                  : isInquiry
+                  ? "(ไม่มีข้อมูลติดต่อ)"
+                  : phone.trim()
+                  ? "(มีเบอร์โทร)"
+                  : "(มี LINE)"}
+              </span>
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs shrink-0 text-muted-foreground">เปลี่ยนได้:</Label>
+            <Select value={statusOverride} onValueChange={(v) => setStatusOverride(v as LeadStatus | "__auto__")}>
+              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__auto__">🤖 อัตโนมัติ ({smartStatus})</SelectItem>
+                {activeStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {OB_STAGE_META[s] ? `${OB_STAGE_META[s].emoji} ${s}` : s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>ยกเลิก</Button>
-          <Button onClick={submit} className="bg-gradient-primary">บันทึก & สร้าง Lead</Button>
+          <Button onClick={submit} className="bg-gradient-primary">
+            {isInquiry ? "💾 บันทึก Quick Inquiry" : "✅ บันทึก & สร้าง Lead"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
