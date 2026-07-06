@@ -1,3 +1,17 @@
+# Old build artifacts & local experiment folders
+dist_old/
+dist_old2/
+dist_old3/
+dist_old4/
+dist_old5/
+flipbook-vue-master/
+OG
+push-v88.bat
+src/components/.fuse_hidden*
+src/pages/.fuse_hidden*
+src/pages/Hub.tsx.bak
+src/pages/Hub.tsx.orig
+
 # Logs
 logs
 *.log

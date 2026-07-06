@@ -1,0 +1,9 @@
+<svg viewBox="0 0 520 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Circle icon (outline white) -->
+  <circle cx="60" cy="60" r="55" stroke="white" stroke-width="6" fill="none"/>
+  <path
+    d="M 24 52 Q 60 38 96 52 Q 108 64 96 76 Q 60 90 24 76 Q 12 90 24 106 Q 60 120 96 106"
+    stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- "Standard Tour" text -->
+  <text x="136" y="72" font-family="'Inter','Helvetica Neue',Arial,sans-serif" font-size="52" font-weight="800" fill="white" letter-spacing="-1">Standard Tour</text>
+</svg>
