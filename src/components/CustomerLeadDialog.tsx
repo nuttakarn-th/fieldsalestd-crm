@@ -20,6 +20,8 @@ import { useServices } from "@/store/serviceStore";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const TH_DAYS_SHORT   = ["อา.","จ.","อ.","พ.","พฤ.","ศ.","ส."];
+const TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
 const ALL_MONTHS_KEY = "__all__"; // sentinel = ทุกเดือน (ไม่กรอง)
 
@@ -35,6 +37,19 @@ function monthFromISO(start_date?: string): string {
   if (!start_date) return ALL_MONTHS_KEY;
   const m = parseInt((start_date.split("-")[1]) ?? "1", 10) - 1;
   return TH_MONTHS[m] ?? ALL_MONTHS_KEY;
+}
+/** "2026-08-09" → "ศ. 9 ส.ค. 69" */
+function fmtThaiDate(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso + "T00:00:00");
+  const yy = String(d.getFullYear() + 543).slice(-2);
+  return `${TH_DAYS_SHORT[d.getDay()]} ${d.getDate()} ${TH_MONTHS_SHORT[d.getMonth()]} ${yy}`;
+}
+/** 🟢 plenty · 🟡 ≤20% หรือ ≤3 ที่ · 🔴 FULL */
+function seatEmoji(quota: number, total: number): string {
+  if (quota === 0) return "🔴";
+  if (quota <= 3 || quota / total <= 0.2) return "🟡";
+  return "🟢";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -242,12 +257,13 @@ export function CustomerLeadDialog({
     const allPeriods = tours.find((x) => x.id === tourId)?.periods ?? [];
     if (allPeriods.length === 0) return null;
     const filtered = allPeriods.filter((p) => matchesMonth(p.start_date, travelMonth));
+    const sel = allPeriods.find((p) => p.period_id === periodId && periodId !== "__none__");
     return (
       <div>
         <Label className="text-xs">
           เลือกวันเดินทาง (Period)
           {filtered.length > 0
-            ? <span className="ml-1 text-muted-foreground">— {filtered.length} Period ใน{travelMonth}</span>
+            ? <span className="ml-1 text-muted-foreground">— {filtered.length} Period ใน{travelMonth === ALL_MONTHS_KEY ? "ทุกเดือน" : travelMonth}</span>
             : <span className="ml-1 text-warning-foreground">— ไม่มี Period ในเดือน{travelMonth}</span>}
         </Label>
         {filtered.length > 0 ? (
@@ -258,13 +274,35 @@ export function CustomerLeadDialog({
             }
             setPeriodId(v === "__none__" ? undefined : v);
           }}>
-            <SelectTrigger><SelectValue placeholder="เลือกวันเดินทาง..." /></SelectTrigger>
+            <SelectTrigger>
+              {sel ? (
+                <span className="text-sm truncate">
+                  {seatEmoji(sel.quota, sel.total_seats)}{" "}
+                  {fmtThaiDate(sel.start_date)}
+                  {sel.end_date ? ` → ${fmtThaiDate(sel.end_date)}` : ""}
+                  {" · "}{sel.price_per_seat.toLocaleString()}฿/คน
+                </span>
+              ) : (
+                <SelectValue placeholder="เลือกวันเดินทาง..." />
+              )}
+            </SelectTrigger>
             <SelectContent className="max-h-60">
               <SelectItem value="__none__">— ยังไม่ระบุ —</SelectItem>
               {filtered.map((p) => (
                 <SelectItem key={p.period_id} value={p.period_id} disabled={p.quota === 0}>
-                  {p.travel_date} · {p.price_per_seat.toLocaleString()}฿ · ว่าง {p.quota}/{p.total_seats}
-                  {p.quota === 0 ? " 🔴 FULL" : ""}
+                  <div className="flex flex-col gap-0.5 py-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span>{seatEmoji(p.quota, p.total_seats)}</span>
+                      <span className="font-medium">
+                        {fmtThaiDate(p.start_date)}
+                        {p.end_date ? ` → ${fmtThaiDate(p.end_date)}` : ""}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {p.price_per_seat.toLocaleString()}฿/คน · ว่าง {p.quota}/{p.total_seats}
+                      {p.quota === 0 ? " · FULL" : p.quota <= 3 ? " · ⚠️ เหลือน้อย" : ""}
+                    </div>
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
