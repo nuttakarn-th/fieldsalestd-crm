@@ -146,12 +146,21 @@ export function CustomerLeadDialog({
     }
   }, [existingId, mode, customers]);
 
-  // Clear periodId ถ้า travelMonth เปลี่ยนแล้ว period เดิมไม่อยู่ในเดือนใหม่
+  // ── กรองทัวร์ให้เหลือเฉพาะที่มี period ในเดือนที่เลือก ────────────────────
+  const toursInMonth = useMemo(() => {
+    if (travelMonth === ALL_MONTHS_KEY) return tours;
+    return tours.filter((t) =>
+      (t.periods ?? []).some((p) => matchesMonth(p.start_date, travelMonth))
+    );
+  }, [tours, travelMonth]);
+
+  // Clear tourId + periodId ถ้าเปลี่ยนเดือนแล้วโปรแกรมที่เลือกไม่มี period ในเดือนใหม่
   useEffect(() => {
-    if (!periodId || !tourId) return;
-    const period = (tours.find((x) => x.id === tourId)?.periods ?? []).find((p) => p.period_id === periodId);
-    if (period && !matchesMonth(period.start_date, travelMonth)) setPeriodId(undefined);
-  }, [travelMonth, tourId, periodId, tours]);
+    if (!tourId || travelMonth === ALL_MONTHS_KEY) return;
+    const t = tours.find((x) => x.id === tourId);
+    const still = (t?.periods ?? []).some((p) => matchesMonth(p.start_date, travelMonth));
+    if (!still) { setTourId(undefined); setIntProgram("__custom__"); setPeriodId(undefined); }
+  }, [travelMonth, tourId, tours]);
 
   // ── Reset ────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -366,7 +375,13 @@ export function CustomerLeadDialog({
               <div>
                 <Label>
                   โปรแกรมทัวร์{" "}
-                  <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span>
+                  {travelMonth !== ALL_MONTHS_KEY ? (
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      — {toursInMonth.length} โปรแกรมที่มี Period ใน{travelMonth}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">(เลือกจาก All Service หรือระบุเอง)</span>
+                  )}
                 </Label>
                 <Select value={intProgram} onValueChange={(v) => {
                   setIntProgram(v); setPeriodId(undefined);
@@ -374,7 +389,7 @@ export function CustomerLeadDialog({
                     const cat = buType === "ทัวร์ต่างประเทศ"
                       ? (["International Tour", "Incentive"] as const)
                       : (["Domestic"] as const);
-                    const t = tours.find((x) =>
+                    const t = toursInMonth.find((x) =>
                       (cat as readonly string[]).includes(x.category) &&
                       `${x.code} - ${x.city} ${x.duration}` === v
                     );
@@ -384,7 +399,7 @@ export function CustomerLeadDialog({
                   <SelectTrigger><SelectValue placeholder="เลือกโปรแกรม..." /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {buType === "ทัวร์ต่างประเทศ" && (["International Tour", "Incentive"] as const).map((cat) => {
-                      const items = tours.filter((t) => t.category === cat);
+                      const items = toursInMonth.filter((t) => t.category === cat);
                       if (items.length === 0) return null;
                       return (
                         <div key={cat}>
@@ -397,7 +412,7 @@ export function CustomerLeadDialog({
                         </div>
                       );
                     })}
-                    {buType === "ทัวร์ภายในประเทศ" && tours.filter((t) => t.category === "Domestic").map((t) => (
+                    {buType === "ทัวร์ภายในประเทศ" && toursInMonth.filter((t) => t.category === "Domestic").map((t) => (
                       <SelectItem key={t.id} value={`${t.code} - ${t.city} ${t.duration}`}>
                         {t.code} · {t.city} ({t.duration})
                       </SelectItem>
