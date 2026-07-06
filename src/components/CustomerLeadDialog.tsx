@@ -21,7 +21,10 @@ import { useServices } from "@/store/serviceStore";
 // ── helpers ──────────────────────────────────────────────────────────────────
 const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 
+const ALL_MONTHS_KEY = "__all__"; // sentinel = ทุกเดือน (ไม่กรอง)
+
 function matchesMonth(start_date: string | undefined, travelMonth: string): boolean {
+  if (travelMonth === ALL_MONTHS_KEY) return true; // ทุกเดือน → แสดงทั้งหมด
   if (!start_date) return true;
   const mIdx = TH_MONTHS.indexOf(travelMonth);
   if (mIdx < 0) return true;
@@ -29,9 +32,9 @@ function matchesMonth(start_date: string | undefined, travelMonth: string): bool
   return m === mIdx + 1;
 }
 function monthFromISO(start_date?: string): string {
-  if (!start_date) return MONTHS[0] ?? "มกราคม";
+  if (!start_date) return ALL_MONTHS_KEY;
   const m = parseInt((start_date.split("-")[1]) ?? "1", 10) - 1;
-  return TH_MONTHS[m] ?? "มกราคม";
+  return TH_MONTHS[m] ?? ALL_MONTHS_KEY;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,7 +82,7 @@ export function CustomerLeadDialog({
   const [domProvince, setDomProvince]     = useState("");
   const [carDetail, setCarDetail]         = useState("");
   const [flightDetail, setFlightDetail]   = useState("");
-  const [travelMonth, setTravelMonth]     = useState(MONTHS[0] ?? "มกราคม");
+  const [travelMonth, setTravelMonth]     = useState(ALL_MONTHS_KEY);
   const [pax, setPax]                     = useState("2");
   const [urgency, setUrgency]             = useState<Urgency>("Warm");
 
@@ -157,7 +160,7 @@ export function CustomerLeadDialog({
     setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined);
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setIntNote(""); setDomProvince(""); setCarDetail(""); setFlightDetail("");
-    setTravelMonth(MONTHS[0] ?? "มกราคม"); setPax("2"); setUrgency("Warm");
+    setTravelMonth(ALL_MONTHS_KEY); setPax("2"); setUrgency("Warm");
     setFullName(""); setPhone(""); setLineId(""); setEmail("");
     setBudget(BUDGETS[0] ?? "<30k"); setTourType(TOUR_TYPES[0] ?? "ครอบครัว");
     setProvince(""); setCompany(""); setNextFollowUp(new Date().toISOString().split("T")[0]);
@@ -211,7 +214,7 @@ export function CustomerLeadDialog({
       tour_id: tourId,
       period_id: periodId,
       pax_count: parseInt(pax) || 1,
-      travel_month: travelMonth,
+      travel_month: travelMonth === ALL_MONTHS_KEY ? "" : travelMonth,
       tour_type: tourType,
       budget_range: budget,
       urgency,
@@ -339,6 +342,24 @@ export function CustomerLeadDialog({
             </Select>
           </div>
 
+          {/* เดือน + Pax — ก่อนเลือกโปรแกรม */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>เดือนเดินทาง</Label>
+              <Select value={travelMonth} onValueChange={setTravelMonth}>
+                <SelectTrigger><SelectValue placeholder="เลือกเดือน..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_MONTHS_KEY}>📅 ทุกเดือน (ดู Period ทั้งหมด)</SelectItem>
+                  {MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>จำนวน Pax</Label>
+              <Input type="number" min="1" value={pax} onChange={(e) => setPax(e.target.value)} />
+            </div>
+          </div>
+
           {/* Tour selectors */}
           {(buType === "ทัวร์ต่างประเทศ" || buType === "ทัวร์ภายในประเทศ") && (
             <>
@@ -429,22 +450,7 @@ export function CustomerLeadDialog({
             </div>
           )}
 
-          {/* เดือน BEFORE Period */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>เดือนเดินทาง</Label>
-              <Select value={travelMonth} onValueChange={setTravelMonth}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>จำนวน Pax</Label>
-              <Input type="number" min="1" value={pax} onChange={(e) => setPax(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Period (filtered by month above, auto-fills month when selected) */}
+          {/* Period (filtered by month selected above) */}
           {tourId && <PeriodSelector />}
 
           <div>
