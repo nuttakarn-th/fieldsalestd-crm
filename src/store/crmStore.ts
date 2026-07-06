@@ -8,7 +8,8 @@ import { useAuth } from "@/store/authStore";
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
 export type Segment = "B2C Individual" | "B2C Group" | "B2B Agent" | "Corporate";
-export type LeadStatus = "New" | "Contacted" | "Quotation Sent" | "Negotiating" | "Closed Won" | "Closed Lost";
+export type LeadStatus = "New" | "Contacted" | "Quotation Sent" | "Negotiating" | "Closed Won" | "Closed Lost"
+  | "ตอบแล้ว" | "กำลังเจรจา" | "จองแล้ว" | "ยกเลิก"; // OB stages
 export type Urgency = "Hot" | "Warm" | "Cold";
 export type BUType = "ทัวร์ต่างประเทศ" | "ทัวร์ภายในประเทศ" | "เช่ารถ ท่องเที่ยว" | "จองตั๋วเครื่องบิน";
 // ชื่อ SalesRep เป็น string แบบ dynamic — รองรับ user ทุกคน (ไม่ hardcode)
@@ -258,6 +259,16 @@ export const URGENCY_OPTIONS: { val: Urgency; label: string; emoji: string }[] =
   { val: "Cold", label: "Cold (ถามเฉยๆ)", emoji: "🔵" },
 ];
 export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "Quotation Sent", "Negotiating", "Closed Won", "Closed Lost"];
+export const OB_LEAD_STATUSES: LeadStatus[] = ["ตอบแล้ว", "กำลังเจรจา", "จองแล้ว", "ยกเลิก"];
+export const OB_STAGE_META: Record<string, { emoji: string; desc: string; color: string }> = {
+  "ตอบแล้ว":    { emoji: "📨", desc: "ส่งโปรแกรม+ราคาแล้ว รอลูกค้า",       color: "sky"     },
+  "กำลังเจรจา": { emoji: "💬", desc: "ลูกค้าตอบมา อยู่ระหว่างคุย/ต่อรอง",  color: "amber"   },
+  "จองแล้ว":    { emoji: "✅", desc: "ชำระมัดจำแล้ว ปิดการขายสำเร็จ",      color: "success" },
+  "ยกเลิก":     { emoji: "❌", desc: "ลูกค้าไม่จอง พร้อมระบุเหตุผล",        color: "red"     },
+};
+export const isObStatus = (s: LeadStatus) => (OB_LEAD_STATUSES as string[]).includes(s);
+export const isClosedStatus = (s: LeadStatus) => s === "Closed Won" || s === "จองแล้ว";
+export const isLostStatus   = (s: LeadStatus) => s === "Closed Lost" || s === "ยกเลิก";
 export const REQUIREMENT_TAGS = [
   "ทัวร์ญี่ปุ่น","ทัวร์เกาหลี","ทัวร์จีน","ทัวร์ยุโรป","ทัวร์เวียดนาม",
   "ทัวร์ไทย","เช่ารถ","จองตั๋ว","โรงแรม","ครอบครัว","กลุ่มบริษัท","ฮันนีมูน","ผู้สูงอายุ",
@@ -1204,9 +1215,9 @@ export const useCRM = create<CRMState>()(
     const today = new Date().toISOString().split("T")[0];
     const leadPatch: Partial<Lead> = {
       status,
-      lost_reason: status === "Closed Lost" ? lostReason ?? null : null,
-      closed_date: status === "Closed Won" ? today : status === "Closed Lost" ? today : lead.closed_date,
-      next_followup_date: ["Closed Won", "Closed Lost"].includes(status) ? null : lead.next_followup_date,
+      lost_reason: isLostStatus(status) ? lostReason ?? null : null,
+      closed_date: isClosedStatus(status) || isLostStatus(status) ? today : lead.closed_date,
+      next_followup_date: isClosedStatus(status) || isLostStatus(status) ? null : lead.next_followup_date,
     };
     set({
       leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...leadPatch } : l)),
@@ -1221,14 +1232,14 @@ export const useCRM = create<CRMState>()(
     const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
     if (isTour && lead.tour_id) {
       const { adjustQuota, adjustPeriodQuota } = useServices.getState();
-      if (status === "Closed Won" && prevStatus !== "Closed Won") {
+      if (isClosedStatus(status) && !isClosedStatus(prevStatus)) {
         if (lead.period_id) {
           // ปิดดีลทัวร์ multi-period → ตัดที่นั่ง period ที่ระบุ
           adjustPeriodQuota(lead.tour_id, lead.period_id, -lead.pax_count);
         } else {
           adjustQuota(lead.tour_id, -lead.pax_count);
         }
-      } else if (prevStatus === "Closed Won" && status !== "Closed Won") {
+      } else if (isClosedStatus(prevStatus) && !isClosedStatus(status)) {
         if (lead.period_id) {
           // ยกเลิกดีลที่เคย Won → คืนที่นั่ง period กลับ
           adjustPeriodQuota(lead.tour_id, lead.period_id, +lead.pax_count);
@@ -1238,7 +1249,7 @@ export const useCRM = create<CRMState>()(
       }
     }
 
-    if (status === "Closed Won") {
+    if (isClosedStatus(status)) {
       const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
       if (cust) {
         const newTrips = cust.total_trips + 1;
@@ -1672,6 +1683,11 @@ export const statusColor = (s: LeadStatus) => {
     case "Negotiating": return "bg-amber-100 text-amber-700 border-amber-300";
     case "Closed Won": return "bg-success/15 text-success border-success/30";
     case "Closed Lost": return "bg-destructive/15 text-destructive border-destructive/30";
+    // OB stages
+    case "ตอบแล้ว":    return "bg-sky-100 text-sky-700 border-sky-300";
+    case "กำลังเจรจา": return "bg-amber-100 text-amber-700 border-amber-300";
+    case "จองแล้ว":    return "bg-success/15 text-success border-success/30";
+    case "ยกเลิก":     return "bg-red-100 text-red-700 border-red-300";
   }
 };
 

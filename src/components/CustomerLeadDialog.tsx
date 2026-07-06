@@ -40,6 +40,9 @@ export function CustomerLeadDialog({
   const currentUserFullName = useAuth(
     (s) => s.users.find((u) => u.user_id === s.currentUserId)?.full_name ?? null
   );
+  const isOB = useAuth(
+    (s) => s.users.find((u) => u.user_id === s.currentUserId)?.role === "OB Co-ordinator"
+  );
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const addCustomer = useCRM((s) => s.addCustomer);
@@ -194,7 +197,7 @@ export function CustomerLeadDialog({
       urgency,
       next_followup_date: nextFollowUp,
       quoted_price: parseFloat(quotedPrice) || 0,
-      status: "New",
+      status: isOB ? "ตอบแล้ว" : "New",
     });
     toast.success("สร้าง Lead สำเร็จ");
     reset();

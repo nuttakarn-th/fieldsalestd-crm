@@ -11,8 +11,11 @@ import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { toast } from "sonner";
 import {
   useCRM, formatTHB, statusColor, urgencyBadge, tierBadge,
-  LEAD_STATUSES, LOST_REASONS, type LeadStatus, type Lead, type Customer,
+  LEAD_STATUSES, OB_LEAD_STATUSES, OB_STAGE_META, LOST_REASONS,
+  isLostStatus,
+  type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
+import { useCurrentUser } from "@/store/authStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 
 export default function Pipeline() {
@@ -21,6 +24,9 @@ export default function Pipeline() {
   const currentRep = useCRM((s) => s.currentRep);
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
   const updateLead = useCRM((s) => s.updateLead);
+  const user = useCurrentUser();
+  const isOB = user?.role === "OB Co-ordinator";
+  const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [pendingLost, setPendingLost] = useState<string | null>(null);
@@ -28,7 +34,7 @@ export default function Pipeline() {
 
   // Update-Status dialog state
   const [statusOpen, setStatusOpen] = useState<Lead | null>(null);
-  const [newStatus, setNewStatus] = useState<LeadStatus>("New");
+  const [newStatus, setNewStatus] = useState<LeadStatus>("New"); // overridden by isOB below
   const [newNote, setNewNote] = useState("");
   const [newFollowup, setNewFollowup] = useState("");
 
@@ -41,7 +47,7 @@ export default function Pipeline() {
 
   const submitStatusUpdate = () => {
     if (!statusOpen) return;
-    if (newStatus === "Closed Lost" && !newNote.trim()) {
+    if (isLostStatus(newStatus) && !newNote.trim()) {
       // need lost_reason → fallback to dialog
       setPendingLost(statusOpen.lead_id);
       setReason(LOST_REASONS[0]);
@@ -69,15 +75,16 @@ export default function Pipeline() {
   }, [leads, customers, currentRep]);
 
   const grouped = useMemo(() => {
-    const map: Record<LeadStatus, Lead[]> = {
-      "New": [], "Contacted": [], "Quotation Sent": [], "Negotiating": [], "Closed Won": [], "Closed Lost": [],
-    };
-    visible.forEach((l) => map[l.status].push(l));
+    const map: Partial<Record<LeadStatus, Lead[]>> = {};
+    activeStatuses.forEach((s) => { map[s] = []; });
+    visible.forEach((l) => {
+      if (map[l.status] !== undefined) map[l.status]!.push(l);
+    });
     return map;
-  }, [visible]);
+  }, [visible, activeStatuses]);
 
   const handleStatusChange = (leadId: string, newStatus: LeadStatus) => {
-    if (newStatus === "Closed Lost") {
+    if (isLostStatus(newStatus)) {
       setPendingLost(leadId);
       setReason(LOST_REASONS[0]);
     } else {
@@ -88,8 +95,9 @@ export default function Pipeline() {
 
   const confirmLost = () => {
     if (pendingLost) {
-      updateLeadStatus(pendingLost, "Closed Lost", reason);
-      toast.error(`Closed Lost: ${reason}`);
+      const lostStatus = isOB ? "ยกเลิก" : "Closed Lost";
+      updateLeadStatus(pendingLost, lostStatus, reason);
+      toast.error(`${lostStatus}: ${reason}`);
     }
     setPendingLost(null);
   };
@@ -105,23 +113,27 @@ export default function Pipeline() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-3">
-        {LEAD_STATUSES.map((status) => {
-          const items = grouped[status];
+      <div className={`grid gap-3 ${isOB ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-4" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"}`}>
+        {activeStatuses.map((status) => {
+          const items = grouped[status] ?? [];
           const total = items.reduce((s, l) => s + (l.quoted_price || 0), 0);
+          const obMeta = OB_STAGE_META[status];
           return (
             <div key={status} className="bg-muted/30 rounded-xl p-3 border min-w-0">
-              <div className="flex items-center justify-between mb-3">
-                <Badge variant="outline" className={statusColor(status)}>{status}</Badge>
+              <div className="flex items-center justify-between mb-1">
+                <Badge variant="outline" className={statusColor(status)}>
+                  {obMeta ? `${obMeta.emoji} ${status}` : status}
+                </Badge>
                 <span className="text-xs font-semibold">{items.length}</span>
               </div>
+              {obMeta && <p className="text-[10px] text-muted-foreground mb-2 leading-tight">{obMeta.desc}</p>}
               {total > 0 && <div className="text-[11px] text-muted-foreground mb-2">{formatTHB(total)}</div>}
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {items.map((lead) => {
                   const c = cust(lead.customer_id);
                   return (
                     <div key={lead.lead_id} className="bg-card rounded-lg p-3 border shadow-soft hover:shadow-pop transition-smooth">
-                      {lead.status === "Closed Lost" && lead.lost_reason && (
+                      {isLostStatus(lead.status) && lead.lost_reason && (
                         <div className="bg-destructive/10 text-destructive text-[11px] px-2 py-1 rounded mb-2 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3 shrink-0" /> {lead.lost_reason}
                         </div>
@@ -175,7 +187,7 @@ export default function Pipeline() {
 
       <Dialog open={!!pendingLost} onOpenChange={(v) => !v && setPendingLost(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>ระบุเหตุผลที่เสียดีล (Lost Reason)</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{isOB ? "ระบุเหตุผลที่ยกเลิก" : "ระบุเหตุผลที่เสียดีล (Lost Reason)"}</DialogTitle></DialogHeader>
           <Label>เหตุผลหลัก *</Label>
           <Select value={reason} onValueChange={setReason}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -183,7 +195,7 @@ export default function Pipeline() {
           </Select>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingLost(null)}>ยกเลิก</Button>
-            <Button variant="destructive" onClick={confirmLost}>ยืนยัน Closed Lost</Button>
+            <Button variant="destructive" onClick={confirmLost}>{isOB ? "ยืนยันการยกเลิก" : "ยืนยัน Closed Lost"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -198,7 +210,13 @@ export default function Pipeline() {
               <Label>Status ใหม่ *</Label>
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as LeadStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{LEAD_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {activeStatuses.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {OB_STAGE_META[s] ? `${OB_STAGE_META[s].emoji} ${s}` : s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div>
