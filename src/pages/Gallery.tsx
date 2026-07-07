@@ -225,14 +225,13 @@ export default function Gallery() {
   const [searchQuery, setSearchQuery]     = useState("");
 
   useEffect(() => {
-    if (!user) { navigate("/login"); return; }
     loadAlbums();
-  }, [user, navigate, loadAlbums]);
+  }, [loadAlbums]);
 
-  if (!user) return null;
-
+  // ผู้เยี่ยมชม (ไม่ได้ login) เห็นได้อย่างเดียว — ไม่สามารถแก้ไขได้
+  const canEdit = !!user;
   const canEditAlbum = (album: GalleryAlbum) =>
-    user.role === "Admin" || album.created_by === user.user_id;
+    !!user && (user.role === "Admin" || album.created_by === user.user_id);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const allCountries = useMemo(
@@ -261,6 +260,7 @@ export default function Gallery() {
   const handleCreate = async () => {
     if (!newName.trim()) { toast.error("กรอกชื่ออัลบั้มก่อน"); return; }
     setSaving(true);
+    if (!user) { toast.error("กรุณา Login ก่อนสร้างอัลบั้ม"); return; }
     const album = await createAlbum(newName.trim(), newDesc.trim(), newCountry.trim(), user.user_id, user.full_name);
     setSaving(false);
     if (album) {
@@ -319,15 +319,17 @@ export default function Gallery() {
       <StandaloneHeader
         backTo="/"
         extra={
-          <Button
-            onClick={() => setCreating(true)}
-            disabled={creating}
-            size="sm"
-            className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">สร้าง Album</span>
-          </Button>
+          canEdit ? (
+            <Button
+              onClick={() => setCreating(true)}
+              disabled={creating}
+              size="sm"
+              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 shadow-lg gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">สร้าง Album</span>
+            </Button>
+          ) : undefined
         }
       />
 

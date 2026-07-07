@@ -42,10 +42,9 @@ export default function GalleryAlbumView() {
   const photos = albumId ? (allPhotos[albumId] ?? []) : [];
 
   useEffect(() => {
-    if (!user) { navigate("/login"); return; }
     if (albums.length === 0) loadAlbums();
     if (albumId) loadPhotos(albumId);
-  }, [user, albumId]);
+  }, [albumId]);
 
   // Keyboard navigation for slideshow
   const handleKey = useCallback((e: KeyboardEvent) => {
@@ -60,11 +59,10 @@ export default function GalleryAlbumView() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [handleKey]);
 
-  if (!user) return null;
-
   // ---- Upload handler ----
   const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!albumId) return;
+    if (!user) { toast.error("กรุณา Login ก่อนอัปโหลดรูป"); return; }
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     setUploading(true);
@@ -90,6 +88,7 @@ export default function GalleryAlbumView() {
 
   // ---- Delete photo ----
   const handleDeletePhoto = async (photoId: string, photoUploadedBy: string) => {
+    if (!user) { toast.error("กรุณา Login ก่อนลบรูป"); return; }
     if (user.role !== "Admin" && photoUploadedBy !== user.user_id && album?.created_by !== user.user_id) {
       toast.error("ลบได้เฉพาะรูปของตัวเอง"); return;
     }
@@ -112,7 +111,7 @@ export default function GalleryAlbumView() {
   };
 
   const canDelete = (uploadedBy: string) =>
-    user.role === "Admin" || uploadedBy === user.user_id || album?.created_by === user.user_id;
+    !!user && (user.role === "Admin" || uploadedBy === user.user_id || album?.created_by === user.user_id);
 
   // ---- Slideshow photo ----
   const slidePhoto = slideIndex !== null ? photos[slideIndex] : null;
