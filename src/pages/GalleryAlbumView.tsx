@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Upload, Trash2, X, ChevronLeft, ChevronRight,
   Expand, Images, ImagePlus, Star,
@@ -28,13 +28,15 @@ async function uploadGalleryImage(file: File, albumId: string): Promise<string> 
 
 export default function GalleryAlbumView() {
   const { albumId } = useParams<{ albumId: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = useCurrentUser();
 
   const { albums, photos: allPhotos, loadAlbums, loadPhotos, addPhotos, deletePhoto, setCover } = useGallery();
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
-  const [slideIndex, setSlideIndex] = useState<number | null>(null); // null = closed
+  const [slideIndex, setSlideIndex] = useState<number | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -46,13 +48,40 @@ export default function GalleryAlbumView() {
     if (albumId) loadPhotos(albumId);
   }, [albumId]);
 
-  // Keyboard navigation for slideshow
+  // Auto-open slideshow ถ้า URL มี ?photo=
+  useEffect(() => {
+    const photoId = searchParams.get("photo");
+    if (!photoId || photos.length === 0) return;
+    const idx = photos.findIndex((p) => p.id === photoId);
+    if (idx >= 0) setSlideIndex(idx);
+  }, [photos, searchParams]);
+
+  // ── URL-aware slideshow helpers ───────────────────────────────────────────
+  const openPhoto = useCallback((idx: number) => {
+    setSlideIndex(idx);
+    const photoId = photos[idx]?.id;
+    if (photoId) navigate(`?photo=${photoId}`, { replace: true });
+  }, [photos, navigate]);
+
+  const closeSlideshow = useCallback(() => {
+    setSlideIndex(null);
+    navigate(`/gallery/${albumId}`, { replace: true });
+  }, [albumId, navigate]);
+
+  const goToIndex = useCallback((idx: number) => {
+    const clamped = Math.max(0, Math.min(idx, photos.length - 1));
+    setSlideIndex(clamped);
+    const photoId = photos[clamped]?.id;
+    if (photoId) navigate(`?photo=${photoId}`, { replace: true });
+  }, [photos, navigate]);
+
+  // Keyboard navigation
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (slideIndex === null) return;
-    if (e.key === "ArrowRight") setSlideIndex((i) => i !== null ? Math.min(i + 1, photos.length - 1) : null);
-    if (e.key === "ArrowLeft")  setSlideIndex((i) => i !== null ? Math.max(i - 1, 0) : null);
-    if (e.key === "Escape")     setSlideIndex(null);
-  }, [slideIndex, photos.length]);
+    if (e.key === "ArrowRight") goToIndex(slideIndex + 1);
+    if (e.key === "ArrowLeft")  goToIndex(slideIndex - 1);
+    if (e.key === "Escape")     closeSlideshow();
+  }, [slideIndex, goToIndex, closeSlideshow]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKey);
@@ -178,7 +207,7 @@ export default function GalleryAlbumView() {
                 <div
                   key={photo.id}
                   className="group relative aspect-square rounded-xl overflow-hidden bg-muted cursor-pointer"
-                  onClick={() => setSlideIndex(idx)}
+                  onClick={() => openPhoto(idx)}
                 >
                   <img
                     src={photo.url}
@@ -230,7 +259,7 @@ export default function GalleryAlbumView() {
       {slideIndex !== null && slidePhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/95 flex flex-col"
-          onClick={() => setSlideIndex(null)}
+          onClick={closeSlideshow}
         >
           {/* Top bar */}
           <div
@@ -261,7 +290,7 @@ export default function GalleryAlbumView() {
                 </button>
               )}
               <button
-                onClick={() => setSlideIndex(null)}
+                onClick={closeSlideshow}
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
               >
                 <X className="w-5 h-5" />
@@ -276,7 +305,7 @@ export default function GalleryAlbumView() {
           >
             {/* Prev */}
             <button
-              onClick={() => setSlideIndex((i) => Math.max((i ?? 1) - 1, 0))}
+              onClick={() => goToIndex(slideIndex - 1)}
               disabled={slideIndex === 0}
               className="absolute left-2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition disabled:opacity-20"
             >
@@ -294,7 +323,7 @@ export default function GalleryAlbumView() {
 
             {/* Next */}
             <button
-              onClick={() => setSlideIndex((i) => Math.min((i ?? 0) + 1, photos.length - 1))}
+              onClick={() => goToIndex(slideIndex + 1)}
               disabled={slideIndex === photos.length - 1}
               className="absolute right-2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition disabled:opacity-20"
             >
@@ -311,7 +340,7 @@ export default function GalleryAlbumView() {
               {photos.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setSlideIndex(i)}
+                  onClick={() => goToIndex(i)}
                   className={`rounded-full transition-all ${
                     i === slideIndex ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/35 hover:bg-white/60"
                   }`}
