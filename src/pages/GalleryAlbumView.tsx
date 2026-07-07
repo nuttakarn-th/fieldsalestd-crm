@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   Upload, Trash2, X, ChevronLeft, ChevronRight,
   Expand, Images, ImagePlus, Star,
@@ -29,7 +29,7 @@ async function uploadGalleryImage(file: File, albumId: string): Promise<string> 
 export default function GalleryAlbumView() {
   const { albumId } = useParams<{ albumId: string }>();
   const user = useCurrentUser();
-  const navigate = useNavigate();
+
   const { albums, photos: allPhotos, loadAlbums, loadPhotos, addPhotos, deletePhoto, setCover } = useGallery();
 
   const [uploading, setUploading] = useState(false);
@@ -122,24 +122,28 @@ export default function GalleryAlbumView() {
         backTo="/gallery"
         extra={
           <div className="flex items-center justify-end gap-2">
-            {uploading && (
-              <span className="hidden sm:inline text-sm text-muted-foreground">
-                {uploadProgress.done}/{uploadProgress.total} อัปโหลด...
-              </span>
+            {user && (
+              <>
+                {uploading && (
+                  <span className="hidden sm:inline text-sm text-muted-foreground">
+                    {uploadProgress.done}/{uploadProgress.total} อัปโหลด...
+                  </span>
+                )}
+                <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFilePick} />
+                <Button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  size="sm"
+                  className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 gap-1.5"
+                  title="เพิ่มรูปภาพ"
+                >
+                  <ImagePlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
+                  </span>
+                </Button>
+              </>
             )}
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFilePick} />
-            <Button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              size="sm"
-              className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 gap-1.5"
-              title="เพิ่มรูปภาพ"
-            >
-              <ImagePlus className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {uploading ? `${uploadProgress.done}/${uploadProgress.total}` : "เพิ่มรูปภาพ"}
-              </span>
-            </Button>
           </div>
         }
       />
@@ -148,14 +152,23 @@ export default function GalleryAlbumView() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-16">
         {photos.length === 0 ? (
           <div className="text-center py-28 text-muted-foreground">
-            <div
-              className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mx-auto mb-4 opacity-30 cursor-pointer hover:opacity-50 transition"
-              onClick={() => fileRef.current?.click()}
-            >
-              <Upload className="w-10 h-10 text-white" />
-            </div>
-            <p className="font-semibold">ยังไม่มีรูปในอัลบั้มนี้</p>
-            <p className="text-sm mt-1">กด "เพิ่มรูปภาพ" เพื่อเริ่มอัปโหลด</p>
+            {user ? (
+              <>
+                <div
+                  className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mx-auto mb-4 opacity-30 cursor-pointer hover:opacity-50 transition"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Upload className="w-10 h-10 text-white" />
+                </div>
+                <p className="font-semibold">ยังไม่มีรูปในอัลบั้มนี้</p>
+                <p className="text-sm mt-1">กด "เพิ่มรูปภาพ" เพื่อเริ่มอัปโหลด</p>
+              </>
+            ) : (
+              <>
+                <Images className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <p className="font-semibold">ยังไม่มีรูปในอัลบั้มนี้</p>
+              </>
+            )}
           </div>
         ) : (
           <>
