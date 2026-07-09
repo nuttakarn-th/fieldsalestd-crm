@@ -222,18 +222,28 @@ export const useAuth = create<AuthState>()(
 
         if (SUPABASE_ENABLED && supabase) {
           const { password: newPwd, ...safePatch } = patch as any;
+
+          // ── แปลง undefined → null ก่อนส่ง Supabase ──────────────────────────
+          // JSON.stringify omit undefined → Supabase ไม่อัปเดต field ที่ถูกลบ
+          // เช่น avatar_url: undefined จะไม่ล้าง column → รูปกลับมาหลัง refresh
+          // ใช้ null แทน undefined เพื่อให้ Supabase รับคำสั่งล้างค่าจริง
+          const toSupabase = (obj: Record<string, unknown>) =>
+            Object.fromEntries(
+              Object.entries(obj).map(([k, v]) => [k, v === undefined ? null : v])
+            );
+
           if (newPwd !== undefined) {
             // User เปลี่ยน password เอง → hash แล้ว save ทั้ง password_hash + plain_password
             hashPassword(newPwd).then((newHash) => {
               supabase.from("app_users")
-                .update({ ...safePatch, password_hash: newHash, plain_password: newPwd })
+                .update(toSupabase({ ...safePatch, password_hash: newHash, plain_password: newPwd }))
                 .eq("user_id", id)
                 .then(({ error }) => {
                   if (error) console.error("[supabase] update user password ล้มเหลว:", error);
                 });
             });
           } else {
-            supabase.from("app_users").update(safePatch).eq("user_id", id).then(({ error }) => {
+            supabase.from("app_users").update(toSupabase(safePatch)).eq("user_id", id).then(({ error }) => {
               if (error) console.error("[supabase] update user ล้มเหลว:", error);
             });
           }

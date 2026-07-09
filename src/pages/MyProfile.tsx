@@ -59,8 +59,10 @@ export default function MyProfile() {
       full_name: fullName.trim(),
       department: department.trim() || undefined,
       email, tel,
-      avatar_url: avatar,
-      line_qr_url: lineQr,
+      // ใช้ null แทน undefined เพื่อให้ Supabase ล้าง column ได้
+      // (JSON.stringify จะ omit undefined → Supabase ไม่อัปเดต field → รูปกลับมาหลัง refresh)
+      avatar_url:   avatar   ?? null,
+      line_qr_url:  lineQr   ?? null,
     };
     // อัปเดต password เฉพาะตอนที่ User พิมพ์รหัสใหม่จริงๆ
     const originalPwd = user.plain_password ?? "";
@@ -115,7 +117,17 @@ export default function MyProfile() {
         backTo="/"
         extra={
           <div className="flex items-center justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5" title="แก้ไข">
+            <Button size="sm" variant="outline" onClick={() => {
+                // Reset form จากข้อมูลปัจจุบันก่อนเปิดเสมอ (ป้องกัน cancel แล้วเปิดใหม่ form ค้าง)
+                setFullName(user.full_name);
+                setDepartment(user.department ?? user.role);
+                setEmail(user.email ?? "");
+                setTel(user.tel ?? "");
+                setPwd(user.plain_password ?? "");
+                setAvatar(user.avatar_url);
+                setLineQr(user.line_qr_url);
+                setEditOpen(true);
+              }} className="gap-1.5" title="แก้ไข">
               <Edit3 className="w-4 h-4" />
               <span className="hidden sm:inline">แก้ไข</span>
             </Button>
