@@ -187,6 +187,7 @@ const marketingMenu: RoleMenu = {
       items: [
         { title: "Marketing Workflow",    url: "/team-resources/workflow",    icon: GitBranch },
         { title: "Org Chart",             url: "/team-resources/org-chart",   icon: Users2    },
+        { title: "Team Members",          url: "/team-resources/team",        icon: Users     },
       ],
     },
     {

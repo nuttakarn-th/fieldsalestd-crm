@@ -79,6 +79,7 @@ import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
 import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
+import MarketingTeam from "./pages/MarketingTeam.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -154,6 +155,7 @@ const App = () => (
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
             <Route path="workflow"   element={<MarketingWorkflow />} />
             <Route path="org-chart" element={<MarketingOrgChart />} />
+            <Route path="team"       element={<MarketingTeam />} />
           </Route>
           <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
