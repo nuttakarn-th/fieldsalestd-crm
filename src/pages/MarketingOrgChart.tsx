@@ -1,10 +1,10 @@
 /**
- * MarketingOrgChart.tsx — v2
- * Redesigned: full gradient card headers · 840px layout · pill expand button
+ * MarketingOrgChart.tsx — v2.1
+ * Redesigned: gradient headers · 840px · pill expand · wider cards · GD shifted left
  * Layout (840px inner):
  *   Row 0: Manager 300px  cx=420
- *   Row 1: Exec 248px cx=144 ←dotted→ CM 248px cx=696
- *   Row 2: [386px] GD 210px cx=491 · VDO 210px cx=715
+ *   Row 1: Exec 250px cx=145 ←dotted→ CM 250px cx=695
+ *   Row 2: [314px] GD 250px cx=439 · VDO 250px cx=705
  */
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -289,41 +289,41 @@ function RoleCard({
           {open ? "ย่อรายละเอียด" : "ดูรายละเอียด"}
         </div>
 
-        {/* ── Expanded section ── */}
+        {/* ── Expanded section — compact ── */}
         {open && (
-          <div style={{ marginTop: 12, paddingTop: 11, borderTop: `1px solid ${divider}` }}>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${divider}` }}>
             {/* Duties */}
-            <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 6 }}>
+            <div style={{ fontSize: 8.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 5 }}>
               หน้าที่หลัก
             </div>
             {d.duties.map((item, i) => (
-              <div key={i} style={{ display: "flex", gap: 6, fontSize: 10.5, color: textSub, lineHeight: 1.55, marginBottom: 4 }}>
-                <span style={{ color: accent, opacity: 0.5, flexShrink: 0, marginTop: 1 }}>•</span>
+              <div key={i} style={{ display: "flex", gap: 5, fontSize: 10, color: textSub, lineHeight: 1.45, marginBottom: 3 }}>
+                <span style={{ color: accent, opacity: 0.45, flexShrink: 0, marginTop: 1 }}>•</span>
                 {item}
               </div>
             ))}
 
             {/* Extras */}
             {d.extras?.map(ext => (
-              <div key={ext.label} style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 5 }}>
+              <div key={ext.label} style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 8.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 4 }}>
                   {ext.label}
                 </div>
                 {ext.items.map((it, i) => (
-                  <div key={i} style={{ fontSize: 10.5, color: textSub, lineHeight: 1.7 }}>{it}</div>
+                  <div key={i} style={{ fontSize: 10, color: textSub, lineHeight: 1.5, marginBottom: 2 }}>{it}</div>
                 ))}
               </div>
             ))}
 
             {/* KPIs */}
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 5 }}>
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 8.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".5px", color: textSub, marginBottom: 4 }}>
                 KPI
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                 {d.kpis.map(k => (
                   <span key={k} style={{
-                    fontSize: 9.5, padding: "2px 8px", borderRadius: 20,
+                    fontSize: 9, padding: "2px 7px", borderRadius: 20,
                     background: tagBg, color: accent, fontWeight: 600,
                   }}>
                     {k}
@@ -458,18 +458,18 @@ export default function MarketingOrgChart() {
    * SVG connector paths — 840px coordinate space
    *
    * Connector 1 (Row 0 → Row 1):
-   *   Manager cx=420, Exec cx=144, CM cx=696
-   *   M420,0 L420,20  (drop from Manager)
-   *   M144,20 L696,20  (horizontal bar)
-   *   M144,20 L144,44  (drop to Exec)
-   *   M696,20 L696,44  (drop to CM)
+   *   Manager cx=420, Exec cx=145, CM cx=695
+   *   Layout: [20][250 Exec][flex-1=300][250 CM][20]
+   *   Exec cx = 20+125 = 145, CM cx = 840-20-125 = 695
    *
    * Connector 2 (CM → Row 2):
-   *   CM cx=696, GD cx=491, VDO cx=715
-   *   Note: 491 < 696 < 715 ✓ — CM line lands inside horizontal bar
+   *   CM cx=695, GD cx=439, VDO cx=705
+   *   Layout: [314][250 GD][16][250 VDO][10] = 840
+   *   GD cx=314+125=439, VDO cx=314+250+16+125=705
+   *   Constraint: 439 < 695 < 705 ✓
    */
-  const path1 = "M420,0 L420,20 M144,20 L696,20 M144,20 L144,44 M696,20 L696,44";
-  const path2 = "M696,0 L696,20 M491,20 L715,20 M491,20 L491,44 M715,20 L715,44";
+  const path1 = "M420,0 L420,20 M145,20 L695,20 M145,20 L145,44 M695,20 L695,44";
+  const path2 = "M695,0 L695,20 M439,20 L705,20 M439,20 L439,44 M705,20 L705,44";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background p-5 pb-16">
@@ -506,13 +506,13 @@ export default function MarketingOrgChart() {
 
           {/* ── Row 1: Exec ←──dotted──→ CM ── */}
           {/*
-           * Layout: [20px] [248px Exec] [flex-1 = 304px dotted] [248px CM] [20px]
-           * Exec cx = 20+124 = 144 ✓
-           * CM   cx = 840-20-124 = 696 ✓
+           * Layout: [20px] [250px Exec] [flex-1 = 300px dotted] [250px CM] [20px]
+           * Exec cx = 20+125 = 145 ✓
+           * CM   cx = 840-20-125 = 695 ✓
            */}
           <div style={{ display: "flex", alignItems: "flex-start", width: 840 }}>
             <div style={{ width: 20, flexShrink: 0 }} />
-            <RoleCard rk="exec" isDark={isDark} style={{ width: 248, flexShrink: 0 }} />
+            <RoleCard rk="exec" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
 
             {/* Dotted Theme & Concept arrow */}
             <div style={{ flex: 1, paddingTop: 26, paddingLeft: 10, paddingRight: 10 }}>
@@ -534,25 +534,26 @@ export default function MarketingOrgChart() {
               </svg>
             </div>
 
-            <RoleCard rk="cm" isDark={isDark} style={{ width: 248, flexShrink: 0 }} />
+            <RoleCard rk="cm" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
             <div style={{ width: 20, flexShrink: 0 }} />
           </div>
 
           {/* ── Connector 2 (840×44) ── */}
           <Connector isDark={isDark} d={path2} />
 
-          {/* ── Row 2: [386px spacer] GD VDO ── */}
+          {/* ── Row 2: GD + VDO shifted left ── */}
           {/*
-           * [386px] [210px GD] [14px] [210px VDO] [20px] = 840 ✓
-           * GD  cx = 386+105 = 491 ✓
-           * VDO cx = 386+210+14+105 = 715 ✓
+           * [314px] [250px GD] [16px] [250px VDO] [10px] = 840 ✓
+           * GD  cx = 314+125 = 439  (was 491, shifted 52px left)
+           * VDO cx = 314+250+16+125 = 705 ✓
+           * Constraint: 439 < CM cx 695 < 705 ✓
            */}
           <div style={{ display: "flex", alignItems: "flex-start", width: 840 }}>
-            <div style={{ width: 386, flexShrink: 0 }} />
-            <RoleCard rk="gd"  isDark={isDark} style={{ width: 210, flexShrink: 0 }} />
-            <div style={{ width: 14, flexShrink: 0 }} />
-            <RoleCard rk="vdo" isDark={isDark} style={{ width: 210, flexShrink: 0 }} />
-            <div style={{ width: 20, flexShrink: 0 }} />
+            <div style={{ width: 314, flexShrink: 0 }} />
+            <RoleCard rk="gd"  isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
+            <div style={{ width: 16, flexShrink: 0 }} />
+            <RoleCard rk="vdo" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
+            <div style={{ width: 10, flexShrink: 0 }} />
           </div>
 
           {/* ── Collaboration section ── */}
