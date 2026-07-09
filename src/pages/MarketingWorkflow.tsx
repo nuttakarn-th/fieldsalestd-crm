@@ -469,9 +469,21 @@ export default function MarketingWorkflow() {
       <div className="max-w-2xl mx-auto">
 
         {/* Header */}
-        <div className="text-center mb-5">
-          <h1 className="text-xl font-extrabold text-gray-800 dark:text-gray-100">Marketing Team — Workflow</h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">เลือกประเภทงานเพื่อดู Flow การทำงานแบบละเอียด</p>
+        <div className="text-center mb-8 space-y-2">
+          <p className="text-[9px] font-extrabold tracking-[3px] uppercase text-gray-400 dark:text-white/30">
+            Standard Tour
+          </p>
+          <h1
+            className="text-4xl font-black tracking-tight leading-tight"
+            style={{ fontFamily: "'Inter','Kanit',sans-serif" }}
+          >
+            <span className="text-gray-900 dark:text-gray-100">Marketing{" "}</span>
+            <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">
+              Workflow
+            </span>
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">บริการด้วยจิต ดูแลด้วยใจ</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">เลือกประเภทงานเพื่อดู Flow การทำงานแบบละเอียด</p>
         </div>
 
         {/* Tabs */}

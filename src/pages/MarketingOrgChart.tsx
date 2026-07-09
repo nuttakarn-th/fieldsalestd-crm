@@ -476,17 +476,31 @@ export default function MarketingOrgChart() {
     <div className="min-h-screen bg-gray-50 dark:bg-background p-5 pb-16">
 
       {/* Page header */}
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
+      <div style={{ textAlign: "center", marginBottom: 30 }}>
         <div style={{
-          fontSize: 10, fontWeight: 800, letterSpacing: 2,
-          color: textSub, textTransform: "uppercase", marginBottom: 5,
+          fontSize: 9.5, fontWeight: 800, letterSpacing: 2,
+          color: textSub, textTransform: "uppercase", marginBottom: 6,
         }}>
           Standard Tour
         </div>
-        <h1 style={{ fontSize: 21, fontWeight: 900, color: textMain, marginBottom: 4 }}>
-          📊 Organization Chart — ทีม Marketing
+        <h1 style={{
+          fontSize: 38, fontWeight: 900, lineHeight: 1.15,
+          marginBottom: 8, fontFamily: "'Inter','Kanit',sans-serif",
+        }}>
+          <span style={{ color: textMain }}>Organization{" "}</span>
+          <span style={{
+            background: "linear-gradient(to right, #ec4899, #d946ef, #8b5cf6)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>
+            Chart
+          </span>
         </h1>
-        <p style={{ fontSize: 11.5, color: textSub }}>
+        <p style={{ fontSize: 13, color: textSub, marginBottom: 3 }}>
+          บริการด้วยจิต ดูแลด้วยใจ
+        </p>
+        <p style={{ fontSize: 11, color: textSub, opacity: 0.7 }}>
           สายการรายงานและความรับผิดชอบ &nbsp;|&nbsp; คลิกการ์ดเพื่อดูรายละเอียด
         </p>
       </div>
