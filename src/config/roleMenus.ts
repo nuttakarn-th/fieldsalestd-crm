@@ -26,6 +26,7 @@ import {
   GitBranch,
   type LucideIcon,
 } from "lucide-react";
+// Note: Users2 imported above covers Org Chart icon
 import type { AppRole } from "@/store/authStore";
 
 export type MenuTone = "gold" | "pink" | "blue" | undefined;
@@ -185,6 +186,7 @@ const marketingMenu: RoleMenu = {
       category: "TEAM RESOURCES",
       items: [
         { title: "Marketing Workflow",    url: "/team-resources/workflow",    icon: GitBranch },
+        { title: "Org Chart",             url: "/team-resources/org-chart",   icon: Users2    },
       ],
     },
     {

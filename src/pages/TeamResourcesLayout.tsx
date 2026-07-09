@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router-dom";
-import { ChevronLeft, GitBranch, BookOpen, Menu, X } from "lucide-react";
+import { ChevronLeft, GitBranch, BookOpen, Users2, Menu, X } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { NavActions } from "@/components/NavActions";
 
@@ -17,6 +17,13 @@ export const TEAM_RESOURCES_NAV = [
     icon:  GitBranch,
     to:    "/team-resources/workflow",
     gradient: "from-violet-500 to-purple-600",
+  },
+  {
+    title: "Org Chart",
+    desc:  "โครงสร้างและสายการรายงานของทีม",
+    icon:  Users2,
+    to:    "/team-resources/org-chart",
+    gradient: "from-blue-500 to-indigo-600",
   },
   // Future: SOP, Brand Guidelines, Training Docs, etc.
 ];
