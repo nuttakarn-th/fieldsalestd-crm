@@ -49,8 +49,8 @@ export default function TeamResourcesLayout() {
         </Link>
 
         {/* Breadcrumb — desktop only */}
-        <Link to="/app/marketing-hub" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
-          <ChevronLeft className="w-3.5 h-3.5" /> Marketing Hub
+        <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" /> Home
         </Link>
         <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>
 

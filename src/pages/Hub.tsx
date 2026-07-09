@@ -143,9 +143,6 @@ function MarketingCategorisedGrid() {
     { title: "Contents",         icon: LayoutGrid,    to: "/marketing-contents" },
     { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
   ];
-  const teamResources: CompactTile[] = [
-    { title: "Team Resources",   icon: BookOpen,      to: "/team-resources" },
-  ];
   const custStock: CompactTile[] = [
     { title: "Leads/Customers",  icon: Users,         to: "/app/customers" },
     { title: "Marketing Leads",  icon: UserPlus,      to: "/app/marketing-leads" },
@@ -221,17 +218,16 @@ function MarketingCategorisedGrid() {
       </div>
 
       {/* ── Compact rows ─────────────────────────────────────────────────────────────── */}
-      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}          cols={3} delay={80}  />
-      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}      cols={3} delay={160} />
-      <SectionRow emoji="📚" label="Team Resources"      color="#14b8a6" rgb="20,184,166"   tiles={teamResources}  cols={1} delay={240} />
-      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}      cols={3} delay={320} />
-      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}        cols={5} delay={400} />
+      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}     cols={3} delay={80}  />
+      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}  cols={3} delay={160} />
+      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}  cols={3} delay={240} />
+      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}    cols={5} delay={320} />
 
       {/* ── Today's Focus — top urgent tours ────────────────────────────────── */}
       {topUrgent.length > 0 && (
         <div
           className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both mt-1"
-          style={{ animationDelay: "480ms" }}
+          style={{ animationDelay: "400ms" }}
         >
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-[13px] leading-none">📌</span>
@@ -262,6 +258,17 @@ function MarketingCategorisedGrid() {
           </div>
         </div>
       )}
+      {/* ── Team Resources — information footer (subtle, not a focal point) ── */}
+      <div className="pt-3 border-t border-white/8">
+        <Link
+          to="/team-resources"
+          className="inline-flex items-center gap-1.5 text-[10px] text-white/25 hover:text-white/45 transition-colors"
+        >
+          <BookOpen className="w-3 h-3" />
+          <span>Team Resources</span>
+          <span className="text-white/15 ml-0.5">· Workflow & SOP</span>
+        </Link>
+      </div>
     </div>
   );
 }
