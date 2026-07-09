@@ -162,6 +162,17 @@ export default function AudienceBuilderLayout() {
           </div>
 
           <div className="p-3 space-y-1">
+            {/* ── กลับ Marketing Hub ── */}
+            <Link
+              to="/app/marketing-hub"
+              onClick={() => setShowSidebar(false)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
+            >
+              <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+              กลับ Marketing Hub
+            </Link>
+            <div className="h-px bg-border my-1" />
+
             {visibleNav.map((item) => (
               <NavLink
                 key={item.to}
