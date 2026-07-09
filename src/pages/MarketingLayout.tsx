@@ -1,14 +1,20 @@
 /**
  * MarketingLayout.tsx — Dedicated sidebar layout for Marketing role
- * Route: /marketing (standalone, independent from AppLayout)
+ * Route: /marketing/* (standalone, independent from AppLayout)
  */
 import { Outlet, NavLink } from "react-router-dom";
+import { MessageSquare } from "lucide-react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
-  TrendingUp, Target, Users2, UserCircle, Star, GitBranch,
+  TrendingUp, Target, Users2, CheckSquare,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
+import { useCRM } from "@/store/crmStore";
+import { useChatRead } from "@/store/chatReadStore";
 import { TeamNotifications } from "@/components/TeamNotifications";
+import { UserMenu } from "@/components/UserMenu";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
@@ -28,10 +34,10 @@ const NAV_SHORTCUTS: NavItem[] = [
   { label: "Audience Builder",  icon: Target,       to: "/audience-builder/line-export" },
   { label: "Marketing Leads",   icon: Users2,       to: "/app/marketing-leads"          },
   { label: "Stock Analytics",   icon: TrendingUp,   to: "/app/stock-analytics"          },
-  { label: "My Tasks",          icon: UserCircle,   to: "/profile"                       },
+  { label: "My Tasks",          icon: CheckSquare,  to: "/marketing/tasks"               },
 ];
 
-// ── NavLink helper ───────────────────────────────────────────────────────────
+// ── NavLink item ─────────────────────────────────────────────────────────────
 function SideNavItem({ item }: { item: NavItem }) {
   const Icon = item.icon;
   return (
@@ -52,6 +58,33 @@ function SideNavItem({ item }: { item: NavItem }) {
   );
 }
 
+// ── Chat header button (unread badge) ────────────────────────────────────────
+function ChatBtn() {
+  const toggle = useChatUI((s) => s.toggle);
+  const messages = useCRM((s) => s.chatMessages);
+  const currentUser = useCurrentUser();
+  const currentRep = useCRM((s) => s.currentRep);
+  const lastReadAt = useChatRead((s) => s.lastReadAt);
+  const me = currentUser?.full_name || (currentRep === "All" ? "Manager" : currentRep);
+  const unread = messages.filter(
+    (m) => m.author !== me && new Date(m.created_at).getTime() > new Date(lastReadAt).getTime()
+  ).length;
+  return (
+    <button
+      onClick={toggle}
+      className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
+      aria-label="แชท"
+    >
+      <MessageSquare className="w-5 h-5 text-muted-foreground" />
+      {unread > 0 && (
+        <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-destructive text-[9px] font-bold flex items-center justify-center text-white leading-none">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ── Main layout ──────────────────────────────────────────────────────────────
 export default function MarketingLayout() {
   const user = useCurrentUser();
@@ -62,26 +95,27 @@ export default function MarketingLayout() {
       {/* ── Sidebar ── */}
       <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border">
 
-        {/* Brand */}
+        {/* Brand — real logo */}
         <div className="px-4 pt-4 pb-3 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
-              <span className="text-white font-black text-[11px] tracking-tight">ST</span>
+            <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-sm">
+              <img
+                src="/logo-icon.png"
+                alt="Standard Tour"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+              />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold leading-none truncate">Standard Tour Hub</p>
-              <span className="inline-flex mt-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                Marketing
-              </span>
+              <p className="text-sm font-bold leading-none truncate">Standard Tour CRM</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none truncate">Travel Sales Suite</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {NAV_MAIN.map((item) => (
-            <SideNavItem key={item.to} item={item} />
-          ))}
+          {NAV_MAIN.map((item) => <SideNavItem key={item.to} item={item} />)}
 
           <div className="pt-4 pb-1.5 px-3">
             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
@@ -89,45 +123,37 @@ export default function MarketingLayout() {
             </p>
           </div>
 
-          {NAV_SHORTCUTS.map((item) => (
-            <SideNavItem key={item.to} item={item} />
-          ))}
+          {NAV_SHORTCUTS.map((item) => <SideNavItem key={item.to} item={item} />)}
         </nav>
-
-        {/* Upgrade to Pro */}
-        <div className="p-3">
-          <div className="rounded-xl bg-gradient-to-br from-amber-500/10 to-yellow-400/5 border border-amber-400/20 p-3 space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <Star className="w-3.5 h-3.5 text-amber-500" />
-              <p className="text-xs font-bold text-amber-600 dark:text-amber-400">Upgrade to Pro</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground leading-snug">
-              ปลดล็อคทุกฟีเจอร์พิเศษ
-            </p>
-            <button className="w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 text-white text-[11px] font-bold hover:opacity-90 transition-opacity">
-              Upgrade Now
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Top bar */}
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center justify-end px-5 gap-2">
-          <TeamNotifications />
-          {user?.avatar_url ? (
-            <img
-              src={user.avatar_url}
-              alt={user?.full_name ?? ""}
-              className="w-8 h-8 rounded-full object-cover border-2 border-purple-500/30 cursor-pointer hover:scale-105 transition-transform"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold cursor-pointer hover:scale-105 transition-transform select-none">
-              {user?.full_name?.[0]?.toUpperCase() ?? "M"}
+        {/* Top bar — matches AppLayout style */}
+        <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center px-4 gap-3">
+          {/* Logo + brand text (visible on this header too) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-8 h-8 rounded-full overflow-hidden">
+              <img
+                src="/logo-icon.png"
+                alt="Standard Tour"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
+              />
             </div>
-          )}
+            <span className="hidden md:inline font-bold text-sm">Standard Tour CRM</span>
+          </div>
+
+          {/* Global search */}
+          <GlobalSearch />
+
+          {/* Right actions */}
+          <div className="ml-auto flex items-center gap-1 shrink-0">
+            <ChatBtn />
+            <TeamNotifications />
+            <UserMenu />
+          </div>
         </header>
 
         {/* Page content */}
@@ -135,6 +161,9 @@ export default function MarketingLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Chat panel (same as AppLayout) */}
+      <ChatWidget />
     </div>
   );
 }
