@@ -459,7 +459,7 @@ function AdCreativeBlock({ isDark }: { isDark: boolean }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function MarketingWorkflow() {
-  const [activeTab, setActiveTab] = useState<TabKey>("vdo");
+  const [activeTab, setActiveTab] = useState<TabKey>("campaign");
   const isDark = useDarkMode();
   const flow = FLOWS[activeTab];
   const tabColor = TABS.find((t) => t.key === activeTab)?.color ?? "#9333ea";
