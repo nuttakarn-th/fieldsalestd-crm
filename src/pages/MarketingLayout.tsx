@@ -132,20 +132,7 @@ export default function MarketingLayout() {
 
         {/* Top bar — matches AppLayout style */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center px-4 gap-3">
-          {/* Logo + brand text (visible on this header too) */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-full overflow-hidden">
-              <img
-                src="/logo-icon.png"
-                alt="Standard Tour"
-                className="w-full h-full object-cover"
-                onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
-              />
-            </div>
-            <span className="hidden md:inline font-bold text-sm">Standard Tour CRM</span>
-          </div>
-
-          {/* Global search */}
+          {/* Customer search */}
           <GlobalSearch />
 
           {/* Right actions */}

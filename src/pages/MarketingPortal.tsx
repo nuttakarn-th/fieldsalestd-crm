@@ -8,17 +8,17 @@
  *   [Today's Focus | Quick Actions | Activity Feed]
  *   [Footer links]
  */
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   TrendingUp, Megaphone, Users, Briefcase, BarChart3, Zap,
   Target, MessageSquare, Globe, ChevronRight, Flame,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
+  Search, X,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
-import { GlobalSearch } from "@/components/GlobalSearch";
 
 // ── Animation CSS ────────────────────────────────────────────────────────────
 const ANIM_CSS = `
@@ -134,6 +134,107 @@ const QUICK_ACTIONS = [
   { label: "ดูรายงาน",      icon: BarChart3, to: "/app/marketing-report",           gradient: "from-emerald-500 to-teal-500"  },
   { label: "เพิ่มลูกค้า",   icon: UserPlus,  to: "/app/customers",                  gradient: "from-blue-500 to-indigo-500"   },
 ];
+
+// ── Tool search index (categories + nav shortcuts) ───────────────────────────
+type ToolEntry = { label: string; desc: string; icon: LucideIcon; gradient: string; to: string };
+
+const TOOL_INDEX: ToolEntry[] = [
+  ...CATEGORIES,
+  { label: "Dashboard",          desc: "Marketing dashboard overview",            icon: BarChart3,  gradient: "from-emerald-500 to-teal-500",   to: "/marketing-dashboard"               },
+  { label: "Content Calendar",   desc: "ปฏิทินเนื้อหา, โพสต์, คอนเทนต์",          icon: FileText,   gradient: "from-violet-500 to-purple-600",  to: "/marketing-contents/calendar"        },
+  { label: "Audience Builder",   desc: "สร้างกลุ่มเป้าหมาย LINE export",           icon: Target,     gradient: "from-cyan-500 to-teal-600",      to: "/audience-builder/line-export"       },
+  { label: "Marketing Leads",    desc: "Leads ที่มาจากช่องทาง Marketing",          icon: Users,      gradient: "from-blue-500 to-indigo-500",    to: "/app/marketing-leads"                },
+  { label: "Stock Analytics",    desc: "วิเคราะห์สต็อก, ที่นั่ง, Period",          icon: TrendingUp, gradient: "from-orange-500 to-amber-500",   to: "/app/stock-analytics"                },
+  { label: "My Tasks",           desc: "งานส่วนตัว, บันทึกงาน, to-do",           icon: CheckCircle2, gradient: "from-pink-500 to-rose-500",   to: "/marketing/tasks"                    },
+];
+
+// ── ToolSearch component ──────────────────────────────────────────────────────
+function ToolSearch() {
+  const [q, setQ]         = useState("");
+  const [open, setOpen]   = useState(false);
+  const wrapRef           = useRef<HTMLDivElement>(null);
+  const navigate          = useNavigate();
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const results = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return [];
+    return TOOL_INDEX.filter(
+      (t) => t.label.toLowerCase().includes(s) || t.desc.toLowerCase().includes(s)
+    ).slice(0, 6);
+  }, [q]);
+
+  const handleSelect = (to: string) => {
+    setOpen(false);
+    setQ("");
+    navigate(to);
+  };
+
+  return (
+    <div ref={wrapRef} className="relative w-full max-w-md">
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <input
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="ค้นหาเครื่องมือ, แคมเปญ, รายงาน..."
+          className="w-full h-10 pl-9 pr-9 rounded-xl border border-border bg-muted/40 hover:border-purple-400/60 focus:border-purple-400 focus:bg-card focus:outline-none text-sm placeholder:text-muted-foreground transition-colors"
+        />
+        {q && (
+          <button
+            type="button"
+            onClick={() => { setQ(""); setOpen(false); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Results dropdown */}
+      {open && results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
+          {results.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.to}
+                type="button"
+                onClick={() => handleSelect(t.to)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/60 transition-colors text-left"
+              >
+                <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${t.gradient} flex items-center justify-center shrink-0`}>
+                  <Icon className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{t.label}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{t.desc}</p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* No results */}
+      {open && q.trim() && results.length === 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-lg p-4 text-center z-50">
+          <p className="text-sm text-muted-foreground">ไม่พบเครื่องมือที่ตรงกัน</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Category Card ─────────────────────────────────────────────────────────────
 function CategoryCard({ item, index }: { item: CategoryItem; index: number }) {
@@ -276,10 +377,8 @@ export default function MarketingPortal() {
               </p>
             </div>
 
-            {/* Real search bar */}
-            <div className="w-full max-w-md">
-              <GlobalSearch />
-            </div>
+            {/* Tool search */}
+            <ToolSearch />
           </div>
 
           {/* Banner */}
