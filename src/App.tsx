@@ -79,6 +79,7 @@ import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
 import MarketingLayout from "./pages/MarketingLayout.tsx";
 import MarketingPortal from "./pages/MarketingPortal.tsx";
+import MyTasksPage from "./pages/MyTasksPage.tsx";
 import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
 import MarketingTeam from "./pages/MarketingTeam.tsx";
@@ -157,6 +158,7 @@ const App = () => (
           {/* ── Marketing Hub Portal (Marketing role dedicated layout) ── */}
           <Route path="/marketing" element={<RouteGuard><MarketingLayout /></RouteGuard>}>
             <Route index element={<MarketingPortal />} />
+            <Route path="tasks" element={<MyTasksPage />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>

@@ -13,11 +13,12 @@ import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   TrendingUp, Megaphone, Users, Briefcase, BarChart3, Zap,
-  Target, MessageSquare, Globe, Search, ChevronRight, Flame,
+  Target, MessageSquare, Globe, ChevronRight, Flame,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 // ── Animation CSS ────────────────────────────────────────────────────────────
 const ANIM_CSS = `
@@ -263,7 +264,10 @@ export default function MarketingPortal() {
               <p className="text-sm text-muted-foreground">
                 Welcome back, {firstName}! 👋
               </p>
-              <h1 className="text-[2.6rem] font-black tracking-tight mt-1 leading-none">
+              <h1
+                style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900, fontSize: "2.6rem", letterSpacing: "-0.02em", lineHeight: 1 }}
+                className="mt-1"
+              >
                 Marketing Hub
                 <span className="text-purple-500">.</span>
               </h1>
@@ -272,19 +276,10 @@ export default function MarketingPortal() {
               </p>
             </div>
 
-            {/* Search bar — click navigates to Intelligence feed */}
-            <button
-              onClick={() => navigate("/app/marketing-hub")}
-              className="w-full max-w-md flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-muted/40 hover:border-purple-400/60 hover:bg-muted/70 transition-all text-left"
-            >
-              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-sm text-muted-foreground flex-1">
-                ค้นหาเครื่องมือ, แคมเปญ, รายงาน...
-              </span>
-              <kbd className="text-[10px] font-mono bg-background border border-border rounded px-1.5 py-0.5 text-muted-foreground shrink-0">
-                Ctrl&nbsp;+&nbsp;K
-              </kbd>
-            </button>
+            {/* Real search bar */}
+            <div className="w-full max-w-md">
+              <GlobalSearch />
+            </div>
           </div>
 
           {/* Banner */}
