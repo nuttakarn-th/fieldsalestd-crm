@@ -60,6 +60,7 @@ import PostPerformanceTracker from "./pages/PostPerformanceTracker.tsx";
 import ContentManagementLayout from "./pages/ContentManagementLayout.tsx";
 import ContentPhotoFrame from "./pages/ContentPhotoFrame.tsx";
 import AudienceBuilderLayout from "./pages/AudienceBuilderLayout.tsx";
+import TeamResourcesLayout from "./pages/TeamResourcesLayout.tsx";
 import AudienceLineExport from "./pages/audience/AudienceLineExport.tsx";
 import AudienceFacebook from "./pages/audience/AudienceFacebook.tsx";
 import AudienceBirthday from "./pages/audience/AudienceBirthday.tsx";
@@ -149,6 +150,9 @@ const App = () => (
             <Route path="vip"         element={<AudienceVIPList />} />
             <Route path="interest"    element={<AudienceInterestSegment />} />
           </Route>
+          <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
+            <Route path="workflow" element={<MarketingWorkflow />} />
+          </Route>
           <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
             <Route path="executive" element={<ExecutiveDashboard />} />
@@ -188,7 +192,8 @@ const App = () => (
             <Route path="stock-analytics" element={<StockAnalytics />} />
             <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
-            <Route path="marketing-workflow" element={<MarketingWorkflow />} />
+            {/* redirect เก่า → team-resources layout */}
+            <Route path="marketing-workflow" element={<Navigate to="/team-resources/workflow" replace />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

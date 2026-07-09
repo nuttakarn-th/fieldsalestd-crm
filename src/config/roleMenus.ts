@@ -178,7 +178,13 @@ const marketingMenu: RoleMenu = {
         { title: "Campaign Management",   url: "/app/campaigns",              icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
-        { title: "Marketing Workflow",    url: "/app/marketing-workflow",     icon: GitBranch },
+      ],
+    },
+    {
+      // เอกสารอ้างอิงและ SOP ภายในทีม Marketing
+      category: "TEAM RESOURCES",
+      items: [
+        { title: "Marketing Workflow",    url: "/team-resources/workflow",    icon: GitBranch },
       ],
     },
     {

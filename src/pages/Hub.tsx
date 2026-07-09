@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, GitBranch, type LucideIcon } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, BookOpen, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
@@ -142,7 +142,9 @@ function MarketingCategorisedGrid() {
     { title: "Campaign Mgmt",    icon: Megaphone,     to: "/app/campaigns" },
     { title: "Contents",         icon: LayoutGrid,    to: "/marketing-contents" },
     { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
-    { title: "Workflow",         icon: GitBranch,     to: "/app/marketing-workflow" },
+  ];
+  const teamResources: CompactTile[] = [
+    { title: "Team Resources",   icon: BookOpen,      to: "/team-resources" },
   ];
   const custStock: CompactTile[] = [
     { title: "Leads/Customers",  icon: Users,         to: "/app/customers" },
@@ -219,16 +221,17 @@ function MarketingCategorisedGrid() {
       </div>
 
       {/* ── Compact rows ─────────────────────────────────────────────────────────────── */}
-      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}     cols={3} delay={80}  />
-      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}  cols={3} delay={160} />
-      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}  cols={3} delay={240} />
-      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}    cols={5} delay={320} />
+      <SectionRow emoji="🎯" label="Intelligence"        color="#a855f7" rgb="168,85,247"   tiles={intel}          cols={3} delay={80}  />
+      <SectionRow emoji="📣" label="Campaigns & Content" color="#ec4899" rgb="236,72,153"   tiles={campaigns}      cols={3} delay={160} />
+      <SectionRow emoji="📚" label="Team Resources"      color="#14b8a6" rgb="20,184,166"   tiles={teamResources}  cols={1} delay={240} />
+      <SectionRow emoji="👥" label="Customers & Stock"   color="#3b82f6" rgb="59,130,246"   tiles={custStock}      cols={3} delay={320} />
+      <SectionRow emoji="🏢" label="Company & Personal"  color="#f59e0b" rgb="245,158,11"   tiles={company}        cols={5} delay={400} />
 
       {/* ── Today's Focus — top urgent tours ────────────────────────────────── */}
       {topUrgent.length > 0 && (
         <div
           className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-both mt-1"
-          style={{ animationDelay: "400ms" }}
+          style={{ animationDelay: "480ms" }}
         >
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-[13px] leading-none">📌</span>
