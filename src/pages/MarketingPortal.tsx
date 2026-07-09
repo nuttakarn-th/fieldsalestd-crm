@@ -179,7 +179,7 @@ function ToolSearch() {
   };
 
   return (
-    <div ref={wrapRef} className="relative w-full max-w-md">
+    <div ref={wrapRef} className="relative z-[60] w-full max-w-md">
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input
@@ -360,7 +360,7 @@ export default function MarketingPortal() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5 items-start">
 
           {/* Welcome */}
-          <div className="portal-fade space-y-4" style={{ animationDelay: "0ms" }}>
+          <div className="portal-fade space-y-4 relative z-10" style={{ animationDelay: "0ms" }}>
             <div>
               <p className="text-sm text-muted-foreground">
                 Welcome back, {firstName}! 👋
