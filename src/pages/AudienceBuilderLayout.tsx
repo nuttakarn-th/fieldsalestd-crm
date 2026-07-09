@@ -90,8 +90,8 @@ export default function AudienceBuilderLayout() {
         </Link>
 
         {/* Breadcrumb — desktop only */}
-        <Link to="/" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
-          <ChevronLeft className="w-3.5 h-3.5" /> Hub
+        <Link to="/app/marketing-hub" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" /> Marketing Hub
         </Link>
         <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>
 
@@ -162,17 +162,6 @@ export default function AudienceBuilderLayout() {
           </div>
 
           <div className="p-3 space-y-1">
-            {/* ── กลับ Marketing Hub ── */}
-            <Link
-              to="/app/marketing-hub"
-              onClick={() => setShowSidebar(false)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
-              กลับ Marketing Hub
-            </Link>
-            <div className="h-px bg-border my-1" />
-
             {visibleNav.map((item) => (
               <NavLink
                 key={item.to}
