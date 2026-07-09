@@ -342,6 +342,9 @@ export default function Hub() {
   if (!user) return <Navigate to="/login" replace />;
   const effectiveRole: AppRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
   const isMarketing = effectiveRole === "Marketing";
+
+  // ── Marketing role → redirect ไป Marketing Hub Portal ──────────────────────
+  if (isMarketing) return <Navigate to="/marketing" replace />;
   const sharedTiles = baseTiles.filter((t) => !isMarketing);
   const tiles = [
     ...sharedTiles,
