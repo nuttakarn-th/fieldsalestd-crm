@@ -77,6 +77,8 @@ import WeeklySalesPlan from "./pages/WeeklySalesPlan.tsx";
 import PlanReport from "./pages/PlanReport.tsx";
 import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
+import MarketingLayout from "./pages/MarketingLayout.tsx";
+import MarketingPortal from "./pages/MarketingPortal.tsx";
 import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
 import MarketingTeam from "./pages/MarketingTeam.tsx";
@@ -152,6 +154,11 @@ const App = () => (
             <Route path="vip"         element={<AudienceVIPList />} />
             <Route path="interest"    element={<AudienceInterestSegment />} />
           </Route>
+          {/* ── Marketing Hub Portal (Marketing role dedicated layout) ── */}
+          <Route path="/marketing" element={<RouteGuard><MarketingLayout /></RouteGuard>}>
+            <Route index element={<MarketingPortal />} />
+          </Route>
+
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
             <Route path="workflow"   element={<MarketingWorkflow />} />
             <Route path="org-chart" element={<MarketingOrgChart />} />

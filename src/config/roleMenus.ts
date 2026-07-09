@@ -169,7 +169,7 @@ const marketingMenu: RoleMenu = {
       // หน้าแรกของ Marketing — Intelligence Feed ที่รู้ทุก Signal
       category: "OVERVIEW",
       items: [
-        { title: "Marketing Hub",         url: "/app/marketing-hub",      icon: Megaphone, end: true },
+        { title: "Marketing Hub",         url: "/marketing",              icon: Megaphone, end: true },
       ],
     },
     {
