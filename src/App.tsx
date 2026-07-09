@@ -76,6 +76,7 @@ import WeeklySalesPlan from "./pages/WeeklySalesPlan.tsx";
 import PlanReport from "./pages/PlanReport.tsx";
 import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
+import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -187,6 +188,7 @@ const App = () => (
             <Route path="stock-analytics" element={<StockAnalytics />} />
             <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
+            <Route path="marketing-workflow" element={<MarketingWorkflow />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

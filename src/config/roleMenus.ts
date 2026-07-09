@@ -23,6 +23,7 @@ import {
   CalendarRange,
   TrendingUp,
   Trophy,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/store/authStore";
@@ -174,9 +175,10 @@ const marketingMenu: RoleMenu = {
       // เครื่องมือสร้าง Content & Campaign
       category: "CAMPAIGNS",
       items: [
-        { title: "Campaign Management",   url: "/app/campaigns",          icon: Megaphone },
-        { title: "Contents Management",   url: "/marketing-contents",     icon: LayoutGrid },
-        { title: "Audience Builder",      url: "/audience-builder",       icon: Target },
+        { title: "Campaign Management",   url: "/app/campaigns",              icon: Megaphone },
+        { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
+        { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
+        { title: "Marketing Workflow",    url: "/app/marketing-workflow",     icon: GitBranch },
       ],
     },
     {

@@ -1,5 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
-import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, type LucideIcon } from "lucide-react";
+import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, GitBranch, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
@@ -142,6 +142,7 @@ function MarketingCategorisedGrid() {
     { title: "Campaign Mgmt",    icon: Megaphone,     to: "/app/campaigns" },
     { title: "Contents",         icon: LayoutGrid,    to: "/marketing-contents" },
     { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
+    { title: "Workflow",         icon: GitBranch,     to: "/app/marketing-workflow" },
   ];
   const custStock: CompactTile[] = [
     { title: "Leads/Customers",  icon: Users,         to: "/app/customers" },
