@@ -105,6 +105,7 @@ const ROLES: Record<RoleKey, RoleData> = {
     duties: [
       "บริหาร Media Buying (Meta / TikTok / LINE / Google)",
       "คิดและนำเสนอ Campaign Concept ต่อ Manager",
+      "ประสานงาน และคิด Campaign ร่วมกับบริษัทในเครือ",
       "ส่ง Theme & Concept ให้ CM + VDO พร้อมกันทุกต้นเดือน",
       "ติดตามและเจรจา KOL เบื้องต้น (Manager ลงนาม)",
       "ปรับ Budget / ปิด Ad Set แบบ Real-time",
@@ -338,11 +339,11 @@ function RoleCard({
   );
 }
 
-// ── Connector SVG (840px coordinate space) ────────────────────────────────────
+// ── Connector SVG (900px coordinate space) ────────────────────────────────────
 function Connector({ isDark, d }: { isDark: boolean; d: string }) {
   const stroke = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)";
   return (
-    <svg viewBox="0 0 840 44" width="840" height="44" style={{ display: "block" }}>
+    <svg viewBox="0 0 900 44" width="900" height="44" style={{ display: "block" }}>
       <path d={d} fill="none" stroke={stroke} strokeWidth="1.5" />
     </svg>
   );
@@ -365,7 +366,7 @@ function CollabSection({ isDark }: { isDark: boolean }) {
 
   return (
     <div style={{
-      width: 840, marginTop: 28,
+      width: 900, marginTop: 28,
       borderRadius: 14, overflow: "hidden",
       border: `1px solid ${border}`, background: cardBg,
     }}>
@@ -455,21 +456,21 @@ export default function MarketingOrgChart() {
   const textSub  = isDark ? "rgba(255,255,255,0.42)" : "#9ca3af";
 
   /**
-   * SVG connector paths — 840px coordinate space
+   * SVG connector paths — 900px coordinate space
    *
    * Connector 1 (Row 0 → Row 1):
-   *   Manager cx=420, Exec cx=145, CM cx=695
-   *   Layout: [20][250 Exec][flex-1=300][250 CM][20]
-   *   Exec cx = 20+125 = 145, CM cx = 840-20-125 = 695
+   *   Manager cx=450, Exec cx=170, CM cx=730
+   *   Layout: [20][300 Exec][flex-1=260][300 CM][20]
+   *   Exec cx = 20+150 = 170,  CM cx = 900-20-150 = 730
    *
-   * Connector 2 (CM → Row 2):
-   *   CM cx=695, GD cx=439, VDO cx=705
-   *   Layout: [314][250 GD][16][250 VDO][10] = 840
-   *   GD cx=314+125=439, VDO cx=314+250+16+125=705
-   *   Constraint: 439 < 695 < 705 ✓
+   * Connector 2 (CM → Row 2) — L-shaped:
+   *   VDO is directly under CM (cx=730). GD arm goes left (cx=415).
+   *   Layout: [270][290 GD][25][290 VDO][25] = 900
+   *   GD cx = 270+145 = 415,  VDO cx = 270+290+25+145 = 730
+   *   Path: CM drops to y=44 (→ VDO), plus left arm at y=20 branching to GD
    */
-  const path1 = "M420,0 L420,20 M145,20 L695,20 M145,20 L145,44 M695,20 L695,44";
-  const path2 = "M695,0 L695,20 M439,20 L705,20 M439,20 L439,44 M705,20 L705,44";
+  const path1 = "M450,0 L450,20 M170,20 L730,20 M170,20 L170,44 M730,20 L730,44";
+  const path2 = "M730,0 L730,44 M730,20 L415,20 M415,20 L415,44";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background p-5 pb-16">
@@ -492,13 +493,13 @@ export default function MarketingOrgChart() {
 
       <Legend isDark={isDark} />
 
-      {/* Org tree — 840px fixed, scroll on mobile */}
+      {/* Org tree — 900px fixed, scroll on mobile */}
       <div style={{ overflowX: "auto" }}>
-        <div style={{ width: 840, margin: "0 auto" }}>
+        <div style={{ width: 900, margin: "0 auto" }}>
 
           {/* ── Row 0: Manager (centered) ── */}
           <div style={{ display: "flex", justifyContent: "center" }}>
-            <RoleCard rk="mgr" isDark={isDark} style={{ width: 300 }} />
+            <RoleCard rk="mgr" isDark={isDark} style={{ width: 360 }} />
           </div>
 
           {/* ── Connector 1 (840×44) ── */}
@@ -506,13 +507,13 @@ export default function MarketingOrgChart() {
 
           {/* ── Row 1: Exec ←──dotted──→ CM ── */}
           {/*
-           * Layout: [20px] [250px Exec] [flex-1 = 300px dotted] [250px CM] [20px]
-           * Exec cx = 20+125 = 145 ✓
-           * CM   cx = 840-20-125 = 695 ✓
+           * Layout: [20px] [300px Exec] [flex-1 = 260px dotted] [300px CM] [20px]
+           * Exec cx = 20+150 = 170 ✓
+           * CM   cx = 900-20-150 = 730 ✓
            */}
-          <div style={{ display: "flex", alignItems: "flex-start", width: 840 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", width: 900 }}>
             <div style={{ width: 20, flexShrink: 0 }} />
-            <RoleCard rk="exec" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
+            <RoleCard rk="exec" isDark={isDark} style={{ width: 300, flexShrink: 0 }} />
 
             {/* Dotted Theme & Concept arrow */}
             <div style={{ flex: 1, paddingTop: 26, paddingLeft: 10, paddingRight: 10 }}>
@@ -534,26 +535,26 @@ export default function MarketingOrgChart() {
               </svg>
             </div>
 
-            <RoleCard rk="cm" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
+            <RoleCard rk="cm" isDark={isDark} style={{ width: 300, flexShrink: 0 }} />
             <div style={{ width: 20, flexShrink: 0 }} />
           </div>
 
-          {/* ── Connector 2 (840×44) ── */}
+          {/* ── Connector 2 (900×44) — L-shaped ── */}
           <Connector isDark={isDark} d={path2} />
 
-          {/* ── Row 2: GD + VDO shifted left ── */}
+          {/* ── Row 2: GD (left arm) + VDO (directly under CM) ── */}
           {/*
-           * [314px] [250px GD] [16px] [250px VDO] [10px] = 840 ✓
-           * GD  cx = 314+125 = 439  (was 491, shifted 52px left)
-           * VDO cx = 314+250+16+125 = 705 ✓
-           * Constraint: 439 < CM cx 695 < 705 ✓
+           * [270px] [290px GD] [25px] [290px VDO] [25px] = 900 ✓
+           * GD  cx = 270+145 = 415  (47% from left — much more centered)
+           * VDO cx = 270+290+25+145 = 730  (directly under CM cx=730)
+           * L-shaped connector: CM drops straight to VDO, arm goes left to GD
            */}
-          <div style={{ display: "flex", alignItems: "flex-start", width: 840 }}>
-            <div style={{ width: 314, flexShrink: 0 }} />
-            <RoleCard rk="gd"  isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
-            <div style={{ width: 16, flexShrink: 0 }} />
-            <RoleCard rk="vdo" isDark={isDark} style={{ width: 250, flexShrink: 0 }} />
-            <div style={{ width: 10, flexShrink: 0 }} />
+          <div style={{ display: "flex", alignItems: "flex-start", width: 900 }}>
+            <div style={{ width: 270, flexShrink: 0 }} />
+            <RoleCard rk="gd"  isDark={isDark} style={{ width: 290, flexShrink: 0 }} />
+            <div style={{ width: 25, flexShrink: 0 }} />
+            <RoleCard rk="vdo" isDark={isDark} style={{ width: 290, flexShrink: 0 }} />
+            <div style={{ width: 25, flexShrink: 0 }} />
           </div>
 
           {/* ── Collaboration section ── */}
