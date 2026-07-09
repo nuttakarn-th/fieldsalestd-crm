@@ -193,12 +193,25 @@ function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
   );
 }
 
+/* ── Role display labels (Thai) ─────────────────────────────────────────── */
+const ROLE_LABEL: Partial<Record<AppRole, string>> = {
+  "Admin":           "Admin",
+  "Sales Manager":   "Sales Manager",
+  "Sales":           "Sales",
+  "OB Co-ordinator": "OB Co-ordinator",
+  "Marketing":       "Marketing",
+  "Co-Ordinator":    "Co-Ordinator",
+  "Accounting":      "Accounting",
+};
+
 /* ── Main Page ── */
 export default function SalesTeam() {
   const openChat = useChatUI((s) => s.open);
-  const users = useAuth((s) => s.users);
+  const users    = useAuth((s) => s.users);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const [filterRole,   setFilterRole]   = useState<AppRole | "all">("all");
 
+  // All users sorted by role order then name
   const sortedMembers = useMemo(() => {
     return [...users].sort((a, b) => {
       const ri = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
@@ -207,14 +220,28 @@ export default function SalesTeam() {
     });
   }, [users]);
 
+  // Unique roles present in user list (in role order)
+  const availableRoles = useMemo<AppRole[]>(() => {
+    const roleSet = new Set(users.map((u) => u.role));
+    return ROLE_ORDER.filter((r) => roleSet.has(r));
+  }, [users]);
+
+  // Filtered subset
+  const visibleMembers = useMemo(() => {
+    if (filterRole === "all") return sortedMembers;
+    return sortedMembers.filter((u) => u.role === filterRole);
+  }, [sortedMembers, filterRole]);
+
   const handleMention = (name: string) => { openChat(name as any); };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
       <StandaloneHeader backTo="/" />
 
-      <div className="px-4 sm:px-8 py-4 space-y-10 max-w-7xl mx-auto">
-        <div className="text-center space-y-2 pb-4">
+      <div className="px-4 sm:px-8 py-4 space-y-6 max-w-7xl mx-auto">
+
+        {/* Header */}
+        <div className="text-center space-y-2 pb-2">
           <h1 className="text-4xl sm:text-5xl tracking-tight" style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900 }}>
             Standard{" "}
             <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">
@@ -222,20 +249,65 @@ export default function SalesTeam() {
             </span>
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg">บริการด้วยจิต ดูแลด้วยใจ</p>
-          <p className="text-xs text-muted-foreground/60">ทีมงานทั้งหมด {users.length} คน</p>
+          <p className="text-xs text-muted-foreground/60">
+            {filterRole === "all"
+              ? `ทีมงานทั้งหมด ${users.length} คน`
+              : `${ROLE_LABEL[filterRole] ?? filterRole} ${visibleMembers.length} คน จากทั้งหมด ${users.length} คน`
+            }
+          </p>
         </div>
 
-        {sortedMembers.length === 0 ? (
+        {/* ── Filter pills ── */}
+        {availableRoles.length > 1 && (
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {/* All */}
+            <button
+              onClick={() => setFilterRole("all")}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                filterRole === "all"
+                  ? "bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 text-white shadow-sm scale-105"
+                  : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/70"
+              }`}
+            >
+              ทั้งหมด ({users.length})
+            </button>
+
+            {availableRoles.map((role) => {
+              const count = sortedMembers.filter((u) => u.role === role).length;
+              const isActive = filterRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => setFilterRole(role === filterRole ? "all" : role)}
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                    isActive
+                      ? "bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 text-white shadow-sm scale-105"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                  }`}
+                >
+                  {ROLE_LABEL[role] ?? role} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Grid ── */}
+        {visibleMembers.length === 0 ? (
           <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground">
             ยังไม่มีพนักงานในระบบ — Admin เพิ่มได้ที่หน้า User Management
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-            {sortedMembers.map((u) => (
+          <div
+            key={filterRole}   /* remount on filter change → stagger animation replays */
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
+          >
+            {visibleMembers.map((u) => (
               <MemberCard key={u.user_id} u={u} onOpenCard={setSelectedUser} onMention={handleMention} />
             ))}
           </div>
         )}
+
       </div>
 
       {selectedUser && <NamecardModal u={selectedUser} onClose={() => setSelectedUser(null)} />}
