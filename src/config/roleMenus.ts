@@ -23,7 +23,6 @@ import {
   CalendarRange,
   TrendingUp,
   Trophy,
-  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -179,15 +178,6 @@ const marketingMenu: RoleMenu = {
         { title: "Campaign Management",   url: "/app/campaigns",              icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
-      ],
-    },
-    {
-      // เอกสารอ้างอิงและ SOP ภายในทีม Marketing
-      category: "TEAM RESOURCES",
-      items: [
-        { title: "Marketing Workflow",    url: "/team-resources/workflow",    icon: GitBranch },
-        { title: "Org Chart",             url: "/team-resources/org-chart",   icon: Users2    },
-        { title: "Team Members",          url: "/team-resources/team",        icon: Users     },
       ],
     },
     {
