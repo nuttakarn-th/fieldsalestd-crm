@@ -263,14 +263,14 @@ const TOUR_FIELDS: ExcelField[] = [
   { key: "price_per_seat", header: "ราคาปกติ (฿)",            example: "25900",     type: "number" as const },
   { key: "special_price",  header: "ราคาพิเศษ (฿)",           example: "23900",     type: "number" as const },
   { key: "total_seats",    header: "จำนวนที่นั่ง",            example: "20",        type: "number" as const },
-  { key: "quota",          header: "วางที่นั่ง",               example: "20",        type: "number" as const },
+  { key: "seat_hold",      header: "วางที่นั่ง",               example: "TRUE" },
   { key: "airline_code",   header: "สายการบิน",               example: "FD" },
   { key: "departure_city", header: "บิน (ต้นทาง)",            example: "CNX" },
-  { key: "freeday",        header: "Freeday",                  example: "FALSE" },
-  { key: "shopping",       header: "ลงร้าน",                   example: "FALSE" },
-  { key: "all_in",         header: "จอง จ่าย จบ",              example: "FALSE" },
-  { key: "vat7",           header: "VAT7%",                    example: "FALSE" },
-  { key: "cancelled",      header: "ยกเลิก",                   example: "FALSE" },
+  { key: "freeday",        header: "Freeday",                  example: "TRUE" },
+  { key: "shopping",       header: "ลงร้าน",                   example: "" },
+  { key: "all_in",         header: "จอง จ่าย จบ",              example: "" },
+  { key: "vat7",           header: "VAT7%",                    example: "" },
+  { key: "cancelled",      header: "ยกเลิก",                   example: "" },
   { key: "cancel_reason",  header: "เหตุผลยกเลิก",            example: "" },
   { key: "project",        header: "Campaign",                 example: "" },
   { key: "footnote",       header: "โครงการ",                  example: "" },
@@ -880,8 +880,6 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
     const buildPeriod = (row: Record<string, unknown>) => {
       const seats = Number(row.total_seats ?? 0);
-      // ถ้ามี column "วางที่นั่ง" ในไฟล์ → ใช้ค่านั้น, ไม่งั้น default = total_seats (วางทั้งหมด)
-      const quotaRaw = row.quota !== undefined && row.quota !== "" ? Number(row.quota) : seats;
       return {
         start_date:    String(row.start_date ?? ""),
         end_date:      String(row.end_date ?? ""),
@@ -891,7 +889,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         price_per_seat: Number(row.price_per_seat ?? 0),
         special_price: row.special_price ? Number(row.special_price) : undefined,
         total_seats:   seats,
-        quota:         quotaRaw,
+        quota:         seats,          // เปิด quota = total_seats เสมอตอน import
+        seat_hold:     parseBool(row.seat_hold),   // 💸 จ่ายเงินให้สายการบินแล้ว (blank = FALSE)
         airline_code:  String(row.airline_code ?? "") || undefined,
         departure_city: String(row.departure_city ?? "") || undefined,
         project:       String(row.project ?? "") || undefined,
