@@ -15,6 +15,7 @@ import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { AhagramWidget } from "@/components/AhagramWidget";
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
@@ -153,6 +154,9 @@ export default function MarketingLayout() {
 
       {/* Chat panel (same as AppLayout) */}
       <ChatWidget />
+
+      {/* 🎮 AHAGRAM Test — floating anagram mini-game (Marketing team only) */}
+      <AhagramWidget />
     </div>
   );
 }
