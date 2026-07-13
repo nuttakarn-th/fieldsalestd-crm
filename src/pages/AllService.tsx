@@ -660,7 +660,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       end_date: p.end_date ?? "",
       nights: String(p.nights ?? ""),
       days: String(p.days ?? ""),
-      manualNights: false,   // reset to auto on open; user can override
+      manualNights: !!(p.nights),   // preserve stored nights from file — don't auto-calc on open
       price_per_seat: String(p.price_per_seat),
       special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
@@ -1857,10 +1857,8 @@ ${catBlocks}
                       allPeriods.every((p) => p.nights === firstN && p.days === firstD)) {
                     displayDuration = `${firstD} วัน ${firstN} คืน`;
                   }
-                } else {
-                  // No periods yet — fall back to stored t.duration
-                  displayDuration = t.duration || null;
                 }
+                // No periods yet → leave blank (don't fall back to stored t.duration string)
 
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
