@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
+import { AhagramWidget } from "@/components/AhagramWidget";
 
 // ── Animation CSS ────────────────────────────────────────────────────────────
 const ANIM_CSS = `
@@ -589,6 +590,8 @@ export default function MarketingPortal() {
             <Phone className="w-3.5 h-3.5" />
             Contact Info
           </Link>
+          {/* 🎮 AHAGRAM Test — inline footer entry */}
+          <AhagramWidget inline />
         </div>
 
       </div>
