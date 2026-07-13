@@ -1,25 +1,22 @@
 /**
  * AhagramWidget.tsx — 🎮 Anagram mini-game for Marketing team
+ * v298: centered modal + backdrop blur, 3-step tutorial onboarding,
+ *       leaderboard ranking view, Skip = –10☕, larger card (440px)
  *
  * Props:
- *   inline?: boolean  — true = render as a footer text link (no floating FAB)
- *                       false/undefined = render as fixed FAB (bottom-right)
- *
- * Features:
- *   - 100-word pool across 6 categories
- *   - Tap-to-spell + full keyboard support (A–Z, Backspace)
- *   - localStorage persistence (score & trips)
- *   - 3 Boosters: SHUFFLE (free), HINT (–2☕), SKIP (–1☕)
- *   - Definition overlay after correct answer or skip
+ *   inline?: boolean — true = footer text link trigger, false = floating FAB
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { X } from "lucide-react";
+import { useCurrentUser } from "@/store/authStore";
+import { useAhagramLeaderboard } from "@/store/ahagramLeaderboardStore";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface WordEntry { word: string; cat: string; def: string; }
 interface Letter    { char: string; used: boolean; }
 interface SlotItem  { char: string; fromIdx: number; isHint?: boolean; }
 type Phase = "play" | "win" | "err" | "overlay";
+type View  = "tutorial" | "game" | "ranks";
 
 // ── Category colours ──────────────────────────────────────────────────────────
 const CAT_COLOR: Record<string, string> = {
@@ -33,8 +30,7 @@ const CAT_COLOR: Record<string, string> = {
 
 // ── Word Pool — 100 words ─────────────────────────────────────────────────────
 const POOL: WordEntry[] = [
-
-  // ── Marketing Jargon (20) ──────────────────────────────────────────────────
+  // ── Marketing Jargon (20) ─────────────────────────────────────────────────
   { word: "BRIEF",    cat: "Marketing Jargon",    def: "บรีฟ: สรุปขอบเขตงาน (ที่จริงๆ มักแก้ไขบ่อยและไม่สั้นเลยสักนิด)" },
   { word: "BUDGET",   cat: "Marketing Jargon",    def: "บัดเจ็ต: งบประมาณ ตัวเลขศักดิ์สิทธิ์ที่ดลให้แคมเปญเกิดขึ้นหรือดับไป" },
   { word: "TARGET",   cat: "Marketing Jargon",    def: "ทาร์เก็ต: กลุ่มเป้าหมาย คนที่เราหวังให้กดจ่ายเงินซื้อแพ็กเกจทัวร์" },
@@ -55,7 +51,6 @@ const POOL: WordEntry[] = [
   { word: "BANNER",   cat: "Marketing Jargon",    def: "แบนเนอร์: ภาพโฆษณาออนไลน์ ถ้าออกแบบดีคนหยุดดู ถ้าไม่ดีคนปิดทันที" },
   { word: "LANDING",  cat: "Marketing Jargon",    def: "แลนดิ้ง: หน้าเว็บรับโฆษณา ออกแบบมาเพื่อให้คนกดซื้อหรือลงทะเบียน" },
   { word: "KEYWORD",  cat: "Marketing Jargon",    def: "คีย์เวิร์ด: คำค้นหาที่ลูกค้าพิมพ์ใน Google ตัวกำหนดว่าเว็บเราจะโผล่หรือไม่" },
-
   // ── Global Destinations (20) ──────────────────────────────────────────────
   { word: "TOKYO",    cat: "Global Destinations", def: "โตเกียว: มหานครแดนปลาดิบ จุดขายทัวร์อันดับหนึ่งของสายกินและช้อป" },
   { word: "PARIS",    cat: "Global Destinations", def: "ปารีส: เมืองแฟชั่น ลูกค้ามักเรียกร้องทัวร์พรีเมียมถ่ายรูปสวย" },
@@ -77,7 +72,6 @@ const POOL: WordEntry[] = [
   { word: "MALDIVES", cat: "Global Destinations", def: "มัลดีฟส์: สวรรค์บนน้ำ ขายทัวร์ Honeymoon และ Luxury ได้ราคาดีมาก" },
   { word: "BANGKOK",  cat: "Global Destinations", def: "กรุงเทพฯ: เมืองหลวงเรา จุดเริ่มต้นทัวร์เกือบทุกเส้นทางในโปรแกรม" },
   { word: "FLORENCE", cat: "Global Destinations", def: "ฟลอเรนซ์: เมืองศิลปะอิตาลี อุฟฟิซี่ + สะพานเก่า ขายดีควบทัวร์อิตาลี" },
-
   // ── Travel Essentials (15) ────────────────────────────────────────────────
   { word: "TICKET",   cat: "Travel Essentials",   def: "ทิกเก็ต: ตั๋วเดินทาง สิ่งสำคัญที่สุดในทริป ทำหายแล้วซวยแน่นอน!" },
   { word: "FLIGHT",   cat: "Travel Essentials",   def: "ไฟลต์: เที่ยวบิน ปีกวิเศษที่พาคณะทัวร์ข้ามขอบโลกได้ใน 10+ ชั่วโมง" },
@@ -94,7 +88,6 @@ const POOL: WordEntry[] = [
   { word: "TRANSFER", cat: "Travel Essentials",   def: "ทรานส์เฟอร์: การเปลี่ยนพาหนะ ต้องประสานงานให้ดีเพื่อไม่ให้ลูกค้าหลงทาง" },
   { word: "CURRENCY", cat: "Travel Essentials",   def: "เคอร์เรนซี่: เงินสกุลต่างประเทศ ต้องแลกก่อนเดินทางและเช็คอัตราทุกครั้ง" },
   { word: "TERMINAL", cat: "Travel Essentials",   def: "เทอร์มินัล: อาคารผู้โดยสาร ต้องเช็คให้ดีว่าเที่ยวบินอยู่ Terminal ไหน" },
-
   // ── Creator & Production (15) ─────────────────────────────────────────────
   { word: "CONTENT",  cat: "Creator & Production", def: "คอนเทนต์: รูปและวิดีโอที่ล่อให้ลูกค้าหยุดนิ้วแล้วทัก Inbox หาเรา" },
   { word: "POST",     cat: "Creator & Production", def: "โพสต์: กดปุ่มส่งงานออกสู่โลก เพื่อเริ่มนับ Like, Share, Comment" },
@@ -111,8 +104,7 @@ const POOL: WordEntry[] = [
   { word: "GRAPHIC",  cat: "Creator & Production", def: "กราฟิก: ภาพออกแบบดิจิทัล ใช้ตั้งแต่โพสต์ถึงแบนเนอร์โฆษณา" },
   { word: "STUDIO",   cat: "Creator & Production", def: "สตูดิโอ: พื้นที่ผลิตงาน ที่ที่ความสร้างสรรค์เกิดขึ้นทุกวัน" },
   { word: "TEASER",   cat: "Creator & Production", def: "ทีเซอร์: คลิปโปรยหัวก่อน Launch แคมเปญ ทำให้ลูกค้าตื่นเต้นอยากรู้ต่อ" },
-
-  // ── Social Media (15) ─────────────────────────────────────────────────────
+  // ── Social Media (15) ────────────────────────────────────────────────────
   { word: "FEED",     cat: "Social Media",         def: "ฟีด: หน้าหลักที่แสดงโพสต์ ถ้าคอนเทนต์ไม่ดึงดูดคนจะเลื่อนผ่านทันที" },
   { word: "LIKE",     cat: "Social Media",         def: "ไลค์: หัวใจหรือนิ้วโป้ง สัญลักษณ์ความพึงพอใจที่ทุกคนอยากได้เยอะๆ" },
   { word: "SHARE",    cat: "Social Media",         def: "แชร์: กดส่งต่อโพสต์ ยิ่งแชร์เยอะยิ่งแพร่กระจายโดยไม่มีค่าใช้จ่าย" },
@@ -128,8 +120,7 @@ const POOL: WordEntry[] = [
   { word: "INBOX",    cat: "Social Media",         def: "อินบ็อกซ์: กล่องข้อความส่วนตัว ที่ลูกค้าทักมาสอบถามและปิดยอดขาย" },
   { word: "REACTION", cat: "Social Media",         def: "รีแอคชั่น: อารมณ์ตอบสนองต่อโพสต์ มีหลายแบบตั้งแต่ ❤️ ไปจนถึง 😮" },
   { word: "BOOST",    cat: "Social Media",         def: "บูสต์: ยิงโฆษณาเพิ่ม Reach ให้โพสต์ ทางลัดที่ต้องใช้เงินแต่ได้ผลเร็ว" },
-
-  // ── Sales & CRM (15) ─────────────────────────────────────────────────────
+  // ── Sales & CRM (15) ────────────────────────────────────────────────────
   { word: "QUOTA",    cat: "Sales & CRM",          def: "โควต้า: เป้าขายรายเดือน ตัวเลขที่ทุกคนอยากทำให้ถึงก่อนสิ้นเดือน" },
   { word: "CLOSE",    cat: "Sales & CRM",          def: "โคลส: ปิดการขาย ขั้นตอนสุดท้ายเปลี่ยนจาก Lead เป็นลูกค้าจริงๆ" },
   { word: "PITCH",    cat: "Sales & CRM",          def: "พิทช์: นำเสนอขาย ต้องโน้มน้าวให้ลูกค้าเห็นคุณค่าภายใน 3 นาทีแรก" },
@@ -147,7 +138,7 @@ const POOL: WordEntry[] = [
   { word: "DISCOUNT", cat: "Sales & CRM",          def: "ดิสเคาต์: ส่วนลด อาวุธลับที่ใช้ปิดการขายเมื่อลูกค้าลังเลอยู่บนเส้นด้าย" },
 ];
 
-// ── Utilities ──────────────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
 function shuffleArr<T>(a: T[]): T[] {
   const b = [...a];
   for (let i = b.length - 1; i > 0; i--) {
@@ -160,17 +151,95 @@ function getLS(k: string): number {
   try { return parseInt(localStorage.getItem(k) ?? "0", 10) || 0; } catch { return 0; }
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Demo Animation (tutorial step 1) ─────────────────────────────────────────
+// Word BALI — scrambled letters [L, I, A, B], click order: B(3)→A(2)→L(0)→I(1)
+const DEMO_LETTERS = ["L", "I", "A", "B"];
+const DEMO_ANSWER  = ["B", "A", "L", "I"];
+const DEMO_SEQ     = [3, 2, 0, 1]; // scrambled indices to click in order
+
+function DemoAnim() {
+  const [phase, setPhase] = useState(0); // 0-7: 0-3=placing, 4=full, 5-6=win, 7=reset
+  useEffect(() => {
+    const id = setInterval(() => setPhase((p) => (p >= 7 ? 0 : p + 1)), 700);
+    return () => clearInterval(id);
+  }, []);
+  const placed  = Math.min(phase, 4);
+  const isWin   = phase >= 5;
+  const usedSet = new Set(DEMO_SEQ.slice(0, placed));
+  return (
+    <div className="flex flex-col items-center gap-3 py-3 select-none">
+      {/* Answer slots */}
+      <div className="flex gap-2">
+        {DEMO_ANSWER.map((ch, i) => (
+          <div key={i}
+            className="flex items-center justify-center rounded-md border-2 font-mono font-bold text-sm transition-all duration-300"
+            style={{
+              width: 38, height: 44,
+              borderColor: i < placed ? (isWin ? "#00ffcc" : "#ff9900") : "#3f3f46",
+              color:       i < placed ? (isWin ? "#00ffcc" : "#ff9900") : "transparent",
+              boxShadow:   isWin && i < placed ? "0 0 10px rgba(0,255,204,0.35)" : "none",
+            }}
+          >
+            {i < placed ? ch : ""}
+          </div>
+        ))}
+      </div>
+      {/* Bouncing arrow */}
+      <div className="animate-bounce text-zinc-600 text-lg leading-none">⇅</div>
+      {/* Scrambled letters */}
+      <div className="flex gap-2">
+        {DEMO_LETTERS.map((ch, i) => {
+          const isUsed = usedSet.has(i);
+          return (
+            <div key={i}
+              className="flex items-center justify-center rounded-full border font-mono font-bold text-sm transition-all duration-300"
+              style={{
+                width: 38, height: 38,
+                background:  isUsed ? "#0c0c0f" : "linear-gradient(145deg,#222226,#151518)",
+                borderColor: isUsed ? "#18181b" : "#3f3f46",
+                color:       isUsed ? "#18181b" : "#e4e4e7",
+              }}
+            >
+              {isUsed ? "" : ch}
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-[11px] transition-all duration-300 font-mono"
+        style={{ color: isWin ? "#00ffcc" : "#52525b" }}>
+        {isWin ? "🎉 ถูกต้อง! +10☕" : "กดตัวอักษรเพื่อเรียงเป็นคำ"}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export function AhagramWidget({ inline = false }: { inline?: boolean }) {
+
+  // ── Auth + leaderboard ───────────────────────────────────────────────────────
+  const user       = useCurrentUser();
+  const actorName  = user?.full_name ?? user?.username ?? "";
+  const { entries, upsertScore } = useAhagramLeaderboard();
 
   // ── Open/close ───────────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
+
+  // ── View state ───────────────────────────────────────────────────────────────
+  const [view,     setView]     = useState<View>("game");
+  const [viewFade, setViewFade] = useState(false);
+  const [tutStep,  setTutStep]  = useState(0);
+  const [tutFade,  setTutFade]  = useState(false);
 
   // ── Persistent stats ─────────────────────────────────────────────────────────
   const [score, setScore] = useState<number>(() => getLS("ahagram_score"));
   const [trips, setTrips] = useState<number>(() => getLS("ahagram_trips"));
   useEffect(() => { try { localStorage.setItem("ahagram_score", String(score)); } catch {} }, [score]);
   useEffect(() => { try { localStorage.setItem("ahagram_trips",  String(trips));  } catch {} }, [trips]);
+
+  // ── Sync to leaderboard whenever score/trips change ──────────────────────────
+  useEffect(() => {
+    if (actorName) upsertScore(actorName, actorName, score, trips);
+  }, [score, trips, actorName, upsertScore]);
 
   // ── Pool ─────────────────────────────────────────────────────────────────────
   const poolRef = useRef<WordEntry[]>([]);
@@ -180,14 +249,14 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
   }, []);
 
   // ── Level state ──────────────────────────────────────────────────────────────
-  const [wd,       setWd]       = useState<WordEntry | null>(null);
-  const [ltrs,     setLtrs]     = useState<Letter[]>([]);
-  const [slots,    setSlots]    = useState<(SlotItem | null)[]>([]);
-  const [hintUsed, setHintUsed] = useState(false);
-  const [phase,    setPhase]    = useState<Phase>("play");
-  const [skipped,  setSkipped]  = useState(false);
-  const [overlayPts, setOverlayPts] = useState(0);
-  const [flashMsg, setFlashMsg] = useState<string | null>(null);
+  const [wd,        setWd]        = useState<WordEntry | null>(null);
+  const [ltrs,      setLtrs]      = useState<Letter[]>([]);
+  const [slots,     setSlots]     = useState<(SlotItem | null)[]>([]);
+  const [hintUsed,  setHintUsed]  = useState(false);
+  const [phase,     setPhase]     = useState<Phase>("play");
+  const [skipped,   setSkipped]   = useState(false);
+  const [overlayPts,setOverlayPts]= useState(0);
+  const [flashMsg,  setFlashMsg]  = useState<string | null>(null);
 
   // ── Stale-closure refs ───────────────────────────────────────────────────────
   const ltrsRef     = useRef(ltrs);     ltrsRef.current     = ltrs;
@@ -202,20 +271,16 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
     setTimeout(() => setFlashMsg(null), 1300);
   }, []);
 
-  // ── Win check (called with computed next-state values) ────────────────────────
-  const checkWin = useCallback((
-    newSlots: (SlotItem | null)[],
-    word: string,
-    hint: boolean,
-  ) => {
-    if (!newSlots.every(s => s !== null)) return;
-    const guess = newSlots.map(s => s!.char).join("");
+  // ── Win check ────────────────────────────────────────────────────────────────
+  const checkWin = useCallback((newSlots: (SlotItem|null)[], word: string, hint: boolean) => {
+    if (!newSlots.every((s) => s !== null)) return;
+    const guess = newSlots.map((s) => s!.char).join("");
     if (guess === word) {
       setPhase("win");
       setTimeout(() => {
         const pts = hint ? 5 : 10;
-        setScore(prev => prev + pts);
-        setTrips(prev => prev + 1);
+        setScore((p) => p + pts);
+        setTrips((p) => p + 1);
         setOverlayPts(pts);
         setSkipped(false);
         setPhase("overlay");
@@ -229,17 +294,24 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
   // ── Start level ───────────────────────────────────────────────────────────────
   const startLevel = useCallback(() => {
     const w = popWord();
-    let lArr = shuffleArr(w.word.split("").map(c => ({ char: c, used: false })));
+    let lArr = shuffleArr(w.word.split("").map((c) => ({ char: c, used: false })));
     let tries = 0;
-    while (lArr.map(l => l.char).join("") === w.word && tries++ < 10) lArr = shuffleArr(lArr);
-    setWd(w);
-    setLtrs(lArr);
-    setSlots(Array<null>(w.word.length).fill(null));
-    setHintUsed(false);
-    setPhase("play");
-    setSkipped(false);
-    setFlashMsg(null);
+    while (lArr.map((l) => l.char).join("") === w.word && tries++ < 10) lArr = shuffleArr(lArr);
+    setWd(w); setLtrs(lArr); setSlots(Array<null>(w.word.length).fill(null));
+    setHintUsed(false); setPhase("play"); setSkipped(false); setFlashMsg(null);
   }, [popWord]);
+
+  // ── On first open: check tutorial flag + boot level ──────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    try {
+      if (!localStorage.getItem("ahagram_tutorial_v1")) {
+        setView("tutorial"); setTutStep(0);
+      } else {
+        setView("game");
+      }
+    } catch { setView("game"); }
+  }, [open]);
 
   useEffect(() => {
     if (open && !wd) {
@@ -248,19 +320,41 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
     }
   }, [open, wd, startLevel]);
 
-  // ── Select scrambled letter → slot ───────────────────────────────────────────
+  // ── Tutorial navigation ───────────────────────────────────────────────────────
+  const changeView = useCallback((next: View) => {
+    setViewFade(true);
+    setTimeout(() => { setView(next); setViewFade(false); }, 150);
+  }, []);
+
+  const nextTutStep = () => {
+    if (tutStep < 2) {
+      setTutFade(true);
+      setTimeout(() => { setTutStep((s) => s + 1); setTutFade(false); }, 180);
+    } else {
+      try { localStorage.setItem("ahagram_tutorial_v1", "1"); } catch {}
+      changeView("game");
+    }
+  };
+  const prevTutStep = () => {
+    setTutFade(true);
+    setTimeout(() => { setTutStep((s) => Math.max(0, s - 1)); setTutFade(false); }, 180);
+  };
+  const skipTutorial = () => {
+    try { localStorage.setItem("ahagram_tutorial_v1", "1"); } catch {}
+    changeView("game");
+  };
+
+  // ── Letter / Slot actions ─────────────────────────────────────────────────────
   const selectLetter = useCallback((lIdx: number) => {
     if (phase !== "play" || !wd || ltrs[lIdx].used) return;
-    const emptySlot = slots.findIndex(s => s === null);
+    const emptySlot = slots.findIndex((s) => s === null);
     if (emptySlot === -1) return;
     const newLtrs: Letter[]             = ltrs.map((l, i) => i === lIdx ? { ...l, used: true } : l);
     const newSlots: (SlotItem | null)[] = slots.map((s, i) => i === emptySlot ? { char: ltrs[lIdx].char, fromIdx: lIdx } : s);
-    setLtrs(newLtrs);
-    setSlots(newSlots);
+    setLtrs(newLtrs); setSlots(newSlots);
     checkWin(newSlots, wd.word, hintUsed);
   }, [phase, wd, ltrs, slots, hintUsed, checkWin]);
 
-  // ── Return slot letter → scramble ─────────────────────────────────────────────
   const returnSlot = useCallback((sIdx: number) => {
     if (phase !== "play") return;
     const slot = slots[sIdx];
@@ -268,18 +362,17 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
     const newLtrs  = ltrs.map((l, i) => i === slot.fromIdx ? { ...l, used: false } : l);
     const withNull = slots.map((s, i) => i === sIdx ? null : s);
     const filled   = withNull.filter((s): s is SlotItem => s !== null);
-    const newSlots = [...filled, ...Array<null>(slots.length - filled.length).fill(null)];
     setLtrs(newLtrs);
-    setSlots(newSlots);
+    setSlots([...filled, ...Array<null>(slots.length - filled.length).fill(null)]);
   }, [phase, ltrs, slots]);
 
-  // ── Booster: Shuffle ──────────────────────────────────────────────────────────
+  // ── Boosters ──────────────────────────────────────────────────────────────────
   const doShuffle = useCallback(() => {
     if (phase !== "play") return;
-    setLtrs(prev => {
-      const freeIdx = prev.map((l, i) => (!l.used ? i : -1)).filter(i => i >= 0);
+    setLtrs((prev) => {
+      const freeIdx = prev.map((l, i) => (!l.used ? i : -1)).filter((i) => i >= 0);
       if (freeIdx.length <= 1) return prev;
-      const shuffledChars = shuffleArr(freeIdx.map(i => prev[i].char));
+      const shuffledChars = shuffleArr(freeIdx.map((i) => prev[i].char));
       const next = [...prev];
       freeIdx.forEach((origI, ni) => { next[origI] = { ...next[origI], char: shuffledChars[ni] }; });
       return next;
@@ -287,12 +380,11 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
     flash("RE-SHUFFLED!");
   }, [phase, flash]);
 
-  // ── Booster: Hint ─────────────────────────────────────────────────────────────
   const doHint = useCallback(() => {
     if (phase !== "play" || !wd || hintUsed) return;
     if (score < 2) { flash("NOT ENOUGH ☕"); return; }
     const firstChar = wd.word[0];
-    const matchIdx  = ltrs.findIndex(l => l.char === firstChar && !l.used);
+    const matchIdx  = ltrs.findIndex((l) => l.char === firstChar && !l.used);
     if (matchIdx === -1) return;
     let newLtrs  = [...ltrs];
     let newSlots = [...slots];
@@ -310,33 +402,28 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
       ...filled,
       ...Array<null>(slots.length - filled.length - 1).fill(null),
     ];
-    setLtrs(newLtrs);
-    setSlots(newSlots);
-    setHintUsed(true);
-    setScore(prev => Math.max(0, prev - 2));
+    setLtrs(newLtrs); setSlots(newSlots); setHintUsed(true);
+    setScore((p) => Math.max(0, p - 2));
     flash("HINT! (–2☕)");
     checkWin(newSlots, wd.word, true);
   }, [phase, wd, ltrs, slots, hintUsed, score, flash, checkWin]);
 
-  // ── Booster: Skip ─────────────────────────────────────────────────────────────
   const doSkip = useCallback(() => {
     if (phase !== "play") return;
-    setScore(prev => Math.max(0, prev - 1));
-    setOverlayPts(-1);
+    setScore((p) => Math.max(0, p - 10)); // –10☕
+    setOverlayPts(-10);
     setSkipped(true);
     setPhase("overlay");
   }, [phase]);
 
-  // ── Reset ─────────────────────────────────────────────────────────────────────
   const doReset = useCallback(() => {
-    setScore(0);
-    setTrips(0);
+    setScore(0); setTrips(0);
     poolRef.current = shuffleArr([...POOL]);
     startLevel();
     flash("RESET! 🛫");
   }, [startLevel, flash]);
 
-  // ── Keyboard ──────────────────────────────────────────────────────────────────
+  // ── Keyboard handler ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -345,8 +432,7 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
       const key = e.key.toUpperCase();
       if (key === "BACKSPACE") {
         e.preventDefault();
-        const ps = slotsRef.current;
-        const pl = ltrsRef.current;
+        const ps = slotsRef.current; const pl = ltrsRef.current;
         const lastEntry = [...ps].map((s, i) => ({ s, i })).reverse().find(({ s }) => s !== null && !s.isHint);
         if (!lastEntry) return;
         const { s: slot, i: lastIdx } = lastEntry;
@@ -358,18 +444,15 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
         return;
       }
       if (key.length === 1 && /[A-Z]/.test(key)) {
-        const pl  = ltrsRef.current;
-        const ps  = slotsRef.current;
-        const cwd = wdRef.current;
+        const pl = ltrsRef.current; const ps = slotsRef.current; const cwd = wdRef.current;
         if (!cwd) return;
-        const matchIdx  = pl.findIndex(l => l.char === key && !l.used);
+        const matchIdx  = pl.findIndex((l) => l.char === key && !l.used);
         if (matchIdx === -1) return;
-        const emptySlot = ps.findIndex(s => s === null);
+        const emptySlot = ps.findIndex((s) => s === null);
         if (emptySlot === -1) return;
         const newLtrs: Letter[]             = pl.map((l, i) => i === matchIdx ? { ...l, used: true } : l);
         const newSlots: (SlotItem | null)[] = ps.map((s, i) => i === emptySlot ? { char: key, fromIdx: matchIdx } : s);
-        setLtrs(newLtrs);
-        setSlots(newSlots);
+        setLtrs(newLtrs); setSlots(newSlots);
         checkWin(newSlots, cwd.word, hintUsedRef.current);
       }
     };
@@ -377,216 +460,431 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, checkWin]);
 
-  // ── Slot class ────────────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────────
   const slotCls = (slot: SlotItem | null) => {
-    const base = "flex items-center justify-center rounded-md border-2 font-mono font-bold select-none transition-all duration-150";
-    const size = (wd?.word.length ?? 0) > 7 ? "w-7 h-9 text-sm" : "w-8 h-10 text-base";
-    if (phase === "win") return `${base} ${size} border-[#00ffcc] text-[#00ffcc] cursor-default shadow-[0_0_8px_rgba(0,255,204,0.4)]`;
+    const base = "flex items-center justify-center rounded-md border-2 font-mono font-bold select-none transition-all duration-150 cursor-pointer";
+    const size = (wd?.word.length ?? 0) > 7 ? "w-9 h-11 text-sm" : "w-11 h-13 text-base";
+    if (phase === "win") return `${base} ${size} border-[#00ffcc] text-[#00ffcc] shadow-[0_0_8px_rgba(0,255,204,0.4)] cursor-default`;
     if (phase === "err") return `${base} ${size} border-red-500 text-red-400 cursor-default`;
     if (slot?.isHint)   return `${base} ${size} border-purple-400 text-purple-300 cursor-default`;
-    if (slot)           return `${base} ${size} border-[#ff9900] text-[#ff9900] cursor-pointer hover:border-amber-400`;
+    if (slot)           return `${base} ${size} border-[#ff9900] text-[#ff9900] hover:border-amber-400`;
     return               `${base} ${size} border-zinc-700 text-zinc-700 cursor-default`;
   };
 
-  const catColor = wd ? (CAT_COLOR[wd.cat] ?? "#a1a1aa") : "#a1a1aa";
+  const catColor   = wd ? (CAT_COLOR[wd.cat] ?? "#a1a1aa") : "#a1a1aa";
+  const sortedRanks = [...entries].sort((a, b) => b.score - a.score);
+  const MONO = "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace";
 
-  // ── Game card (shared between both modes) ────────────────────────────────────
-  const gameCard = open && (
-    <div
-      className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl"
-      style={{
-        width: 320, height: 520,
-        bottom: inline ? 16 : 80,
-        right: 20,
-        background: "#111116",
-        fontFamily: "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace",
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800" style={{ background: "rgba(18,18,24,0.9)" }}>
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold tracking-widest text-white">AHAGRAM</span>
-          <span className="text-[10px] text-zinc-500 font-bold tracking-widest">TEST</span>
-          <button type="button" onClick={doReset} title="รีเซ็ต" className="text-xs text-zinc-600 hover:text-zinc-300 transition-colors ml-1 p-0.5">⟳</button>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-center">
-            <div className="text-[9px] text-zinc-500 leading-none">TRIPS</div>
-            <div className="text-sm font-bold leading-none mt-0.5" style={{ color: "#00ffcc" }}>{trips}</div>
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
+  const modal = open && (
+    <>
+      {/* ── Backdrop ── */}
+      <div
+        className="fixed inset-0 z-40"
+        style={{ backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.65)" }}
+        onClick={() => setOpen(false)}
+      />
+
+      {/* ── Card (centered modal) ── */}
+      <div
+        className="fixed z-50 flex flex-col rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden"
+        style={{
+          width: 440,
+          maxHeight: "calc(100vh - 40px)",
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "#111116",
+          fontFamily: MONO,
+        }}
+      >
+        {/* ── Card Header ── */}
+        <div
+          className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-zinc-800"
+          style={{ background: "rgba(14,14,18,0.95)" }}
+        >
+          {/* Left */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold tracking-widest text-white">AHAGRAM</span>
+            <span className="text-[10px] text-zinc-500 font-bold tracking-widest">TEST</span>
+            {view === "game" && (
+              <button type="button" onClick={doReset} title="รีเซ็ต"
+                className="text-zinc-600 hover:text-zinc-300 transition-colors ml-1 text-xs">⟳</button>
+            )}
           </div>
-          <div className="text-center">
-            <div className="text-[9px] text-zinc-500 leading-none">COFFEE</div>
-            <div className="text-sm font-bold leading-none mt-0.5" style={{ color: "#ff9900" }}>☕{score}</div>
-          </div>
-          {/* Close button — always visible */}
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-800 transition-colors ml-1"
-          >
-            <X className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300" />
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 flex flex-col items-center justify-between px-4 py-3 relative">
-        {/* Category */}
-        <div className="text-center w-full">
-          <span
-            className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border"
-            style={{ color: catColor, borderColor: catColor + "55", background: catColor + "11" }}
-          >
-            {wd?.cat ?? "—"}
-          </span>
-          <div
-            className="mt-2 text-[11px] font-bold tracking-wide transition-opacity duration-200 h-4"
-            style={{ color: "#00ffcc", opacity: flashMsg ? 1 : 0 }}
-          >
-            {flashMsg ?? ""}
-          </div>
-        </div>
-
-        {/* Answer slots */}
-        <div className="flex flex-wrap justify-center gap-1.5 my-1 min-h-[44px] w-full">
-          {slots.map((slot, i) => (
-            <div
-              key={i}
-              className={slotCls(slot)}
-              onClick={() => slot && !slot.isHint && returnSlot(i)}
-              title={slot && !slot.isHint ? "คลิกเพื่อคืนตัวอักษร" : undefined}
-            >
-              {slot?.char ?? ""}
-            </div>
-          ))}
-        </div>
-
-        {/* Keyboard hint */}
-        <div className="text-[9px] text-zinc-700 text-center">พิมพ์ตัวอักษร · Backspace เพื่อลบ</div>
-
-        {/* Scrambled letters */}
-        <div className="flex flex-wrap justify-center gap-2 w-full py-2">
-          {ltrs.map((ltr, i) => (
+          {/* Right */}
+          <div className="flex items-center gap-3">
+            {/* Leaderboard toggle */}
             <button
-              key={i}
               type="button"
-              onClick={() => selectLetter(i)}
-              disabled={ltr.used}
-              className="flex items-center justify-center rounded-full border font-bold text-base select-none"
-              style={{
-                width: 44, height: 44,
-                background: ltr.used ? "#0c0c0f" : "linear-gradient(145deg,#222226,#151518)",
-                borderColor: ltr.used ? "#18181b" : "#3f3f46",
-                color: ltr.used ? "#18181b" : "#fff",
-                cursor: ltr.used ? "default" : "pointer",
-                boxShadow: ltr.used ? "none" : "2px 3px 6px rgba(0,0,0,0.6)",
-                transition: "all 0.1s",
-              }}
-              onMouseDown={e => { if (!ltr.used) (e.currentTarget as HTMLElement).style.transform = "scale(0.92)"; }}
-              onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+              onClick={() => changeView(view === "ranks" ? "game" : "ranks")}
+              title="Leaderboard"
+              className="text-base leading-none hover:scale-110 transition-transform"
+              style={{ opacity: view === "ranks" ? 1 : 0.7 }}
             >
-              {ltr.used ? "" : ltr.char}
+              🏆
             </button>
-          ))}
+            <div className="text-center">
+              <div className="text-[9px] text-zinc-500 leading-none">TRIPS</div>
+              <div className="text-sm font-bold leading-none mt-0.5" style={{ color: "#00ffcc" }}>{trips}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[9px] text-zinc-500 leading-none">COFFEE</div>
+              <div className="text-sm font-bold leading-none mt-0.5" style={{ color: "#ff9900" }}>☕{score}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-zinc-800 transition-colors ml-1"
+            >
+              <X className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300" />
+            </button>
+          </div>
+        </div>
+
+        {/* ── View container ── */}
+        <div
+          className="flex-1 flex flex-col overflow-hidden"
+          style={{ opacity: viewFade ? 0 : 1, transition: "opacity 0.15s" }}
+        >
+
+          {/* ══════════ TUTORIAL VIEW ══════════ */}
+          {view === "tutorial" && (
+            <div className="flex-1 flex flex-col overflow-hidden"
+              style={{ opacity: tutFade ? 0 : 1, transition: "opacity 0.18s" }}>
+
+              {/* Step dots */}
+              <div className="flex justify-center gap-1.5 pt-4 pb-1 shrink-0">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-full transition-all duration-300"
+                    style={{
+                      width: i === tutStep ? 22 : 7, height: 7,
+                      background: i === tutStep ? "#a78bfa" : "#27272a",
+                    }} />
+                ))}
+              </div>
+
+              {/* Step content */}
+              <div className="flex-1 overflow-y-auto px-6 py-3">
+
+                {/* Step 0: Welcome */}
+                {tutStep === 0 && (
+                  <div className="flex flex-col items-center text-center gap-4">
+                    <div className="text-5xl mt-2 animate-bounce">🎮</div>
+                    <div>
+                      <div className="text-xl font-bold tracking-widest text-white">AHAGRAM</div>
+                      <div className="text-[11px] text-zinc-500 tracking-[0.2em] mt-0.5">MARKETING WORD GAME</div>
+                    </div>
+                    <div className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-3 text-left">
+                      {[
+                        { icon: "🧩", title: "ทดสอบคำศัพท์", desc: "100 คำ ครอบคลุม Marketing, Travel, Social Media, CRM และอีกมาก" },
+                        { icon: "☕", title: "เก็บ Coffee Points", desc: "ตอบถูกได้ +10☕ ใช้ Hint ได้ +5☕ แล้วขึ้น Leaderboard แข่งกับทีม" },
+                        { icon: "⌨️", title: "พิมพ์จากแป้นพิมพ์ได้", desc: "รองรับ A-Z และ Backspace เพื่อความเร็วสูงสุด" },
+                      ].map(({ icon, title, desc }) => (
+                        <div key={title} className="flex items-start gap-3">
+                          <span className="text-2xl shrink-0 mt-0.5">{icon}</span>
+                          <div>
+                            <div className="text-xs font-bold text-white mb-0.5">{title}</div>
+                            <div className="text-[11px] text-zinc-500 leading-relaxed font-sans">{desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 1: How to play */}
+                {tutStep === 1 && (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-xs font-bold tracking-widest text-zinc-300 uppercase">📝 วิธีเล่น</div>
+                      <div className="text-[10px] text-zinc-600 mt-0.5">ดูการสาธิต: เรียง B · A · L · I</div>
+                    </div>
+                    {/* Demo animation box */}
+                    <div className="w-full rounded-xl border border-zinc-800 bg-zinc-900/40">
+                      <DemoAnim />
+                    </div>
+                    {/* Instructions */}
+                    <div className="w-full space-y-2">
+                      {[
+                        ["1️⃣", "ดู Category", "คิดคำที่เกี่ยวข้องกับหมวดนั้น"],
+                        ["2️⃣", "กดตัวอักษร", "เรียงจาก scramble ให้ถูกต้อง"],
+                        ["3️⃣", "กดช่องเพื่อลบ", "คลิกช่องที่ใส่แล้วเพื่อส่งคืน"],
+                      ].map(([icon, title, desc]) => (
+                        <div key={String(title)} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-2.5">
+                          <span className="text-lg shrink-0">{icon}</span>
+                          <div>
+                            <div className="text-xs font-bold text-white">{title}</div>
+                            <div className="text-[10px] text-zinc-500 mt-0.5 font-sans">{desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Boosters */}
+                {tutStep === 2 && (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="text-xs font-bold tracking-widest text-zinc-300 uppercase text-center">⚡ Boosters & คะแนน</div>
+                    <div className="w-full space-y-2">
+                      {[
+                        { icon: "🔄", name: "SHUFFLE", cost: "ฟรี!",  color: "#71717a", desc: "สลับตำแหน่งตัวอักษรใหม่ ใช้ได้ไม่จำกัด" },
+                        { icon: "💡", name: "HINT",    cost: "–2☕",   color: "#a78bfa", desc: "เปิดเผยตัวอักษรตัวแรก ใช้ได้ครั้งเดียวต่อคำ" },
+                        { icon: "⏩", name: "SKIP",    cost: "–10☕",  color: "#f87171", desc: "ข้ามคำนี้และดูความหมาย ราคาแพงที่สุด!" },
+                      ].map((b) => (
+                        <div key={b.name} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+                          <span className="text-2xl shrink-0">{b.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-xs font-bold text-white">{b.name}</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                                style={{ color: b.color, background: b.color + "22" }}>{b.cost}</span>
+                            </div>
+                            <div className="text-[10px] text-zinc-500 font-sans">{b.desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="w-full rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 space-y-2">
+                      <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1">คะแนนที่จะได้รับ</div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-zinc-400">✅ ตอบถูก (ไม่ใช้ Hint)</span>
+                        <span className="text-xs font-bold" style={{ color: "#00ffcc" }}>+10☕</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-zinc-400">🌟 ตอบถูก (ใช้ Hint)</span>
+                        <span className="text-xs font-bold" style={{ color: "#a78bfa" }}>+5☕</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tutorial footer nav */}
+              <div className="shrink-0 px-5 py-4 border-t border-zinc-800 flex items-center justify-between">
+                <button type="button" onClick={skipTutorial}
+                  className="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors">
+                  ข้ามคู่มือ
+                </button>
+                <div className="flex gap-2">
+                  {tutStep > 0 && (
+                    <button type="button" onClick={prevTutStep}
+                      className="px-4 py-2 rounded-lg border border-zinc-800 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all">
+                      ← กลับ
+                    </button>
+                  )}
+                  <button type="button" onClick={nextTutStep}
+                    className="px-5 py-2 rounded-xl text-xs font-extrabold text-black transition-all hover:opacity-90 active:scale-[0.97]"
+                    style={{
+                      background: tutStep === 2
+                        ? "linear-gradient(to right,#06b6d4,#10b981)"
+                        : "linear-gradient(to right,#a78bfa,#7c3aed)",
+                    }}>
+                    {tutStep === 2 ? "เริ่มเล่น! 🚀" : "ถัดไป →"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════ RANKINGS VIEW ══════════ */}
+          {view === "ranks" && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="shrink-0 px-5 pt-4 pb-2">
+                <div className="text-xs font-bold tracking-widest text-zinc-300 uppercase">🏆 Leaderboard</div>
+                <div className="text-[10px] text-zinc-600 mt-0.5 font-sans">อันดับผู้เล่นในทีม · คะแนน ☕ Coffee</div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-2">
+                {sortedRanks.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-4xl mb-3">🏅</div>
+                    <div className="text-zinc-600 text-sm">ยังไม่มีข้อมูล</div>
+                    <div className="text-zinc-700 text-xs mt-1 font-sans">เริ่มเล่นเพื่อบันทึกคะแนน!</div>
+                  </div>
+                ) : sortedRanks.map((e, i) => {
+                  const medals = ["🥇", "🥈", "🥉"];
+                  const isMe   = e.username === actorName;
+                  return (
+                    <div key={e.username}
+                      className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors"
+                      style={{
+                        borderColor: isMe ? "#a78bfa55" : "#27272a",
+                        background:  isMe ? "#a78bfa0d" : "transparent",
+                      }}>
+                      <div className="text-xl w-7 text-center shrink-0">
+                        {medals[i] ?? <span className="text-zinc-500 text-sm font-bold">{i + 1}.</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-white truncate">
+                          {e.displayName}
+                          {isMe && <span className="text-[10px] text-zinc-600 ml-1.5 font-normal">(คุณ)</span>}
+                        </div>
+                        <div className="text-[10px] text-zinc-600">{e.trips} trips completed</div>
+                      </div>
+                      <div className="text-base font-bold shrink-0 tabular-nums" style={{ color: "#f59e0b" }}>
+                        ☕{e.score}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="shrink-0 px-4 py-3 border-t border-zinc-800">
+                <button type="button" onClick={() => changeView("game")}
+                  className="w-full py-2.5 rounded-xl text-xs font-extrabold text-black transition-all hover:opacity-90 active:scale-[0.98]"
+                  style={{ background: "linear-gradient(to right,#06b6d4,#10b981)" }}>
+                  กลับสู่เกม
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ══════════ GAME VIEW ══════════ */}
+          {view === "game" && (
+            <div className="flex-1 flex flex-col relative overflow-hidden">
+              {/* Body */}
+              <div className="flex-1 flex flex-col items-center justify-between px-5 py-4">
+                {/* Category + flash */}
+                <div className="text-center w-full shrink-0">
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border"
+                    style={{ color: catColor, borderColor: catColor + "55", background: catColor + "11" }}>
+                    {wd?.cat ?? "—"}
+                  </span>
+                  <div className="mt-2 text-[11px] font-bold tracking-wide h-4 transition-opacity duration-200"
+                    style={{ color: "#00ffcc", opacity: flashMsg ? 1 : 0 }}>
+                    {flashMsg ?? ""}
+                  </div>
+                </div>
+
+                {/* Answer slots */}
+                <div className="flex flex-wrap justify-center gap-2 my-2 min-h-[52px] w-full">
+                  {slots.map((slot, i) => (
+                    <div key={i} className={slotCls(slot)}
+                      style={{ width: (wd?.word.length ?? 0) > 7 ? 38 : 44, height: (wd?.word.length ?? 0) > 7 ? 46 : 52 }}
+                      onClick={() => slot && !slot.isHint && returnSlot(i)}
+                      title={slot && !slot.isHint ? "คลิกเพื่อคืนตัวอักษร" : undefined}
+                    >
+                      {slot?.char ?? ""}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Hint */}
+                <div className="text-[9px] text-zinc-700 text-center shrink-0">
+                  พิมพ์ตัวอักษร · Backspace เพื่อลบ
+                </div>
+
+                {/* Scrambled letters */}
+                <div className="flex flex-wrap justify-center gap-2.5 w-full py-3">
+                  {ltrs.map((ltr, i) => (
+                    <button key={i} type="button" onClick={() => selectLetter(i)} disabled={ltr.used}
+                      className="flex items-center justify-center rounded-full border font-bold select-none transition-all duration-100"
+                      style={{
+                        width: 48, height: 48, fontSize: 17,
+                        background:  ltr.used ? "#0c0c0f" : "linear-gradient(145deg,#222226,#151518)",
+                        borderColor: ltr.used ? "#18181b" : "#3f3f46",
+                        color:       ltr.used ? "#18181b" : "#fff",
+                        cursor:      ltr.used ? "default" : "pointer",
+                        boxShadow:   ltr.used ? "none" : "2px 3px 6px rgba(0,0,0,0.6)",
+                      }}
+                      onMouseDown={(e) => { if (!ltr.used) (e.currentTarget as HTMLElement).style.transform = "scale(0.91)"; }}
+                      onMouseUp={(e)   => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; }}
+                    >
+                      {ltr.used ? "" : ltr.char}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Boosters */}
+              <div className="shrink-0 flex gap-2 px-4 py-3 border-t border-zinc-800" style={{ background: "#090909" }}>
+                <button type="button" onClick={doShuffle}
+                  className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-all">
+                  <span className="text-xl">🔄</span>
+                  <span className="text-[9px]">SHUFFLE</span>
+                </button>
+                <button type="button" onClick={doHint} disabled={hintUsed}
+                  className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl border border-zinc-800 hover:bg-zinc-800 transition-all"
+                  style={{ color: hintUsed ? "#3f3f46" : "#a78bfa", opacity: hintUsed ? 0.4 : 1 }}>
+                  <span className="text-xl">💡</span>
+                  <span className="text-[9px]">HINT (–2☕)</span>
+                </button>
+                <button type="button" onClick={doSkip}
+                  className="flex-1 flex flex-col items-center gap-0.5 py-2.5 rounded-xl border border-dashed border-red-950 hover:bg-red-950/20 transition-all">
+                  <span className="text-xl">⏩</span>
+                  <span className="text-[9px] text-red-400">SKIP (–10☕)</span>
+                </button>
+              </div>
+
+              {/* ── Overlay: win / skip ── */}
+              {phase === "overlay" && wd && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20"
+                  style={{ background: "rgba(9,9,11,0.97)" }}>
+                  <div className="text-5xl mb-3">{skipped ? "⏩" : "🎉"}</div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border mb-2"
+                    style={{ color: catColor, borderColor: catColor + "55", background: catColor + "11" }}>
+                    {wd.cat}
+                  </span>
+                  <div className="text-3xl font-bold tracking-[0.2em] mb-3"
+                    style={{ color: skipped ? "#f97316" : "#00ffcc" }}>
+                    {wd.word}
+                  </div>
+                  <div className="w-full rounded-xl border p-4 text-left mb-4"
+                    style={{ background: "rgba(24,24,27,0.85)", borderColor: "#27272a" }}>
+                    <div className="text-[9px] text-zinc-500 mb-1.5 tracking-wider uppercase">VIBE & MEANING</div>
+                    <p className="text-xs text-zinc-300 leading-relaxed font-sans">{wd.def}</p>
+                  </div>
+                  <div className="text-xs mb-5">
+                    {skipped
+                      ? <span className="text-red-400">–10 ☕ (Skipped)</span>
+                      : <span style={{ color: "#00ffcc" }}>+{overlayPts} ☕{hintUsed ? " (with hint)" : " ✦ Perfect!"}</span>
+                    }
+                  </div>
+                  <button type="button" onClick={startLevel}
+                    className="w-full py-3 rounded-xl font-extrabold text-sm tracking-wider text-black transition-all active:scale-[0.98] hover:opacity-90"
+                    style={{ background: "linear-gradient(to right,#06b6d4,#10b981)" }}>
+                    CONTINUE TO NEXT TRIP 🚀
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Boosters */}
-      <div className="flex gap-1.5 px-3 py-2.5 border-t border-zinc-800" style={{ background: "#090909" }}>
-        <button type="button" onClick={doShuffle}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-all">
-          <span className="text-base">🔄</span>
-          <span className="text-[9px]">SHUFFLE</span>
-        </button>
-        <button type="button" onClick={doHint} disabled={hintUsed}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg border border-zinc-800 hover:bg-zinc-800 transition-all"
-          style={{ color: hintUsed ? "#3f3f46" : "#a78bfa", opacity: hintUsed ? 0.4 : 1 }}>
-          <span className="text-base">💡</span>
-          <span className="text-[9px]">HINT (–2☕)</span>
-        </button>
-        <button type="button" onClick={doSkip}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 rounded-lg border border-dashed border-red-950 hover:bg-red-950/20 transition-all">
-          <span className="text-base">⏩</span>
-          <span className="text-[9px] text-red-400">SKIP (–1☕)</span>
-        </button>
-      </div>
-
-      {/* Overlay: success / skip */}
-      {phase === "overlay" && wd && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-5 text-center z-20"
-          style={{ background: "rgba(9,9,11,0.97)" }}>
-          <div className="text-4xl mb-2">{skipped ? "⏩" : "🎉"}</div>
-          <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border mb-2"
-            style={{ color: catColor, borderColor: catColor + "55", background: catColor + "11" }}>
-            {wd.cat}
-          </span>
-          <div className="text-2xl font-bold tracking-[0.2em] mb-3"
-            style={{ color: skipped ? "#f97316" : "#00ffcc" }}>
-            {wd.word}
-          </div>
-          <div className="w-full rounded-xl border p-4 text-left mb-4"
-            style={{ background: "rgba(24,24,27,0.8)", borderColor: "#27272a" }}>
-            <div className="text-[9px] text-zinc-500 mb-1.5 tracking-wider uppercase">VIBE & MEANING</div>
-            <p className="text-xs text-zinc-300 leading-relaxed font-sans">{wd.def}</p>
-          </div>
-          <div className="text-xs text-zinc-500 mb-4">
-            {skipped
-              ? <span className="text-red-400">–1 ☕ (Skipped)</span>
-              : <span style={{ color: "#00ffcc" }}>+{overlayPts} ☕{hintUsed ? " (with hint)" : " ✦ Perfect!"}</span>
-            }
-          </div>
-          <button type="button" onClick={startLevel}
-            className="w-full py-2.5 rounded-xl font-extrabold text-xs tracking-wider text-black transition-all active:scale-[0.98]"
-            style={{ background: "linear-gradient(to right,#06b6d4,#10b981)" }}>
-            CONTINUE TO NEXT TRIP 🚀
-          </button>
-        </div>
-      )}
-    </div>
+    </>
   );
 
-  // ── Render: Inline mode (footer button) ──────────────────────────────────────
+  // ── Inline trigger (footer) ───────────────────────────────────────────────────
   if (inline) {
     return (
       <>
-        <button
-          type="button"
-          onClick={() => setOpen(o => !o)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-        >
+        <button type="button" onClick={() => setOpen((o) => !o)}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
           <span className="text-sm leading-none">🎮</span>
           <span>
             AHAGRAM
-            {trips > 0 && (
-              <span className="ml-1 font-semibold" style={{ color: "#f59e0b" }}>{trips}☕</span>
-            )}
+            {trips > 0 && <span className="ml-1 font-semibold" style={{ color: "#f59e0b" }}>{trips}☕</span>}
           </span>
         </button>
-        {gameCard}
+        {modal}
       </>
     );
   }
 
-  // ── Render: Floating FAB mode ─────────────────────────────────────────────────
+  // ── Floating FAB ──────────────────────────────────────────────────────────────
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        title="AHAGRAM Test — คลิกเพื่อเล่น"
-        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 shadow-xl flex items-center justify-center hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all"
-      >
-        {open
-          ? <X className="w-5 h-5 text-zinc-300" />
-          : <span className="text-xl leading-none">🎮</span>
-        }
+      <button type="button" onClick={() => setOpen((o) => !o)} title="AHAGRAM Test"
+        className="fixed bottom-5 right-5 z-30 w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 shadow-xl flex items-center justify-center hover:bg-zinc-800 hover:scale-105 active:scale-95 transition-all">
+        {open ? <X className="w-5 h-5 text-zinc-300" /> : <span className="text-xl leading-none">🎮</span>}
         {!open && trips > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center leading-none">
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-[9px] font-bold text-black flex items-center justify-center">
             {trips > 9 ? "9+" : trips}
           </span>
         )}
       </button>
-      {gameCard}
+      {modal}
     </>
   );
 }
