@@ -860,11 +860,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         errors.push({ row: rowNum, code: "–", issue: "ไม่มีรหัสทัวร์ (code)" });
         return;
       }
+      // คำเตือน (ไม่บังคับ — period ยังถูก import แต่แจ้งให้รู้ว่าข้อมูลขาด)
       if (!row.price_per_seat || Number(row.price_per_seat) <= 0) {
-        errors.push({ row: rowNum, code, issue: "ราคา/ที่นั่ง ว่างหรือ 0" });
+        errors.push({ row: rowNum, code, issue: "⚠️ ราคา/ที่นั่ง ว่างหรือ 0 (import ได้ แต่ควรกรอกภายหลัง)" });
       }
       if (!row.total_seats || Number(row.total_seats) <= 0) {
-        errors.push({ row: rowNum, code, issue: "จำนวนที่นั่ง ว่างหรือ 0" });
+        errors.push({ row: rowNum, code, issue: "⚠️ จำนวนที่นั่ง ว่างหรือ 0 (import ได้ แต่ควรกรอกภายหลัง)" });
       }
       if (!row.start_date || row.start_date === "") {
         errors.push({ row: rowNum, code, issue: `ไม่พบวันเดินทาง — ตรวจสอบชื่อ column ใน Excel ให้ตรงกับ Template` });
@@ -917,9 +918,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     grouped.forEach((codeRows, code) => {
       const existing = tours.find((t) => t.code === code);
       const firstRow = codeRows[0];
-      // ต้องมีทั้ง start_date (วันเดินทาง) และ price_per_seat จึงจะถือเป็น period row
-      // ถ้าไม่มี start_date = column ไม่ match หรือว่างไว้ → ข้ามแถวนั้น
-      const periodRows = codeRows.filter((r) => !!r.start_date && !!r.price_per_seat);
+      // ต้องมี start_date (วันเดินทาง) จึงจะถือเป็น period row
+      // ราคา/ที่นั่งไม่บังคับ — แจ้งเตือนแล้ว แต่ยัง import ได้
+      const periodRows = codeRows.filter((r) => !!r.start_date);
 
       if (!existing) {
         // สร้างทัวร์ใหม่ครั้งเดียว และรับ ID กลับมาเพื่อ addPeriod ต่อ
