@@ -256,8 +256,8 @@ const TOUR_FIELDS: ExcelField[] = [
   { key: "code",           header: "รหัสทัวร์",                 example: "HQO-KMG04", required: true },
   { key: "city",           header: "เมือง / เส้นทาง",          example: "คุนหมิง",   required: true },
   { key: "country",        header: "ประเทศ",                    example: "จีน" },
-  { key: "start_date",     header: "วันเดินทาง (DD/MM/YYYY)",  example: "01/07/2026", type: "date" as const },
-  { key: "end_date",       header: "วันกลับ (DD/MM/YYYY)",     example: "06/07/2026", type: "date" as const },
+  { key: "start_date",     header: "วันเดินทาง (DD-MM-YYYY)",  example: "01-07-2026", type: "date" as const },
+  { key: "end_date",       header: "วันกลับ (DD-MM-YYYY)",     example: "06-07-2026", type: "date" as const },
   { key: "nights",         header: "จำนวนคืน",                 example: "5",         type: "number" as const },
   { key: "days",           header: "จำนวนวัน",                 example: "6",         type: "number" as const },
   { key: "price_per_seat", header: "ราคา/ที่นั่ง (฿)",         example: "25900",     type: "number" as const },
@@ -1847,6 +1847,21 @@ ${catBlocks}
                   ? `฿${priceMin.toLocaleString()}`
                   : `฿${priceMin.toLocaleString()} – ฿${priceMax.toLocaleString()}`;
 
+                // Compute duration from periods — show only if ALL periods share the same nights+days
+                const allPeriods = t.periods ?? [];
+                let displayDuration: string | null = null;
+                if (allPeriods.length > 0) {
+                  const firstN = allPeriods[0].nights;
+                  const firstD = allPeriods[0].days;
+                  if (firstN !== undefined && firstD !== undefined &&
+                      allPeriods.every((p) => p.nights === firstN && p.days === firstD)) {
+                    displayDuration = `${firstD} วัน ${firstN} คืน`;
+                  }
+                } else {
+                  // No periods yet — fall back to stored t.duration
+                  displayDuration = t.duration || null;
+                }
+
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row — DESKTOP (sm+) ── */}
@@ -1857,7 +1872,7 @@ ${catBlocks}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-0 flex-wrap">
                           <span className="font-bold text-sm text-foreground mr-2">{t.title ?? t.city}</span>
-                          {t.duration && <><span className="text-muted-foreground/30 mr-2">|</span><span className="text-sm text-muted-foreground mr-2 whitespace-nowrap">{t.duration}</span></>}
+                          {displayDuration && <><span className="text-muted-foreground/30 mr-2">|</span><span className="text-sm text-muted-foreground mr-2 whitespace-nowrap">{displayDuration}</span></>}
                           <span className="text-muted-foreground/30 mr-2">|</span>
                           <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
                           <button onClick={() => hasPeriods && toggleExpand(t.id)}
@@ -1973,7 +1988,7 @@ ${catBlocks}
                             </button>
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            {t.duration && <span className="text-xs text-muted-foreground whitespace-nowrap">{t.duration}</span>}
+                            {displayDuration && <span className="text-xs text-muted-foreground whitespace-nowrap">{displayDuration}</span>}
                             <span className="text-[11px] font-mono font-semibold text-muted-foreground whitespace-nowrap">{t.code}</span>
                             {t.continent && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
                           </div>
