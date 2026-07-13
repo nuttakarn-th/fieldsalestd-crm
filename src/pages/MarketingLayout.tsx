@@ -6,7 +6,7 @@ import { Outlet, NavLink } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
-  TrendingUp, Target, Users2, CheckSquare,
+  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -25,6 +25,7 @@ const NAV_MAIN: NavItem[] = [
   { label: "Dashboard",         icon: BarChart3,     to: "/marketing-dashboard"                     },
   { label: "Campaigns",         icon: Megaphone,     to: "/app/campaigns"                           },
   { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"             },
+  { label: "Gallery",           icon: Images,        to: "/gallery"                                 },
   { label: "Leads & Customers", icon: Users,         to: "/app/customers"                           },
   { label: "Service & Stock",   icon: PackageSearch, to: "/app/all-service"                         },
   { label: "Reports",           icon: BarChart3,     to: "/app/marketing-report"                    },
@@ -35,6 +36,7 @@ const NAV_SHORTCUTS: NavItem[] = [
   { label: "Marketing Leads",   icon: Users2,       to: "/app/marketing-leads"          },
   { label: "Stock Analytics",   icon: TrendingUp,   to: "/app/stock-analytics"          },
   { label: "My Tasks",          icon: CheckSquare,  to: "/marketing/tasks"               },
+  { label: "Tour Presentation", icon: BookOpen,     to: "/tour-presentation"             },
 ];
 
 // ── NavLink item ─────────────────────────────────────────────────────────────

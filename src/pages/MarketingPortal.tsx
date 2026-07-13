@@ -15,7 +15,7 @@ import {
   TrendingUp, Megaphone, Users, BarChart3, Zap,
   Target, LayoutGrid, ChevronRight, Flame,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
-  Search, X,
+  Search, X, Images, BookOpen, Phone,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
@@ -125,6 +125,9 @@ const TOOL_INDEX: ToolEntry[] = [
   { label: "Marketing Leads",   desc: "Leads ที่มาจากช่องทาง Marketing",               icon: UserPlus,    gradient: "from-blue-500 to-indigo-500",    to: "/app/marketing-leads"                },
   { label: "Stock Analytics",   desc: "วิเคราะห์สต็อก, ที่นั่ง, Period",              icon: TrendingUp,  gradient: "from-violet-500 to-purple-600",  to: "/app/stock-analytics"                },
   { label: "My Tasks",          desc: "งานส่วนตัว, บันทึกงาน, to-do",                icon: CheckCircle2, gradient: "from-pink-500 to-rose-500",     to: "/marketing/tasks"                    },
+  { label: "Gallery",           desc: "คลังรูปถ่ายทัวร์, อัลบั้ม, รูปสำหรับโพสต์",   icon: Images,       gradient: "from-fuchsia-500 to-pink-500",  to: "/gallery"                            },
+  { label: "Tour Presentation", desc: "Company Profile, Social Links, สไลด์ทัวร์",    icon: BookOpen,     gradient: "from-violet-500 to-indigo-600", to: "/tour-presentation"                  },
+  { label: "Contact Info",      desc: "เบอร์โทร, ที่อยู่, LINE, เวลาทำการ",           icon: Phone,        gradient: "from-slate-500 to-gray-600",    to: "/contact-info"                       },
 ];
 
 // ── ToolSearch component ──────────────────────────────────────────────────────
@@ -578,6 +581,13 @@ export default function MarketingPortal() {
           >
             <Zap className="w-3.5 h-3.5" />
             Workflow &amp; SOP
+          </Link>
+          <Link
+            to="/contact-info"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            Contact Info
           </Link>
         </div>
 
