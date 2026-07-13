@@ -5,7 +5,7 @@ export interface ExcelField {
   header: string;         // Thai column header
   example?: string;       // shown in row 2 of template
   required?: boolean;
-  type?: "text" | "number" | "date"; // "date" = user enters DD-MM-YYYY, stored as YYYY-MM-DD
+  type?: "text" | "number" | "date"; // "date" = user enters DD/MM/YYYY or DD-MM-YYYY, stored as YYYY-MM-DD
 }
 
 // ── Template ──────────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ export function parseExcelFile(
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array", codepage: 65001 });
+        const wb = XLSX.read(data, { type: "array", codepage: 65001, cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" });
 
@@ -112,12 +112,22 @@ export function parseExcelFile(
               const n = parseFloat(String(val).replace(/,/g, ""));
               val = isNaN(n) ? 0 : n;
             } else if (field.type === "date") {
-              // User enters DD-MM-YYYY → convert to YYYY-MM-DD for internal store
-              const raw = String(val).trim();
-              const m = raw.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-              val = m
-                ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
-                : raw; // fallback: keep as-is (e.g. already YYYY-MM-DD)
+              // Case 1: Excel date cell → JS Date object (when cellDates: true)
+              if (val instanceof Date && !isNaN((val as Date).getTime())) {
+                const d = val as Date;
+                const y = d.getUTCFullYear();
+                const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+                const dy = String(d.getUTCDate()).padStart(2, "0");
+                val = `${y}-${mo}-${dy}`;
+              } else {
+                // Case 2: String — accept DD/MM/YYYY (slash) or DD-MM-YYYY (dash)
+                // → convert to YYYY-MM-DD for internal store
+                const raw = String(val).trim();
+                const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                val = m
+                  ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
+                  : raw; // fallback: keep as-is (e.g. already YYYY-MM-DD)
+              }
             } else {
               val = String(val).trim();
             }

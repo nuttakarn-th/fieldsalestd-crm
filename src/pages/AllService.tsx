@@ -256,8 +256,8 @@ const TOUR_FIELDS: ExcelField[] = [
   { key: "code",           header: "รหัสทัวร์",                 example: "HQO-KMG04", required: true },
   { key: "city",           header: "เมือง / เส้นทาง",          example: "คุนหมิง",   required: true },
   { key: "country",        header: "ประเทศ",                    example: "จีน" },
-  { key: "start_date",     header: "วันเดินทาง (DD-MM-YYYY)",  example: "01-07-2026", type: "date" as const },
-  { key: "end_date",       header: "วันกลับ (DD-MM-YYYY)",     example: "06-07-2026", type: "date" as const },
+  { key: "start_date",     header: "วันเดินทาง (DD/MM/YYYY)",  example: "01/07/2026", type: "date" as const },
+  { key: "end_date",       header: "วันกลับ (DD/MM/YYYY)",     example: "06/07/2026", type: "date" as const },
   { key: "nights",         header: "จำนวนคืน",                 example: "5",         type: "number" as const },
   { key: "days",           header: "จำนวนวัน",                 example: "6",         type: "number" as const },
   { key: "price_per_seat", header: "ราคา/ที่นั่ง (฿)",         example: "25900",     type: "number" as const },
@@ -868,7 +868,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       if (row.start_date) {
         const d = String(row.start_date).trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
-          errors.push({ row: rowNum, code, issue: `วันเดินทาง format ผิด: "${d}" (ต้องการ YYYY-MM-DD หรือ DD-MM-YYYY)` });
+          errors.push({ row: rowNum, code, issue: `วันเดินทาง format ผิด: "${d}" (ต้องการ YYYY-MM-DD หรือ DD/MM/YYYY)` });
         }
       }
     });
