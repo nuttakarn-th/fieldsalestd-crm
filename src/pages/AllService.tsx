@@ -866,7 +866,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       if (!row.total_seats || Number(row.total_seats) <= 0) {
         errors.push({ row: rowNum, code, issue: "จำนวนที่นั่ง ว่างหรือ 0" });
       }
-      if (row.start_date) {
+      if (!row.start_date || row.start_date === "") {
+        errors.push({ row: rowNum, code, issue: `ไม่พบวันเดินทาง — ตรวจสอบชื่อ column ใน Excel ให้ตรงกับ Template` });
+      } else {
         const d = String(row.start_date).trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
           errors.push({ row: rowNum, code, issue: `วันเดินทาง format ผิด: "${d}" (ต้องการ YYYY-MM-DD หรือ DD/MM/YYYY)` });
@@ -915,7 +917,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     grouped.forEach((codeRows, code) => {
       const existing = tours.find((t) => t.code === code);
       const firstRow = codeRows[0];
-      const periodRows = codeRows.filter((r) => !!(r.start_date || r.price_per_seat));
+      // ต้องมีทั้ง start_date (วันเดินทาง) และ price_per_seat จึงจะถือเป็น period row
+      // ถ้าไม่มี start_date = column ไม่ match หรือว่างไว้ → ข้ามแถวนั้น
+      const periodRows = codeRows.filter((r) => !!r.start_date && !!r.price_per_seat);
 
       if (!existing) {
         // สร้างทัวร์ใหม่ครั้งเดียว และรับ ID กลับมาเพื่อ addPeriod ต่อ

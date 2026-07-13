@@ -83,11 +83,19 @@ export function parseExcelFile(
 
         // First non-empty row = headers
         const headerRow = raw[0] as string[];
-        const fieldMap = new Map(fields.map((f) => [f.header.trim(), f]));
+
+        // Normalize: strip trailing "(…)" format hints so
+        // "วันเดินทาง (DD-MM-YYYY)" == "วันเดินทาง (DD/MM/YYYY)" == "วันเดินทาง"
+        const stripHint = (h: string) => h.trim().replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+        const exactMap      = new Map(fields.map((f) => [f.header.trim(),   f]));
+        const normalizedMap = new Map(fields.map((f) => [stripHint(f.header), f]));
 
         const colIndexes: { field: ExcelField; idx: number }[] = [];
         headerRow.forEach((h, idx) => {
-          const field = fieldMap.get(String(h).trim());
+          const hStr  = String(h).trim();
+          // Exact match first; fall back to hint-stripped match
+          const field = exactMap.get(hStr) ?? normalizedMap.get(stripHint(hStr));
           if (field) colIndexes.push({ field, idx });
         });
 
@@ -122,11 +130,11 @@ export function parseExcelFile(
               } else {
                 // Case 2: String — accept DD/MM/YYYY (slash) or DD-MM-YYYY (dash)
                 // → convert to YYYY-MM-DD for internal store
-                const raw = String(val).trim();
-                const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                const rawStr = String(val).trim();
+                const m = rawStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
                 val = m
                   ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
-                  : raw; // fallback: keep as-is (e.g. already YYYY-MM-DD)
+                  : rawStr; // fallback: keep as-is (e.g. already YYYY-MM-DD)
               }
             } else {
               val = String(val).trim();
