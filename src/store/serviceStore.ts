@@ -130,6 +130,8 @@ interface ServiceState {
   updatePeriod: (tourId: string, periodId: string, p: Partial<Omit<TourPeriod, "period_id">>) => void;
   /** ลบ period */
   deletePeriod: (tourId: string, periodId: string) => void;
+  /** ลบ periods ทั้งหมดของโปรแกรม (ใช้ก่อน re-import เพื่อ replace) */
+  clearPeriods: (tourId: string) => void;
   /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
   adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => void;
 
@@ -362,6 +364,16 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+      },
+
+      clearPeriods: (tourId) => {
+        const newTours = get().tours.map((t) => {
+          if (t.id !== tourId) return t;
+          return { ...t, periods: [], total_seats: 0, quota: 0 };
+        });
+        set({ tours: newTours });
+        const updated = newTours.find((t) => t.id === tourId);
+        if (updated) sbUpdate("tours", tourId, { periods: [], total_seats: 0, quota: 0 });
       },
 
       adjustPeriodQuota: (tourId, periodId, delta, updatedBy) => {

@@ -327,6 +327,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const addPeriod              = useServices((s) => s.addPeriod);
   const updatePeriod           = useServices((s) => s.updatePeriod);
   const deletePeriod           = useServices((s) => s.deletePeriod);
+  const clearPeriods           = useServices((s) => s.clearPeriods);
   const uploadTourPDF          = useServices((s) => s.uploadTourPDF);
   const deleteTourPDF          = useServices((s) => s.deleteTourPDF);
   const togglePublish          = useServices((s) => s.togglePublish);
@@ -938,7 +939,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         // เพิ่ม periods ทุก row ของ code นี้ โดยใช้ ID ที่เพิ่งสร้าง
         periodRows.forEach((row) => { addPeriod(newId, buildPeriod(row)); periodsAdded++; });
       } else {
-        // ทัวร์มีอยู่แล้ว → เพิ่ม period เข้าไป
+        // ทัวร์มีอยู่แล้ว → ล้าง periods เดิมทั้งหมด แล้ว add ใหม่จากไฟล์ (replace, ไม่ใช่ append)
+        clearPeriods(existing.id);
         periodRows.forEach((row) => { addPeriod(existing.id, buildPeriod(row)); periodsAdded++; });
       }
     });
@@ -962,10 +964,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       if (!code) return [];
       const existsInStore = !!tours.find((t) => t.code === code);
       const isNewInBatch  = !existsInStore && !seenInBatch.has(code);
-      // ครั้งแรกของ code ใหม่ = "สร้างใหม่", ครั้งถัดไป = "เพิ่ม Period"
-      const action = (existsInStore || seenInBatch.has(code))
-        ? ("เพิ่ม Period" as const)
-        : ("สร้างใหม่" as const);
+      // ครั้งแรกของ code ใหม่ = "สร้างใหม่", code ซ้ำในไฟล์ = "เพิ่ม Period", มีใน store แล้ว = "แทนที่ Period"
+      const action = existsInStore
+        ? ("แทนที่ Period" as const)
+        : seenInBatch.has(code)
+          ? ("เพิ่ม Period" as const)
+          : ("สร้างใหม่" as const);
       seenInBatch.add(code);
       const extra = {
         city:           String(row.city ?? row["เมือง / เส้นทาง"] ?? "").trim() || undefined,
@@ -983,7 +987,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     // นับ unique programs ที่สร้างใหม่ (ไม่นับซ้ำ)
     const newProgramCodes = new Set(preview.filter((x) => x.action === "สร้างใหม่").map((x) => x.code));
     const toCreate = newProgramCodes.size;
-    const toUpdate = preview.filter((x) => x.action === "เพิ่ม Period").length;
+    const toUpdate = preview.filter((x) => x.action === "แทนที่ Period").length;
     setImportPreviewData({ rows, toCreate, toUpdate, preview });
   };
 
@@ -3532,9 +3536,9 @@ ${catBlocks}
                 <div className="text-3xl font-bold text-green-700">{importPreviewData.toCreate}</div>
                 <div className="text-xs text-green-600 mt-1 font-medium">ทัวร์ใหม่จะถูกสร้าง</div>
               </div>
-              <div className="flex-1 bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-blue-700">{importPreviewData.toUpdate}</div>
-                <div className="text-xs text-blue-600 mt-1 font-medium">Period จะถูกเพิ่มเข้าทัวร์เดิม</div>
+              <div className="flex-1 bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                <div className="text-3xl font-bold text-amber-700">{importPreviewData.toUpdate}</div>
+                <div className="text-xs text-amber-600 mt-1 font-medium">ทัวร์เดิม — Periods จะถูกแทนที่ทั้งหมด</div>
               </div>
             </div>
             {importPreviewData.preview.length > 0 && (
@@ -3554,12 +3558,18 @@ ${catBlocks}
                   </thead>
                   <tbody className="divide-y divide-border">
                     {importPreviewData.preview.map((row, i) => (
-                      <tr key={i} className={`hover:bg-muted/50 ${row.action === "สร้างใหม่" ? "bg-green-500/5" : "bg-blue-500/5"}`}>
+                      <tr key={i} className={`hover:bg-muted/50 ${
+                        row.action === "สร้างใหม่" ? "bg-green-500/5" :
+                        row.action === "แทนที่ Period" ? "bg-amber-500/5" : "bg-blue-500/5"
+                      }`}>
                         <td className="px-2.5 py-1.5">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
-                            row.action === "สร้างใหม่" ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
+                            row.action === "สร้างใหม่" ? "bg-green-500/10 text-green-600" :
+                            row.action === "แทนที่ Period" ? "bg-amber-500/10 text-amber-600" :
+                            "bg-blue-500/10 text-blue-400"
                           }`}>
-                            {row.action === "สร้างใหม่" ? "✦ สร้างใหม่" : "+ Period"}
+                            {row.action === "สร้างใหม่" ? "✦ สร้างใหม่" :
+                             row.action === "แทนที่ Period" ? "↺ แทนที่" : "+ Period"}
                           </span>
                         </td>
                         <td className="px-2.5 py-1.5 font-mono font-semibold text-foreground whitespace-nowrap">{row.code}</td>
