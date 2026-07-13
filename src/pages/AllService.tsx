@@ -880,6 +880,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
     const buildPeriod = (row: Record<string, unknown>) => {
       const seats = Number(row.total_seats ?? 0);
+      const importNow = new Date().toISOString();
+      const importBy  = `Import: ${actorName}`;
       return {
         start_date:    String(row.start_date ?? ""),
         end_date:      String(row.end_date ?? ""),
@@ -903,6 +905,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         cancelled:     parseBool(row.cancelled),
         cancel_reason: String(row.cancel_reason ?? "") || undefined,
         tags:          row.tags ? String(row.tags).split(",").map((s) => s.trim()).filter(Boolean) : [],
+        // ── Audit trail — import ──
+        created_at:  importNow,
+        created_by:  importBy,
+        updated_at:  importNow,
+        updated_by:  importBy,
       };
     };
 
@@ -3520,7 +3527,33 @@ ${catBlocks}
                 )}
               </div>
             )}
-            <div className="flex gap-2 justify-end">
+            {/* ── Audit Trail footer ── */}
+            {pEditId && (() => {
+              const ep = tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId);
+              if (!ep) return null;
+              const fmtAudit = (iso?: string) => iso
+                ? new Date(iso).toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })
+                : null;
+              return (
+                <div className="mt-2 pt-2 border-t border-dashed text-[10px] text-muted-foreground space-y-0.5">
+                  {ep.created_by && (
+                    <span className="flex items-center gap-1">
+                      <span className="opacity-50">✦ สร้างโดย</span>
+                      <span className="font-medium text-foreground/70">{ep.created_by}</span>
+                      {fmtAudit(ep.created_at) && <span className="opacity-50">· {fmtAudit(ep.created_at)}</span>}
+                    </span>
+                  )}
+                  {ep.updated_by && ep.updated_by !== ep.created_by && (
+                    <span className="flex items-center gap-1">
+                      <span className="opacity-50">✎ แก้ไขล่าสุดโดย</span>
+                      <span className="font-medium text-foreground/70">{ep.updated_by}</span>
+                      {fmtAudit(ep.updated_at) && <span className="opacity-50">· {fmtAudit(ep.updated_at)}</span>}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+            <div className="flex gap-2 justify-end mt-2">
               <Button variant="outline" size="sm" onClick={() => setPOpen(false)}>ยกเลิก</Button>
               <Button size="sm" onClick={submitPeriod}
                 style={pForm.cancelled ? {background: "#EF4444", color: "#fff"} : {background: "#16A34A", color: "#fff"}}
