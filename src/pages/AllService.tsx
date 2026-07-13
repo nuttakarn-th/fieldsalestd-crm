@@ -1885,9 +1885,8 @@ ${catBlocks}
                         </div>
                         {t.title && t.city && t.city !== t.title && <div className="text-[11px] text-muted-foreground truncate mt-0.5">{t.city}</div>}
                       </div>
-                      {/* ℹ Info popover — tags + description + audit */}
-                      {((t.tour_types ?? []).length > 0 || t.description || t.created_by || t.updated_by) && (
-                        <Popover>
+                      {/* ℹ Info popover — always visible */}
+                      <Popover>
                           <PopoverTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="ข้อมูลเพิ่มเติม">
                               <Info className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1936,7 +1935,6 @@ ${catBlocks}
                             )}
                           </PopoverContent>
                         </Popover>
-                      )}
                       {canEdit && (
                         <button onClick={() => openAddPeriod(t.id)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}}>
                           <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
@@ -1997,9 +1995,8 @@ ${catBlocks}
                       {/* Bottom row: ℹ info + + Period pill + ⋮ dropdown */}
                       {canEdit && (
                         <div className="flex items-center gap-2 px-3 pb-3 pt-1">
-                          {/* ℹ Info popover */}
-                          {((t.tour_types ?? []).length > 0 || t.description || t.created_by || t.updated_by) && (
-                            <Popover>
+                          {/* ℹ Info popover — always visible */}
+                          <Popover>
                               <PopoverTrigger asChild>
                                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl shrink-0" title="ข้อมูลเพิ่มเติม">
                                   <Info className="w-4 h-4 text-muted-foreground" />
@@ -2048,7 +2045,6 @@ ${catBlocks}
                                 )}
                               </PopoverContent>
                             </Popover>
-                          )}
                           {/* Primary CTA */}
                           <button
                             onClick={() => openAddPeriod(t.id)}
