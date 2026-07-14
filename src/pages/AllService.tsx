@@ -2323,7 +2323,7 @@ ${catBlocks}
                             <button className="ml-auto text-xs text-blue-500 hover:text-blue-700" onClick={() => setSelectedPeriods(new Set())}>✕ ยกเลิกการเลือก</button>
                           </div>
                         )}
-                        <div className="flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
+                        <div className="hidden lg:flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
                           {/* Bulk select-all checkbox — hidden when !canEdit */}
                           {canEdit ? (
                             <input
@@ -2419,7 +2419,187 @@ ${catBlocks}
                                   background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white",
                                 }}
                               >
-                                <div className="flex items-center gap-1 px-3 py-1 w-full">
+                                {/* ── Tablet / Mobile card (< lg) ─────────────────────────────── */}
+                                <div className="flex flex-col gap-0.5 px-3 py-2 lg:hidden">
+                                  {/* Row 1: checkbox + expand + date + days/nights | price + status */}
+                                  <div className="flex items-center gap-1.5">
+                                    {/* checkbox */}
+                                    {canEdit ? (
+                                      <input
+                                        type="checkbox"
+                                        className={`w-4 h-4 rounded shrink-0 ${isCancelled ? "opacity-25 cursor-not-allowed" : "accent-pink-500 cursor-pointer"}`}
+                                        checked={selectedPeriods.has(pid)}
+                                        disabled={isCancelled}
+                                        onChange={(e) => {
+                                          if (isCancelled) return;
+                                          setSelectedPeriods(prev => {
+                                            const next = new Set(prev);
+                                            e.target.checked ? next.add(pid) : next.delete(pid);
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                    ) : <div className="w-4 shrink-0" />}
+                                    {/* expand */}
+                                    <button
+                                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-muted shrink-0 text-muted-foreground transition-colors"
+                                      onClick={() => togglePeriodExpand(pid)}
+                                    >
+                                      {isFootnoteOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                    </button>
+                                    {/* date range */}
+                                    <div className={`flex-1 text-sm font-semibold min-w-0 truncate ${isCancelled ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                      {p.start_date ? fmtThaiShort(p.start_date) : p.travel_date}
+                                      {p.end_date && p.end_date !== p.start_date ? ` – ${fmtThaiShort(p.end_date)}` : ""}
+                                      {p.seat_hold && <span className="ml-1">💸</span>}
+                                    </div>
+                                    {/* days/nights badge */}
+                                    {(p.days || p.nights) ? (
+                                      <span className="text-[10px] text-white px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0" style={{background: "#1F2937"}}>
+                                        {p.days}วัน {p.nights}คืน
+                                      </span>
+                                    ) : null}
+                                    {/* price */}
+                                    <div className="shrink-0 text-right ml-1">
+                                      {hasPromo ? (
+                                        <div className="flex flex-col items-end leading-tight">
+                                          <span className="font-bold text-sm" style={{color: isCancelled ? "#EF4444" : "#EA580C"}}>{p.special_price!.toLocaleString()}฿</span>
+                                          <span className="text-[9px] line-through text-muted-foreground">{p.price_per_seat.toLocaleString()}</span>
+                                        </div>
+                                      ) : (
+                                        <span className="font-bold text-sm" style={{color: isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A"}}>
+                                          {p.price_per_seat.toLocaleString()}฿
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* status badge */}
+                                    <div className="shrink-0 w-[62px] flex justify-center">
+                                      {isCancelled ? (
+                                        <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-red-500/10 text-red-400 whitespace-nowrap">ยกเลิก</span>
+                                      ) : isFullDisplay ? (
+                                        <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-muted text-muted-foreground whitespace-nowrap">ปิดกรุ๊ป</span>
+                                      ) : currentQuota > 0 && currentQuota <= 3 ? (
+                                        <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-400 whitespace-nowrap">⚠ เหลือ {currentQuota}</span>
+                                      ) : (
+                                        <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-400 whitespace-nowrap">ว่าง</span>
+                                      )}
+                                    </div>
+                                    {/* edit/duplicate/delete */}
+                                    {canEdit && (
+                                      <div className="flex gap-0.5 shrink-0">
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Duplicate Period" onClick={() => openDuplicatePeriod(t.id, p)}>
+                                          <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" title="แก้ไข / ยกเลิก" onClick={() => openEditPeriod(t.id, p)}>
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                                          const booked = p.total_seats - p.quota;
+                                          const ok = booked > 0
+                                            ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด\n\nยืนยันการลบ Period นี้หรือไม่?`)
+                                            : confirm("ลบ Period นี้?");
+                                          if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
+                                        }}>
+                                          <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Row 2 (indented): chips + quota bar + +/- */}
+                                  <div className="flex items-center gap-1 ml-[52px] flex-wrap">
+                                    {/* departure city */}
+                                    {p.departure_city && (
+                                      <span className="text-[11px] font-bold text-pink-500 shrink-0">{p.departure_city}</span>
+                                    )}
+                                    {/* airline */}
+                                    {p.airline_code && (
+                                      <span className="text-[11px] font-mono text-muted-foreground shrink-0">{p.airline_code}</span>
+                                    )}
+                                    {/* promo */}
+                                    {hasPromo && <span className="text-sm shrink-0" title={`ลด ${discount.toLocaleString()} บาท`}>🔥</span>}
+                                    {/* freeday */}
+                                    {p.freeday && (
+                                      <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{background: "#7C3AED"}}>FD</span>
+                                    )}
+                                    {/* shopping */}
+                                    {p.shopping && (
+                                      <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{background: "#F59E0B"}}>ร้าน</span>
+                                    )}
+                                    {/* all-in */}
+                                    {p.all_in && (
+                                      <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{background: "#16A34A"}}>All-in</span>
+                                    )}
+                                    {/* vat */}
+                                    {p.vat7 && (
+                                      <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{background: "#2563EB"}}>VAT</span>
+                                    )}
+                                    {/* spacer */}
+                                    <div className="flex-1" />
+                                    {/* quota bar */}
+                                    {!isCancelled && (
+                                      <div className="w-[130px] shrink-0">
+                                        <div className="flex justify-between text-[10px] mb-0.5">
+                                          <span className={hasPending ? "text-amber-600 font-semibold" : "text-muted-foreground"}>จอง {bookedCount}/{p.total_seats}</span>
+                                          <span className={hasPending ? "text-amber-500 font-semibold" : "text-emerald-600"}>ว่าง {currentQuota}</span>
+                                        </div>
+                                        <div className="relative h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                          <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-300" style={{width: `${bookedPct}%`, background: barBg}} />
+                                          {bookedPct >= 20 && (
+                                            <span className="absolute inset-y-0 left-1 flex items-center text-[8px] font-bold text-white">{bookedPct}%</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* +/- quota */}
+                                    {!isCancelled && canEdit && (
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          className="w-7 h-7 rounded-full text-white flex items-center justify-center transition-all duration-150 disabled:opacity-30"
+                                          style={{background: "#1F2937"}}
+                                          disabled={currentQuota >= p.total_seats}
+                                          title="คืนที่นั่ง"
+                                          onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#EF4444"; }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
+                                          onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.min((prev[pid] ?? p.quota) + 1, p.total_seats) }))}
+                                        ><Minus className="w-3.5 h-3.5" /></button>
+                                        <button
+                                          className="w-7 h-7 rounded-full text-white flex items-center justify-center transition-all duration-150 disabled:opacity-30"
+                                          style={{background: "#1F2937"}}
+                                          disabled={currentQuota <= 0}
+                                          title="ลดที่นั่งว่าง"
+                                          onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = "#16A34A"; }}
+                                          onMouseLeave={(e) => { e.currentTarget.style.background = "#1F2937"; }}
+                                          onClick={() => setPendingQuota((prev) => ({ ...prev, [pid]: Math.max((prev[pid] ?? p.quota) - 1, 0) }))}
+                                        ><Plus className="w-3.5 h-3.5" /></button>
+                                      </div>
+                                    )}
+                                    {/* save/cancel pending */}
+                                    {hasPending && (
+                                      <div className="flex items-center gap-0.5 shrink-0">
+                                        <button
+                                          className="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 border border-green-200"
+                                          title="บันทึกโควต้า"
+                                          onClick={() => {
+                                            const newQ = pendingQuota[pid];
+                                            if (newQ === undefined) return;
+                                            adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName);
+                                            setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
+                                            toast.success("อัปเดตโควต้าแล้ว");
+                                          }}
+                                        ><Save className="w-3.5 h-3.5" /></button>
+                                        <button
+                                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted border border-border"
+                                          title="ยกเลิกการแก้ไข"
+                                          onClick={() => setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; })}
+                                        ><X className="w-3.5 h-3.5" /></button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* ── Desktop row (≥ lg) ──────────────────────────────────────── */}
+                                <div className="hidden lg:flex items-center gap-1 px-3 py-1 w-full">
                                 {/* 0. Bulk select checkbox — canEdit only, disabled when cancelled */}
                                 {canEdit ? (
                                   <input

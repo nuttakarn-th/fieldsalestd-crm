@@ -66,8 +66,8 @@ export function ThaiDateInput({
       </span>
       <CalendarDays className="w-4 h-4 text-muted-foreground shrink-0 pointer-events-none" />
 
-      {/* Native date input: full-size, opacity-0 (NOT sr-only/clipped — showPicker needs the
-          element to be in the layout, unclipped, for Chrome to accept the call) */}
+      {/* Native date input: full-size, opacity-0, z-index positive so touch events
+          reach it directly on mobile/tablet (zIndex:-1 blocks touch on iOS/Android) */}
       <input
         ref={inputRef}
         type="date"
@@ -82,7 +82,7 @@ export function ThaiDateInput({
         tabIndex={-1}
         aria-hidden="true"
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        style={{ zIndex: -1 }}
+        style={{ zIndex: 1 }}
       />
     </div>
   );
