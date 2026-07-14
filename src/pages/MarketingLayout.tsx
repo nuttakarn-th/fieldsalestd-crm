@@ -15,6 +15,8 @@ import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { NewProgramNotification } from "@/components/NewProgramNotification";
+import { AtRiskNotification } from "@/components/AtRiskNotification";
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
@@ -119,7 +121,13 @@ export default function MarketingLayout() {
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {NAV_MAIN.map((item) => <SideNavItem key={item.to} item={item} />)}
 
-          <div className="pt-4 pb-1.5 px-3">
+          {/* ── Report Notifications — แสดงใต้เมนู Reports ── */}
+          <div className="px-1 space-y-0.5 pt-0.5">
+            <NewProgramNotification collapsed={false} />
+            <AtRiskNotification collapsed={false} />
+          </div>
+
+          <div className="pt-3 pb-1.5 px-3">
             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
               Shortcuts
             </p>
