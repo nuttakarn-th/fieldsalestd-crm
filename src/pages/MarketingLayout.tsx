@@ -11,7 +11,6 @@ import {
 import { useCurrentUser } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { useChatRead } from "@/store/chatReadStore";
-import { TeamNotifications } from "@/components/TeamNotifications";
 import { UserMenu } from "@/components/UserMenu";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
@@ -150,7 +149,6 @@ export default function MarketingLayout() {
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <ChatBtn />
             <ActivityFeed />
-            <TeamNotifications />
             <UserMenu />
           </div>
         </header>
