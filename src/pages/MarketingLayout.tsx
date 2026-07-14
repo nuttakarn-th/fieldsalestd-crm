@@ -14,6 +14,7 @@ import { useChatRead } from "@/store/chatReadStore";
 import { UserMenu } from "@/components/UserMenu";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
+import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { ActivityFeed } from "@/components/ActivityFeed";
@@ -149,6 +150,7 @@ export default function MarketingLayout() {
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <ChatBtn />
             <ActivityFeed />
+            <StandyBtn />
             <UserMenu />
           </div>
         </header>
@@ -161,6 +163,8 @@ export default function MarketingLayout() {
 
       {/* Chat panel (same as AppLayout) */}
       <ChatWidget />
+      {/* AI Standy chatbot */}
+      <StandyWidget />
     </div>
   );
 }

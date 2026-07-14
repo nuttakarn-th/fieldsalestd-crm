@@ -5,9 +5,10 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
-import { StandyWidget } from "@/components/StandyWidget";
+import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { TeamNotifications } from "@/components/TeamNotifications";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import { UserMenu } from "@/components/UserMenu";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { useCurrentUser, useAuth } from "@/store/authStore";
@@ -92,7 +93,9 @@ export default function AppLayout() {
             <div className="ml-auto flex items-center gap-1 shrink-0">
               <SwitchRoleBtn />
               <ChatHeaderButton />
+              <ActivityFeed />
               <TeamNotifications />
+              <StandyBtn />
               <UserMenu />
             </div>
           </header>
