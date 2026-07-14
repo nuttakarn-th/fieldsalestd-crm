@@ -923,18 +923,28 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     });
 
     let created = 0; let periodsAdded = 0;
+    const importNow = new Date().toISOString();
+    const importBy  = `Import: ${actorName}`;
 
     grouped.forEach((codeRows, code) => {
-      const existing = tours.find((t) => t.code === code);
-      const firstRow = codeRows[0];
+      const existing   = tours.find((t) => t.code === code);
+      const firstRow   = codeRows[0];
       // ต้องมี start_date (วันเดินทาง) จึงจะถือเป็น period row
       // ราคา/ที่นั่งไม่บังคับ — แจ้งเตือนแล้ว แต่ยัง import ได้
       const periodRows = codeRows.filter((r) => !!r.start_date);
 
+      // ── Build ALL periods upfront พร้อม ID ── ยิง Supabase แค่ 1 ครั้งต่อ 1 tour
+      // (เดิม: clearPeriods + addPeriod×N → N+1 sbUpdate ต่อ tour → race condition)
+      const builtPeriods: TourPeriod[] = periodRows.map((row) => ({
+        ...buildPeriod(row),
+        period_id: crypto.randomUUID(),
+      }));
+      const batchSeats = builtPeriods.reduce((s, p) => s + p.total_seats, 0);
+      const batchQuota = builtPeriods.reduce((s, p) => s + p.quota, 0);
+
       if (!existing) {
-        // สร้างทัวร์ใหม่ครั้งเดียว และรับ ID กลับมาเพื่อ addPeriod ต่อ
-        const seats = Number(firstRow.total_seats ?? 0);
-        const newId = addTour({
+        // สร้างทัวร์ใหม่ — ส่ง periods ทั้งหมดพร้อมกับ addTour (1 sbInsert)
+        addTour({
           category:       normalizeTourCat(String(firstRow.category ?? "")),
           code,
           title:          String(firstRow.city ?? ""),
@@ -944,19 +954,25 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
           period:         "",
           duration:       "",
           price_per_seat: Number(firstRow.price_per_seat ?? 0),
-          total_seats:    seats,
-          quota:          seats,
+          total_seats:    batchSeats,
+          quota:          batchQuota,
           note:           String(firstRow.note ?? ""),
-          periods:        [],
+          periods:        builtPeriods,
+          created_by:     importBy,   // ← audit: ℹ️ จะแสดงว่า Import โดยใคร
+          updated_by:     importBy,
         });
         created++;
-        // เพิ่ม periods ทุก row ของ code นี้ โดยใช้ ID ที่เพิ่งสร้าง
-        periodRows.forEach((row) => { addPeriod(newId, buildPeriod(row)); periodsAdded++; });
       } else {
-        // ทัวร์มีอยู่แล้ว → ล้าง periods เดิมทั้งหมด แล้ว add ใหม่จากไฟล์ (replace, ไม่ใช่ append)
-        clearPeriods(existing.id);
-        periodRows.forEach((row) => { addPeriod(existing.id, buildPeriod(row)); periodsAdded++; });
+        // ทัวร์มีอยู่แล้ว → updateTour 1 ครั้ง (replace periods + audit) — 1 sbUpdate เท่านั้น
+        updateTour(existing.id, {
+          periods:     builtPeriods,
+          total_seats: batchSeats,
+          quota:       batchQuota,
+          updated_by:  importBy,    // ← audit: ℹ️ จะแสดงว่า Import โดยใคร + วันที่
+          updated_at:  importNow,
+        });
       }
+      periodsAdded += builtPeriods.length;
     });
     const msg = [
       created    && `สร้างใหม่ ${created} โปรแกรม`,
