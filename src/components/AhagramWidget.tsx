@@ -7,6 +7,7 @@
  *   inline?: boolean — true = footer text link trigger, false = floating FAB
  */
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useAhagramLeaderboard } from "@/store/ahagramLeaderboardStore";
@@ -478,9 +479,11 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
   // ─────────────────────────────────────────────────────────────────────────────
   //  RENDER
   // ─────────────────────────────────────────────────────────────────────────────
-  const modal = open && (
+  // ── Portal modal — teleport ออกไปที่ document.body เพื่อหลีกเลี่ยง
+  //    CSS transform stacking context ของ parent ที่ทำให้ fixed positioning พัง
+  const modal = open && createPortal(
     <>
-      {/* ── Backdrop ── */}
+      {/* ── Backdrop (click outside = close) ── */}
       <div
         className="fixed inset-0 z-40"
         style={{ backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.65)" }}
@@ -852,7 +855,8 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body   // ← Portal: render ตรงไป document.body ข้ามพ้น transform stacking context
   );
 
   // ── Inline trigger (footer) ───────────────────────────────────────────────────
