@@ -1487,19 +1487,37 @@ ${catBlocks}
             <div className="flex items-center gap-1 border border-border rounded-md px-2 h-8">
               <CalendarDays className="w-3 h-3 text-muted-foreground shrink-0" />
               <ThaiDateInput
-                
+
                 className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ตั้งแต่"
                 value={filterDateFrom}
-                onChange={(e) => setFilterDateFrom(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // auto-swap: ถ้า from > to ที่มีอยู่ → สลับ
+                  if (val && filterDateTo && val > filterDateTo) {
+                    setFilterDateFrom(filterDateTo);
+                    setFilterDateTo(val);
+                  } else {
+                    setFilterDateFrom(val);
+                  }
+                }}
               />
               <span className="text-muted-foreground/40 text-xs">–</span>
               <ThaiDateInput
-                
+
                 className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
                 title="วันเดินทาง ถึง"
                 value={filterDateTo}
-                onChange={(e) => setFilterDateTo(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // auto-swap: ถ้า to < from ที่มีอยู่ → สลับ
+                  if (val && filterDateFrom && val < filterDateFrom) {
+                    setFilterDateTo(filterDateFrom);
+                    setFilterDateFrom(val);
+                  } else {
+                    setFilterDateTo(val);
+                  }
+                }}
               />
               {(filterDateFrom || filterDateTo) && (
                 <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-0.5">✕</button>
