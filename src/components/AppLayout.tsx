@@ -94,7 +94,8 @@ export default function AppLayout() {
               <SwitchRoleBtn />
               <ChatHeaderButton />
               <ActivityFeed />
-              <TeamNotifications />
+              {/* Marketing ใช้ ActivityFeed แทน — ซ่อน TeamNotifications */}
+              {effectiveRole !== "Marketing" && <TeamNotifications />}
               <StandyBtn />
               <UserMenu />
             </div>
