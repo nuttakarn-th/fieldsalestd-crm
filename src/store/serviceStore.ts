@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { logActivity } from "@/lib/activityLog";
 
 // ===== Tour =====
 export type TourCategory = "International Tour" | "Domestic" | "Incentive";
@@ -225,6 +226,16 @@ export const useServices = create<ServiceState>()(
         const item: TourItem = { ...t, quota: t.total_seats, id, updated_at: now };
         set({ tours: [...get().tours, item] });
         sbInsert("tours", { ...item, created_by: t.created_by, updated_by: t.created_by, updated_at: now });
+        const actor = t.created_by ?? "ระบบ";
+        logActivity({
+          event_type:  "tour_added",
+          actor,
+          subject:     "เพิ่มโปรแกรมใหม่",
+          detail:      `${t.code} · ${t.country} · ${t.total_seats} ที่นั่ง`,
+          entity_type: "tour",
+          entity_id:   id,
+          entity_name: t.code,
+        });
         return id;
       },
       updateTour: (id, p) => {
@@ -273,8 +284,20 @@ export const useServices = create<ServiceState>()(
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods });
       },
       deleteTour: (id) => {
+        const tour = get().tours.find((x) => x.id === id);
         set({ tours: get().tours.filter((x) => x.id !== id) });
         sbDelete("tours", id);
+        if (tour) {
+          logActivity({
+            event_type:  "tour_deleted",
+            actor:       tour.updated_by ?? tour.created_by ?? "ระบบ",
+            subject:     "ลบโปรแกรม",
+            detail:      `${tour.code} · ${tour.country}`,
+            entity_type: "tour",
+            entity_id:   id,
+            entity_name: tour.code,
+          });
+        }
       },
       adjustQuota: (tourId, delta) => {
         const tour = get().tours.find((x) => x.id === tourId);
@@ -350,6 +373,20 @@ export const useServices = create<ServiceState>()(
             total_seats: updatedPeriod.total_seats,
             actor: (p as { updated_by?: string }).updated_by ?? null,
           });
+          // Activity log — cancelled / restored only (ไม่ log ทุก edit เพื่อไม่ spam)
+          const patchCancelled = (p as { cancelled?: boolean }).cancelled;
+          if (typeof patchCancelled === "boolean") {
+            const actor = (p as { updated_by?: string }).updated_by ?? "ระบบ";
+            logActivity({
+              event_type:  patchCancelled ? "period_cancelled" : "period_restored",
+              actor,
+              subject:     patchCancelled ? "ยกเลิก Period" : "คืนสถานะ Period",
+              detail:      `${updatedTour.code} · ${updatedPeriod.start_date ?? ""}`,
+              entity_type: "tour",
+              entity_id:   tourId,
+              entity_name: updatedTour.code,
+            });
+          }
         }
       },
 
@@ -412,6 +449,17 @@ export const useServices = create<ServiceState>()(
             total_seats: aqPeriod.total_seats,
             actor: updatedBy ?? null,
           });
+          // Activity log — seat booked (delta < 0) or released (delta > 0)
+          logActivity({
+            event_type:  delta < 0 ? "seat_booked" : "seat_released",
+            actor:       updatedBy ?? "ระบบ",
+            subject:     delta < 0 ? "จองที่นั่ง" : "คืนที่นั่ง",
+            detail:      `${aqTour.code} · ${aqPeriod.start_date ?? ""} · ${Math.abs(delta)} ที่นั่ง`,
+            entity_type: "tour",
+            entity_id:   tourId,
+            entity_name: aqTour.code,
+            meta:        { delta, period_id: periodId },
+          });
         }
       },
 
@@ -448,8 +496,20 @@ export const useServices = create<ServiceState>()(
       },
 
       togglePublish: (tourId, value) => {
+        const tour = get().tours.find((x) => x.id === tourId);
         set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, is_published: value } : x) });
         sbUpdate("tours", tourId, { is_published: value });
+        if (tour) {
+          logActivity({
+            event_type:  value ? "tour_published" : "tour_unpublished",
+            actor:       tour.updated_by ?? tour.created_by ?? "ระบบ",
+            subject:     value ? "เผยแพร่โปรแกรม" : "ยกเลิกเผยแพร่โปรแกรม",
+            detail:      `${tour.code} · ${tour.country}`,
+            entity_type: "tour",
+            entity_id:   tourId,
+            entity_name: tour.code,
+          });
+        }
       },
 
       // ── Car ──

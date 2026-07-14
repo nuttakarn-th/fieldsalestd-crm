@@ -17,6 +17,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
+import { ActivityFeed } from "@/components/ActivityFeed";
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
@@ -148,6 +149,7 @@ export default function MarketingLayout() {
           {/* Right actions */}
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <ChatBtn />
+            <ActivityFeed />
             <TeamNotifications />
             <UserMenu />
           </div>

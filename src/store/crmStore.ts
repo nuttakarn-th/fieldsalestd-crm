@@ -4,6 +4,7 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
+import { logActivity } from "@/lib/activityLog";
 
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
@@ -1060,6 +1061,15 @@ export const useCRM = create<CRMState>()(
         if (error) console.error("[supabase] insert notification ล้มเหลว:", error);
       });
     }
+    logActivity({
+      event_type:  "customer_added",
+      actor:       creator,
+      subject:     "เพิ่มลูกค้าใหม่",
+      detail:      `${newC.full_name}${newC.company && newC.company !== "-" ? ` · ${newC.company}` : ""}`,
+      entity_type: "customer",
+      entity_id:   id,
+      entity_name: newC.full_name,
+    });
     return id;
   },
 
@@ -1073,6 +1083,7 @@ export const useCRM = create<CRMState>()(
   },
 
   deleteCustomer: (id) => {
+    const cust = get().customers.find((c) => c.customer_id === id);
     // ลบ customer + leads ทั้งหมดที่ผูกกับ customer_id นี้พร้อมกัน
     set({
       customers: get().customers.filter((c) => c.customer_id !== id),
@@ -1085,6 +1096,17 @@ export const useCRM = create<CRMState>()(
       });
       supabase.from("customers").delete().eq("customer_id", id).then(({ error }) => {
         if (error) console.error("[supabase] delete customer ล้มเหลว:", error);
+      });
+    }
+    if (cust) {
+      logActivity({
+        event_type:  "customer_deleted",
+        actor:       cust.created_by ?? "ระบบ",
+        subject:     "ลบลูกค้า",
+        detail:      `${cust.full_name}${cust.company && cust.company !== "-" ? ` · ${cust.company}` : ""}`,
+        entity_type: "customer",
+        entity_id:   id,
+        entity_name: cust.full_name,
       });
     }
   },
@@ -1142,6 +1164,16 @@ export const useCRM = create<CRMState>()(
         if (error) console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);
       });
     }
+    const cust = get().customers.find((c) => c.customer_id === l.customer_id);
+    logActivity({
+      event_type:  "lead_added",
+      actor:       l.sales_rep ?? "ระบบ",
+      subject:     "สร้าง Lead ใหม่",
+      detail:      `${cust?.full_name ?? l.customer_id} · ${l.bu_type} · ${l.pax_count} pax`,
+      entity_type: "lead",
+      entity_id:   id,
+      entity_name: cust?.full_name ?? l.customer_id,
+    });
   },
 
   setTarget: (month, rep, patch) => {
@@ -1260,6 +1292,31 @@ export const useCRM = create<CRMState>()(
           customer_tier: calcTier(newTrips, newSpend),
         });
       }
+    }
+
+    // Activity log
+    {
+      const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
+      const custName = cust?.full_name ?? lead.customer_id;
+      const eventType = isClosedStatus(status)
+        ? "lead_won"
+        : isLostStatus(status)
+          ? "lead_lost"
+          : "lead_status_changed";
+      logActivity({
+        event_type:  eventType,
+        actor:       lead.sales_rep ?? "ระบบ",
+        subject:     isClosedStatus(status)
+          ? "ปิดดีล ✅"
+          : isLostStatus(status)
+            ? "เสีย Lead ❌"
+            : `เปลี่ยนสถานะ Lead → ${status}`,
+        detail:      `${custName} · ${lead.bu_type} · ${lead.pax_count} pax`,
+        entity_type: "lead",
+        entity_id:   leadId,
+        entity_name: custName,
+        meta:        { prev_status: prevStatus, new_status: status },
+      });
     }
   },
 

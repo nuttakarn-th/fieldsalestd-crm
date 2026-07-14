@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { ImportExportMenu } from "@/components/ImportExportMenu";
 import type { ExcelField } from "@/lib/excelUtils";
+import { logActivity } from "@/lib/activityLog";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -983,6 +984,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       setImportErrors(errors);
       toast.warning(`พบ ${errors.length} แถวที่มีปัญหา — ดูรายละเอียดด้านล่าง`);
     }
+    logActivity({
+      event_type:  "import_complete",
+      actor:       actorName,
+      subject:     "Import ข้อมูลทัวร์",
+      detail:      msg,
+      entity_type: "tour",
+      meta:        { created, periods_added: periodsAdded, errors: errors.length },
+    });
   };
 
   // ── import preview — แสดง dialog ก่อน import จริง ──

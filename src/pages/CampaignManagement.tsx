@@ -29,6 +29,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
+import { logActivity } from "@/lib/activityLog";
 import {
   useCampaigns,
   CAMPAIGN_CHANNELS,
@@ -235,8 +236,25 @@ export default function CampaignManagement() {
     };
     if (editId) {
       updateCampaign(editId, payload);
+      logActivity({
+        event_type:  "campaign_updated",
+        actor:       actorName,
+        subject:     "แก้ไขแคมเปญ",
+        detail:      `${payload.name} · ${payload.channels.join(", ")}`,
+        entity_type: "campaign",
+        entity_id:   editId,
+        entity_name: payload.name,
+      });
     } else {
       addCampaign(payload);
+      logActivity({
+        event_type:  "campaign_added",
+        actor:       actorName,
+        subject:     "สร้างแคมเปญใหม่",
+        detail:      `${payload.name} · ${payload.channels.join(", ")}`,
+        entity_type: "campaign",
+        entity_name: payload.name,
+      });
     }
     setDialogOpen(false);
     setEditId(null);
@@ -244,11 +262,35 @@ export default function CampaignManagement() {
   }
 
   function handleInlineStatus(id: string, status: CampaignStatus) {
+    const camp = campaigns.find((c) => c.id === id);
     updateCampaign(id, { status });
+    if (camp) {
+      logActivity({
+        event_type:  "campaign_status_changed",
+        actor:       actorName,
+        subject:     `แคมเปญ → ${status}`,
+        detail:      camp.name,
+        entity_type: "campaign",
+        entity_id:   id,
+        entity_name: camp.name,
+        meta:        { new_status: status },
+      });
+    }
   }
 
   function handleDelete() {
-    if (deleteTarget) deleteCampaign(deleteTarget.id);
+    if (deleteTarget) {
+      logActivity({
+        event_type:  "campaign_deleted",
+        actor:       actorName,
+        subject:     "ลบแคมเปญ",
+        detail:      deleteTarget.name,
+        entity_type: "campaign",
+        entity_id:   deleteTarget.id,
+        entity_name: deleteTarget.name,
+      });
+      deleteCampaign(deleteTarget.id);
+    }
     setDeleteTarget(null);
   }
 
