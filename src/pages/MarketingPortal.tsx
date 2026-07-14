@@ -15,10 +15,11 @@ import {
   TrendingUp, Megaphone, Users, BarChart3, Zap,
   Target, LayoutGrid, ChevronRight, Flame,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
-  Search, X, Images, BookOpen, Phone,
+  Search, X, Images, BookOpen, Phone, AlertTriangle,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
+import { useAtRiskPeriods } from "@/components/AtRiskNotification";
 import { AhagramWidget } from "@/components/AhagramWidget";
 
 // ── Animation CSS ────────────────────────────────────────────────────────────
@@ -27,6 +28,11 @@ const ANIM_CSS = `
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes urgentRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+  50%       { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+.urgent-ring { animation: urgentRing 1.6s ease-in-out infinite; }
 .portal-fade {
   animation: portalFadeUp 0.45s cubic-bezier(.22,1,.36,1) forwards;
   opacity: 0;
@@ -277,6 +283,12 @@ export default function MarketingPortal() {
   const topFocus = byType["at-risk"][0] ?? byType["almost-full"][0] ?? null;
   const totalUrgent = byType["at-risk"].length + byType["cancelled"].length;
 
+  // At-risk breakdown for Danger banner (sorted by daysLeft asc)
+  const atRisk        = useAtRiskPeriods();
+  const criticalCount = atRisk.filter((p) => p.level === "critical").length;
+  const warningCount  = atRisk.filter((p) => p.level === "warning").length;
+  const mostUrgent    = atRisk[0] ?? null; // most days-left critical first
+
   // Activity feed from signals
   type ActivityItem = {
     icon: LucideIcon;
@@ -365,43 +377,105 @@ export default function MarketingPortal() {
           </div>
 
           {/* Banner */}
-          <div
-            className="portal-fade relative overflow-hidden rounded-2xl cursor-pointer group"
-            style={{ animationDelay: "70ms", minHeight: 140 }}
-            onClick={() => navigate("/app/marketing-hub")}
-          >
-            {/* Gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-500 to-pink-500" />
-            {/* Content */}
-            <div className="relative p-5" style={{ paddingRight: 120 }}>
-              <p className="text-white font-black text-base leading-tight">
-                {totalUrgent > 0
-                  ? `${totalUrgent} โปรแกรมต้องดำเนินการด่วน!`
-                  : "แคมเปญฤดูร้อนพร้อมแล้ว!"}
-              </p>
-              <p className="text-white/70 text-xs mt-1.5 leading-relaxed">
-                {totalUrgent > 0
-                  ? "ตรวจสอบ Marketing Signal และดำเนินการ"
-                  : "เตรียมแคมเปญ Summer Promotion เพิ่มยอดขายให้ปังในไตรมาสนี้"}
-              </p>
-              <button className="mt-3 px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/20 transition-colors flex items-center gap-1.5 group-hover:gap-2.5">
-                ดูแคมเปญ <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              {/* Carousel dots */}
-              <div className="flex gap-1 mt-3">
-                {[0, 1, 2, 3].map((i) => (
+          {totalUrgent > 0 ? (
+            /* ── DANGER MODE — มีโปรแกรมต้องดำเนินการด่วน ── */
+            <div
+              className="portal-fade relative overflow-hidden rounded-2xl cursor-pointer group urgent-ring"
+              style={{ animationDelay: "70ms", minHeight: 140 }}
+              onClick={() => navigate("/app/stock-analytics")}
+            >
+              {/* Red-orange gradient */}
+              <div className="absolute inset-0 bg-gradient-to-br from-red-700 via-red-600 to-orange-500" />
+              {/* Subtle noise texture overlay */}
+              <div className="absolute inset-0 opacity-10"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='1'%3E%3Crect x='0' y='0' width='1' height='1'/%3E%3Crect x='20' y='20' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E\")" }} />
+
+              <div className="relative p-5" style={{ paddingRight: 110 }}>
+                {/* URGENT chip */}
+                <span className="inline-flex items-center gap-1 text-[10px] font-extrabold bg-white/25 text-white px-2 py-0.5 rounded-full mb-2 tracking-wide uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  ด่วน — ต้องดำเนินการ
+                </span>
+
+                {/* Big number + title */}
+                <p className="text-white font-black leading-none" style={{ fontSize: 26 }}>
+                  {totalUrgent} โปรแกรม
+                </p>
+                <p className="text-white/80 text-xs font-semibold mt-0.5">ต้องดำเนินการก่อนสาย</p>
+
+                {/* Breakdown row */}
+                <div className="flex items-center gap-3 mt-2">
+                  {criticalCount > 0 && (
+                    <span className="flex items-center gap-1 text-[11px] text-white font-bold">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
+                      {criticalCount} เหลือ ≤7 วัน
+                    </span>
+                  )}
+                  {warningCount > 0 && (
+                    <span className="flex items-center gap-1 text-[11px] text-white/70">
+                      <span className="w-2 h-2 rounded-full bg-white/50 shrink-0" />
+                      {warningCount} เหลือ ≤30 วัน
+                    </span>
+                  )}
+                </div>
+
+                {/* Most urgent line */}
+                {mostUrgent && (
+                  <p className="text-white/60 text-[10px] mt-1.5 leading-tight">
+                    ⏰ เร่งด่วนที่สุด: <span className="text-white font-bold">{mostUrgent.tourCode}</span>
+                    {" "}เหลือ <span className="text-white font-bold">{mostUrgent.daysLeft} วัน</span>
+                    {" "}· fill {mostUrgent.fillRate}%
+                  </p>
+                )}
+
+                {/* Urgency progress bar — สัดส่วน critical vs total */}
+                <div className="mt-2.5 h-1.5 w-36 rounded-full bg-white/20 overflow-hidden">
                   <div
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all ${i === 0 ? "w-4 bg-white" : "w-1.5 bg-white/30"}`}
+                    className="h-full rounded-full bg-white transition-all"
+                    style={{ width: `${totalUrgent > 0 ? Math.round((criticalCount / Math.max(totalUrgent, 1)) * 100) : 0}%`, minWidth: criticalCount > 0 ? 8 : 0 }}
                   />
-                ))}
+                </div>
+                <p className="text-[9px] text-white/40 mt-0.5">
+                  {criticalCount > 0 ? `${criticalCount}/${totalUrgent} เร่งด่วนมาก` : `${totalUrgent} ต้องติดตาม`}
+                </p>
+
+                <button className="mt-2 px-4 py-1.5 rounded-lg bg-white text-red-600 text-xs font-extrabold transition-colors flex items-center gap-1.5 hover:bg-red-50 group-hover:gap-2.5 shadow-sm">
+                  ดำเนินการเลย <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </div>
+
+              {/* AlertTriangle icon */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 select-none opacity-80 drop-shadow-lg group-hover:scale-110 transition-transform">
+                <AlertTriangle className="w-16 h-16 text-white/90" strokeWidth={1.5} />
               </div>
             </div>
-            {/* Decorative megaphone */}
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-6xl select-none opacity-90 drop-shadow-lg group-hover:scale-110 transition-transform">
-              📣
+          ) : (
+            /* ── NORMAL MODE — ไม่มี at-risk ── */
+            <div
+              className="portal-fade relative overflow-hidden rounded-2xl cursor-pointer group"
+              style={{ animationDelay: "70ms", minHeight: 140 }}
+              onClick={() => navigate("/app/marketing-hub")}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-500 to-pink-500" />
+              <div className="relative p-5" style={{ paddingRight: 120 }}>
+                <p className="text-white font-black text-base leading-tight">แคมเปญฤดูร้อนพร้อมแล้ว!</p>
+                <p className="text-white/70 text-xs mt-1.5 leading-relaxed">
+                  เตรียมแคมเปญ Summer Promotion เพิ่มยอดขายให้ปังในไตรมาสนี้
+                </p>
+                <button className="mt-3 px-4 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold border border-white/20 transition-colors flex items-center gap-1.5 group-hover:gap-2.5">
+                  ดูแคมเปญ <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+                </button>
+                <div className="flex gap-1 mt-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className={`h-1.5 rounded-full transition-all ${i === 0 ? "w-4 bg-white" : "w-1.5 bg-white/30"}`} />
+                  ))}
+                </div>
+              </div>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-6xl select-none opacity-90 drop-shadow-lg group-hover:scale-110 transition-transform">
+                📣
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Categories ── */}
