@@ -86,6 +86,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
         created_by: rep,
         last_contacted_at: new Date().toISOString(),
         first_contact_date: today,
+        interests: [buType],
       } as any);
 
       addLead({

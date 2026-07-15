@@ -207,9 +207,15 @@ export function CustomerLeadDialog({
       source,
     };
     if (mode === "new") {
-      cid = addCustomer({ ...customerPatch, segment: "B2C Individual", created_by: owner });
+      cid = addCustomer({ ...customerPatch, segment: "B2C Individual", created_by: owner, interests: [buType] });
     } else if (existingId) {
       updateCustomer(existingId, customerPatch);
+      // Auto-merge bu_type into customer interests
+      const existingCust = customers.find((c) => c.customer_id === existingId);
+      const existingInterests = existingCust?.interests ?? [];
+      if (!existingInterests.includes(buType)) {
+        updateCustomer(existingId, { interests: [...existingInterests, buType] });
+      }
     } else {
       toast.error("กรุณาเลือกลูกค้าเดิม"); return;
     }
