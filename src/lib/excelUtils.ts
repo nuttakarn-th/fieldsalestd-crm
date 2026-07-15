@@ -5,24 +5,21 @@ export interface ExcelField {
   header: string;         // Thai column header
   example?: string;       // shown in row 2 of template
   required?: boolean;
-  type?: "text" | "number" | "date"; // "date" = user enters DD/MM/YYYY or DD-MM-YYYY, stored as YYYY-MM-DD
+  type?: "text" | "number" | "date";
 }
 
 // ── Template ──────────────────────────────────────────────────────────────────
 export function downloadTemplate(fields: ExcelField[], sheetName: string, filename: string) {
   const headerRow = fields.map((f) => f.header);
   const noteRow   = fields.map((f) => `(ตัวอย่าง) ${f.example ?? ""}`);
-  const emptyRow  = fields.map(() => ""); // first real data row placeholder
+  const emptyRow  = fields.map(() => "");
 
   const ws = XLSX.utils.aoa_to_sheet([headerRow, noteRow, emptyRow]);
-
-  // Column widths
   ws["!cols"] = fields.map((f) => ({ wch: Math.max(f.header.length * 2 + 4, 16) }));
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-  // Instructions sheet
   const instrWs = XLSX.utils.aoa_to_sheet([
     ["คำแนะนำการกรอกข้อมูล"],
     [""],
@@ -36,7 +33,6 @@ export function downloadTemplate(fields: ExcelField[], sheetName: string, filena
     ]),
   ]);
   XLSX.utils.book_append_sheet(wb, instrWs, "คำแนะนำ");
-
   XLSX.writeFile(wb, `${filename}_template.xlsx`);
 }
 
@@ -81,20 +77,15 @@ export function parseExcelFile(
 
         if (raw.length < 1) { resolve({ rows: [], skipped: 0 }); return; }
 
-        // First non-empty row = headers
         const headerRow = raw[0] as string[];
 
-        // Normalize: strip trailing "(…)" format hints so
-        // "วันเดินทาง (DD-MM-YYYY)" == "วันเดินทาง (DD/MM/YYYY)" == "วันเดินทาง"
         const stripHint = (h: string) => h.trim().replace(/\s*\([^)]*\)\s*$/, "").trim();
-
         const exactMap      = new Map(fields.map((f) => [f.header.trim(),   f]));
         const normalizedMap = new Map(fields.map((f) => [stripHint(f.header), f]));
 
         const colIndexes: { field: ExcelField; idx: number }[] = [];
         headerRow.forEach((h, idx) => {
           const hStr  = String(h).trim();
-          // Exact match first; fall back to hint-stripped match
           const field = exactMap.get(hStr) ?? normalizedMap.get(stripHint(hStr));
           if (field) colIndexes.push({ field, idx });
         });
@@ -102,12 +93,10 @@ export function parseExcelFile(
         const rows: Record<string, unknown>[] = [];
         let skipped = 0;
 
-        // Start from row index 1 (row 2 in Excel), skip rows that look like example rows
         for (let i = 1; i < raw.length; i++) {
           const cells = raw[i] as unknown[];
           const firstCell = String(cells[0] ?? "").trim();
 
-          // Skip empty rows and example/note rows
           if (!firstCell || firstCell.startsWith("(ตัวอย่าง)") || firstCell.startsWith("*")) {
             skipped++;
             continue;
@@ -120,7 +109,6 @@ export function parseExcelFile(
               const n = parseFloat(String(val).replace(/,/g, ""));
               val = isNaN(n) ? 0 : n;
             } else if (field.type === "date") {
-              // Case 1: Excel date cell → JS Date object (when cellDates: true)
               // XLSX สร้าง Date เป็น UTC แต่ offset ผิดประมาณ 7 ชม. เช่น Sep 16 → 2026-09-15T16:59:56Z
               // แก้ด้วย: round ไป nearest day ใน UTC (16:59 > 12h → วันถัดไป = Sep 16 ✓)
               if (val instanceof Date && !isNaN((val as Date).getTime())) {
@@ -131,13 +119,11 @@ export function parseExcelFile(
                 const dy = String(nd.getUTCDate()).padStart(2, "0");
                 val = `${y}-${mo}-${dy}`;
               } else {
-                // Case 2: String — accept DD/MM/YYYY (slash) or DD-MM-YYYY (dash)
-                // → convert to YYYY-MM-DD for internal store
                 const rawStr = String(val).trim();
                 const m = rawStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
                 val = m
                   ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
-                  : rawStr; // fallback: keep as-is (e.g. already YYYY-MM-DD)
+                  : rawStr;
               }
             } else {
               val = String(val).trim();
@@ -145,7 +131,6 @@ export function parseExcelFile(
             obj[field.key] = val;
           });
 
-          // Validate required fields
           const missingRequired = fields
             .filter((f) => f.required)
             .some((f) => !obj[f.key] || obj[f.key] === "");
