@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  useCRM, formatTHB, tierBadge, statusColor, urgencyBadge,
+  useCRM, formatTHB, tierBadge, statusColor, urgencyBadge, isLostStatus,
   LEAD_STATUSES, URGENCY_OPTIONS,
   type Customer, type Lead, type LeadStatus, type TransferLog,
 } from "@/store/crmStore";
@@ -265,9 +265,11 @@ export default function CustomerDetail() {
     );
   }
 
-  const wonLeads = customerLeads.filter((l) => l.status === "Closed Won");
-  const activeLeads = customerLeads.filter((l) => !["Closed Won", "Closed Lost"].includes(l.status));
-  const totalQuoted = customerLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
+  const wonLeads      = customerLeads.filter((l) => l.status === "Closed Won");
+  const lostLeads     = customerLeads.filter((l) => isLostStatus(l.status));
+  const activeLeads   = customerLeads.filter((l) => !isLostStatus(l.status) && l.status !== "Closed Won");
+  const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
+  const activeQuoted  = activeLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
   const filteredLeads = leadFilter === "all" ? customerLeads : customerLeads.filter((l) => l.status === leadFilter);
 
   return (
@@ -303,23 +305,32 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      {/* ── Stats strip (always visible) ── */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
-          <p className="text-xl font-bold text-primary">{customer.total_trips}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">ทริปซื้อแล้ว</p>
+      {/* ── Stats strip ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {/* 1 — ทริปสำเร็จ (Closed Won) */}
+        <div className="bg-card border border-emerald-100 rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-xl font-bold text-emerald-600">{wonLeads.length}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">ทริปสำเร็จ</p>
         </div>
-        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
-          <p className="text-base font-bold text-success leading-tight">{formatTHB(customer.total_spend)}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">ยอดซื้อรวม</p>
+        {/* 2 — ยอดที่ใช้บริการจริง */}
+        <div className="bg-card border border-emerald-100 rounded-xl shadow-soft p-2.5 text-center">
+          <p className="text-sm font-bold text-emerald-600 leading-tight">{formatTHB(wonAmount)}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">ยอดใช้บริการจริง</p>
         </div>
+        {/* 3 — Active Leads */}
         <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
-          <p className="text-xl font-bold text-amber-600">{activeLeads.length}</p>
+          <p className="text-xl font-bold text-amber-500">{activeLeads.length}</p>
           <p className="text-[11px] text-muted-foreground leading-tight">Active Leads</p>
         </div>
+        {/* 4 — ยอด Quote ที่รอปิด */}
         <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
-          <p className="text-base font-bold leading-tight">{formatTHB(totalQuoted)}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">Quoted รวม</p>
+          <p className="text-sm font-bold text-amber-500 leading-tight">{formatTHB(activeQuoted)}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">Quote รอปิด</p>
+        </div>
+        {/* 5 — Lead เสีย */}
+        <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center col-span-2 sm:col-span-1">
+          <p className="text-xl font-bold text-destructive/70">{lostLeads.length}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight">Lead เสีย</p>
         </div>
       </div>
 
