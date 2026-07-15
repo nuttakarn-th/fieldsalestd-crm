@@ -62,6 +62,19 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false });
 }
 
+function DeptBadge({ dept }: { dept?: string }) {
+  if (!dept || dept === "System" || dept === "Marketing") return null;
+  return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border leading-none ${
+      dept === "OB"
+        ? "bg-purple-100 text-purple-700 border-purple-200"
+        : "bg-blue-100 text-blue-700 border-blue-200"
+    }`}>
+      {dept}
+    </span>
+  );
+}
+
 function LogRow({ log }: { log: ActivityLog }) {
   const meta = getEventMeta(log.event_type);
   return (
@@ -70,7 +83,10 @@ function LogRow({ log }: { log: ActivityLog }) {
         {meta.icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold text-foreground leading-snug truncate">{log.subject}</p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-[12px] font-semibold text-foreground leading-snug truncate">{log.subject}</p>
+          <DeptBadge dept={(log as any).department} />
+        </div>
         {log.detail && (
           <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 truncate">{log.detail}</p>
         )}
@@ -99,6 +115,8 @@ export function ActivityFeed() {
   const btnRef              = useRef<HTMLButtonElement>(null);
   const popRef              = useRef<HTMLDivElement>(null);
   const [popPos, setPopPos] = useState({ top: 0, right: 0 });
+  // Marketing dept filter tab
+  const [deptTab, setDeptTab] = useState<"all" | "OB" | "Sales">("all");
 
   const logs        = useActivityLog((s) => s.logs);
   const unreadCount = useActivityLog((s) => s.unreadCount);
@@ -110,10 +128,16 @@ export function ActivityFeed() {
   const { requests: deleteRequests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
 
   // Determine role-based visibility
-  const isAdmin       = user?.role === "Admin";
+  const isAdmin        = user?.role === "Admin";
   const isSalesManager = user?.role === "Sales Manager";
-  const isOBManager   = user?.role === "OB Manager";
-  const isAnyManager  = isAdmin || isSalesManager || isOBManager;
+  const isOBManager    = user?.role === "OB Manager";
+  const isMarketing    = user?.role === "Marketing";
+  const isAnyManager   = isAdmin || isSalesManager || isOBManager;
+
+  // Marketing: filter logs by dept tab
+  const visibleLogs = (isMarketing && deptTab !== "all")
+    ? logs.filter((l) => (l as any).department === deptTab)
+    : logs;
 
   // Filter pending requests by department for each manager type
   const pendingRequests = deleteRequests.filter((r) => {
@@ -156,20 +180,48 @@ export function ActivityFeed() {
       className="flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <p className="text-sm font-bold text-foreground">กิจกรรมทั้งหมด</p>
-          {logs.length > 0 && (
-            <span className="text-[10px] text-muted-foreground/60 font-medium">{logs.length} รายการ</span>
-          )}
+      <div className="border-b border-border">
+        <div className="flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm font-bold text-foreground">กิจกรรมทั้งหมด</p>
+            {visibleLogs.length > 0 && (
+              <span className="text-[10px] text-muted-foreground/60 font-medium">{visibleLogs.length} รายการ</span>
+            )}
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
+          >
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
         </div>
-        <button
-          onClick={() => setOpen(false)}
-          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
-        >
-          <X className="w-3.5 h-3.5 text-muted-foreground" />
-        </button>
+        {/* Marketing dept filter tabs */}
+        {isMarketing && (
+          <div className="flex items-center gap-0.5 px-3 pb-2.5">
+            {(["all", "OB", "Sales"] as const).map((d) => {
+              const labels = { all: "ทั้งหมด", OB: "🟣 OB", Sales: "🔵 Sales" };
+              const active = deptTab === d;
+              return (
+                <button
+                  key={d}
+                  onClick={() => setDeptTab(d)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                    active
+                      ? d === "OB"
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                        : d === "Sales"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+                        : "bg-muted text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60"
+                  }`}
+                >
+                  {labels[d]}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="overflow-y-auto flex-1" style={{ maxHeight: 460 }}>
@@ -228,16 +280,16 @@ export function ActivityFeed() {
         )}
 
         {/* ── Activity Log ── */}
-        {logs.length === 0 && pendingRequests.length === 0 ? (
+        {visibleLogs.length === 0 && pendingRequests.length === 0 ? (
           <EmptyState />
-        ) : logs.length === 0 ? null : (
+        ) : visibleLogs.length === 0 ? null : (
           <div className="divide-y divide-border/50">
-            {logs.map((log) => <LogRow key={log.id} log={log} />)}
+            {visibleLogs.map((log) => <LogRow key={log.id} log={log} />)}
           </div>
         )}
 
         {/* Empty state when no logs but there were pending requests shown above */}
-        {logs.length === 0 && pendingRequests.length > 0 && (
+        {visibleLogs.length === 0 && pendingRequests.length > 0 && (
           <div className="py-4 text-center">
             <p className="text-xs text-muted-foreground/60">ยังไม่มีกิจกรรมล่าสุด</p>
           </div>

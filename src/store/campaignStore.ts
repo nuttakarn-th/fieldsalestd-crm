@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type CampaignStatus = "Draft" | "Scheduled" | "Active" | "Paused" | "Completed";
+export type CampaignTargetTeam = "OB" | "Sales" | "Both";
 
 export const CAMPAIGN_CHANNELS = [
   "Facebook",
@@ -30,12 +31,13 @@ export const CAMPAIGN_STATUS_LIST: CampaignStatus[] = [
 
 export interface Campaign {
   id: string;
-  campaign_id: string;   // CMP-001, CMP-002, ...
+  campaign_id: string;           // CMP-001, CMP-002, ...
   name: string;
   channels: string[];
-  budget?: number;       // งบประมาณ (บาท)
-  start_date: string;    // YYYY-MM-DD
-  end_date: string;      // YYYY-MM-DD
+  target_team: CampaignTargetTeam; // ทีมเป้าหมาย: OB / Sales / Both
+  budget?: number;               // งบประมาณ (บาท)
+  start_date: string;            // YYYY-MM-DD
+  end_date: string;              // YYYY-MM-DD
   reach: number;
   leads: number;
   status: CampaignStatus;
@@ -63,6 +65,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-001",
     name: "Summer Tour Promo 2026",
     channels: ["Facebook", "LINE OA"],
+    target_team: "OB",
     start_date: "2026-05-01",
     end_date: "2026-05-31",
     reach: 12450,
@@ -77,6 +80,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-002",
     name: "Early Bird Japan",
     channels: ["Google Ads"],
+    target_team: "Both",
     start_date: "2026-05-10",
     end_date: "2026-06-30",
     reach: 0,
@@ -91,6 +95,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-003",
     name: "Incentive Corporate Campaign",
     channels: ["Email", "LinkedIn"],
+    target_team: "Sales",
     start_date: "2026-01-01",
     end_date: "2026-03-31",
     reach: 8200,

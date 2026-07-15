@@ -181,11 +181,19 @@ const marketingMenu: RoleMenu = {
       ],
     },
     {
-      // ข้อมูลลูกค้าและ Lead
-      category: "CUSTOMERS",
+      // Outbound / OB team leads
+      category: "OUTBOUND LEADS",
       items: [
-        { title: "Leads/Customers",       url: "/app/customers",          icon: Users },
-        { title: "Marketing Leads",       url: "/app/marketing-leads",    icon: UserPlus },
+        { title: "OB Leads",              url: "/app/customers?dept=ob",     icon: Users2 },
+      ],
+    },
+    {
+      // Sales team leads
+      category: "SALES LEADS",
+      items: [
+        { title: "Sales Leads",           url: "/app/customers?dept=sales",  icon: Users },
+        { title: "ลูกค้าทั้งหมด",          url: "/app/customers",             icon: UserPlus },
+        { title: "Marketing Leads",       url: "/app/marketing-leads",       icon: UserPlus },
       ],
     },
     {

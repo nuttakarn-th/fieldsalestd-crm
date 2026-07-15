@@ -6,7 +6,8 @@ import {
   LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, ComposedChart,
 } from "recharts";
 import { useCRM, formatTHB, LEAD_CATEGORIES, type LeadCategory, type SalesRep } from "@/store/crmStore";
-import { useActiveSalesNames } from "@/store/authStore";
+import { useActiveSalesNames, useCurrentUser } from "@/store/authStore";
+import OBExecutiveDashboard from "@/pages/OBExecutiveDashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -35,6 +36,7 @@ function lastNMonths(n: number) {
 }
 
 export default function ExecutiveDashboard() {
+  const user = useCurrentUser();
   const leads = useCRM((s) => s.leads);
   const targets = useCRM((s) => s.targets);
   const currentRep = useCRM((s) => s.currentRep);
@@ -197,7 +199,10 @@ export default function ExecutiveDashboard() {
     return GraduationCap;
   };
 
-  // Manager-only guard (after hooks)
+  // OB Manager → render OB-specific executive dashboard
+  if (user?.role === "OB Manager") return <OBExecutiveDashboard />;
+
+  // Sales Manager-only guard (after hooks)
   if (currentRep !== "All") return <Navigate to="/app" replace />;
 
   return (

@@ -6,7 +6,7 @@ import { Outlet, NavLink } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
-  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen,
+  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -22,24 +22,49 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 // ── Navigation config ────────────────────────────────────────────────────────
 
 interface NavItem { label: string; icon: typeof Home; to: string; end?: boolean }
+interface NavSection { category: string; items: NavItem[] }
 
-const NAV_MAIN: NavItem[] = [
-  { label: "Home",              icon: Home,          to: "/marketing",                    end: true },
-  { label: "Dashboard",         icon: BarChart3,     to: "/marketing-dashboard"                     },
-  { label: "Campaigns",         icon: Megaphone,     to: "/app/campaigns"                           },
-  { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"             },
-  { label: "Gallery",           icon: Images,        to: "/gallery"                                 },
-  { label: "Leads & Customers", icon: Users,         to: "/app/customers"                           },
-  { label: "Service & Stock",   icon: PackageSearch, to: "/app/all-service"                         },
-  { label: "Reports",           icon: BarChart3,     to: "/app/marketing-report"                    },
-];
-
-const NAV_SHORTCUTS: NavItem[] = [
-  { label: "Audience Builder",  icon: Target,       to: "/audience-builder/line-export" },
-  { label: "Marketing Leads",   icon: Users2,       to: "/app/marketing-leads"          },
-  { label: "Stock Analytics",   icon: TrendingUp,   to: "/app/stock-analytics"          },
-  { label: "My Tasks",          icon: CheckSquare,  to: "/marketing/tasks"               },
-  { label: "Tour Presentation", icon: BookOpen,     to: "/tour-presentation"             },
+const NAV_SECTIONS: NavSection[] = [
+  {
+    category: "OVERVIEW",
+    items: [
+      { label: "Home",              icon: Home,          to: "/marketing",              end: true },
+      { label: "Dashboard",         icon: BarChart3,     to: "/marketing-dashboard"               },
+    ],
+  },
+  {
+    category: "CAMPAIGNS",
+    items: [
+      { label: "Campaigns",         icon: Megaphone,     to: "/app/campaigns"                     },
+      { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"       },
+      { label: "Gallery",           icon: Images,        to: "/gallery"                           },
+    ],
+  },
+  {
+    category: "OUTBOUND LEADS",
+    items: [
+      { label: "OB Leads",          icon: Users2,        to: "/app/customers?dept=ob"             },
+    ],
+  },
+  {
+    category: "SALES LEADS",
+    items: [
+      { label: "Sales Leads",       icon: Users,         to: "/app/customers?dept=sales"          },
+      { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/app/customers"                     },
+      { label: "Marketing Leads",   icon: Target,        to: "/app/marketing-leads"               },
+    ],
+  },
+  {
+    category: "STOCK & TOOLS",
+    items: [
+      { label: "Service & Stock",   icon: PackageSearch, to: "/app/all-service"                   },
+      { label: "Stock Analytics",   icon: TrendingUp,    to: "/app/stock-analytics"               },
+      { label: "Reports",           icon: BarChart3,     to: "/app/marketing-report"              },
+      { label: "Audience Builder",  icon: Target,        to: "/audience-builder/line-export"      },
+      { label: "My Tasks",          icon: CheckSquare,   to: "/marketing/tasks"                   },
+      { label: "Tour Presentation", icon: BookOpen,      to: "/tour-presentation"                 },
+    ],
+  },
 ];
 
 // ── NavLink item ─────────────────────────────────────────────────────────────
@@ -120,21 +145,31 @@ export default function MarketingLayout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {NAV_MAIN.map((item) => <SideNavItem key={item.to} item={item} />)}
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.category}>
+              {/* Section header */}
+              <div className="pt-3 pb-1 px-3">
+                <p className={`text-[9px] font-bold uppercase tracking-widest ${
+                  section.category === "OUTBOUND LEADS"
+                    ? "text-purple-500/70"
+                    : section.category === "SALES LEADS"
+                    ? "text-blue-500/70"
+                    : "text-muted-foreground/50"
+                }`}>
+                  {section.category}
+                </p>
+              </div>
+              {section.items.map((item) => <SideNavItem key={item.to} item={item} />)}
 
-          {/* ── Report Notifications — แสดงใต้เมนู Reports ── */}
-          <div className="px-1 space-y-0.5 pt-0.5">
-            <NewProgramNotification collapsed={false} />
-            <AtRiskNotification collapsed={false} />
-          </div>
-
-          <div className="pt-3 pb-1.5 px-3">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
-              Shortcuts
-            </p>
-          </div>
-
-          {NAV_SHORTCUTS.map((item) => <SideNavItem key={item.to} item={item} />)}
+              {/* Notification badges หลัง CAMPAIGNS section */}
+              {section.category === "CAMPAIGNS" && (
+                <div className="px-1 space-y-0.5 pt-0.5">
+                  <NewProgramNotification collapsed={false} />
+                  <AtRiskNotification collapsed={false} />
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
       </aside>
 

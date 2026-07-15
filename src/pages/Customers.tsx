@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +115,29 @@ export default function Customers() {
   const isOBManager = user?.role === "OB Manager";
   const isOBRole = user?.role === "OB Co-ordinator" || isOBManager;
   const canDirectDelete = isAdmin || isSalesManager || isOBManager;
+
+  // ── Marketing: Department filter (OB | Sales | all) via URL ?dept= ──────────
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [deptFilter, setDeptFilter] = useState<"all" | "OB" | "Sales">(() => {
+    const d = searchParams.get("dept");
+    if (d === "ob") return "OB";
+    if (d === "sales") return "Sales";
+    return "all";
+  });
+  // sync URL param เมื่อ deptFilter เปลี่ยน
+  useEffect(() => {
+    if (!isMarketing) return;
+    const p = new URLSearchParams(searchParams);
+    if (deptFilter === "OB") p.set("dept", "ob");
+    else if (deptFilter === "Sales") p.set("dept", "sales");
+    else p.delete("dept");
+    setSearchParams(p, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deptFilter, isMarketing]);
+
+  // obSet สำหรับ determine department ของลูกค้า (Marketing view)
+  const obSet = useMemo(() => new Set(obNames), [obNames]);
+
   const [q, setQ] = useState("");
   // debounce q 200ms — ป้องกัน filter 300+ รายการทุก keydown
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -174,9 +197,24 @@ export default function Customers() {
         (c.transferred_from != null && obSet.has(c.transferred_from)),
       );
     }
-    // Admin, Sales Manager, Marketing → เห็นทั้งหมด
+    // Admin, Sales Manager, Marketing → เห็นทั้งหมด แต่ Marketing แยก dept ได้
+    if (isMarketing && deptFilter !== "all") {
+      if (deptFilter === "OB") {
+        return customers.filter((c) =>
+          obSet.has(c.created_by) ||
+          (c.transferred_to != null && obSet.has(c.transferred_to)) ||
+          (c.transferred_from != null && obSet.has(c.transferred_from)),
+        );
+      }
+      // Sales dept — ลูกค้าที่ไม่ใช่ OB
+      return customers.filter((c) =>
+        !obSet.has(c.created_by) &&
+        (c.transferred_to == null || !obSet.has(c.transferred_to)) &&
+        (c.transferred_from == null || !obSet.has(c.transferred_from)),
+      );
+    }
     return customers;
-  }, [customers, currentRep, isOBRole, obNames]);
+  }, [customers, currentRep, isOBRole, obNames, isMarketing, deptFilter, obSet]);
 
   const filtered = useMemo(() => {
     const s = debouncedQ.trim().toLowerCase();
@@ -344,6 +382,43 @@ export default function Customers() {
           <Button className="bg-gradient-primary" onClick={() => setOpenAdd(true)}><Plus className="w-4 h-4 mr-2" /> เพิ่มลูกค้า / สร้าง Lead</Button>
         </div>
       </div>
+
+      {/* ── Marketing: Department Tab Filter ─────────────────────────────── */}
+      {isMarketing && obNames.length > 0 && (
+        <div className="flex items-center gap-1 bg-muted/40 rounded-xl p-1 w-fit">
+          {(["all", "OB", "Sales"] as const).map((d) => {
+            const labels = { all: "ลูกค้าทั้งหมด", OB: "📣 Outbound", Sales: "🤝 Sales" };
+            const counts = {
+              all: customers.length,
+              OB:  customers.filter((c) => obSet.has(c.created_by)).length,
+              Sales: customers.filter((c) => !obSet.has(c.created_by)).length,
+            };
+            const active = deptFilter === d;
+            return (
+              <button
+                key={d}
+                onClick={() => setDeptFilter(d)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  active
+                    ? d === "OB"
+                      ? "bg-purple-500 text-white shadow-sm"
+                      : d === "Sales"
+                      ? "bg-blue-500 text-white shadow-sm"
+                      : "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {labels[d]}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                }`}>
+                  {counts[d]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="bg-card rounded-xl border shadow-soft p-3 space-y-2">
         {/* Row 1: Search + Filter toggle + Sort */}
@@ -654,9 +729,21 @@ export default function Customers() {
                   </td>
                   <td className="py-1.5 px-3"><Badge variant="outline" className={tierBadge(c.customer_tier)}>{c.customer_tier}</Badge></td>
                   <td className="py-1.5 px-3">
-                    <div className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-accent/10 text-accent border border-accent/30">
-                      <span className="w-5 h-5 rounded-full bg-gradient-pink text-accent-foreground flex items-center justify-center text-[10px] font-bold">{c.created_by[0]}</span>
-                      <span className="font-semibold">{c.created_by}</span>
+                    <div className="flex flex-col gap-1">
+                      {/* Department badge — แสดงเฉพาะ Marketing */}
+                      {isMarketing && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full w-fit ${
+                          obSet.has(c.created_by)
+                            ? "bg-purple-100 text-purple-700 border border-purple-200"
+                            : "bg-blue-100 text-blue-700 border border-blue-200"
+                        }`}>
+                          {obSet.has(c.created_by) ? "OB" : "Sales"}
+                        </span>
+                      )}
+                      <div className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-accent/10 text-accent border border-accent/30">
+                        <span className="w-5 h-5 rounded-full bg-gradient-pink text-accent-foreground flex items-center justify-center text-[10px] font-bold">{c.created_by[0]}</span>
+                        <span className="font-semibold">{c.created_by}</span>
+                      </div>
                     </div>
                   </td>
                   <td className="py-1.5 px-3 text-right">

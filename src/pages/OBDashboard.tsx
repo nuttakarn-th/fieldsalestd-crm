@@ -1,76 +1,114 @@
 /**
- * OBDashboard.tsx — OB Co-ordinator Hub
- * แสดงข้อมูลเฉพาะ Outbound team:
- * 1. KPI: ลูกค้า / Pipeline / Revenue / Overdue
- * 2. Online Channel Breakdown (FB, Line OA, Website, TikTok, Google)
- * 3. Marketing Leads Pool (ยังไม่มีคนรับ)
- * 4. Agent Customers (source = Agent)
- * 5. Follow-up (overdue / today / upcoming)
- * 6. ลูกค้าออนไลน์ล่าสุด
+ * OBDashboard.tsx — OB Team Daily Operations Dashboard
+ *
+ * ใช้สำหรับ: OB Co-ordinator + OB Manager
+ * แนวคิด: ทีม OB เห็นข้อมูลเดียวกันทั้งหมด ไม่แบ่งรายคน
+ *
+ * Zone 1 — Monthly Pulse   : เป้า / ปิดได้ / Pipeline / Follow-up วันนี้
+ * Zone 2 — Action List     : Follow-up เกินกำหนด + วันนี้ + Hot
+ * Zone 3 — Pipeline Funnel : New → Contacted → Quotation → Negotiating → Won
+ * Zone 4 — At-Risk Deals   : ดีลที่ไม่มีการติดต่อ > 7 วัน
+ * Zone 5 — Recent Closings : ปิดดีลล่าสุดเดือนนี้
  */
+
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  Users, KanbanSquare, CalendarDays, AlertCircle, CheckCircle2,
-  Clock, ArrowRight, TrendingUp, UserPlus, Handshake, BarChart3,
-  Globe, Phone,
+  Target, Users, Phone, AlertTriangle, CheckCircle2, Clock,
+  ArrowRight, TrendingUp, Flame, CalendarDays, Award,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useCRM, formatTHB } from "@/store/crmStore";
-import { useCurrentUser } from "@/store/authStore";
-import { useMarketingLeads } from "@/store/marketingLeadsStore";
+import { Badge } from "@/components/ui/badge";
+import { useCRM, formatTHB, isClosedStatus, isLostStatus } from "@/store/crmStore";
+import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
 
-// ─── helpers ──────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const ONLINE_SOURCES = ["FB", "Line OA", "Website", "TikTok", "Google"] as const;
-const SOURCE_COLORS: Record<string, string> = {
-  "FB":       "bg-blue-500",
-  "Line OA":  "bg-green-500",
-  "Website":  "bg-purple-500",
-  "TikTok":   "bg-pink-500",
-  "Google":   "bg-amber-500",
-  "Agent":    "bg-teal-500",
-  "Referral": "bg-indigo-500",
-  "Field Sale": "bg-slate-400",
-  "Walk-in":  "bg-orange-400",
-};
+function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-// ─── Sub-components ────────────────────────────────────────
-function StatCard({
-  icon: Icon, label, value, sub, color,
-}: { icon: React.ElementType; label: string; value: string | number; sub?: string; color: string }) {
+function prevMonthKey() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function thaiShortDate(iso: string) {
+  const d = new Date(iso + "T00:00:00");
+  const TH_MONTH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  return `${d.getDate()} ${TH_MONTH[d.getMonth()]}`;
+}
+
+function daysDiff(isoDate: string) {
+  const now = Date.now();
+  const then = new Date(isoDate + "T00:00:00").getTime();
+  return Math.floor((now - then) / 86_400_000);
+}
+
+function pct(a: number, b: number) {
+  if (!b) return 0;
+  return Math.min(100, Math.round((a / b) * 100));
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function PulseCard({
+  icon: Icon, label, value, sub, color, progress,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  sub?: string;
+  color: string;
+  progress?: number; // 0-100
+}) {
   return (
-    <div className="bg-card rounded-xl border shadow-sm p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-card rounded-xl border shadow-sm p-4 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <p className="text-xs text-muted-foreground font-medium">{label}</p>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold leading-tight truncate">{value}</p>
-        {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
-      </div>
+      <p className="text-2xl font-bold leading-tight">{value}</p>
+      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+      {progress !== undefined && (
+        <div className="w-full bg-muted/60 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all ${
+              progress >= 100 ? "bg-emerald-500" : progress >= 70 ? "bg-amber-500" : "bg-red-500"
+            }`}
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function SectionHeader({ icon: Icon, title, linkTo, linkLabel }: {
-  icon: React.ElementType; title: string; linkTo?: string; linkLabel?: string;
+function SectionHeader({
+  icon: Icon, title, sub, linkTo,
+}: {
+  icon: React.ElementType; title: string; sub?: string; linkTo?: string;
 }) {
   return (
-    <div className="px-4 py-3 border-b flex items-center justify-between">
-      <h3 className="font-semibold flex items-center gap-2">
-        <Icon className="w-4 h-4 text-primary" />
-        {title}
-      </h3>
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-teal-500" />
+        <h2 className="font-bold text-sm">{title}</h2>
+        {sub && <span className="text-xs text-muted-foreground">({sub})</span>}
+      </div>
       {linkTo && (
         <Link to={linkTo}>
-          <Button size="sm" variant="ghost" className="h-7 text-xs">
-            {linkLabel ?? "ดูทั้งหมด"} <ArrowRight className="w-3 h-3 ml-1" />
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+            ดูทั้งหมด <ArrowRight className="w-3 h-3" />
           </Button>
         </Link>
       )}
@@ -78,411 +116,372 @@ function SectionHeader({ icon: Icon, title, linkTo, linkLabel }: {
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────
-export default function OBDashboard() {
-  const user = useCurrentUser();
-  const me   = user?.full_name ?? "";
-  const today = todayStr();
-
-  const allLeads     = useCRM((s) => s.leads);
-  const allCustomers = useCRM((s) => s.customers);
-  const mktLeads     = useMarketingLeads((s) => s.leads);
-
-  // ── OB's own data ──────────────────────────────────────
-  const myLeads = useMemo(() => allLeads.filter((l) => l.assigned_to === me), [allLeads, me]);
-  const myCustomers = useMemo(() => allCustomers.filter((c) => c.created_by === me), [allCustomers, me]);
-  const activeLeads = useMemo(
-    () => myLeads.filter((l) => !["Closed Won", "Closed Lost"].includes(l.status)),
-    [myLeads],
+function FunnelBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+  const width = total > 0 ? Math.max(4, Math.round((count / total) * 100)) : 4;
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-muted-foreground w-28 shrink-0 text-right">{label}</span>
+      <div className="flex-1 bg-muted/40 rounded-full h-6 overflow-hidden">
+        <div
+          className={`h-full ${color} rounded-full flex items-center px-2 transition-all`}
+          style={{ width: `${width}%` }}
+        >
+          {count > 0 && <span className="text-[10px] font-bold text-white whitespace-nowrap">{count}</span>}
+        </div>
+      </div>
+      <span className="text-xs font-semibold w-8 text-right">{count}</span>
+    </div>
   );
-  const wonLeads = useMemo(() => myLeads.filter((l) => l.status === "Closed Won"), [myLeads]);
-  const pipelineValue = useMemo(() => activeLeads.reduce((s, l) => s + (l.quoted_price || 0), 0), [activeLeads]);
-  const wonRevenue    = useMemo(() => wonLeads.reduce((s, l) => s + (l.quoted_price || 0), 0), [wonLeads]);
+}
 
-  // ── Follow-ups ─────────────────────────────────────────
-  const overdueFollowups = useMemo(
-    () => activeLeads.filter((l) => l.next_followup_date && l.next_followup_date < today),
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+export default function OBDashboard() {
+  const user     = useCurrentUser();
+  const obNames  = useActiveOBNames();
+  const allLeads = useCRM((s) => s.leads);
+  const targets  = useCRM((s) => s.targets);
+
+  const today    = todayStr();
+  const thisMonth = currentMonthKey();
+  const lastMonth = prevMonthKey();
+
+  const obSet = useMemo(() => new Set(obNames), [obNames]);
+
+  // ── OB Pool: leads where assigned_to is an OB Co-ordinator ──────────────────
+  const obLeads = useMemo(
+    () => allLeads.filter((l) => obSet.has(l.assigned_to)),
+    [allLeads, obSet],
+  );
+
+  const activeLeads = useMemo(
+    () => obLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status)),
+    [obLeads],
+  );
+
+  const wonThisMonth = useMemo(
+    () => obLeads.filter((l) => isClosedStatus(l.status) && (l.closed_date ?? "").startsWith(thisMonth)),
+    [obLeads, thisMonth],
+  );
+
+  const wonLastMonth = useMemo(
+    () => obLeads.filter((l) => isClosedStatus(l.status) && (l.closed_date ?? "").startsWith(lastMonth)),
+    [obLeads, lastMonth],
+  );
+
+  const wonRevenue  = useMemo(() => wonThisMonth.reduce((s, l) => s + (l.quoted_price || 0), 0), [wonThisMonth]);
+  const wonPax      = useMemo(() => wonThisMonth.reduce((s, l) => s + (l.pax_count || 0), 0), [wonThisMonth]);
+  const _lastRevenue = useMemo(() => wonLastMonth.reduce((s, l) => s + (l.quoted_price || 0), 0), [wonLastMonth]);
+
+  // ── Team target this month (sum of all OB Co-ordinator targets) ──────────────
+  const teamTarget = useMemo(
+    () =>
+      targets
+        .filter((t) => t.month === thisMonth && obSet.has(t.rep))
+        .reduce((s, t) => s + t.domestic_sales + t.international_sales, 0),
+    [targets, thisMonth, obSet],
+  );
+
+  const achievement = pct(wonRevenue, teamTarget);
+
+  // ── Follow-up ──────────────────────────────────────────────────────────────
+  const overdueLeads = useMemo(
+    () => activeLeads.filter((l) => l.next_followup_date && l.next_followup_date < today).sort(
+      (a, b) => (a.next_followup_date ?? "").localeCompare(b.next_followup_date ?? ""),
+    ),
     [activeLeads, today],
   );
-  const todayFollowups = useMemo(
+
+  const todayLeads = useMemo(
     () => activeLeads.filter((l) => l.next_followup_date === today),
     [activeLeads, today],
   );
-  const upcomingFollowups = useMemo(
+
+  const hotLeads = useMemo(
     () =>
       activeLeads
-        .filter((l) => l.next_followup_date && l.next_followup_date > today)
-        .sort((a, b) => (a.next_followup_date ?? "").localeCompare(b.next_followup_date ?? ""))
+        .filter(
+          (l) =>
+            (l.status === "Negotiating" || l.status === "กำลังเจรจา" || l.status === "Quotation Sent") &&
+            (!l.next_followup_date || l.next_followup_date >= today),
+        )
         .slice(0, 5),
     [activeLeads, today],
   );
 
-  // ── Source breakdown ───────────────────────────────────
-  const sourceBreakdown = useMemo(() => {
-    const map: Record<string, number> = {};
-    myCustomers.forEach((c) => { map[c.source] = (map[c.source] || 0) + 1; });
-    return Object.entries(map)
-      .sort(([, a], [, b]) => b - a)
-      .map(([source, count]) => ({ source, count }));
-  }, [myCustomers]);
-
-  const maxSourceCount = useMemo(
-    () => Math.max(1, ...sourceBreakdown.map((s) => s.count)),
-    [sourceBreakdown],
-  );
-
-  const onlineSourceCount = useMemo(
-    () => myCustomers.filter((c) => (ONLINE_SOURCES as readonly string[]).includes(c.source)).length,
-    [myCustomers],
-  );
-
-  // ── Agent Customers ────────────────────────────────────
-  const agentCustomers = useMemo(
+  // ── At-Risk: active leads with no follow-up or overdue > 7 days ─────────────
+  const atRiskLeads = useMemo(
     () =>
-      myCustomers
-        .filter((c) => c.source === "Agent")
-        .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+      activeLeads
+        .filter(
+          (l) =>
+            !l.next_followup_date ||
+            daysDiff(l.next_followup_date) > 7,
+        )
+        .sort((a, b) => {
+          const da = a.next_followup_date ? daysDiff(a.next_followup_date) : 999;
+          const db = b.next_followup_date ? daysDiff(b.next_followup_date) : 999;
+          return db - da;
+        })
         .slice(0, 8),
-    [myCustomers],
+    [activeLeads, today],
   );
 
-  // ── Marketing Leads Pool ───────────────────────────────
-  const availableMktLeads = useMemo(() => mktLeads.filter((l) => l.status === "available"), [mktLeads]);
-  const recentMktLeads    = useMemo(
-    () => [...mktLeads].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 5),
-    [mktLeads],
+  // ── Pipeline Funnel counts ───────────────────────────────────────────────────
+  const funnelCounts = useMemo(() => {
+    const counts = { new: 0, contacted: 0, quotation: 0, negotiating: 0, won: 0 };
+    obLeads.forEach((l) => {
+      if (l.status === "New")                                 counts.new++;
+      else if (l.status === "Contacted" || l.status === "ตอบแล้ว") counts.contacted++;
+      else if (l.status === "Quotation Sent")                 counts.quotation++;
+      else if (l.status === "Negotiating" || l.status === "กำลังเจรจา") counts.negotiating++;
+      else if (isClosedStatus(l.status))                      counts.won++;
+    });
+    return counts;
+  }, [obLeads]);
+
+  const funnelMax = Math.max(1, funnelCounts.new, funnelCounts.contacted, funnelCounts.quotation, funnelCounts.negotiating, funnelCounts.won);
+
+  // ── Recent closings ──────────────────────────────────────────────────────────
+  const recentWon = useMemo(
+    () =>
+      obLeads
+        .filter((l) => isClosedStatus(l.status) && l.closed_date)
+        .sort((a, b) => (b.closed_date ?? "").localeCompare(a.closed_date ?? ""))
+        .slice(0, 8),
+    [obLeads],
   );
 
-  // ── Tier distribution ──────────────────────────────────
-  const tierCounts = useMemo(() => {
-    const m = { New: 0, Regular: 0, VIP: 0 };
-    myCustomers.forEach((c) => { m[c.customer_tier] = (m[c.customer_tier] || 0) + 1; });
-    return m;
-  }, [myCustomers]);
+  // ── Render ────────────────────────────────────────────────────────────────────
+  const isOBManager = user?.role === "OB Manager";
 
-  const cust = (id: string) => allCustomers.find((c) => c.customer_id === id);
-
-  // ─────────────────────────────────────────────────────────
   return (
     <div className="p-4 sm:p-6 space-y-6">
 
-      {/* ── Header ───────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-md">
+          <Target className="w-5 h-5 text-white" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold">Outbound Dashboard</h1>
+          <h1 className="text-xl font-bold">OB Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            สวัสดีคุณ <span className="font-semibold text-foreground">{me}</span>
-            {" "}— ภาพรวม Online Channel & Outbound วันนี้
+            {new Date().toLocaleDateString("th-TH", { month: "long", year: "numeric" })} · ทีม OB {obNames.length} คน
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link to="/app/marketing-leads">
-            <Button variant="outline" size="sm">
-              <UserPlus className="w-4 h-4 mr-1.5" /> Marketing Leads
+        {isOBManager && (
+          <Link to="/app/executive" className="ml-auto">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5" /> Executive View
             </Button>
           </Link>
-          <Link to="/app/followup">
-            <Button variant="outline" size="sm">
-              <CalendarDays className="w-4 h-4 mr-1.5" /> Follow-up
-            </Button>
-          </Link>
-          <Link to="/app/customers">
-            <Button variant="outline" size="sm">
-              <Users className="w-4 h-4 mr-1.5" /> ลูกค้าทั้งหมด
-            </Button>
-          </Link>
-        </div>
+        )}
       </div>
 
-      {/* ── KPI Cards ────────────────────────────────────── */}
+      {/* ── Zone 1: Monthly Pulse ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Users}       label="ลูกค้า OB ทั้งหมด"    value={myCustomers.length}      sub={`Online ${onlineSourceCount} ราย`}    color="bg-primary/10 text-primary" />
-        <StatCard icon={KanbanSquare} label="Active Pipeline"       value={activeLeads.length}      sub={formatTHB(pipelineValue)}              color="bg-amber-100 text-amber-600" />
-        <StatCard icon={TrendingUp}  label="ปิดดีลสำเร็จ"          value={wonLeads.length}         sub={formatTHB(wonRevenue)}                 color="bg-emerald-100 text-emerald-600" />
-        <StatCard icon={AlertCircle} label="Follow-up เกินกำหนด"   value={overdueFollowups.length}                                             color="bg-red-100 text-red-600" />
+        <PulseCard
+          icon={Target}
+          label="เป้าทีมเดือนนี้"
+          value={teamTarget > 0 ? formatTHB(teamTarget) : "ยังไม่ตั้งเป้า"}
+          sub={teamTarget > 0 ? `${wonPax} / ${targets.filter(t => t.month === thisMonth && obSet.has(t.rep)).reduce((s, t) => s + t.domestic_pax + t.international_pax, 0)} ท่าน` : undefined}
+          color="bg-teal-500/15 text-teal-600"
+        />
+        <PulseCard
+          icon={Award}
+          label="ยอดปิดได้แล้ว"
+          value={formatTHB(wonRevenue)}
+          sub={teamTarget > 0 ? `${achievement}% ของเป้า · ${wonThisMonth.length} ดีล` : `${wonThisMonth.length} ดีล`}
+          color={achievement >= 100 ? "bg-emerald-500/15 text-emerald-600" : achievement >= 70 ? "bg-amber-500/15 text-amber-600" : "bg-red-500/15 text-red-600"}
+          progress={teamTarget > 0 ? achievement : undefined}
+        />
+        <PulseCard
+          icon={TrendingUp}
+          label="Pipeline ที่มีอยู่"
+          value={activeLeads.length + " ดีล"}
+          sub={`มูลค่า ${formatTHB(activeLeads.reduce((s, l) => s + (l.quoted_price || 0), 0))}`}
+          color="bg-blue-500/15 text-blue-600"
+        />
+        <PulseCard
+          icon={Phone}
+          label="Follow-up วันนี้"
+          value={todayLeads.length + overdueLeads.length}
+          sub={overdueLeads.length > 0 ? `⚠️ เกินกำหนด ${overdueLeads.length} ราย` : "ไม่มีที่เกินกำหนด"}
+          color={overdueLeads.length > 0 ? "bg-red-500/15 text-red-600" : "bg-teal-500/15 text-teal-600"}
+        />
       </div>
 
-      {/* ── Row 1: Source Breakdown + Marketing Leads Pool ─ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* ── Zone 2 + 3: Action List & Funnel ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Online Channel Breakdown */}
+        {/* Action List */}
         <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-          <SectionHeader icon={BarChart3} title="Online Channel Breakdown" />
-          <div className="p-4 space-y-2.5">
-            {sourceBreakdown.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">ยังไม่มีข้อมูลลูกค้า</p>
-            ) : (
-              sourceBreakdown.map(({ source, count }) => {
-                const pct = Math.round((count / maxSourceCount) * 100);
-                const barColor = SOURCE_COLORS[source] ?? "bg-slate-400";
-                const isOnline = (ONLINE_SOURCES as readonly string[]).includes(source);
-                return (
-                  <div key={source}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${barColor}`} />
-                        <span className="text-sm font-medium">{source}</span>
-                        {isOnline && (
-                          <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full leading-none">Online</span>
-                        )}
-                      </div>
-                      <span className="text-sm font-bold tabular-nums">{count} ราย</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            {/* Tier strip */}
-            <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-2">
-              {(["New", "Regular", "VIP"] as const).map((tier) => {
-                const cls = tier === "VIP"
-                  ? "text-amber-600 bg-amber-50 dark:bg-amber-950/20"
-                  : tier === "Regular"
-                  ? "text-sky-600 bg-sky-50 dark:bg-sky-950/20"
-                  : "text-slate-600 bg-slate-50 dark:bg-slate-900/30";
-                return (
-                  <div key={tier} className={`rounded-lg px-2 py-2 text-center ${cls}`}>
-                    <p className="text-lg font-bold">{tierCounts[tier]}</p>
-                    <p className="text-[10px] font-medium">{tier}</p>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="px-4 py-3 border-b">
+            <SectionHeader icon={CalendarDays} title="วันนี้ต้องทำอะไร" linkTo="/app/followup" />
           </div>
-        </div>
-
-        {/* Marketing Leads Pool */}
-        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <h3 className="font-semibold flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-primary" />
-              Marketing Leads Pool
-              {availableMktLeads.length > 0 && (
-                <span className="ml-1 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5 font-bold">
-                  {availableMktLeads.length} ใหม่
-                </span>
-              )}
-            </h3>
-            <Link to="/app/marketing-leads">
-              <Button size="sm" variant="ghost" className="h-7 text-xs">
-                จัดการ <ArrowRight className="w-3 h-3 ml-1" />
-              </Button>
-            </Link>
-          </div>
-
-          {availableMktLeads.length > 0 && (
-            <div className="mx-4 mt-3 mb-1 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-sm font-medium">รอการติดตาม</span>
+          <div className="divide-y divide-border/60 max-h-72 overflow-y-auto">
+            {overdueLeads.length === 0 && todayLeads.length === 0 && hotLeads.length === 0 && (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-400/60" />
+                ไม่มีรายการที่ต้องทำวันนี้ 🎉
               </div>
-              <span className="text-xl font-bold text-primary">{availableMktLeads.length} lead</span>
-            </div>
-          )}
-
-          {recentMktLeads.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground text-center py-8">
-              ยังไม่มี Marketing Leads
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {recentMktLeads.map((l) => (
-                <li key={l.id} className="px-4 py-2.5 flex items-center gap-2.5 hover:bg-muted/30">
-                  <div className={`w-1.5 h-8 rounded-full shrink-0 ${l.status === "available" ? "bg-primary" : "bg-muted-foreground/30"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{l.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{l.source} · {l.interest}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <Badge variant={l.status === "available" ? "default" : "outline"} className="text-[10px]">
-                      {l.status === "available" ? "ว่าง" : (l.claimed_by ?? "รับแล้ว")}
-                    </Badge>
-                    {l.groupSize && <p className="text-[10px] text-muted-foreground mt-0.5">{l.groupSize} คน</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* ── Row 2: Follow-up + Agent Customers ───────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-
-        {/* Follow-up */}
-        <div className="space-y-4">
-          {overdueFollowups.length > 0 && (
-            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  เกินกำหนด ({overdueFollowups.length})
-                </h3>
-                <Link to="/app/followup">
-                  <Button size="sm" variant="ghost" className="text-red-600 h-7 text-xs">
-                    ดูทั้งหมด <ArrowRight className="w-3 h-3 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-              <div className="space-y-1.5">
-                {overdueFollowups.slice(0, 4).map((l) => {
-                  const c = cust(l.customer_id);
-                  return (
-                    <div key={l.lead_id} className="flex items-center gap-2 text-sm">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                      <span className="font-medium truncate">{c?.full_name ?? "—"}</span>
-                      <span className="text-muted-foreground text-xs ml-auto shrink-0">{l.next_followup_date}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b bg-amber-50/50 dark:bg-amber-950/20 flex items-center justify-between">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-500" />
-                Follow-up วันนี้ ({todayFollowups.length})
-              </h3>
-            </div>
-            {todayFollowups.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">ไม่มีนัดวันนี้ 🎉</p>
-            ) : (
-              <ul className="divide-y">
-                {todayFollowups.map((l) => {
-                  const c = cust(l.customer_id);
-                  return (
-                    <li key={l.lead_id} className="px-4 py-2.5 flex items-center gap-2 hover:bg-muted/30">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{c?.full_name ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">{l.bu_type} · {l.urgency}</p>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] shrink-0">{l.status}</Badge>
-                    </li>
-                  );
-                })}
-              </ul>
             )}
-          </div>
-
-          <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-            <SectionHeader icon={CalendarDays} title="นัดที่กำลังจะมาถึง" linkTo="/app/followup" />
-            {upcomingFollowups.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">ยังไม่มีนัด</p>
-            ) : (
-              <ul className="divide-y">
-                {upcomingFollowups.map((l) => {
-                  const c = cust(l.customer_id);
-                  return (
-                    <li key={l.lead_id} className="px-4 py-2.5 flex items-center gap-2 hover:bg-muted/30">
-                      <div className="w-8 text-center shrink-0">
-                        <p className="text-[10px] text-muted-foreground">{l.next_followup_date?.slice(5) ?? "—"}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{c?.full_name ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">{l.bu_type}</p>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] shrink-0">{l.urgency}</Badge>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        {/* Agent + Online recent */}
-        <div className="space-y-4">
-          {/* Agent Customers */}
-          <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b bg-teal-50/50 dark:bg-teal-950/20 flex items-center justify-between">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Handshake className="w-4 h-4 text-teal-600" />
-                ลูกค้า Agent
-                <Badge className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300 text-[10px]">
-                  {myCustomers.filter((c) => c.source === "Agent").length} ราย
+            {overdueLeads.map((l) => (
+              <div key={l.lead_id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30">
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold truncate">{l.customer_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{l.bu_type} · {l.pax_count} ท่าน</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-red-300 text-red-600 shrink-0">
+                  เกิน {daysDiff(l.next_followup_date!)} วัน
                 </Badge>
-              </h3>
-              <Link to="/app/customers">
-                <Button size="sm" variant="ghost" className="h-7 text-xs">
-                  ดูทั้งหมด <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
-              </Link>
-            </div>
-            {agentCustomers.length === 0 ? (
-              <div className="p-6 text-center text-sm text-muted-foreground space-y-1">
-                <Handshake className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p>ยังไม่มีลูกค้าจาก Agent</p>
-                <p className="text-[11px]">เพิ่มลูกค้าใหม่โดยเลือก Source = Agent</p>
               </div>
-            ) : (
-              <ul className="divide-y">
-                {agentCustomers.map((c) => {
-                  const agentActiveLeads = allLeads.filter(
-                    (l) => l.customer_id === c.customer_id && !["Closed Won", "Closed Lost"].includes(l.status),
-                  );
-                  return (
-                    <li key={c.customer_id} className="hover:bg-muted/30">
-                      <Link to={`/app/customers/${c.customer_id}`} className="px-4 py-2.5 flex items-center gap-3 block">
-                        <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300 font-bold text-sm flex items-center justify-center shrink-0">
-                          {c.full_name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{c.full_name}</p>
-                          <p className="text-[11px] text-muted-foreground">{c.company !== "-" ? c.company : c.phone}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <Badge variant="outline" className="text-[10px]">{c.customer_tier}</Badge>
-                          {agentActiveLeads.length > 0 && (
-                            <p className="text-[10px] text-primary font-medium mt-0.5">{agentActiveLeads.length} lead active</p>
-                          )}
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {/* Online recent customers */}
-          <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-            <SectionHeader icon={Globe} title="ลูกค้าออนไลน์ล่าสุด" linkTo="/app/customers" />
-            {myCustomers.filter((c) => (ONLINE_SOURCES as readonly string[]).includes(c.source)).length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground text-center">ยังไม่มีลูกค้าออนไลน์</p>
-            ) : (
-              <ul className="divide-y">
-                {myCustomers
-                  .filter((c) => (ONLINE_SOURCES as readonly string[]).includes(c.source))
-                  .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-                  .slice(0, 6)
-                  .map((c) => (
-                    <li key={c.customer_id} className="hover:bg-muted/30">
-                      <Link to={`/app/customers/${c.customer_id}`} className="px-4 py-2.5 flex items-center gap-3 block">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${SOURCE_COLORS[c.source] ?? "bg-slate-400"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{c.full_name}</p>
-                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            <span>{c.source}</span>
-                            <span>·</span>
-                            <Phone className="w-2.5 h-2.5 inline" />
-                            <span>{c.phone}</span>
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] shrink-0">{c.customer_tier}</Badge>
-                      </Link>
-                    </li>
-                  ))}
-              </ul>
-            )}
+            ))}
+            {todayLeads.map((l) => (
+              <div key={l.lead_id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold truncate">{l.customer_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{l.bu_type} · {l.pax_count} ท่าน</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-600 shrink-0">วันนี้</Badge>
+              </div>
+            ))}
+            {hotLeads.map((l) => (
+              <div key={l.lead_id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold truncate">{l.customer_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{l.status} · {formatTHB(l.quoted_price || 0)}</p>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-600 shrink-0">Hot</Badge>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Pipeline Funnel */}
+        <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b">
+            <SectionHeader icon={TrendingUp} title="Pipeline Funnel" sub={`${obLeads.length} leads ทั้งหมด`} />
+          </div>
+          <div className="px-4 py-4 space-y-3">
+            <FunnelBar label="🆕 New"             count={funnelCounts.new}         total={funnelMax} color="bg-slate-400"   />
+            <FunnelBar label="📞 Contacted"        count={funnelCounts.contacted}   total={funnelMax} color="bg-blue-400"    />
+            <FunnelBar label="📄 Quotation"        count={funnelCounts.quotation}   total={funnelMax} color="bg-violet-500"  />
+            <FunnelBar label="🤝 Negotiating"      count={funnelCounts.negotiating} total={funnelMax} color="bg-amber-500"   />
+            <FunnelBar label="✅ Won"               count={funnelCounts.won}         total={funnelMax} color="bg-emerald-500" />
+            <div className="pt-2 border-t border-border/50 flex justify-between text-[11px] text-muted-foreground">
+              <span>Conversion: {pct(funnelCounts.won, obLeads.length)}%</span>
+              <span>Active: {activeLeads.length} ดีล · มูลค่า {formatTHB(activeLeads.reduce((s,l)=>s+(l.quoted_price||0),0))}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Zone 4: At-Risk ── */}
+      {atRiskLeads.length > 0 && (
+        <div className="bg-card rounded-xl border border-amber-200/60 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-amber-200/60 bg-amber-50/50 dark:bg-amber-500/5">
+            <SectionHeader icon={AlertTriangle} title="⚠️ ดีลเสี่ยงหลุด" sub={`ไม่มีการติดต่อ > 7 วัน · ${atRiskLeads.length} รายการ`} linkTo="/app/followup" />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-muted-foreground text-xs">
+                <tr>
+                  <th className="px-4 py-2 text-left">ลูกค้า</th>
+                  <th className="px-4 py-2 text-left">ประเภท</th>
+                  <th className="px-4 py-2 text-right">Pax</th>
+                  <th className="px-4 py-2 text-right">มูลค่า</th>
+                  <th className="px-4 py-2 text-center">นัดล่าสุด</th>
+                  <th className="px-4 py-2 text-center">ขาดติดต่อ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {atRiskLeads.map((l) => {
+                  const daysAgo = l.next_followup_date ? daysDiff(l.next_followup_date) : null;
+                  return (
+                    <tr key={l.lead_id} className="hover:bg-muted/30">
+                      <td className="px-4 py-2.5 font-medium">{l.customer_name}</td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.bu_type}</td>
+                      <td className="px-4 py-2.5 text-right text-xs">{l.pax_count} ท่าน</td>
+                      <td className="px-4 py-2.5 text-right text-xs font-semibold">{formatTHB(l.quoted_price || 0)}</td>
+                      <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
+                        {l.next_followup_date ? thaiShortDate(l.next_followup_date) : "-"}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${
+                            !daysAgo ? "border-slate-300 text-slate-500" :
+                            daysAgo > 14 ? "border-red-300 text-red-600 bg-red-50 dark:bg-red-500/10" :
+                            "border-amber-300 text-amber-600"
+                          }`}
+                        >
+                          {daysAgo != null ? `${daysAgo} วัน` : "ไม่มีนัด"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Zone 5: Recent Closings ── */}
+      <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b">
+          <SectionHeader icon={Award} title="✅ ปิดดีลล่าสุด" sub={`${wonThisMonth.length} ดีลเดือนนี้`} linkTo="/app/pipeline" />
+        </div>
+        {recentWon.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">
+            <Flame className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            ยังไม่มีดีลที่ปิดได้ — เดินหน้าต่อ!
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-muted-foreground text-xs">
+                <tr>
+                  <th className="px-4 py-2 text-left">ลูกค้า</th>
+                  <th className="px-4 py-2 text-left">ประเภท</th>
+                  <th className="px-4 py-2 text-right">Pax</th>
+                  <th className="px-4 py-2 text-right">ยอดขาย</th>
+                  <th className="px-4 py-2 text-center">วันปิด</th>
+                  <th className="px-4 py-2 text-center">เดือน</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {recentWon.map((l) => (
+                  <tr key={l.lead_id} className="hover:bg-muted/30">
+                    <td className="px-4 py-2.5 font-medium">{l.customer_name}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{l.bu_type}</td>
+                    <td className="px-4 py-2.5 text-right text-xs">{l.pax_count} ท่าน</td>
+                    <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">{formatTHB(l.quoted_price || 0)}</td>
+                    <td className="px-4 py-2.5 text-center text-xs text-muted-foreground">
+                      {l.closed_date ? thaiShortDate(l.closed_date) : "-"}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                          l.closed_date?.startsWith(thisMonth)
+                            ? "border-emerald-300 text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {l.closed_date?.startsWith(thisMonth) ? "เดือนนี้" : l.closed_date?.slice(0, 7) ?? "-"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

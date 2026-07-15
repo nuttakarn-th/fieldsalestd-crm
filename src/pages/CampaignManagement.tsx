@@ -36,6 +36,7 @@ import {
   CAMPAIGN_STATUS_LIST,
   type Campaign,
   type CampaignStatus,
+  type CampaignTargetTeam,
 } from "@/store/campaignStore";
 import { useCurrentUser } from "@/store/authStore";
 
@@ -84,6 +85,7 @@ function fmtNum(n: number): string {
 interface FormState {
   name: string;
   channels: string[];
+  target_team: CampaignTargetTeam;
   start_date: string;
   end_date: string;
   budget: string;
@@ -96,6 +98,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   name: "",
   channels: [],
+  target_team: "Both",
   start_date: "",
   end_date: "",
   budget: "",
@@ -107,15 +110,16 @@ const EMPTY_FORM: FormState = {
 
 function formFromCampaign(c: Campaign): FormState {
   return {
-    name:       c.name,
-    channels:   [...c.channels],
-    start_date: c.start_date,
-    end_date:   c.end_date,
-    budget:     c.budget !== undefined ? String(c.budget) : "",
-    reach:      String(c.reach),
-    leads:      String(c.leads),
-    status:     c.status,
-    notes:      c.notes ?? "",
+    name:        c.name,
+    channels:    [...c.channels],
+    target_team: c.target_team ?? "Both",
+    start_date:  c.start_date,
+    end_date:    c.end_date,
+    budget:      c.budget !== undefined ? String(c.budget) : "",
+    reach:       String(c.reach),
+    leads:       String(c.leads),
+    status:      c.status,
+    notes:       c.notes ?? "",
   };
 }
 
@@ -223,16 +227,17 @@ export default function CampaignManagement() {
       return;
     }
     const payload = {
-      name:       form.name.trim(),
-      channels:   form.channels,
-      start_date: form.start_date,
-      end_date:   form.end_date,
-      budget:     form.budget ? parseFloat(form.budget) : undefined,
-      reach:      parseInt(form.reach)  || 0,
-      leads:      parseInt(form.leads)  || 0,
-      status:     form.status,
-      notes:      form.notes.trim() || undefined,
-      created_by: actorName,
+      name:        form.name.trim(),
+      channels:    form.channels,
+      target_team: form.target_team,
+      start_date:  form.start_date,
+      end_date:    form.end_date,
+      budget:      form.budget ? parseFloat(form.budget) : undefined,
+      reach:       parseInt(form.reach)  || 0,
+      leads:       parseInt(form.leads)  || 0,
+      status:      form.status,
+      notes:       form.notes.trim() || undefined,
+      created_by:  actorName,
     };
     if (editId) {
       updateCampaign(editId, payload);
@@ -358,6 +363,7 @@ export default function CampaignManagement() {
               <tr>
                 <th className="px-4 py-3 text-left w-24">ID</th>
                 <th className="px-4 py-3 text-left min-w-[180px]">ชื่อแคมเปญ</th>
+                <th className="px-4 py-3 text-left w-20">ทีม</th>
                 <th className="px-4 py-3 text-left">ช่องทาง</th>
                 <th className="px-4 py-3 text-left">ช่วงเวลา</th>
                 <th className="px-4 py-3 text-right">Reach</th>
@@ -370,7 +376,7 @@ export default function CampaignManagement() {
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
                     <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-30" />
                     <p>{search || filterStatus !== "All" ? "ไม่พบแคมเปญที่ตรงกับเงื่อนไข" : "ยังไม่มีแคมเปญ กด + สร้าง Campaign เลย"}</p>
                   </td>
@@ -380,6 +386,15 @@ export default function CampaignManagement() {
                 <tr key={c.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.campaign_id}</td>
                   <td className="px-4 py-3 font-semibold">{c.name}</td>
+                  <td className="px-4 py-3">
+                    {c.target_team === "OB" ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">📣 OB</span>
+                    ) : c.target_team === "Sales" ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">🤝 Sales</span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">ทั้งคู่</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {c.channels.map((ch) => (
@@ -484,6 +499,35 @@ export default function CampaignManagement() {
                     {ch}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Target Team */}
+            <div className="space-y-1.5">
+              <Label>ทีมเป้าหมาย <span className="text-destructive">*</span></Label>
+              <div className="flex gap-2">
+                {(["OB", "Sales", "Both"] as CampaignTargetTeam[]).map((t) => {
+                  const labels = { OB: "📣 OB Leads", Sales: "🤝 Sales Leads", Both: "ทั้งสองทีม" };
+                  const active = form.target_team === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, target_team: t }))}
+                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors font-medium ${
+                        active
+                          ? t === "OB"
+                            ? "bg-purple-500 text-white border-purple-500"
+                            : t === "Sales"
+                            ? "bg-blue-500 text-white border-blue-500"
+                            : "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      }`}
+                    >
+                      {labels[t]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

@@ -46,6 +46,7 @@ export interface ActivityEntry {
   event_type:   ActivityEventType | string;
   actor:        string;       // full_name ของคนที่ทำ action
   role?:        string;       // role ของ actor
+  department?:  "OB" | "Sales" | "Marketing" | "System"; // แผนกของ actor
   subject:      string;       // หัวข้อสั้นๆ (ภาษาไทย)
   detail?:      string;       // รายละเอียดเพิ่มเติม
   entity_type?: string;       // 'tour' | 'customer' | 'lead' | 'campaign' | 'booking'
@@ -85,6 +86,7 @@ export function logActivity(entry: ActivityEntry): void {
       event_type:  entry.event_type,
       actor:       entry.actor,
       role:        entry.role        ?? "",
+      department:  entry.department  ?? "System",
       subject:     entry.subject,
       detail:      entry.detail      ?? "",
       entity_type: entry.entity_type ?? "",
