@@ -494,24 +494,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
-    // ใช้ logic เดียวกับ list: ถ้า Period ทุกอันมี days/nights เท่ากัน → ใช้ค่านั้น
-    // เพื่อให้ฟอร์มแสดงตรงกับที่แถบโปรแกรมแสดง
-    let days = "", nights = "";
-    const allPeriods = t.periods ?? [];
-    if (allPeriods.length > 0) {
-      const firstN = allPeriods[0].nights;
-      const firstD = allPeriods[0].days;
-      if (firstN !== undefined && firstD !== undefined &&
-          allPeriods.every((p) => p.nights === firstN && p.days === firstD)) {
-        days = String(firstD);
-        nights = String(firstN);
-      }
-    }
-    // fallback: ถ้าไม่มี Period หรือ Period มีค่าไม่ตรงกัน → parse จาก t.duration
-    if (!days || !nights) {
-      const dur = parseDuration(t.duration);
-      days = dur.days; nights = dur.nights;
-    }
+    // อ่านจาก t.duration — source เดียวกับที่ header list แสดง
+    const dur = parseDuration(t.duration);
     setForm({
       category: t.category,
       code: t.code,
@@ -519,7 +503,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       city: t.title ? t.city : "",  // if has title, city = highlights; else city is the name
       country: t.country,
       country2: (t.countries ?? [])[1] ?? "",
-      days, nights,
+      days: dur.days, nights: dur.nights,
       tourTypes: t.tour_types ?? [],
       customType: "",
       description: t.description ?? "",
@@ -1927,18 +1911,9 @@ ${catBlocks}
                   ? `฿${priceMin.toLocaleString()}`
                   : `฿${priceMin.toLocaleString()} – ฿${priceMax.toLocaleString()}`;
 
-                // Compute duration from periods — show only if ALL periods share the same nights+days
-                const allPeriods = t.periods ?? [];
-                let displayDuration: string | null = null;
-                if (allPeriods.length > 0) {
-                  const firstN = allPeriods[0].nights;
-                  const firstD = allPeriods[0].days;
-                  if (firstN !== undefined && firstD !== undefined &&
-                      allPeriods.every((p) => p.nights === firstN && p.days === firstD)) {
-                    displayDuration = `${firstD} วัน ${firstN} คืน`;
-                  }
-                }
-                // No periods yet → leave blank (don't fall back to stored t.duration string)
+                // ใช้ t.duration (ระยะเวลาของโปรแกรม) เป็น source of truth
+                // Period badge แต่ละแถวแสดง days/nights ของตัวเองอยู่แล้ว
+                const displayDuration: string | null = t.duration || null;
 
                 return (
                   <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
