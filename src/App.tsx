@@ -159,6 +159,8 @@ const App = () => (
           <Route path="/marketing" element={<RouteGuard><MarketingLayout /></RouteGuard>}>
             <Route index element={<MarketingPortal />} />
             <Route path="tasks" element={<MyTasksPage />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="customers/:customerId" element={<CustomerDetail />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>

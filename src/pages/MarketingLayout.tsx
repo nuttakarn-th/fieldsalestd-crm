@@ -2,8 +2,9 @@
  * MarketingLayout.tsx — Dedicated sidebar layout for Marketing role
  * Route: /marketing/* (standalone, independent from AppLayout)
  */
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { MessageSquare } from "lucide-react";
+import { useMemo } from "react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
   TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus,
@@ -43,14 +44,14 @@ const NAV_SECTIONS: NavSection[] = [
   {
     category: "OUTBOUND LEADS",
     items: [
-      { label: "OB Leads",          icon: Users2,        to: "/app/customers?dept=ob"             },
+      { label: "OB Leads",          icon: Users2,        to: "/marketing/customers?dept=ob"       },
     ],
   },
   {
     category: "SALES LEADS",
     items: [
-      { label: "Sales Leads",       icon: Users,         to: "/app/customers?dept=sales"          },
-      { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/app/customers"                     },
+      { label: "Sales Leads",       icon: Users,         to: "/marketing/customers?dept=sales"    },
+      { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/marketing/customers"               },
       { label: "Marketing Leads",   icon: Target,        to: "/app/marketing-leads"               },
     ],
   },
@@ -67,24 +68,36 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-// ── NavLink item ─────────────────────────────────────────────────────────────
+// ── Nav item — uses Link + manual active check to support ?dept= query params ─
 function SideNavItem({ item }: { item: NavItem }) {
   const Icon = item.icon;
+  const location = useLocation();
+
+  const isActive = useMemo(() => {
+    try {
+      const toUrl  = new URL(item.to, "http://x");
+      if (toUrl.pathname !== location.pathname) return false;
+      // If link has query params, they must match exactly
+      const toDept  = new URLSearchParams(toUrl.search).get("dept");
+      const curDept = new URLSearchParams(location.search).get("dept");
+      return toDept === curDept; // both null → match; or same value
+    } catch {
+      return location.pathname === item.to;
+    }
+  }, [item.to, location.pathname, location.search]);
+
   return (
-    <NavLink
+    <Link
       to={item.to}
-      end={item.end}
-      className={({ isActive }) =>
-        `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-          isActive
-            ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-        }`
-      }
+      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+        isActive
+          ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+      }`}
     >
       <Icon className="w-4 h-4 shrink-0" />
       <span className="truncate">{item.label}</span>
-    </NavLink>
+    </Link>
   );
 }
 
