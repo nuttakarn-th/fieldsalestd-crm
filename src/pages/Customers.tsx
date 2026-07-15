@@ -162,11 +162,11 @@ export default function Customers() {
         c.transferred_to === effectiveRep,
       );
     }
-    // currentRep === "All"
+    // effectiveRep === "All"
     if (isOBRole) {
-      // OB Manager: เห็น OB pool เท่านั้น
-      // ถ้า obNames ว่าง (ยังไม่มี OB Co-ord ในระบบ) → fallback เห็นทั้งหมด
-      if (obNames.length === 0) return customers;
+      // OB Manager: เห็นเฉพาะลูกค้าที่ OB Co-ordinator สร้าง ไม่เห็นข้อมูล Sales
+      // ถ้า obNames ยังโหลดไม่เสร็จ → รอก่อน (แสดง [] ชั่วคราว ดีกว่า leak ข้อมูล Sales)
+      if (obNames.length === 0) return [];
       const obSet = new Set(obNames);
       return customers.filter((c) =>
         obSet.has(c.created_by) ||

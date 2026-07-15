@@ -298,8 +298,8 @@ function StaleLeadBtn() {
       return obSet.has(l.assigned_to);
     }
     if (user?.role === "OB Manager") {
-      // OB Manager — OB pool เท่านั้น (fallback ทั้งหมด)
-      if (obNames.length === 0) return true;
+      // OB Manager — เห็นเฉพาะ OB leads (ไม่เห็น Sales)
+      if (obNames.length === 0) return false;
       return new Set(obNames).has(l.assigned_to);
     }
     // Admin, Sales Manager → เห็นทั้งหมด

@@ -87,9 +87,10 @@ export default function Pipeline() {
         base = leads.filter((l) => l.assigned_to === effectiveRep);
       }
     } else if (isOBRole) {
-      // OB Manager: OB pool เท่านั้น (fallback เห็นทั้งหมดถ้าไม่มี OB Co-ord)
+      // OB Manager: เห็นเฉพาะ leads ของ OB Co-ordinator ไม่เห็น Sales leads
+      // ถ้า obNames ยังโหลดไม่เสร็จ → รอก่อน (แสดง [] ชั่วคราว)
       if (obNames.length === 0) {
-        base = leads;
+        base = [];
       } else {
         const obSet = new Set(obNames);
         base = leads.filter((l) => obSet.has(l.assigned_to));
