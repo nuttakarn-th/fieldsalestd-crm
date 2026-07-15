@@ -6,7 +6,7 @@ import { useSiteSettings } from "@/store/siteSettingsStore";
 import { applyOgMeta } from "@/lib/ogMeta";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { UserMenu } from "@/components/UserMenu";
-import { TeamNotifications } from "@/components/TeamNotifications";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
@@ -375,7 +375,7 @@ export default function Hub() {
           <StandyBtn />
           <StaleLeadBtn />
           <HubChatButton />
-          <TeamNotifications />
+          <ActivityFeed />
           <UserMenu />
         </div>
       </header>

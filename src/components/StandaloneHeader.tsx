@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/UserMenu";
-import { TeamNotifications } from "@/components/TeamNotifications";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
@@ -75,7 +75,7 @@ export function StandaloneHeader({ backTo = "/", extra, hideChat = false }: Stan
           <SwitchRoleBtn />
           <StandyBtn />
           {!hideChat && <ChatHeaderBtn />}
-          <TeamNotifications />
+          <ActivityFeed />
           <UserMenu />
         </div>
       </header>

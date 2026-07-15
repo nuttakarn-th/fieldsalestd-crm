@@ -7,7 +7,7 @@
 import { MessageSquare } from "lucide-react";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
 import { StandyBtn, StandyWidget } from "@/components/StandyWidget";
-import { TeamNotifications } from "@/components/TeamNotifications";
+import { ActivityFeed } from "@/components/ActivityFeed";
 import { UserMenu } from "@/components/UserMenu";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { useCRM } from "@/store/crmStore";
@@ -53,7 +53,7 @@ export function NavActions({ hideChat = false }: { hideChat?: boolean }) {
         <SwitchRoleBtn />
         <StandyBtn />
         {!hideChat && <ChatBtn />}
-        <TeamNotifications />
+        <ActivityFeed />
         <UserMenu />
       </div>
       {!hideChat && <ChatWidget />}
