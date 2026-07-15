@@ -434,3 +434,11 @@ export function useActiveSalesOnly(): string[] {
     .filter((u) => u.role === "Sales" || u.role === "OB Co-ordinator")
     .map((u) => u.full_name);
 }
+
+/** Returns full_names of all active OB Co-ordinators — for OB shared-pool filter */
+export function useActiveOBNames(): string[] {
+  const users = useAuth((s) => s.users);
+  return users
+    .filter((u) => u.role === "OB Co-ordinator")
+    .map((u) => u.full_name);
+}

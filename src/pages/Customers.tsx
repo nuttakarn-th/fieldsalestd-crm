@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
-import { useCurrentUser, useActiveSalesNames } from "@/store/authStore";
+import { useCurrentUser, useActiveSalesNames, useActiveOBNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -108,10 +108,12 @@ export default function Customers() {
     [deleteRequests],
   );
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
+  const obNames = useActiveOBNames();
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
   const isSalesManager = user?.role === "Sales Manager";
   const isOBManager = user?.role === "OB Manager";
+  const isOBRole = user?.role === "OB Co-ordinator" || isOBManager;
   const canDirectDelete = isAdmin || isSalesManager || isOBManager;
   const [q, setQ] = useState("");
   // debounce q 200ms — ป้องกัน filter 300+ รายการทุก keydown
@@ -137,12 +139,27 @@ export default function Customers() {
   const PAGE_SIZE = 20;
   const [page, setPage] = useState(1);
 
-  const scoped = useMemo(
-    () => (currentRep === "All"
-      ? customers
-      : customers.filter((c) => c.created_by === currentRep || c.transferred_from === currentRep || c.transferred_to === currentRep)),
-    [customers, currentRep],
-  );
+  const scoped = useMemo(() => {
+    if (currentRep !== "All") {
+      // Sales role — เห็นเฉพาะของตัวเอง
+      return customers.filter((c) =>
+        c.created_by === currentRep ||
+        c.transferred_from === currentRep ||
+        c.transferred_to === currentRep,
+      );
+    }
+    if (isOBRole && obNames.length > 0) {
+      // OB Co-ordinator / OB Manager — เห็นเฉพาะ pool ของ OB ทั้งแผนก
+      const obSet = new Set(obNames);
+      return customers.filter((c) =>
+        obSet.has(c.created_by) ||
+        (c.transferred_to != null && obSet.has(c.transferred_to)) ||
+        (c.transferred_from != null && obSet.has(c.transferred_from)),
+      );
+    }
+    // Admin, Sales Manager, Marketing → เห็นทั้งหมด
+    return customers;
+  }, [customers, currentRep, isOBRole, obNames]);
 
   const filtered = useMemo(() => {
     const s = debouncedQ.trim().toLowerCase();
