@@ -121,13 +121,14 @@ export function parseExcelFile(
               val = isNaN(n) ? 0 : n;
             } else if (field.type === "date") {
               // Case 1: Excel date cell → JS Date object (when cellDates: true)
-              // XLSX สร้าง Date เป็น LOCAL midnight ดังนั้นต้องใช้ getFullYear/getMonth/getDate
-              // (getUTC* จะได้วันที่ผิดใน UTC+7 เช่น Sep 1 00:00 local → Aug 31 17:00 UTC)
+              // XLSX สร้าง Date เป็น UTC แต่ offset ผิดประมาณ 7 ชม. เช่น Sep 16 → 2026-09-15T16:59:56Z
+              // แก้ด้วย: round ไป nearest day ใน UTC (16:59 > 12h → วันถัดไป = Sep 16 ✓)
               if (val instanceof Date && !isNaN((val as Date).getTime())) {
-                const d = val as Date;
-                const y  = d.getFullYear();
-                const mo = String(d.getMonth() + 1).padStart(2, "0");
-                const dy = String(d.getDate()).padStart(2, "0");
+                const DAY_MS = 86_400_000;
+                const nd = new Date(Math.round((val as Date).getTime() / DAY_MS) * DAY_MS);
+                const y  = nd.getUTCFullYear();
+                const mo = String(nd.getUTCMonth() + 1).padStart(2, "0");
+                const dy = String(nd.getUTCDate()).padStart(2, "0");
                 val = `${y}-${mo}-${dy}`;
               } else {
                 // Case 2: String — accept DD/MM/YYYY (slash) or DD-MM-YYYY (dash)
