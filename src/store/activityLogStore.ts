@@ -82,7 +82,9 @@ export const useActivityLog = create<ActivityLogState>()((set, get) => ({
             console.error("[activityLog] loadRecent ล้มเหลว:", error);
             return;
           }
-          (data as ActivityLog[]).forEach((row) => addEntry(row));
+          // Supabase คืน newest-first → ต้อง reverse ก่อน forEach
+          // เพราะ addEntry prepend ทีละ row ถ้าไม่ reverse ตัวเก่าสุดจะอยู่บนสุด
+          ;[...(data as ActivityLog[])].reverse().forEach((row) => addEntry(row));
         });
     }
 
