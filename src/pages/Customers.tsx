@@ -140,12 +140,15 @@ export default function Customers() {
   const [page, setPage] = useState(1);
 
   const scoped = useMemo(() => {
-    if (currentRep !== "All") {
+    // Guard: ถ้า currentRep = null/undefined (Supabase ยังโหลดชื่อไม่เสร็จ)
+    // ให้ treat เป็น "All" เพื่อป้องกัน obSet.add(null) ที่ทำให้ filter คืน 0 records
+    const effectiveRep = currentRep || "All";
+    if (effectiveRep !== "All") {
       if (isOBRole) {
         // OB Co-ordinator: เห็นของตัวเอง + OB pool ทั้งแผนก
         // obSet รวมชื่อตัวเองเสมอ (กันกรณี obNames ยังโหลดไม่ครบ)
         const obSet = new Set(obNames);
-        obSet.add(currentRep);
+        obSet.add(effectiveRep);
         return customers.filter((c) =>
           obSet.has(c.created_by) ||
           (c.transferred_to != null && obSet.has(c.transferred_to)) ||
@@ -154,9 +157,9 @@ export default function Customers() {
       }
       // Sales — เห็นเฉพาะของตัวเอง
       return customers.filter((c) =>
-        c.created_by === currentRep ||
-        c.transferred_from === currentRep ||
-        c.transferred_to === currentRep,
+        c.created_by === effectiveRep ||
+        c.transferred_from === effectiveRep ||
+        c.transferred_to === effectiveRep,
       );
     }
     // currentRep === "All"

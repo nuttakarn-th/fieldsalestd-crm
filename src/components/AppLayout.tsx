@@ -61,7 +61,10 @@ export default function AppLayout() {
     if (effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator") {
       // Sales + OB Co-ordinator ใช้ชื่อตัวเอง
       // OB Co-ordinator จะถูก expand เป็น OB pool ใน Customers/Pipeline โดยอัตโนมัติ
-      setCurrentRep(currentUserFullName as SalesRep);
+      // Guard: ถ้า fullName ยังไม่โหลด (null) → อย่า set เป็น null เพราะจะทำให้ filter พัง
+      if (currentUserFullName) {
+        setCurrentRep(currentUserFullName as SalesRep);
+      }
     } else {
       // OB Manager, Admin, Sales Manager และ role อื่นๆ → "All"
       setCurrentRep("All");

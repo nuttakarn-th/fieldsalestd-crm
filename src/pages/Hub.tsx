@@ -291,6 +291,8 @@ function StaleLeadBtn() {
     }
     if (user?.role === "OB Co-ordinator") {
       // OB Co-ordinator — เห็น OB pool + ตัวเอง
+      // Guard: ถ้า currentRep ยังเป็น null → ยังโหลดชื่อไม่เสร็จ skip
+      if (!currentRep || currentRep === "All") return false;
       const obSet = new Set(obNames);
       obSet.add(currentRep); // รวมตัวเองเสมอ
       return obSet.has(l.assigned_to);

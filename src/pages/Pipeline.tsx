@@ -74,15 +74,17 @@ export default function Pipeline() {
   const visible = useMemo(() => {
     const customerIds = new Set(customers.map((c) => c.customer_id));
     let base: typeof leads;
-    if (currentRep !== "All") {
+    // Guard: ถ้า currentRep = null (Supabase ยังโหลดชื่อไม่เสร็จ) → treat เป็น "All"
+    const effectiveRep = currentRep || "All";
+    if (effectiveRep !== "All") {
       if (isOBRole) {
         // OB Co-ordinator: เห็น leads ของตัวเอง + OB pool
         const obSet = new Set(obNames);
-        obSet.add(currentRep); // รวมตัวเองเสมอ
+        obSet.add(effectiveRep); // รวมตัวเองเสมอ
         base = leads.filter((l) => obSet.has(l.assigned_to));
       } else {
         // Sales — เห็นเฉพาะของตัวเอง
-        base = leads.filter((l) => l.assigned_to === currentRep);
+        base = leads.filter((l) => l.assigned_to === effectiveRep);
       }
     } else if (isOBRole) {
       // OB Manager: OB pool เท่านั้น (fallback เห็นทั้งหมดถ้าไม่มี OB Co-ord)
