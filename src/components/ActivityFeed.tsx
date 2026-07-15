@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart } from "lucide-react";
+import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart, Zap } from "lucide-react";
 import { useActivityLog, type ActivityLog } from "@/store/activityLogStore";
 
 // ── Event → Icon / colour mapping ────────────────────────────────────────────
@@ -20,6 +20,15 @@ interface EventMeta {
 }
 
 function getEventMeta(event_type: string): EventMeta {
+  // ⚡ Period ใกล้เต็ม — highlight แยกพิเศษ
+  if (event_type === "period_nearly_full") {
+    return {
+      icon:   <Zap className="w-3.5 h-3.5" />,
+      color:  "bg-yellow-500/20",
+      border: "border-yellow-400/40",
+      text:   "text-yellow-400",
+    };
+  }
   if (event_type.startsWith("tour_") || event_type.startsWith("period_") || event_type === "import_complete") {
     return {
       icon:   <Package className="w-3.5 h-3.5" />,

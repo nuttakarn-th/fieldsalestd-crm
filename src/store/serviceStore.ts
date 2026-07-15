@@ -460,6 +460,28 @@ export const useServices = create<ServiceState>()(
             entity_name: aqTour.code,
             meta:        { delta, period_id: periodId },
           });
+
+          // ⚡ Threshold alert — Period ใกล้เต็ม (fill rate ข้าม 80%)
+          if (delta < 0 && aqPeriod.total_seats > 0) {
+            const newQuota    = aqPeriod.quota;
+            const oldQuota    = newQuota - delta;          // delta < 0 → oldQuota > newQuota
+            const seats       = aqPeriod.total_seats;
+            const newFill     = (seats - newQuota) / seats;
+            const oldFill     = (seats - oldQuota) / seats;
+            // Log เฉพาะเมื่อ fill rate ข้ามผ่าน 80% ครั้งแรก (ไม่ spam ทุก booking)
+            if (newFill >= 0.8 && oldFill < 0.8) {
+              logActivity({
+                event_type:  "period_nearly_full",
+                actor:       updatedBy ?? "ระบบ",
+                subject:     "⚡ Period ใกล้เต็มแล้ว!",
+                detail:      `${aqTour.code} · ${aqPeriod.start_date ?? ""} · fill ${Math.round(newFill * 100)}% (${seats - newQuota}/${seats} ที่นั่ง)`,
+                entity_type: "tour",
+                entity_id:   tourId,
+                entity_name: aqTour.code,
+                meta:        { fill_rate: newFill, remaining: newQuota, total_seats: seats, period_id: periodId },
+              });
+            }
+          }
         }
       },
 

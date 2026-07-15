@@ -19,6 +19,7 @@ export type ActivityEventType =
   | "tour_unpublished"
   | "period_cancelled"
   | "period_restored"
+  | "period_nearly_full"
   | "import_complete"
   // Lead
   | "lead_added"

@@ -464,14 +464,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   };
   const fmtThai = (iso: string): string => {
     if (!iso) return "";
-    try { return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }); }
+    // "T00:00:00" → parse เป็น LOCAL midnight เพื่อป้องกัน timezone shift (UTC+7)
+    try { return new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }); }
     catch { return iso; }
   };
   // Short format: 2-digit year ("1 มิ.ย. 69") for compact table display
   const fmtThaiShort = (iso: string): string => {
     if (!iso) return "";
+    // "T00:00:00" → parse เป็น LOCAL midnight เพื่อป้องกัน timezone shift
     try {
-      const full = new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+      const full = new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
       return full.replace(/(\d{4})/, (y) => y.slice(2)); // 2569 → 69
     } catch { return iso; }
   };
