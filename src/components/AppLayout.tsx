@@ -58,12 +58,12 @@ export default function AppLayout() {
   useEffect(() => {
     if (!currentUserId) return;
     const effectiveRole = currentUserRole === "Admin" && viewAsRole ? viewAsRole : currentUserRole;
-    if (effectiveRole === "Sales") {
-      // Sales ใช้ชื่อตัวเอง — เห็นเฉพาะลูกค้าของตัวเอง
+    if (effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator") {
+      // Sales + OB Co-ordinator ใช้ชื่อตัวเอง
+      // OB Co-ordinator จะถูก expand เป็น OB pool ใน Customers/Pipeline โดยอัตโนมัติ
       setCurrentRep(currentUserFullName as SalesRep);
     } else {
-      // OB Co-ordinator, OB Manager, Admin, Sales Manager และ role อื่นๆ → "All"
-      // OB role จะถูก filter เพิ่มเติมใน Customers/Pipeline ด้วย useActiveOBNames()
+      // OB Manager, Admin, Sales Manager และ role อื่นๆ → "All"
       setCurrentRep("All");
     }
   }, [currentUserId, currentUserRole, currentUserFullName, viewAsRole, setCurrentRep]);

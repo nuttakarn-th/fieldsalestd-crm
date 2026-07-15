@@ -281,20 +281,27 @@ function StaleLeadBtn() {
   const today      = new Date().toISOString().split("T")[0];
 
   const stale = leads.filter((l) => {
-    const isOpen   = l.status !== "Closed Won" && l.status !== "Closed Lost";
-    const overdue  = l.next_followup_date && l.next_followup_date < today;
+    const isOpen  = l.status !== "Closed Won" && l.status !== "Closed Lost";
+    const overdue = l.next_followup_date && l.next_followup_date < today;
+    if (!isOpen || !overdue) return false;
 
-    // Sales — เห็นเฉพาะ leads ของตัวเอง
     if (user?.role === "Sales") {
-      return isOpen && overdue && l.assigned_to === currentRep;
+      // Sales — เห็นเฉพาะ leads ของตัวเอง
+      return l.assigned_to === currentRep;
     }
-    // OB Co-ordinator / OB Manager — เห็น OB pool เท่านั้น
-    if (user?.role === "OB Co-ordinator" || user?.role === "OB Manager") {
+    if (user?.role === "OB Co-ordinator") {
+      // OB Co-ordinator — เห็น OB pool + ตัวเอง
       const obSet = new Set(obNames);
-      return isOpen && overdue && obSet.has(l.assigned_to);
+      obSet.add(currentRep); // รวมตัวเองเสมอ
+      return obSet.has(l.assigned_to);
+    }
+    if (user?.role === "OB Manager") {
+      // OB Manager — OB pool เท่านั้น (fallback ทั้งหมด)
+      if (obNames.length === 0) return true;
+      return new Set(obNames).has(l.assigned_to);
     }
     // Admin, Sales Manager → เห็นทั้งหมด
-    return isOpen && overdue;
+    return true;
   }).length;
 
   if (stale === 0) return null;

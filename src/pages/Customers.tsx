@@ -141,15 +141,29 @@ export default function Customers() {
 
   const scoped = useMemo(() => {
     if (currentRep !== "All") {
-      // Sales role — เห็นเฉพาะของตัวเอง
+      if (isOBRole) {
+        // OB Co-ordinator: เห็นของตัวเอง + OB pool ทั้งแผนก
+        // obSet รวมชื่อตัวเองเสมอ (กันกรณี obNames ยังโหลดไม่ครบ)
+        const obSet = new Set(obNames);
+        obSet.add(currentRep);
+        return customers.filter((c) =>
+          obSet.has(c.created_by) ||
+          (c.transferred_to != null && obSet.has(c.transferred_to)) ||
+          (c.transferred_from != null && obSet.has(c.transferred_from)),
+        );
+      }
+      // Sales — เห็นเฉพาะของตัวเอง
       return customers.filter((c) =>
         c.created_by === currentRep ||
         c.transferred_from === currentRep ||
         c.transferred_to === currentRep,
       );
     }
-    if (isOBRole && obNames.length > 0) {
-      // OB Co-ordinator / OB Manager — เห็นเฉพาะ pool ของ OB ทั้งแผนก
+    // currentRep === "All"
+    if (isOBRole) {
+      // OB Manager: เห็น OB pool เท่านั้น
+      // ถ้า obNames ว่าง (ยังไม่มี OB Co-ord ในระบบ) → fallback เห็นทั้งหมด
+      if (obNames.length === 0) return customers;
       const obSet = new Set(obNames);
       return customers.filter((c) =>
         obSet.has(c.created_by) ||

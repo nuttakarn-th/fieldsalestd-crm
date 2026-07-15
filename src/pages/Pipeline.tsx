@@ -75,17 +75,28 @@ export default function Pipeline() {
     const customerIds = new Set(customers.map((c) => c.customer_id));
     let base: typeof leads;
     if (currentRep !== "All") {
-      // Sales role — เห็นเฉพาะ leads ของตัวเอง
-      base = leads.filter((l) => l.assigned_to === currentRep);
-    } else if (isOBRole && obNames.length > 0) {
-      // OB Co-ordinator / OB Manager — เห็น leads ของ OB pool ทั้งแผนก
-      const obSet = new Set(obNames);
-      base = leads.filter((l) => obSet.has(l.assigned_to));
+      if (isOBRole) {
+        // OB Co-ordinator: เห็น leads ของตัวเอง + OB pool
+        const obSet = new Set(obNames);
+        obSet.add(currentRep); // รวมตัวเองเสมอ
+        base = leads.filter((l) => obSet.has(l.assigned_to));
+      } else {
+        // Sales — เห็นเฉพาะของตัวเอง
+        base = leads.filter((l) => l.assigned_to === currentRep);
+      }
+    } else if (isOBRole) {
+      // OB Manager: OB pool เท่านั้น (fallback เห็นทั้งหมดถ้าไม่มี OB Co-ord)
+      if (obNames.length === 0) {
+        base = leads;
+      } else {
+        const obSet = new Set(obNames);
+        base = leads.filter((l) => obSet.has(l.assigned_to));
+      }
     } else {
       // Admin, Sales Manager → เห็นทั้งหมด
       base = leads;
     }
-    // กรอง leads ที่ customer ถูกลบออกไปแล้ว (ไม่แสดง "(ลูกค้าถูกลบ)")
+    // กรอง leads ที่ customer ถูกลบออกไปแล้ว
     return base.filter((l) => customerIds.has(l.customer_id));
   }, [leads, customers, currentRep, isOBRole, obNames]);
 
