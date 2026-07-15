@@ -247,6 +247,40 @@ const obCoordinatorMenu: RoleMenu = {
   account: [],
 };
 
+const obManagerMenu: RoleMenu = {
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [
+        { title: "OB Dashboard", url: "/app/ob-dashboard", icon: LayoutDashboard },
+        { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3 },
+      ],
+    },
+    {
+      category: "CUSTOMER",
+      items: [{ title: "Leads/Customers", url: "/app/customers", icon: Users }],
+    },
+    {
+      category: "OB MANAGEMENT",
+      items: [
+        { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
+        { title: "Target Pipeline", url: "/app/targets", icon: Target },
+        { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
+        { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
+        { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },
+        { title: "Stock Analytics", url: "/app/stock-analytics", icon: TrendingUp },
+      ],
+    },
+    {
+      category: "INCENTIVE",
+      items: [
+        { title: "Incentive Pipeline", url: "/app/incentive-pipeline", icon: Trophy },
+      ],
+    },
+  ],
+  account: [],
+};
+
 const coordinatorMenu: RoleMenu = {
   sections: [
     {
@@ -302,6 +336,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
   switch (role) {
     case "Admin": return adminMenu;
     case "Sales Manager": return salesManagerMenu;
+    case "OB Manager": return obManagerMenu;
     case "Sales": return salesMenu;
     case "OB Co-ordinator": return obCoordinatorMenu;
     case "Marketing": return marketingMenu;
@@ -311,13 +346,14 @@ export function getMenuForRole(role: AppRole): RoleMenu {
 }
 
 export function canEditServices(role: AppRole): boolean {
-  return role === "Admin" || role === "Sales Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing";
+  return role === "Admin" || role === "Sales Manager" || role === "OB Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing";
 }
 
 export function roleBadgeColor(role: AppRole): string {
   switch (role) {
     case "Admin": return "from-red-500 to-rose-600";
     case "Sales Manager": return "from-amber-500 to-orange-600";
+    case "OB Manager": return "from-teal-600 to-cyan-700";
     case "Sales": return "from-pink-500 to-fuchsia-600";
     case "OB Co-ordinator": return "from-teal-500 to-emerald-600";
     case "Marketing": return "from-purple-500 to-indigo-600";

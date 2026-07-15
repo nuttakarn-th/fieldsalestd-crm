@@ -111,7 +111,8 @@ export default function Customers() {
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
   const isSalesManager = user?.role === "Sales Manager";
-  const canDirectDelete = isAdmin || isSalesManager;
+  const isOBManager = user?.role === "OB Manager";
+  const canDirectDelete = isAdmin || isSalesManager || isOBManager;
   const [q, setQ] = useState("");
   // debounce q 200ms — ป้องกัน filter 300+ รายการทุก keydown
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -755,7 +756,7 @@ export default function Customers() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              {isAdmin ? "ลบลูกค้า (Admin)" : isSalesManager ? "ลบลูกค้า (Sales Manager)" : "ขอลบลูกค้า"}
+              {isAdmin ? "ลบลูกค้า (Admin)" : isSalesManager ? "ลบลูกค้า (Sales Manager)" : isOBManager ? "ลบลูกค้า (OB Manager)" : "ขอลบลูกค้า"}
             </DialogTitle>
           </DialogHeader>
           {deleteOf && (
@@ -767,11 +768,11 @@ export default function Customers() {
               </div>
               {canDirectDelete ? (
                 <p className="text-xs text-destructive/80 leading-relaxed">
-                  ⚠️ การลบโดย {isAdmin ? "Admin" : "Sales Manager"} จะ<strong>ลบทันทีถาวร</strong> ไม่สามารถกู้คืนได้
+                  ⚠️ การลบโดย {isAdmin ? "Admin" : isSalesManager ? "Sales Manager" : "OB Manager"} จะ<strong>ลบทันทีถาวร</strong> ไม่สามารถกู้คืนได้
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  ⚠️ คำขอลบจะถูกส่งให้ <strong>Sales Manager</strong> พิจารณา
+                  ⚠️ คำขอลบจะถูกส่งให้ <strong>{user?.role === "OB Co-ordinator" ? "OB Manager" : "Sales Manager"}</strong> พิจารณา
                   ข้อมูลจะยังคงอยู่จนกว่า Manager จะอนุมัติ
                 </p>
               )}
@@ -802,6 +803,7 @@ export default function Customers() {
                     customer_name: deleteOf.full_name,
                     requested_by: user.full_name,
                     reason: deleteReason.trim() || undefined,
+                    department: user.role === "OB Co-ordinator" ? "ob" : "sales",
                   });
                 }
                 setDeleteOf(null);

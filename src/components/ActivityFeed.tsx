@@ -1,14 +1,21 @@
 /**
- * ActivityFeed.tsx — Bell icon + popover แสดง activity log สำหรับ Marketing role
+ * ActivityFeed.tsx — Bell icon + popover แสดง activity log สำหรับทุก Role
  *
- * แสดงกิจกรรมทุก Role: Tour/Period, Lead, Customer, Campaign, Booking
- * ใช้ใน MarketingLayout header
+ * - แสดงกิจกรรมทุก Role: Tour/Period, Lead, Customer, Campaign, Booking
+ * - Sales Manager เห็น pending delete requests ของฝ่าย Sales
+ * - OB Manager เห็น pending delete requests ของฝ่าย OB
+ * - Admin เห็น pending delete requests ทั้งหมด
  */
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart, Zap } from "lucide-react";
+import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock } from "lucide-react";
 import { useActivityLog, type ActivityLog } from "@/store/activityLogStore";
+import { useDeleteRequests } from "@/store/deleteRequestStore";
+import { useCurrentUser } from "@/store/authStore";
+import { useCRM } from "@/store/crmStore";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface EventMeta {
   icon:    React.ReactNode;
@@ -49,6 +56,10 @@ function relativeTime(iso: string): string {
   if (hours < 24) return `${hours} ชม.ที่แล้ว`;
   if (days < 7)   return `${days} วันที่แล้ว`;
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false });
 }
 
 function LogRow({ log }: { log: ActivityLog }) {
@@ -94,7 +105,27 @@ export function ActivityFeed() {
   const markAllRead = useActivityLog((s) => s.markAllRead);
   const init        = useActivityLog((s) => s.init);
 
+  const user          = useCurrentUser();
+  const deleteCustomer = useCRM((s) => s.deleteCustomer);
+  const { requests: deleteRequests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
+
+  // Determine role-based visibility
+  const isAdmin       = user?.role === "Admin";
+  const isSalesManager = user?.role === "Sales Manager";
+  const isOBManager   = user?.role === "OB Manager";
+  const isAnyManager  = isAdmin || isSalesManager || isOBManager;
+
+  // Filter pending requests by department for each manager type
+  const pendingRequests = deleteRequests.filter((r) => {
+    if (r.status !== "pending") return false;
+    if (isAdmin) return true;
+    if (isSalesManager) return (r.department ?? "sales") === "sales";
+    if (isOBManager) return r.department === "ob";
+    return false;
+  });
+
   useEffect(() => { const cleanup = init(); return cleanup; }, [init]);
+  useEffect(() => { if (isAnyManager) loadRequests(); }, [isAnyManager, loadRequests]);
 
   useEffect(() => {
     if (!open || !btnRef.current) return;
@@ -116,14 +147,15 @@ export function ActivityFeed() {
 
   function handleOpen() { setOpen((v) => !v); if (!open) markAllRead(); }
 
-  const badge = unreadCount > 0;
+  const totalBadge = unreadCount + (isAnyManager ? pendingRequests.length : 0);
 
   const popover = open && createPortal(
     <div
       ref={popRef}
-      style={{ position: "fixed", top: popPos.top, right: popPos.right, width: 340, zIndex: 9999, maxHeight: 480 }}
+      style={{ position: "fixed", top: popPos.top, right: popPos.right, width: 360, zIndex: 9999, maxHeight: 520 }}
       className="flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
     >
+      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-muted-foreground" />
@@ -139,12 +171,75 @@ export function ActivityFeed() {
           <X className="w-3.5 h-3.5 text-muted-foreground" />
         </button>
       </div>
-      <div className="overflow-y-auto flex-1" style={{ maxHeight: 400 }}>
-        {logs.length === 0 ? (
+
+      <div className="overflow-y-auto flex-1" style={{ maxHeight: 460 }}>
+
+        {/* ── Pending Delete Requests (Manager เท่านั้น) ── */}
+        {isAnyManager && pendingRequests.length > 0 && (
+          <div>
+            <div className="px-3 py-2 bg-destructive/5 border-b border-destructive/10">
+              <p className="text-xs font-bold text-destructive flex items-center gap-1.5">
+                <Trash2 className="w-3 h-3" />
+                คำขอลบลูกค้า รอการอนุมัติ ({pendingRequests.length} รายการ)
+              </p>
+            </div>
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="p-3 bg-destructive/5 hover:bg-destructive/10 transition border-b border-destructive/10">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-destructive/15 text-destructive flex items-center justify-center shrink-0">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[12px] font-semibold text-foreground">ขอลบ: {req.customer_name}</p>
+                      <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive px-1.5 h-4">
+                        รออนุมัติ
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      โดย <strong>{req.requested_by}</strong>
+                      {req.reason && ` · ${req.reason}`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1 mt-1">
+                      <Clock className="w-3 h-3" />{fmtTime(req.created_at)}
+                    </p>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1 bg-destructive hover:bg-destructive/90 text-white flex-1"
+                        onClick={() => approveRequest(req.id, user?.full_name ?? "Manager", deleteCustomer)}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" /> อนุมัติลบ
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1 flex-1"
+                        onClick={() => rejectRequest(req.id, user?.full_name ?? "Manager")}
+                      >
+                        <ShieldX className="w-3.5 h-3.5" /> ปฏิเสธ
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Activity Log ── */}
+        {logs.length === 0 && pendingRequests.length === 0 ? (
           <EmptyState />
-        ) : (
+        ) : logs.length === 0 ? null : (
           <div className="divide-y divide-border/50">
             {logs.map((log) => <LogRow key={log.id} log={log} />)}
+          </div>
+        )}
+
+        {/* Empty state when no logs but there were pending requests shown above */}
+        {logs.length === 0 && pendingRequests.length > 0 && (
+          <div className="py-4 text-center">
+            <p className="text-xs text-muted-foreground/60">ยังไม่มีกิจกรรมล่าสุด</p>
           </div>
         )}
       </div>
@@ -161,9 +256,9 @@ export function ActivityFeed() {
         className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
       >
         <Bell className="w-5 h-5 text-muted-foreground" />
-        {badge && (
+        {totalBadge > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 text-[9px] font-bold flex items-center justify-center text-white leading-none">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {totalBadge > 99 ? "99+" : totalBadge}
           </span>
         )}
       </button>

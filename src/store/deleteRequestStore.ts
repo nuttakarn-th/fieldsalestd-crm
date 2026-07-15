@@ -1,7 +1,8 @@
 /**
  * deleteRequestStore.ts
  * Zustand store สำหรับคำขอลบลูกค้า (2-step approval)
- * Sales -> ส่งคำขอ -> Manager อนุมัติ -> ลบจริง
+ * Sales/OB Co-ordinator -> ส่งคำขอ -> Manager อนุมัติ -> ลบจริง
+ * department: "sales" → ส่งให้ Sales Manager, "ob" → ส่งให้ OB Manager
  */
 import { create } from "zustand";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -13,6 +14,8 @@ export interface DeleteRequest {
   customer_name: string;
   requested_by: string;
   reason?: string;
+  /** "sales" = Sales Manager approves, "ob" = OB Manager approves. Defaults to "sales" for legacy records. */
+  department: "sales" | "ob";
   status: "pending" | "approved" | "rejected";
   reviewed_by?: string;
   reviewed_at?: string;
@@ -21,7 +24,7 @@ export interface DeleteRequest {
 
 export type DeleteRequestDraft = Pick<
   DeleteRequest,
-  "customer_id" | "customer_name" | "requested_by" | "reason"
+  "customer_id" | "customer_name" | "requested_by" | "reason" | "department"
 >;
 
 interface DeleteRequestState {
@@ -33,8 +36,10 @@ interface DeleteRequestState {
   approveRequest: (id: string, reviewedBy: string, deleteCustomerFn: (customerId: string) => void) => Promise<void>;
   rejectRequest: (id: string, reviewedBy: string) => Promise<void>;
 
-  /** pending ที่ยังไม่อ่าน (สำหรับ Manager badge) */
+  /** pending ทั้งหมด (สำหรับ Admin badge) */
   pendingCount: () => number;
+  /** pending แยกตาม department — "sales" → Sales Manager, "ob" → OB Manager */
+  pendingCountForDept: (dept: "sales" | "ob") => number;
 }
 
 export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
@@ -42,6 +47,7 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
   loading: false,
 
   pendingCount: () => get().requests.filter((r) => r.status === "pending").length,
+  pendingCountForDept: (dept) => get().requests.filter((r) => r.status === "pending" && (r.department ?? "sales") === dept).length,
 
   loadRequests: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
@@ -53,7 +59,12 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
     if (error) {
       console.error("[deleteRequest] load ล้มเหลว:", error);
     } else {
-      set({ requests: (data ?? []) as DeleteRequest[] });
+      // Normalize: ถ้า record เก่าไม่มี department → default "sales"
+      const normalized = ((data ?? []) as any[]).map((r) => ({
+        ...r,
+        department: (r.department ?? "sales") as "sales" | "ob",
+      })) as DeleteRequest[];
+      set({ requests: normalized });
     }
     set({ loading: false });
   },
@@ -67,7 +78,8 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
     };
     // Optimistic update
     set({ requests: [newReq, ...get().requests] });
-    toast.success("ส่งคำขอลบลูกค้าให้ Manager แล้ว รอการอนุมัติ");
+    const managerLabel = draft.department === "ob" ? "OB Manager" : "Sales Manager";
+    toast.success(`ส่งคำขอลบลูกค้าให้ ${managerLabel} แล้ว รอการอนุมัติ`);
 
     if (SUPABASE_ENABLED && supabase) {
       const { error } = await supabase

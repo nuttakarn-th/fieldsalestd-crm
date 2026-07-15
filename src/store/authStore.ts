@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 export type AppRole =
   | "Admin"
   | "Sales Manager"
+  | "OB Manager"
   | "Sales"
   | "OB Co-ordinator"
   | "Marketing"
@@ -15,6 +16,7 @@ export type AppRole =
 
 export const ALL_ROLES: AppRole[] = [
   "Sales Manager",
+  "OB Manager",
   "Sales",
   "OB Co-ordinator",
   "Marketing",
@@ -78,6 +80,7 @@ const SEED_USERS: AppUser[] = [
   { user_id: "std-005", full_name: "ณัฐกานต์", username: "mktstd", password: "mkt123", plain_password: "mkt123", role: "Marketing", email: "", tel: "", created_at: new Date(5).toISOString() },
   { user_id: "std-006", full_name: "บีม", username: "cosales1", password: "co123", plain_password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
   { user_id: "std-007", full_name: "ยา", username: "acstd", password: "ac123", plain_password: "ac123", role: "Accounting", email: "", tel: "", created_at: new Date(7).toISOString() },
+  { user_id: "std-008", full_name: "OB Manager", username: "obmgr", password: "ob123", plain_password: "ob123", role: "OB Manager", email: "", tel: "", created_at: new Date(8).toISOString() },
 ];
 
 function nextUserId(users: AppUser[]): string {
@@ -180,9 +183,9 @@ export const useAuth = create<AuthState>()(
             if (error) console.error("[supabase] เพิ่ม user ล้มเหลว:", error);
           });
           // sync ชื่อไปยัง sales_reps เพื่อไม่ให้ FK constraint ปฏิเสธ insert ของ customers/leads/routes
-          const salesRoles: AppRole[] = ["Sales", "OB Co-ordinator", "Sales Manager"];
+          const salesRoles: AppRole[] = ["Sales", "OB Co-ordinator", "Sales Manager", "OB Manager"];
           if (salesRoles.includes(u.role)) {
-            const isManager = u.role === "Sales Manager";
+            const isManager = u.role === "Sales Manager" || u.role === "OB Manager";
             supabase.from("sales_reps").upsert({
               name: newUser.full_name,
               position: u.role,
@@ -416,11 +419,11 @@ export function useCurrentUser(): AppUser | null {
   );
 }
 
-/** Returns full_names of all active users with role 'Sales', 'Sales Manager', or 'OB Co-ordinator' */
+/** Returns full_names of all active users with role 'Sales', 'Sales Manager', 'OB Manager', or 'OB Co-ordinator' */
 export function useActiveSalesNames(): string[] {
   const users = useAuth((s) => s.users);
   return users
-    .filter((u) => u.role === "Sales" || u.role === "Sales Manager" || u.role === "OB Co-ordinator")
+    .filter((u) => u.role === "Sales" || u.role === "Sales Manager" || u.role === "OB Manager" || u.role === "OB Co-ordinator")
     .map((u) => u.full_name);
 }
 
