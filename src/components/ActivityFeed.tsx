@@ -25,8 +25,8 @@ function getEventMeta(event_type: string): EventMeta {
     return {
       icon:   <Zap className="w-3.5 h-3.5" />,
       color:  "bg-yellow-500/20",
-      border: "border-yellow-400/40",
-      text:   "text-yellow-400",
+      border: "border-yellow-500/40",
+      text:   "text-yellow-600 dark:text-yellow-400",
     };
   }
   if (event_type.startsWith("tour_") || event_type.startsWith("period_") || event_type === "import_complete") {
@@ -34,7 +34,7 @@ function getEventMeta(event_type: string): EventMeta {
       icon:   <Package className="w-3.5 h-3.5" />,
       color:  "bg-violet-500/15",
       border: "border-violet-500/30",
-      text:   "text-violet-400",
+      text:   "text-violet-600 dark:text-violet-400",
     };
   }
   if (event_type.startsWith("lead_")) {
@@ -42,7 +42,7 @@ function getEventMeta(event_type: string): EventMeta {
       icon:   <Target className="w-3.5 h-3.5" />,
       color:  "bg-blue-500/15",
       border: "border-blue-500/30",
-      text:   "text-blue-400",
+      text:   "text-blue-600 dark:text-blue-400",
     };
   }
   if (event_type.startsWith("customer_")) {
@@ -50,7 +50,7 @@ function getEventMeta(event_type: string): EventMeta {
       icon:   <Users className="w-3.5 h-3.5" />,
       color:  "bg-emerald-500/15",
       border: "border-emerald-500/30",
-      text:   "text-emerald-400",
+      text:   "text-emerald-600 dark:text-emerald-400",
     };
   }
   if (event_type.startsWith("campaign_")) {
@@ -58,7 +58,7 @@ function getEventMeta(event_type: string): EventMeta {
       icon:   <Megaphone className="w-3.5 h-3.5" />,
       color:  "bg-orange-500/15",
       border: "border-orange-500/30",
-      text:   "text-orange-400",
+      text:   "text-orange-600 dark:text-orange-400",
     };
   }
   if (event_type.startsWith("seat_")) {
@@ -66,14 +66,14 @@ function getEventMeta(event_type: string): EventMeta {
       icon:   <ShoppingCart className="w-3.5 h-3.5" />,
       color:  "bg-amber-500/15",
       border: "border-amber-500/30",
-      text:   "text-amber-400",
+      text:   "text-amber-600 dark:text-amber-400",
     };
   }
   return {
     icon:   <BookOpen className="w-3.5 h-3.5" />,
-    color:  "bg-zinc-500/15",
-    border: "border-zinc-500/30",
-    text:   "text-zinc-400",
+    color:  "bg-muted/60",
+    border: "border-border",
+    text:   "text-muted-foreground",
   };
 }
 
@@ -96,7 +96,7 @@ function relativeTime(iso: string): string {
 function LogRow({ log }: { log: ActivityLog }) {
   const meta = getEventMeta(log.event_type);
   return (
-    <div className="flex gap-2.5 px-3 py-2.5 hover:bg-white/3 transition-colors">
+    <div className="flex gap-2.5 px-3 py-2.5 hover:bg-muted/40 transition-colors">
       {/* Icon badge */}
       <div className={`shrink-0 w-7 h-7 rounded-full border flex items-center justify-center mt-0.5 ${meta.color} ${meta.border} ${meta.text}`}>
         {meta.icon}
@@ -104,15 +104,15 @@ function LogRow({ log }: { log: ActivityLog }) {
 
       {/* Content */}
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold text-white/90 leading-snug truncate">
+        <p className="text-[12px] font-semibold text-foreground leading-snug truncate">
           {log.subject}
         </p>
         {log.detail && (
-          <p className="text-[11px] text-white/50 leading-snug mt-0.5 truncate">
+          <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 truncate">
             {log.detail}
           </p>
         )}
-        <p className="text-[10px] text-white/30 mt-1 leading-none">
+        <p className="text-[10px] text-muted-foreground/60 mt-1 leading-none">
           {log.actor}{log.role ? ` · ${log.role}` : ""}
           {" · "}{relativeTime(log.created_at)}
         </p>
@@ -126,11 +126,11 @@ function LogRow({ log }: { log: ActivityLog }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
-        <Bell className="w-5 h-5 text-white/20" />
+      <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+        <Bell className="w-5 h-5 text-muted-foreground/40" />
       </div>
-      <p className="text-white/40 text-sm font-medium">ยังไม่มีกิจกรรม</p>
-      <p className="text-white/25 text-xs mt-1">กิจกรรมจากทุก Role จะปรากฏที่นี่</p>
+      <p className="text-muted-foreground text-sm font-medium">ยังไม่มีกิจกรรม</p>
+      <p className="text-muted-foreground/60 text-xs mt-1">กิจกรรมจากทุก Role จะปรากฏที่นี่</p>
     </div>
   );
 }
@@ -196,25 +196,24 @@ export function ActivityFeed() {
         right:     popPos.right,
         width:     340,
         zIndex:    9999,
-        background: "#111116",
         maxHeight:  480,
       }}
-      className="flex flex-col rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+      className="flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
     >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/8">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
           <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 text-white/60" />
-            <p className="text-sm font-bold text-white/80">กิจกรรมทั้งหมด</p>
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm font-bold text-foreground">กิจกรรมทั้งหมด</p>
             {logs.length > 0 && (
-              <span className="text-[10px] text-white/30 font-medium">{logs.length} รายการ</span>
+              <span className="text-[10px] text-muted-foreground/60 font-medium">{logs.length} รายการ</span>
             )}
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/8 transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
           >
-            <X className="w-3.5 h-3.5 text-white/40" />
+            <X className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>
 
@@ -223,7 +222,7 @@ export function ActivityFeed() {
           {logs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border/50">
               {logs.map((log) => (
                 <LogRow key={log.id} log={log} />
               ))}
@@ -244,13 +243,4 @@ export function ActivityFeed() {
       >
         <Bell className="w-5 h-5 text-muted-foreground" />
         {badge && (
-          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 text-[9px] font-bold flex items-center justify-center text-white leading-none">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {popover}
-    </>
-  );
-}
+          <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 
