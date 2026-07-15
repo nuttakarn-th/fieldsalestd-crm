@@ -7,7 +7,6 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { AddCustomerFAB } from "@/components/AddCustomerFAB";
-import { TeamNotifications } from "@/components/TeamNotifications";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { UserMenu } from "@/components/UserMenu";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
@@ -94,8 +93,6 @@ export default function AppLayout() {
               <SwitchRoleBtn />
               <ChatHeaderButton />
               <ActivityFeed />
-              {/* Marketing ใช้ ActivityFeed แทน — ซ่อน TeamNotifications */}
-              {effectiveRole !== "Marketing" && <TeamNotifications />}
               <StandyBtn />
               <UserMenu />
             </div>
