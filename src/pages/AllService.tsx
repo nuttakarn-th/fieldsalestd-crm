@@ -494,7 +494,24 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const openEdit = (id: string) => {
     const t = tours.find((x) => x.id === id); if (!t) return;
     setEditId(id);
-    const dur = parseDuration(t.duration);
+    // ใช้ logic เดียวกับ list: ถ้า Period ทุกอันมี days/nights เท่ากัน → ใช้ค่านั้น
+    // เพื่อให้ฟอร์มแสดงตรงกับที่แถบโปรแกรมแสดง
+    let days = "", nights = "";
+    const allPeriods = t.periods ?? [];
+    if (allPeriods.length > 0) {
+      const firstN = allPeriods[0].nights;
+      const firstD = allPeriods[0].days;
+      if (firstN !== undefined && firstD !== undefined &&
+          allPeriods.every((p) => p.nights === firstN && p.days === firstD)) {
+        days = String(firstD);
+        nights = String(firstN);
+      }
+    }
+    // fallback: ถ้าไม่มี Period หรือ Period มีค่าไม่ตรงกัน → parse จาก t.duration
+    if (!days || !nights) {
+      const dur = parseDuration(t.duration);
+      days = dur.days; nights = dur.nights;
+    }
     setForm({
       category: t.category,
       code: t.code,
@@ -502,7 +519,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       city: t.title ? t.city : "",  // if has title, city = highlights; else city is the name
       country: t.country,
       country2: (t.countries ?? [])[1] ?? "",
-      days: dur.days, nights: dur.nights,
+      days, nights,
       tourTypes: t.tour_types ?? [],
       customType: "",
       description: t.description ?? "",
