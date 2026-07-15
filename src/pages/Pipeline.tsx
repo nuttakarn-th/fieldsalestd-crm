@@ -15,7 +15,7 @@ import {
   isLostStatus,
   type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
-import { useCurrentUser } from "@/store/authStore";
+import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 
@@ -27,6 +27,8 @@ export default function Pipeline() {
   const updateLead = useCRM((s) => s.updateLead);
   const user = useCurrentUser();
   const isOB = user?.role === "OB Co-ordinator";
+  const isOBRole = user?.role === "OB Co-ordinator" || user?.role === "OB Manager";
+  const obNames = useActiveOBNames();
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -71,10 +73,21 @@ export default function Pipeline() {
 
   const visible = useMemo(() => {
     const customerIds = new Set(customers.map((c) => c.customer_id));
-    const base = currentRep === "All" ? leads : leads.filter((l) => l.assigned_to === currentRep);
+    let base: typeof leads;
+    if (currentRep !== "All") {
+      // Sales role — เห็นเฉพาะ leads ของตัวเอง
+      base = leads.filter((l) => l.assigned_to === currentRep);
+    } else if (isOBRole && obNames.length > 0) {
+      // OB Co-ordinator / OB Manager — เห็น leads ของ OB pool ทั้งแผนก
+      const obSet = new Set(obNames);
+      base = leads.filter((l) => obSet.has(l.assigned_to));
+    } else {
+      // Admin, Sales Manager → เห็นทั้งหมด
+      base = leads;
+    }
     // กรอง leads ที่ customer ถูกลบออกไปแล้ว (ไม่แสดง "(ลูกค้าถูกลบ)")
     return base.filter((l) => customerIds.has(l.customer_id));
-  }, [leads, customers, currentRep]);
+  }, [leads, customers, currentRep, isOBRole, obNames]);
 
   const grouped = useMemo(() => {
     const map: Partial<Record<LeadStatus, Lead[]>> = {};

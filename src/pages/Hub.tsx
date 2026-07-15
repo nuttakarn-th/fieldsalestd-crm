@@ -1,7 +1,7 @@
 import { Link, Navigate } from "react-router-dom";
 import { Briefcase, Sparkles, Phone, ArrowRight, UserCog, User as UserIcon, Images, Users2, MessageSquare, PackageSearch, LayoutDashboard, Users, Megaphone, BarChart3, AlarmClock, LayoutGrid, Target, Settings2, UserPlus, TrendingUp, Bell, BookOpen, type LucideIcon } from "lucide-react";
 import { useEffect } from "react";
-import { useCurrentUser, useAuth, type AppRole } from "@/store/authStore";
+import { useCurrentUser, useAuth, useActiveOBNames, type AppRole } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
 import { applyOgMeta } from "@/lib/ogMeta";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
@@ -274,17 +274,27 @@ function MarketingCategorisedGrid() {
 }
 
 function StaleLeadBtn() {
-  const leads     = useCRM((s) => s.leads);
+  const leads      = useCRM((s) => s.leads);
   const currentRep = useCRM((s) => s.currentRep);
-  const user      = useCurrentUser();
-  const today     = new Date().toISOString().split("T")[0];
+  const user       = useCurrentUser();
+  const obNames    = useActiveOBNames();
+  const today      = new Date().toISOString().split("T")[0];
 
   const stale = leads.filter((l) => {
-    const isOpen    = l.status !== "Closed Won" && l.status !== "Closed Lost";
-    const overdue   = l.next_followup_date && l.next_followup_date < today;
-    const isMyLead  = currentRep === "All" || l.assigned_to === currentRep;
-    const isSalesRole = user?.role === "Sales";
-    return isOpen && overdue && (isSalesRole ? isMyLead : true);
+    const isOpen   = l.status !== "Closed Won" && l.status !== "Closed Lost";
+    const overdue  = l.next_followup_date && l.next_followup_date < today;
+
+    // Sales — เห็นเฉพาะ leads ของตัวเอง
+    if (user?.role === "Sales") {
+      return isOpen && overdue && l.assigned_to === currentRep;
+    }
+    // OB Co-ordinator / OB Manager — เห็น OB pool เท่านั้น
+    if (user?.role === "OB Co-ordinator" || user?.role === "OB Manager") {
+      const obSet = new Set(obNames);
+      return isOpen && overdue && obSet.has(l.assigned_to);
+    }
+    // Admin, Sales Manager → เห็นทั้งหมด
+    return isOpen && overdue;
   }).length;
 
   if (stale === 0) return null;
