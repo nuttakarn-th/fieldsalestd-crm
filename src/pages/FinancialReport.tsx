@@ -5,7 +5,7 @@ import { useCRM, formatTHB } from "@/store/crmStore";
 export default function FinancialReport() {
   const leads = useCRM((s) => s.leads);
   const stats = useMemo(() => {
-    const won = leads.filter((l) => l.status === "Closed Won");
+    const won = leads.filter((l) => l.status === "จองแล้ว");
     const total = won.reduce((s, l) => s + l.quoted_price, 0);
     const dom = won.filter((l) => l.scope === "Domestic").reduce((s, l) => s + l.quoted_price, 0);
     const intl = won.filter((l) => l.scope === "International").reduce((s, l) => s + l.quoted_price, 0);

@@ -281,7 +281,7 @@ function StaleLeadBtn() {
   const today      = new Date().toISOString().split("T")[0];
 
   const stale = leads.filter((l) => {
-    const isOpen  = l.status !== "Closed Won" && l.status !== "Closed Lost";
+    const isOpen  = l.status !== "จองแล้ว" && l.status !== "ยกเลิก";
     const overdue = l.next_followup_date && l.next_followup_date < today;
     if (!isOpen || !overdue) return false;
 

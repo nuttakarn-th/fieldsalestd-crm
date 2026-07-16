@@ -38,7 +38,7 @@ export interface Quotation {
   pax: number;
   pricePerPax: number;
   total: number;
-  status: "Draft" | "Sent" | "Negotiating" | "Won" | "Lost";
+  status: "Draft" | "Sent" | "กำลังเจรจา" | "Won" | "Lost";
   createdAt: string;
   travelMonth: string;
 }
@@ -86,12 +86,12 @@ export const VISITS: Visit[] = [
 ];
 
 export const QUOTATIONS: Quotation[] = [
-  { id: "q1", customerId: "c1", rep: "r1", program: "HQO-KMG04-DR คุนหมิง โหลวผิง ซากุระ 4 วัน 3 คืน", pax: 30, pricePerPax: 24900, total: 747000, status: "Negotiating", createdAt: today, travelMonth: "มีนาคม" },
+  { id: "q1", customerId: "c1", rep: "r1", program: "HQO-KMG04-DR คุนหมิง โหลวผิง ซากุระ 4 วัน 3 คืน", pax: 30, pricePerPax: 24900, total: 747000, status: "กำลังเจรจา", createdAt: today, travelMonth: "มีนาคม" },
   { id: "q2", customerId: "c2", rep: "r1", program: "HQO-KMG05-MU ยูนนาน กุ้ยโจว 6 วัน 5 คืน", pax: 12, pricePerPax: 38900, total: 466800, status: "Sent", createdAt: today, travelMonth: "เมษายน" },
   { id: "q3", customerId: "c4", rep: "r1", program: "HQO-CKG01-PN ฉงชิ่ง ต้าจู๋ 4 วัน 3 คืน", pax: 8, pricePerPax: 22500, total: 180000, status: "Won", createdAt: today, travelMonth: "กุมภาพันธ์" },
   { id: "q4", customerId: "c5", rep: "r2", program: "ทัวร์เชียงราย-เชียงใหม่ 4 วัน 3 คืน", pax: 25, pricePerPax: 8900, total: 222500, status: "Draft", createdAt: today, travelMonth: "พฤษภาคม" },
   { id: "q5", customerId: "c6", rep: "r1", program: "HQO-KMG03-MU คุนหมิง ต้าหลี่ ลี่เจียง 6 วัน 5 คืน", pax: 20, pricePerPax: 32900, total: 658000, status: "Sent", createdAt: today, travelMonth: "พฤษภาคม" },
-  { id: "q6", customerId: "c7", rep: "r2", program: "ทัวร์ภูเก็ต-พีพี 3 วัน 2 คืน", pax: 40, pricePerPax: 6500, total: 260000, status: "Negotiating", createdAt: today, travelMonth: "มิถุนายน" },
+  { id: "q6", customerId: "c7", rep: "r2", program: "ทัวร์ภูเก็ต-พีพี 3 วัน 2 คืน", pax: 40, pricePerPax: 6500, total: 260000, status: "กำลังเจรจา", createdAt: today, travelMonth: "มิถุนายน" },
 ];
 
 export const formatTHB = (n: number) =>

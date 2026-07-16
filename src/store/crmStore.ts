@@ -9,8 +9,14 @@ import { logActivity } from "@/lib/activityLog";
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
 export type Segment = "B2C Individual" | "B2C Group" | "B2B Agent" | "Corporate";
-export type LeadStatus = "New" | "Contacted" | "Quotation Sent" | "Negotiating" | "Closed Won" | "Closed Lost"
-  | "ตอบแล้ว" | "กำลังเจรจา" | "จองแล้ว" | "ยกเลิก"; // OB stages
+export type LeadStatus =
+  | "ใหม่"            // เดิม: New
+  | "ติดต่อแล้ว"      // เดิม: Contacted
+  | "ตอบแล้ว"         // OB: ลูกค้าตอบกลับ / ส่งโปรแกรมแล้ว
+  | "ส่ง Quote แล้ว"  // เดิม: Quotation Sent
+  | "กำลังเจรจา"     // เดิม: Negotiating (เหมือน OB)
+  | "จองแล้ว"         // เดิม: Closed Won  (เหมือน OB) ← WON
+  | "ยกเลิก";         // เดิม: Closed Lost (เหมือน OB) ← LOST
 export type Urgency = "Hot" | "Warm" | "Cold";
 export type BUType = "ทัวร์ต่างประเทศ" | "ทัวร์ภายในประเทศ" | "เช่ารถ ท่องเที่ยว" | "จองตั๋วเครื่องบิน";
 // ชื่อ SalesRep เป็น string แบบ dynamic — รองรับ user ทุกคน (ไม่ hardcode)
@@ -87,6 +93,7 @@ export interface Lead {
   next_followup_date: string | null;
   status: LeadStatus;
   quoted_price: number;
+  closed_price?: number | null; // ราคาจริง ณ วันปิดดีล (ดึงจาก period.price_per_seat × pax หรือ quoted_price)
   closed_date: string | null;
   lost_reason: string | null;
   status_note?: string | null;
@@ -259,17 +266,23 @@ export const URGENCY_OPTIONS: { val: Urgency; label: string; emoji: string }[] =
   { val: "Warm", label: "Warm (สนใจ)", emoji: "🟡" },
   { val: "Cold", label: "Cold (ถามเฉยๆ)", emoji: "🔵" },
 ];
-export const LEAD_STATUSES: LeadStatus[] = ["New", "Contacted", "Quotation Sent", "Negotiating", "Closed Won", "Closed Lost"];
-export const OB_LEAD_STATUSES: LeadStatus[] = ["ตอบแล้ว", "กำลังเจรจา", "จองแล้ว", "ยกเลิก"];
+// สถานะ Sales pipeline (ทั้งหมดเป็นภาษาไทยแล้ว)
+export const LEAD_STATUSES: LeadStatus[] = ["ใหม่", "ติดต่อแล้ว", "ส่ง Quote แล้ว", "กำลังเจรจา", "จองแล้ว", "ยกเลิก"];
+// สถานะ OB pipeline (มีขั้น "ตอบแล้ว" เพิ่มเติม)
+export const OB_LEAD_STATUSES: LeadStatus[] = ["ใหม่", "ตอบแล้ว", "กำลังเจรจา", "จองแล้ว", "ยกเลิก"];
 export const OB_STAGE_META: Record<string, { emoji: string; desc: string; color: string }> = {
-  "ตอบแล้ว":    { emoji: "📨", desc: "ส่งโปรแกรม+ราคาแล้ว รอลูกค้า",       color: "sky"     },
-  "กำลังเจรจา": { emoji: "💬", desc: "ลูกค้าตอบมา อยู่ระหว่างคุย/ต่อรอง",  color: "amber"   },
-  "จองแล้ว":    { emoji: "✅", desc: "ชำระมัดจำแล้ว ปิดการขายสำเร็จ",      color: "success" },
-  "ยกเลิก":     { emoji: "❌", desc: "ลูกค้าไม่จอง พร้อมระบุเหตุผล",        color: "red"     },
+  "ใหม่":            { emoji: "🆕", desc: "Lead ใหม่ ยังไม่ได้ติดต่อ",         color: "slate"   },
+  "ติดต่อแล้ว":      { emoji: "📞", desc: "ติดต่อลูกค้าแล้ว อยู่ระหว่างนำเสนอ", color: "sky"     },
+  "ตอบแล้ว":         { emoji: "📨", desc: "ส่งโปรแกรม+ราคาแล้ว รอลูกค้า",       color: "cyan"    },
+  "ส่ง Quote แล้ว":  { emoji: "📋", desc: "ส่งใบเสนอราคาแล้ว รอการตัดสินใจ",   color: "indigo"  },
+  "กำลังเจรจา":     { emoji: "💬", desc: "ลูกค้าตอบมา อยู่ระหว่างคุย/ต่อรอง",  color: "amber"   },
+  "จองแล้ว":         { emoji: "✅", desc: "ชำระมัดจำแล้ว ปิดการขายสำเร็จ",      color: "success" },
+  "ยกเลิก":          { emoji: "❌", desc: "ลูกค้าไม่จอง พร้อมระบุเหตุผล",        color: "red"     },
 };
 export const isObStatus = (s: LeadStatus) => (OB_LEAD_STATUSES as string[]).includes(s);
-export const isClosedStatus = (s: LeadStatus) => s === "Closed Won" || s === "จองแล้ว";
-export const isLostStatus   = (s: LeadStatus) => s === "Closed Lost" || s === "ยกเลิก";
+// จองแล้ว = Closed Won (รวมเป็นสถานะเดียวกันแล้ว)
+export const isClosedStatus = (s: LeadStatus) => s === "จองแล้ว";
+export const isLostStatus   = (s: LeadStatus) => s === "ยกเลิก";
 export const REQUIREMENT_TAGS = [
   "ทัวร์ญี่ปุ่น","ทัวร์เกาหลี","ทัวร์จีน","ทัวร์ยุโรป","ทัวร์เวียดนาม",
   "ทัวร์ไทย","เช่ารถ","จองตั๋ว","โรงแรม","ครอบครัว","กลุ่มบริษัท","ฮันนีมูน","ผู้สูงอายุ",
@@ -341,11 +354,11 @@ function generate(): { customers: Customer[]; leads: Lead[] } {
         tour_type: rand(TOUR_TYPES),
         budget_range: rand(BUDGETS),
         urgency: rand(["Hot", "Warm", "Cold"] as Urgency[]),
-        next_followup_date: ["Closed Won", "Closed Lost"].includes(status) ? null : fu.toISOString().split("T")[0],
+        next_followup_date: ["จองแล้ว", "ยกเลิก"].includes(status) ? null : fu.toISOString().split("T")[0],
         status,
-        quoted_price: status !== "New" && status !== "Contacted" ? price : 0,
-        closed_date: status === "Closed Won" ? new Date(Date.now() - Math.floor(Math.random() * 3e9)).toISOString().split("T")[0] : null,
-        lost_reason: status === "Closed Lost" ? rand(LOST_REASONS) : null,
+        quoted_price: status !== "ใหม่" && status !== "ติดต่อแล้ว" ? price : 0,
+        closed_date: status === "จองแล้ว" ? new Date(Date.now() - Math.floor(Math.random() * 3e9)).toISOString().split("T")[0] : null,
+        lost_reason: status === "ยกเลิก" ? rand(LOST_REASONS) : null,
       });
     }
   }
@@ -377,7 +390,7 @@ function generate(): { customers: Customer[]; leads: Lead[] } {
           budget_range: rand(BUDGETS),
           urgency: "Warm",
           next_followup_date: null,
-          status: "Closed Won",
+          status: "จองแล้ว",
           quoted_price: pax * ppx,
           closed_date: closed,
           lost_reason: null,
@@ -1174,7 +1187,7 @@ export const useCRM = create<CRMState>()(
       lead_category: l.lead_category ?? "บริษัทเอกชน",
       scope: l.scope ?? (l.bu_type === "ทัวร์ภายในประเทศ" ? "Domestic" : "International"),
       lead_id: id,
-      status: l.status ?? "New",
+      status: l.status ?? "ใหม่",
       closed_date: null,
       lost_reason: null,
     };
@@ -1268,11 +1281,30 @@ export const useCRM = create<CRMState>()(
     if (!lead) return;
     const prevStatus = lead.status; // capture ก่อน update
     const today = new Date().toISOString().split("T")[0];
+
+    // ── Auto closed_price: ดึงราคาจาก TourPeriod เมื่อปิดดีล ──
+    let closedPrice: number | null = lead.closed_price ?? null;
+    if (isClosedStatus(status) && !isClosedStatus(prevStatus)) {
+      if (lead.tour_id && lead.period_id) {
+        const periods = useServices.getState().tours
+          .find((t) => t.tour_id === lead.tour_id)?.periods ?? [];
+        const period = periods.find((p) => p.period_id === lead.period_id);
+        if (period?.price_per_seat) {
+          closedPrice = period.price_per_seat * lead.pax_count;
+        }
+      }
+      // Fallback: ถ้าไม่มี period ให้ใช้ quoted_price
+      if (closedPrice === null) {
+        closedPrice = lead.quoted_price || 0;
+      }
+    }
+
     const leadPatch: Partial<Lead> = {
       status,
       lost_reason: isLostStatus(status) ? lostReason ?? null : null,
       closed_date: isClosedStatus(status) || isLostStatus(status) ? today : lead.closed_date,
       next_followup_date: isClosedStatus(status) || isLostStatus(status) ? null : lead.next_followup_date,
+      closed_price: isClosedStatus(status) ? closedPrice : (isLostStatus(status) ? null : lead.closed_price),
     };
     set({
       leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...leadPatch } : l)),
@@ -1304,17 +1336,36 @@ export const useCRM = create<CRMState>()(
       }
     }
 
-    if (isClosedStatus(status)) {
-      const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
-      if (cust) {
-        const newTrips = cust.total_trips + 1;
-        const newSpend = cust.total_spend + (lead.quoted_price || 0);
-        get().updateCustomer(cust.customer_id, {
-          total_trips: newTrips,
-          total_spend: newSpend,
-          customer_tier: calcTier(newTrips, newSpend),
-        });
-      }
+    if (isClosedStatus(status) && !isClosedStatus(prevStatus)) {
+      // คำนวณ total_spend ใหม่ทั้งหมดจาก leads ที่ชนะ (ไม่ใช่ incremental)
+      const allLeads = get().leads.map((l) =>
+        l.lead_id === leadId ? { ...l, ...leadPatch } : l
+      );
+      const wonLeads = allLeads.filter(
+        (l) => l.customer_id === lead.customer_id && isClosedStatus(l.status)
+      );
+      const newTrips = wonLeads.length;
+      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
+      get().updateCustomer(lead.customer_id, {
+        total_trips: newTrips,
+        total_spend: newSpend,
+        customer_tier: calcTier(newTrips, newSpend),
+      });
+    } else if (!isClosedStatus(status) && isClosedStatus(prevStatus)) {
+      // ยกเลิกดีลที่เคย Won → คำนวณ total_spend ใหม่
+      const allLeads = get().leads.map((l) =>
+        l.lead_id === leadId ? { ...l, status } : l
+      );
+      const wonLeads = allLeads.filter(
+        (l) => l.customer_id === lead.customer_id && isClosedStatus(l.status)
+      );
+      const newTrips = wonLeads.length;
+      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
+      get().updateCustomer(lead.customer_id, {
+        total_trips: newTrips,
+        total_spend: newSpend,
+        customer_tier: calcTier(newTrips, newSpend),
+      });
     }
 
     // Activity log
@@ -1707,19 +1758,7 @@ export const useCRM = create<CRMState>()(
         // field หนักอย่าง transfer_logs / note โหลดจาก Supabase เมื่อเปิด detail
         customers: state.customers.map((c) => ({
           customer_id:       c.customer_id,
-          full_name:         c.full_name,
-          company:           c.company,
-          phone:             c.phone,
-          line_id:           c.line_id,
-          email:             c.email,
-          source:            c.source,
-          segment:           c.segment,
-          total_trips:       c.total_trips,
-          total_spend:       c.total_spend,
-          customer_tier:     c.customer_tier,
-          first_contact_date: c.first_contact_date,
-          created_by:        c.created_by,
-          transferred_to:    c.transferred_to,
+          full
           created_at:        c.created_at,
           last_contacted_at: c.last_contacted_at,
           // ไม่เก็บ: transfer_logs, note, interests, province, birthday
@@ -1757,17 +1796,13 @@ export const tierBadge = (t: Tier) => {
 
 export const statusColor = (s: LeadStatus) => {
   switch (s) {
-    case "New": return "bg-slate-100 text-slate-700 border-slate-300";
-    case "Contacted": return "bg-sky-100 text-sky-700 border-sky-300";
-    case "Quotation Sent": return "bg-indigo-100 text-indigo-700 border-indigo-300";
-    case "Negotiating": return "bg-amber-100 text-amber-700 border-amber-300";
-    case "Closed Won": return "bg-success/15 text-success border-success/30";
-    case "Closed Lost": return "bg-destructive/15 text-destructive border-destructive/30";
-    // OB stages
-    case "ตอบแล้ว":    return "bg-sky-100 text-sky-700 border-sky-300";
-    case "กำลังเจรจา": return "bg-amber-100 text-amber-700 border-amber-300";
-    case "จองแล้ว":    return "bg-success/15 text-success border-success/30";
-    case "ยกเลิก":     return "bg-red-100 text-red-700 border-red-300";
+    case "ใหม่":           return "bg-slate-100 text-slate-700 border-slate-300";
+    case "ติดต่อแล้ว":    return "bg-sky-100 text-sky-700 border-sky-300";
+    case "ตอบแล้ว":       return "bg-cyan-100 text-cyan-700 border-cyan-300";
+    case "ส่ง Quote แล้ว": return "bg-indigo-100 text-indigo-700 border-indigo-300";
+    case "กำลังเจรจา":    return "bg-amber-100 text-amber-700 border-amber-300";
+    case "จองแล้ว":       return "bg-success/15 text-success border-success/30";
+    case "ยกเลิก":        return "bg-destructive/15 text-destructive border-destructive/30";
   }
 };
 

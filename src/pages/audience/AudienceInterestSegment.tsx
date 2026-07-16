@@ -169,7 +169,7 @@ export default function AudienceInterestSegment() {
           onChange={(e) => setFilterTier(e.target.value)}
         >
           <option value="All">ทุก Tier</option>
-          {["New","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
+          {["ใหม่","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
         </select>
         <div className="flex items-center gap-1.5 bg-muted/40 border rounded-xl px-3 py-2">
           <Users className="w-4 h-4 text-teal-500" />

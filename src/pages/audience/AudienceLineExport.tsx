@@ -65,7 +65,7 @@ export default function AudienceLineExport() {
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
-        {(["New","Regular","VIP"] as const).map((tier) => {
+        {(["ใหม่","Regular","VIP"] as const).map((tier) => {
           const count = filtered.filter((c) => c.customer_tier === tier).length;
           return (
             <div key={tier} className="bg-card border rounded-xl p-3 text-center">
@@ -84,7 +84,7 @@ export default function AudienceLineExport() {
         </div>
         <select className="text-sm border rounded-lg px-3 py-2 bg-background" value={filterTier} onChange={(e) => setFilterTier(e.target.value)}>
           <option value="All">ทุก Tier</option>
-          {["New","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
+          {["ใหม่","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
         </select>
         <select className="text-sm border rounded-lg px-3 py-2 bg-background" value={filterInterest} onChange={(e) => setFilterInterest(e.target.value)}>
           <option value="All">ทุก Interest</option>

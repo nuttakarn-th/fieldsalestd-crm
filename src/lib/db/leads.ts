@@ -58,11 +58,11 @@ export async function updateLeadStatus(
   const today = new Date().toISOString().split("T")[0];
   return updateLead(leadId, {
     status,
-    lost_reason: status === "Closed Lost" ? lostReason ?? null : null,
+    lost_reason: status === "ยกเลิก" ? lostReason ?? null : null,
     closed_date:
-      status === "Closed Won" || status === "Closed Lost" ? today : null,
+      status === "จองแล้ว" || status === "ยกเลิก" ? today : null,
     next_followup_date:
-      status === "Closed Won" || status === "Closed Lost" ? null : undefined,
+      status === "จองแล้ว" || status === "ยกเลิก" ? null : undefined,
   } as Partial<Lead>);
 }
 

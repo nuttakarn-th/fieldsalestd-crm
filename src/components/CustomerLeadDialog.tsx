@@ -118,7 +118,7 @@ export function CustomerLeadDialog({
   // ── Smart Status ─────────────────────────────────────────────────────────────
   const smartStatus = useMemo<LeadStatus>(() => {
     if (isOB) return "ตอบแล้ว";
-    if (phone.trim() || lineId.trim()) return "Contacted";
+    if (phone.trim() || lineId.trim()) return "ติดต่อแล้ว";
     return "New";
   }, [isOB, phone, lineId]);
   const [statusOverride, setStatusOverride] = useState<LeadStatus | "__auto__">("__auto__");

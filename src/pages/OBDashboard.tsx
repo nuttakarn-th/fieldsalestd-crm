@@ -202,7 +202,7 @@ export default function OBDashboard() {
       activeLeads
         .filter(
           (l) =>
-            (l.status === "Negotiating" || l.status === "กำลังเจรจา" || l.status === "Quotation Sent") &&
+            (l.status === "กำลังเจรจา" || l.status === "กำลังเจรจา" || l.status === "ส่ง Quote แล้ว") &&
             (!l.next_followup_date || l.next_followup_date >= today),
         )
         .slice(0, 5),
@@ -231,10 +231,10 @@ export default function OBDashboard() {
   const funnelCounts = useMemo(() => {
     const counts = { new: 0, contacted: 0, quotation: 0, negotiating: 0, won: 0 };
     obLeads.forEach((l) => {
-      if (l.status === "New")                                 counts.new++;
-      else if (l.status === "Contacted" || l.status === "ตอบแล้ว") counts.contacted++;
-      else if (l.status === "Quotation Sent")                 counts.quotation++;
-      else if (l.status === "Negotiating" || l.status === "กำลังเจรจา") counts.negotiating++;
+      if (l.status === "ใหม่")                                 counts.new++;
+      else if (l.status === "ติดต่อแล้ว" || l.status === "ตอบแล้ว") counts.contacted++;
+      else if (l.status === "ส่ง Quote แล้ว")                 counts.quotation++;
+      else if (l.status === "กำลังเจรจา" || l.status === "กำลังเจรจา") counts.negotiating++;
       else if (isClosedStatus(l.status))                      counts.won++;
     });
     return counts;

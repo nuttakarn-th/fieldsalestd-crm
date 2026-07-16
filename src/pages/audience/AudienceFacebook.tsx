@@ -75,7 +75,7 @@ export default function AudienceFacebook() {
         </div>
         <select className="text-sm border rounded-lg px-3 py-2 bg-background" value={filterTier} onChange={(e) => setFilterTier(e.target.value)}>
           <option value="All">ทุก Tier</option>
-          {["New","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
+          {["ใหม่","Regular","VIP"].map((t) => <option key={t}>{t}</option>)}
         </select>
         <button onClick={doExport} disabled={filtered.length === 0} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 transition-all">
           <Download className="w-4 h-4" /> Export CSV ({filtered.length})

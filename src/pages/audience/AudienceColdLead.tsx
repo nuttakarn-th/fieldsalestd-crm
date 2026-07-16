@@ -30,7 +30,7 @@ export default function AudienceColdLead() {
   const coldLeads = useMemo(() => {
     return leads
       .filter((l) => {
-        if (l.status === "Closed Won" || l.status === "Closed Lost") return false;
+        if (l.status === "จองแล้ว" || l.status === "ยกเลิก") return false;
         if (isSales && l.assigned_to !== user?.full_name) return false;
         // ใช้ next_followup_date หรือ lead_id timestamp เป็น proxy สำหรับ last activity
         const lastActivity = l.next_followup_date

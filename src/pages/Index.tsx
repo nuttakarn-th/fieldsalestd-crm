@@ -47,8 +47,8 @@ export default function Index() {
   }, [repScoped, range]);
 
   const metrics = useMemo(() => {
-    const won = filtered.filter((l) => l.status === "Closed Won");
-    const active = filtered.filter((l) => !["Closed Won", "Closed Lost"].includes(l.status));
+    const won = filtered.filter((l) => l.status === "จองแล้ว");
+    const active = filtered.filter((l) => !["จองแล้ว", "ยกเลิก"].includes(l.status));
     const revenue = won.reduce((s, l) => s + (l.quoted_price || 0), 0);
     const pipeline = active.reduce((s, l) => s + (l.quoted_price || 0), 0);
     const winRate = filtered.length > 0 ? ((won.length / filtered.length) * 100).toFixed(1) : "0";
@@ -59,7 +59,7 @@ export default function Index() {
   }, [filtered]);
 
   const top5 = useMemo(() =>
-    [...filtered].filter((l) => l.status === "Closed Won").sort((a, b) => b.quoted_price - a.quoted_price).slice(0, 5),
+    [...filtered].filter((l) => l.status === "จองแล้ว").sort((a, b) => b.quoted_price - a.quoted_price).slice(0, 5),
   [filtered]);
 
   const cust = (id: string) => customers.find((c) => c.customer_id === id);
@@ -70,7 +70,7 @@ export default function Index() {
     const reps = currentRep === "All" ? SALES_REPS : [currentRep];
     return reps.map((rep) => {
       const t = targets.find((x) => x.month === monthKey && x.rep === rep);
-      const myWon = leads.filter((l) => l.assigned_to === rep && l.status === "Closed Won" && l.closed_date?.startsWith(monthKey));
+      const myWon = leads.filter((l) => l.assigned_to === rep && l.status === "จองแล้ว" && l.closed_date?.startsWith(monthKey));
       const dom = myWon.filter((l) => l.scope === "Domestic");
       const intl = myWon.filter((l) => l.scope === "International");
       return {
@@ -161,7 +161,7 @@ export default function Index() {
                   <span className="w-32 text-xs text-muted-foreground truncate">{d.status}</span>
                   <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
                     <div
-                      className={`h-full transition-all ${d.status === "Closed Won" ? "bg-success" : d.status === "Closed Lost" ? "bg-destructive" : "bg-primary"}`}
+                      className={`h-full transition-all ${d.status === "จองแล้ว" ? "bg-success" : d.status === "ยกเลิก" ? "bg-destructive" : "bg-primary"}`}
                       style={{ width: `${Math.max(pct, 2)}%` }}
                     />
                   </div>

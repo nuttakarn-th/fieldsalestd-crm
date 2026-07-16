@@ -39,9 +39,9 @@ function monthOptions() {
 function stageKey(l: Lead): "new" | "contacted" | "quotation" | "negotiating" | "won" | "lost" {
   if (isClosedStatus(l.status)) return "won";
   if (isLostStatus(l.status))   return "lost";
-  if (l.status === "Negotiating" || l.status === "กำลังเจรจา") return "negotiating";
-  if (l.status === "Quotation Sent") return "quotation";
-  if (l.status === "Contacted" || l.status === "ตอบแล้ว") return "contacted";
+  if (l.status === "กำลังเจรจา" || l.status === "กำลังเจรจา") return "negotiating";
+  if (l.status === "ส่ง Quote แล้ว") return "quotation";
+  if (l.status === "ติดต่อแล้ว" || l.status === "ตอบแล้ว") return "contacted";
   return "new";
 }
 
@@ -99,7 +99,7 @@ function PipelineFunnel({ stages, color }: FunnelProps) {
   const lostColor = "text-red-500";
   const STAGE_LABELS = [
     { key: "new",         label: "New" },
-    { key: "contacted",   label: "Contacted" },
+    { key: "contacted",   label: "ติดต่อแล้ว" },
     { key: "quotation",   label: "Quotation" },
     { key: "negotiating", label: "Negotiate" },
     { key: "won",         label: "Won" },

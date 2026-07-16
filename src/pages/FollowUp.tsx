@@ -40,7 +40,7 @@ export default function FollowUp() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  const [stStatus, setStStatus] = useState<LeadStatus>("Contacted");
+  const [stStatus, setStStatus] = useState<LeadStatus>("ติดต่อแล้ว");
   const [stNote, setStNote] = useState("");
   const [stNext, setStNext] = useState<Date | undefined>(undefined);
   const [stLost, setStLost] = useState<string>(LOST_REASONS[0]);
@@ -55,9 +55,9 @@ export default function FollowUp() {
 
   const saveStatus = () => {
     if (!statusLead) return;
-    const closed = ["Closed Won", "Closed Lost"].includes(stStatus);
-    if (stStatus === "Closed Lost") {
-      updateLeadStatus(statusLead.lead_id, "Closed Lost", stLost);
+    const closed = ["จองแล้ว", "ยกเลิก"].includes(stStatus);
+    if (stStatus === "ยกเลิก") {
+      updateLeadStatus(statusLead.lead_id, "ยกเลิก", stLost);
     } else if (stStatus !== statusLead.status) {
       updateLeadStatus(statusLead.lead_id, stStatus);
     }
@@ -75,7 +75,7 @@ export default function FollowUp() {
   };
 
   const visible = useMemo(() => leads.filter((l) =>
-    l.next_followup_date && !["Closed Won", "Closed Lost"].includes(l.status) &&
+    l.next_followup_date && !["จองแล้ว", "ยกเลิก"].includes(l.status) &&
     (currentRep === "All" || l.assigned_to === currentRep),
   ), [leads, currentRep]);
 
@@ -251,7 +251,7 @@ export default function FollowUp() {
                   </SelectContent>
                 </Select>
               </div>
-              {stStatus === "Closed Lost" && (
+              {stStatus === "ยกเลิก" && (
                 <div>
                   <Label>เหตุผลที่เสียดีล</Label>
                   <Select value={stLost} onValueChange={setStLost}>
@@ -266,7 +266,7 @@ export default function FollowUp() {
                 <Label>บันทึกรายละเอียด</Label>
                 <VoiceTextarea rows={3} value={stNote} onChange={(e) => setStNote(e.target.value)} placeholder="สรุปการคุย, ข้อตกลง, สิ่งที่ลูกค้าต้องการ..." />
               </div>
-              {!["Closed Won", "Closed Lost"].includes(stStatus) && (
+              {!["จองแล้ว", "ยกเลิก"].includes(stStatus) && (
                 <div>
                   <Label>นัด Follow up รอบถัดไป</Label>
                   <Popover>

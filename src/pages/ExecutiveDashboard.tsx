@@ -97,7 +97,7 @@ export default function ExecutiveDashboard() {
     return out.length ? out : lastNMonths(6);
   }, [repRange.from, repRange.to]);
 
-  const wonLeads = useMemo(() => leads.filter((l) => l.status === "Closed Won" && l.closed_date), [leads]);
+  const wonLeads = useMemo(() => leads.filter((l) => l.status === "จองแล้ว" && l.closed_date), [leads]);
 
   // Chart 1: Total / Domestic / International — Sales + Pax per month
   const overview = useMemo(() => {
@@ -156,7 +156,7 @@ export default function ExecutiveDashboard() {
   const categoryStats = useMemo(() => {
     return LEAD_CATEGORIES.map((cat) => {
       const inCat = sourceFiltered.filter((l) => l.lead_category === cat);
-      const won = inCat.filter((l) => l.status === "Closed Won");
+      const won = inCat.filter((l) => l.status === "จองแล้ว");
       return {
         category: cat,
         leads: inCat.length,
@@ -173,9 +173,9 @@ export default function ExecutiveDashboard() {
       const periodLeads = rankRange.from
         ? repLeads.filter((l) => inRange(l.closed_date ?? l.next_followup_date, rankRange))
         : repLeads;
-      const won = periodLeads.filter((l) => l.status === "Closed Won");
-      const lost = periodLeads.filter((l) => l.status === "Closed Lost");
-      const quoted = periodLeads.filter((l) => ["Quotation Sent", "Negotiating", "Closed Won", "Closed Lost"].includes(l.status));
+      const won = periodLeads.filter((l) => l.status === "จองแล้ว");
+      const lost = periodLeads.filter((l) => l.status === "ยกเลิก");
+      const quoted = periodLeads.filter((l) => ["ส่ง Quote แล้ว", "กำลังเจรจา", "จองแล้ว", "ยกเลิก"].includes(l.status));
       const revenue = won.reduce((s, l) => s + l.quoted_price, 0);
       const pax = won.reduce((s, l) => s + l.pax_count, 0);
       const conversion = periodLeads.length > 0 ? (won.length / periodLeads.length) * 100 : 0;

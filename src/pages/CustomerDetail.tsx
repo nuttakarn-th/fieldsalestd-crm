@@ -57,7 +57,7 @@ function LeadCard({ lead }: { lead: Lead }) {
             <span>💰 {lead.budget_range}</span>
             {lead.quoted_price > 0 && <span className="font-semibold text-primary">฿ {formatTHB(lead.quoted_price)}</span>}
           </div>
-          {lead.next_followup_date && !["Closed Won", "Closed Lost"].includes(lead.status) && (
+          {lead.next_followup_date && !["จองแล้ว", "ยกเลิก"].includes(lead.status) && (
             <div className="flex items-center gap-1 text-[11px] mt-0.5 text-amber-700">
               <CalendarDays className="w-3 h-3" /> Follow up: {new Date(lead.next_followup_date).toLocaleDateString("th-TH", { dateStyle: "medium" })}
             </div>
@@ -244,7 +244,7 @@ export default function CustomerDetail() {
     .filter((l) => l.customer_id === customerId)
     .sort((a, b) => {
       const order: Record<string, number> = {
-        "New": 0, "Contacted": 1, "Quotation Sent": 2, "Negotiating": 3, "Closed Won": 4, "Closed Lost": 5,
+        "New": 0, "ติดต่อแล้ว": 1, "ส่ง Quote แล้ว": 2, "กำลังเจรจา": 3, "จองแล้ว": 4, "ยกเลิก": 5,
       };
       return (order[a.status] ?? 6) - (order[b.status] ?? 6);
     });
@@ -265,9 +265,9 @@ export default function CustomerDetail() {
     );
   }
 
-  const wonLeads      = customerLeads.filter((l) => l.status === "Closed Won");
+  const wonLeads      = customerLeads.filter((l) => l.status === "จองแล้ว");
   const lostLeads     = customerLeads.filter((l) => isLostStatus(l.status));
-  const activeLeads   = customerLeads.filter((l) => !isLostStatus(l.status) && l.status !== "Closed Won");
+  const activeLeads   = customerLeads.filter((l) => !isLostStatus(l.status) && l.status !== "จองแล้ว");
   const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
   const activeQuoted  = activeLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
   const filteredLeads = leadFilter === "all" ? customerLeads : customerLeads.filter((l) => l.status === leadFilter);

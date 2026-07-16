@@ -27,18 +27,18 @@ function obStatusMeta(status: string) {
   switch (status) {
     case "New":
       return { label: "New",           color: "bg-slate-100 text-slate-600 border-slate-200",  dot: "bg-slate-400"   };
-    case "Contacted":
+    case "ติดต่อแล้ว":
     case "ตอบแล้ว":
       return { label: "ตอบแล้ว",        color: "bg-blue-100 text-blue-700 border-blue-200",     dot: "bg-blue-500"    };
-    case "Quotation Sent":
+    case "ส่ง Quote แล้ว":
       return { label: "Sent Quotation", color: "bg-violet-100 text-violet-700 border-violet-200", dot: "bg-violet-500" };
-    case "Negotiating":
+    case "กำลังเจรจา":
     case "กำลังเจรจา":
       return { label: "กำลังเจรจา",     color: "bg-amber-100 text-amber-700 border-amber-200",  dot: "bg-amber-500"   };
-    case "Closed Won":
+    case "จองแล้ว":
     case "จองแล้ว":
       return { label: "จองแล้ว ✅",     color: "bg-emerald-100 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
-    case "Closed Lost":
+    case "ยกเลิก":
     case "ยกเลิก":
       return { label: "ยกเลิก",         color: "bg-red-100 text-red-600 border-red-200",         dot: "bg-red-400"     };
     default:
@@ -48,10 +48,10 @@ function obStatusMeta(status: string) {
 
 // Priority sort: active deals first, then new, then closed/lost
 function leadPriority(status: string): number {
-  if (status === "กำลังเจรจา" || status === "Negotiating") return 0;
-  if (status === "Quotation Sent")                           return 1;
-  if (status === "ตอบแล้ว" || status === "Contacted")       return 2;
-  if (status === "New")                                      return 3;
+  if (status === "กำลังเจรจา" || status === "กำลังเจรจา") return 0;
+  if (status === "ส่ง Quote แล้ว")                           return 1;
+  if (status === "ตอบแล้ว" || status === "ติดต่อแล้ว")       return 2;
+  if (status === "ใหม่")                                      return 3;
   if (isClosedStatus(status))                                return 4;
   if (isLostStatus(status))                                  return 5;
   return 6;
@@ -59,9 +59,9 @@ function leadPriority(status: string): number {
 
 // STATUS filter tabs
 const STATUS_GROUPS = [
-  { key: "active", label: "Active",     statuses: ["New", "Contacted", "ตอบแล้ว", "Quotation Sent", "Negotiating", "กำลังเจรจา"] },
-  { key: "won",    label: "จองแล้ว ✅", statuses: ["Closed Won", "จองแล้ว"] },
-  { key: "lost",   label: "ยกเลิก",    statuses: ["Closed Lost", "ยกเลิก"] },
+  { key: "active", label: "Active",     statuses: ["ใหม่", "ติดต่อแล้ว", "ตอบแล้ว", "ส่ง Quote แล้ว", "กำลังเจรจา", "กำลังเจรจา"] },
+  { key: "won",    label: "จองแล้ว ✅", statuses: ["จองแล้ว", "จองแล้ว"] },
+  { key: "lost",   label: "ยกเลิก",    statuses: ["ยกเลิก", "ยกเลิก"] },
   { key: "all",    label: "ทั้งหมด",   statuses: [] },
 ] as const;
 
@@ -211,7 +211,7 @@ export default function MarketingOBLeads() {
     const result: Record<string, number> = { active: 0, won: 0, lost: 0, all: obCustomers.length };
     obCustomers.forEach((c) => {
       const s = latestLeadByCustomer.get(c.customer_id)?.status ?? "New";
-      if (["New","Contacted","ตอบแล้ว","Quotation Sent","Negotiating","กำลังเจรจา"].includes(s)) result.active++;
+      if (["ใหม่","ติดต่อแล้ว","ตอบแล้ว","ส่ง Quote แล้ว","กำลังเจรจา","กำลังเจรจา"].includes(s)) result.active++;
       else if (isClosedStatus(s)) result.won++;
       else if (isLostStatus(s))   result.lost++;
     });

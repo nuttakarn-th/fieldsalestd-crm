@@ -38,7 +38,7 @@ export default function Pipeline() {
 
   // Update-Status dialog state
   const [statusOpen, setStatusOpen] = useState<Lead | null>(null);
-  const [newStatus, setNewStatus] = useState<LeadStatus>("New"); // overridden by isOB below
+  const [newStatus, setNewStatus] = useState<LeadStatus>("ใหม่"); // overridden by isOB below
   const [newNote, setNewNote] = useState("");
   const [newFollowup, setNewFollowup] = useState("");
 
@@ -124,7 +124,7 @@ export default function Pipeline() {
 
   const confirmLost = () => {
     if (pendingLost) {
-      const lostStatus = isOB ? "ยกเลิก" : "Closed Lost";
+      const lostStatus = isOB ? "ยกเลิก" : "ยกเลิก";
       updateLeadStatus(pendingLost, lostStatus, reason);
       toast.error(`${lostStatus}: ${reason}`);
     }
@@ -234,7 +234,7 @@ export default function Pipeline() {
           </Select>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingLost(null)}>ยกเลิก</Button>
-            <Button variant="destructive" onClick={confirmLost}>{isOB ? "ยืนยันการยกเลิก" : "ยืนยัน Closed Lost"}</Button>
+            <Button variant="destructive" onClick={confirmLost}>{isOB ? "ยืนยันการยกเลิก" : "ยืนยันยกเลิก"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

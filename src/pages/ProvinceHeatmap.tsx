@@ -133,7 +133,7 @@ export default function ProvinceHeatmap() {
       const cust = customers.find((c) => c.customer_id === l.customer_id);
       if (cust?.province && map[cust.province]) {
         map[cust.province].leads += 1;
-        if (l.status === "Closed Won") {
+        if (l.status === "จองแล้ว") {
           map[cust.province].revenue += l.quoted_price || 0;
         }
       }

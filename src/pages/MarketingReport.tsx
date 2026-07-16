@@ -26,7 +26,7 @@ export default function MarketingReport() {
 
   // ── Closed Won leads with valid timestamps ──
   const wonLeads = leads.filter(
-    (l) => l.status === "Closed Won" && l.closed_date && leadCreatedAt(l)
+    (l) => l.status === "จองแล้ว" && l.closed_date && leadCreatedAt(l)
   );
 
   // ── Avg. Time to Close (overall) ──
@@ -75,14 +75,14 @@ export default function MarketingReport() {
 
   // ── Conversion rate ──
   const totalLeads = leads.length;
-  const wonCount = leads.filter((l) => l.status === "Closed Won").length;
-  const lostCount = leads.filter((l) => l.status === "Closed Lost").length;
+  const wonCount = leads.filter((l) => l.status === "จองแล้ว").length;
+  const lostCount = leads.filter((l) => l.status === "ยกเลิก").length;
   const convRate = totalLeads > 0 ? ((wonCount / totalLeads) * 100).toFixed(1) : "0.0";
 
   // ── Funnel stage counts ──
   const stageCounts: Record<string, number> = {
-    New: 0, Contacted: 0, "Quotation Sent": 0,
-    Negotiating: 0, "Closed Won": 0, "Closed Lost": 0,
+    New: 0, Contacted: 0, "ส่ง Quote แล้ว": 0,
+    Negotiating: 0, "จองแล้ว": 0, "ยกเลิก": 0,
   };
   leads.forEach((l) => { stageCounts[l.status] = (stageCounts[l.status] || 0) + 1; });
 
@@ -91,10 +91,10 @@ export default function MarketingReport() {
   const stageColors: Record<string, string> = {
     New: "bg-slate-400",
     Contacted: "bg-blue-400",
-    "Quotation Sent": "bg-amber-400",
+    "ส่ง Quote แล้ว": "bg-amber-400",
     Negotiating: "bg-orange-400",
-    "Closed Won": "bg-emerald-500",
-    "Closed Lost": "bg-red-400",
+    "จองแล้ว": "bg-emerald-500",
+    "ยกเลิก": "bg-red-400",
   };
 
   const repColors = ["bg-purple-500", "bg-indigo-500", "bg-violet-500"];

@@ -536,7 +536,7 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
       const tiers: Record<string, number> = {};
       ctx.customers.forEach(c => { tiers[c.customer_tier] = (tiers[c.customer_tier] || 0) + 1; });
       return {
-        text: `ลูกค้าทั้งหมด **${fmt(total)} ราย**\n• 👑 VIP: ${tiers["VIP"] || 0} ราย\n• 🔄 Regular: ${tiers["Regular"] || 0} ราย\n• 🆕 New: ${tiers["New"] || 0} ราย\n\nต้องการดูรายชื่อด้วยไหมครับ?`,
+        text: `ลูกค้าทั้งหมด **${fmt(total)} ราย**\n• 👑 VIP: ${tiers["VIP"] || 0} ราย\n• 🔄 Regular: ${tiers["Regular"] || 0} ราย\n• 🆕 New: ${tiers["ใหม่"] || 0} ราย\n\nต้องการดูรายชื่อด้วยไหมครับ?`,
         requiresSensitiveApproval: true,
         pendingData: ctx.customers,
         smartCards: sc,
@@ -562,9 +562,9 @@ export function standyRespond(text: string, ctx: StandyContext): StandyResponse 
     case "lead_stats": {
       if (!ctx.leads) return { text: "กรุณาเข้าสู่ระบบก่อนถามข้อมูล Pipeline ครับ" };
       const total = ctx.leads.length;
-      const won   = ctx.leads.filter(l => l.status === "Closed Won");
-      const lost  = ctx.leads.filter(l => l.status === "Closed Lost");
-      const active= ctx.leads.filter(l => !["Closed Won","Closed Lost"].includes(l.status));
+      const won   = ctx.leads.filter(l => l.status === "จองแล้ว");
+      const lost  = ctx.leads.filter(l => l.status === "ยกเลิก");
+      const active= ctx.leads.filter(l => !["จองแล้ว","ยกเลิก"].includes(l.status));
       const wonVal = won.reduce((s,l) => s + l.quoted_price, 0);
       return {
         text: `**Pipeline** รวม ${fmt(total)} deals\n• ✅ Won: ${won.length} deals — ฿${fmt(wonVal)}\n• 🔄 Active: ${active.length} deals\n• ❌ Lost: ${lost.length} deals\n\nต้องการดูรายละเอียด deal ไหนเป็นพิเศษครับ?`,
