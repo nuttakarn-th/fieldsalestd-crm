@@ -48,16 +48,11 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    category: "OUTBOUND LEADS",
+    category: "LEADS",
     items: [
       { label: "OB Leads",          icon: Users2,        to: "/marketing/ob-leads"                },
-    ],
-  },
-  {
-    category: "SALES LEADS",
-    items: [
       { label: "Sales Leads",       icon: Users,         to: "/marketing/sales-leads"             },
-      { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/marketing/customers"               },
+      { label: "All Leads",         icon: UserPlus,      to: "/marketing/customers"               },
       { label: "Marketing Leads",   icon: Target,        to: "/marketing/marketing-leads"         },
     ],
   },
@@ -77,8 +72,8 @@ const NAV_SECTIONS: NavSection[] = [
 
 // Category label colors
 function catColor(category: string) {
-  if (category === "OUTBOUND LEADS") return "text-purple-500/70";
-  if (category === "SALES LEADS")    return "text-blue-500/70";
+  if (category === "LEADS")     return "text-purple-500/70";
+  if (category === "CAMPAIGNS") return "text-pink-500/70";
   return "text-muted-foreground/50";
 }
 
