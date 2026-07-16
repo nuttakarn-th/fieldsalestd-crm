@@ -44,13 +44,13 @@ const NAV_SECTIONS: NavSection[] = [
   {
     category: "OUTBOUND LEADS",
     items: [
-      { label: "OB Leads",          icon: Users2,        to: "/marketing/customers?dept=ob"       },
+      { label: "OB Leads",          icon: Users2,        to: "/marketing/ob-leads"                },
     ],
   },
   {
     category: "SALES LEADS",
     items: [
-      { label: "Sales Leads",       icon: Users,         to: "/marketing/customers?dept=sales"    },
+      { label: "Sales Leads",       icon: Users,         to: "/marketing/sales-leads"             },
       { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/marketing/customers"               },
       { label: "Marketing Leads",   icon: Target,        to: "/app/marketing-leads"               },
     ],

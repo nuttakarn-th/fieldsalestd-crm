@@ -79,6 +79,8 @@ import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
 import MarketingLayout from "./pages/MarketingLayout.tsx";
 import MarketingPortal from "./pages/MarketingPortal.tsx";
+import MarketingOBLeads from "./pages/MarketingOBLeads.tsx";
+import MarketingSalesLeads from "./pages/MarketingSalesLeads.tsx";
 import MyTasksPage from "./pages/MyTasksPage.tsx";
 import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
@@ -159,6 +161,8 @@ const App = () => (
           <Route path="/marketing" element={<RouteGuard><MarketingLayout /></RouteGuard>}>
             <Route index element={<MarketingPortal />} />
             <Route path="tasks" element={<MyTasksPage />} />
+            <Route path="ob-leads" element={<MarketingOBLeads />} />
+            <Route path="sales-leads" element={<MarketingSalesLeads />} />
             <Route path="customers" element={<Customers />} />
             <Route path="customers/:customerId" element={<CustomerDetail />} />
           </Route>
