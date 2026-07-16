@@ -1182,19 +1182,64 @@ export const useCRM = create<CRMState>()(
 
   addLead: (l) => {
     const id = `L${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
+    const today = new Date().toISOString().split("T")[0];
+    const initStatus = l.status ?? "ใหม่";
+    const isWon = isClosedStatus(initStatus);
+
+    // ── Auto closed_price เมื่อสร้าง Lead ด้วยสถานะจองแล้วทันที ──
+    let closedPrice = l.closed_price ?? null;
+    if (isWon && closedPrice == null) {
+      if (l.tour_id && l.period_id) {
+        const periods = useServices.getState().tours
+          .find((t) => t.tour_id === l.tour_id)?.periods ?? [];
+        const period = periods.find((p) => p.period_id === l.period_id);
+        if (period?.price_per_seat) closedPrice = period.price_per_seat * l.pax_count;
+      }
+      if (closedPrice == null) closedPrice = l.quoted_price || 0;
+    }
+
     const newL: Lead = {
       ...l,
       lead_category: l.lead_category ?? "บริษัทเอกชน",
       scope: l.scope ?? (l.bu_type === "ทัวร์ภายในประเทศ" ? "Domestic" : "International"),
       lead_id: id,
-      status: l.status ?? "ใหม่",
-      closed_date: null,
+      status: initStatus,
+      closed_date: isWon || isLostStatus(initStatus) ? today : null,
       lost_reason: null,
+      closed_price: isWon ? closedPrice : (l.closed_price ?? null),
     };
     set({ leads: [newL, ...get().leads] });
+
     // Auto-update last_contacted_at on the linked customer
     const now = new Date().toISOString();
     get().updateCustomer(l.customer_id, { last_contacted_at: now });
+
+    // ── ถ้าสร้างมาพร้อมสถานะจองแล้ว → อัป total_spend + deduct quota ทันที ──
+    if (isWon) {
+      // 1. อัป customer stats
+      const allLeads = get().leads; // รวม newL แล้ว (set เสร็จแล้ว)
+      const wonLeads = allLeads.filter(
+        (wl) => wl.customer_id === l.customer_id && isClosedStatus(wl.status)
+      );
+      const newTrips = wonLeads.length;
+      const newSpend = wonLeads.reduce((sum, wl) => sum + (wl.closed_price || wl.quoted_price || 0), 0);
+      get().updateCustomer(l.customer_id, {
+        total_trips: newTrips,
+        total_spend: newSpend,
+        customer_tier: calcTier(newTrips, newSpend),
+      });
+      // 2. ตัดที่นั่ง period
+      const isTour = l.bu_type === "ทัวร์ต่างประเทศ" || l.bu_type === "ทัวร์ภายในประเทศ";
+      if (isTour && l.tour_id) {
+        const { adjustQuota, adjustPeriodQuota } = useServices.getState();
+        if (l.period_id) {
+          adjustPeriodQuota(l.tour_id, l.period_id, -l.pax_count);
+        } else {
+          adjustQuota(l.tour_id, -l.pax_count);
+        }
+      }
+    }
+
     if (SUPABASE_ENABLED && supabase) {
       supabase.from("leads").insert(newL).then(({ error }) => {
         if (error) console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);

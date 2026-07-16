@@ -369,6 +369,13 @@ export function CustomerLeadDialog({
         ? `จองตั๋ว: ${flightDetail}`
         : (() => { const f = flights.find((x) => x.id === flightServiceId); return f ? `จองตั๋ว: ${f.airline} ${f.route}` : flightDetail; })();
 
+    // ── คำนวณราคาจาก Period ที่เลือก ─────────────────────────────────────────
+    const paxNum = parseInt(pax) || 1;
+    const selectedTour = tours.find((t) => t.id === tourId);
+    const selectedPeriod = selectedTour?.periods?.find((p) => p.period_id === periodId);
+    const pricePerSeat = selectedPeriod?.price_per_seat ?? 0;
+    const calcPrice = pricePerSeat > 0 ? pricePerSeat * paxNum : 0;
+
     addLead({
       customer_id: cid,
       assigned_to: owner,
@@ -378,13 +385,14 @@ export function CustomerLeadDialog({
       program,
       tour_id: tourId,
       period_id: periodId,
-      pax_count: parseInt(pax) || 1,
+      pax_count: paxNum,
       travel_month: travelMonth === ALL_MONTHS_KEY ? "" : travelMonth,
       tour_type: tourType,
       budget_range: budget,
       urgency,
-      next_followup_date: nextFollowUp,
-      quoted_price: 0,
+      next_followup_date: finalStatus === "จองแล้ว" ? undefined : nextFollowUp,
+      quoted_price: calcPrice,
+      closed_price: finalStatus === "จองแล้ว" ? calcPrice : undefined,
       status: finalStatus,
     });
 
@@ -392,11 +400,6 @@ export function CustomerLeadDialog({
 
     // ── Won celebration popup ─────────────────────────────────────────────────
     if (finalStatus === "จองแล้ว") {
-      const paxNum = parseInt(pax) || 1;
-      const selectedTour = tours.find((t) => t.id === tourId);
-      const selectedPeriod = selectedTour?.periods?.find((p) => p.period_id === periodId);
-      const pricePerSeat = selectedPeriod?.price_per_seat ?? 0;
-      const totalPrice = pricePerSeat > 0 ? pricePerSeat * paxNum : 0;
       let periodLabel = "";
       if (selectedPeriod?.start_date) {
         const s = new Date(selectedPeriod.start_date + "T00:00:00");
@@ -412,7 +415,7 @@ export function CustomerLeadDialog({
       setWonData({
         program,
         pax: paxNum,
-        price: totalPrice,
+        price: calcPrice,
         periodLabel,
         customerName: fullName,
       });
