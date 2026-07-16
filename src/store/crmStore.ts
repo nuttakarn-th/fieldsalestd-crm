@@ -791,7 +791,30 @@ export const useCRM = create<CRMState>()(
       // อัปเดต critical data ทันที (Dashboard เห็นตัวเลขเลย ไม่ต้องรอ routes/chat)
       const loadedSummary: string[] = [];
       const criticalUpdates: Partial<CRMState> = {};
-      if (!customers.error && customers.data) criticalUpdates.customers = customers.data as Customer[];
+
+      if (!customers.error && customers.data) {
+        // ── Reconciliation: re-insert local-only customers ──────────────────────────
+        // ปัญหา: addCustomer → INSERT → Supabase อาจล้มเหลวเงียบๆ (JWT หมดอายุ, network)
+        //        ข้อมูลจึงอยู่แค่ใน localStorage ของเครื่องนั้น ไม่ถึง device อื่น
+        // แก้:   ตอน loadAll ครั้งต่อไป → เปรียบเทียบ local กับ Supabase
+        //        พบ local-only → re-insert ให้อัตโนมัติ (idempotent: timestamp ID ไม่ซ้ำ)
+        const supaIds = new Set((customers.data as Customer[]).map((c) => c.customer_id));
+        const localOnly = get().customers.filter((c) => !supaIds.has(c.customer_id));
+        if (localOnly.length > 0 && supabase) {
+          console.warn(`[sync] พบ ${localOnly.length} ลูกค้าใน local ที่ไม่มีใน Supabase → re-insert`);
+          localOnly.forEach((c) => {
+            supabase!.from("customers").insert(c).then(({ error: e }) => {
+              if (e) console.error("[sync] re-insert ล้มเหลว:", c.full_name, e.message);
+              else   console.log("[sync] re-insert สำเร็จ:", c.full_name);
+            });
+          });
+          // merge: รวม Supabase data + local-only เข้าด้วยกัน
+          criticalUpdates.customers = [...(customers.data as Customer[]), ...localOnly];
+        } else {
+          criticalUpdates.customers = customers.data as Customer[];
+        }
+      }
+
       if (!leads.error && leads.data)         criticalUpdates.leads     = leads.data     as Lead[];
       if (!targets.error && targets.data)     criticalUpdates.targets   = targets.data   as MonthlyTarget[];
       // Sales Manager: กรอง OB Co-ordinator data ออก (app-level double-layer — RLS กรองที่ DB แล้ว)

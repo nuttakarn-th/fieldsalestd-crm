@@ -1,6 +1,6 @@
 import { Outlet, Link } from "react-router-dom";
-import { useEffect } from "react";
-import { MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { MessageSquare, AlertTriangle } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -10,7 +10,7 @@ import { AddCustomerFAB } from "@/components/AddCustomerFAB";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { UserMenu } from "@/components/UserMenu";
 import { SwitchRoleBtn } from "@/components/SwitchRoleBtn";
-import { useCurrentUser, useAuth } from "@/store/authStore";
+import { useCurrentUser, useAuth, useJWTSecondsLeft } from "@/store/authStore";
 import { useCRM, type SalesRep } from "@/store/crmStore";
 import { useChatRead } from "@/store/chatReadStore";
 
@@ -37,6 +37,33 @@ function ChatHeaderButton() {
         </span>
       )}
     </button>
+  );
+}
+
+/** Banner แจ้งเตือนเมื่อ session ใกล้หมดอายุ (< 30 นาที) */
+function SessionExpiryBanner() {
+  const secsLeft = useJWTSecondsLeft();
+  const [dismissed, setDismissed] = useState(false);
+
+  if (dismissed || secsLeft === null || secsLeft > 30 * 60) return null;
+
+  const mins = Math.max(0, Math.floor(secsLeft / 60));
+  const expired = secsLeft <= 0;
+
+  return (
+    <div className={`flex items-center gap-2 px-4 py-2 text-sm font-medium ${
+      expired ? "bg-destructive/90 text-white" : "bg-amber-500/90 text-white"
+    }`}>
+      <AlertTriangle className="w-4 h-4 shrink-0" />
+      {expired
+        ? "Session หมดอายุแล้ว — ข้อมูลใหม่จะไม่ถูกบันทึกไปยัง Cloud กรุณา Login ใหม่"
+        : `Session จะหมดอายุใน ${mins} นาที — กรุณา Logout แล้ว Login ใหม่เพื่อความต่อเนื่อง`}
+      <button
+        onClick={() => setDismissed(true)}
+        className="ml-auto text-white/80 hover:text-white text-lg leading-none"
+        aria-label="ปิด"
+      >×</button>
+    </div>
   );
 }
 
@@ -79,6 +106,7 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
+          <SessionExpiryBanner />
           <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center px-3 sm:px-6 gap-3">
             <SidebarTrigger className="shrink-0" />
             <Link to="/" className="flex items-center gap-2 shrink-0 group" aria-label="กลับหน้าหลัก" title="หน้าหลัก">

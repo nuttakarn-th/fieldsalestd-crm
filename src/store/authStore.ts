@@ -442,3 +442,13 @@ export function useActiveOBNames(): string[] {
     .filter((u) => u.role === "OB Co-ordinator")
     .map((u) => u.full_name);
 }
+
+/**
+ * Returns seconds remaining until JWT expires (negative = already expired).
+ * Used to show re-login warning before session expires.
+ */
+export function useJWTSecondsLeft(): number | null {
+  const expiresAt = useAuth((s) => s.jwtExpiresAt);
+  if (!expiresAt) return null;
+  return expiresAt - Math.floor(Date.now() / 1000);
+}
