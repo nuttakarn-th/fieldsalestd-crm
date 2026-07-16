@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -17,6 +17,138 @@ import {
 } from "@/store/crmStore";
 import { useActiveSalesNames, useAuth } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
+
+// ── WonCelebration ────────────────────────────────────────────────────────────
+interface WonData {
+  program: string;
+  pax: number;
+  price: number;
+  periodLabel: string;
+  customerName: string;
+}
+
+const CONFETTI_COLORS = ["#f59e0b","#10b981","#6366f1","#ec4899","#3b82f6","#f97316","#a855f7"];
+
+function WonCelebration({ data, onClose }: { data: WonData; onClose: () => void }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setVisible(true), 30); return () => clearTimeout(t); }, []);
+  const handleClose = useCallback(() => { setVisible(false); setTimeout(onClose, 300); }, [onClose]);
+
+  const confettiPieces = useMemo(() => Array.from({ length: 40 }, (_, i) => ({
+    id: i,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    left: `${Math.random() * 100}%`,
+    delay: `${Math.random() * 0.8}s`,
+    dur: `${0.9 + Math.random() * 0.7}s`,
+    size: `${6 + Math.random() * 8}px`,
+    rotate: `${Math.random() * 720}deg`,
+  })), []);
+
+  const priceDisplay = data.price > 0
+    ? data.price.toLocaleString("th-TH") + " บาท"
+    : "—";
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(2px)" }}
+      onClick={handleClose}
+    >
+      {/* Confetti */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <style>{`
+          @keyframes confetti-fall {
+            0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(var(--r)); opacity: 0; }
+          }
+          @keyframes pop-in {
+            0%   { opacity: 0; transform: scale(0.7) translateY(20px); }
+            60%  { transform: scale(1.05) translateY(-4px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+          }
+          @keyframes bounce-num {
+            0%,100% { transform: scale(1); }
+            50%      { transform: scale(1.08); }
+          }
+        `}</style>
+        {confettiPieces.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              position: "absolute",
+              left: p.left,
+              top: "-10px",
+              width: p.size,
+              height: p.size,
+              background: p.color,
+              borderRadius: "2px",
+              animation: `confetti-fall ${p.dur} ${p.delay} ease-in forwards`,
+              "--r": p.rotate,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
+
+      {/* Card */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: visible ? "pop-in 0.45s cubic-bezier(.34,1.56,.64,1) forwards" : "none",
+          opacity: 0,
+        }}
+        className="relative mx-4 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl"
+      >
+        {/* gradient header */}
+        <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 px-6 pt-8 pb-6 text-white text-center">
+          <div className="text-5xl mb-2" style={{ animation: "bounce-num 1.2s ease-in-out infinite" }}>🎉</div>
+          <p className="text-lg font-bold tracking-wide">ปิดดีลสำเร็จ!</p>
+          <p className="text-sm opacity-80 mt-0.5">{data.customerName}</p>
+        </div>
+
+        {/* body */}
+        <div className="bg-white dark:bg-zinc-900 px-6 py-5 space-y-4">
+          {/* program */}
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl px-4 py-3 text-center">
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-widest mb-0.5">โปรแกรม</p>
+            <p className="font-bold text-sm text-gray-800 dark:text-gray-100 leading-snug">{data.program || "—"}</p>
+            {data.periodLabel && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{data.periodLabel}</p>
+            )}
+          </div>
+
+          {/* big numbers row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+              <p className="text-xs text-amber-600 font-semibold uppercase tracking-widest">มูลค่า</p>
+              <p
+                className="text-2xl font-extrabold text-amber-500 leading-tight mt-0.5"
+                style={{ animation: "bounce-num 1.4s 0.2s ease-in-out infinite" }}
+              >
+                {priceDisplay}
+              </p>
+            </div>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-3 text-center">
+              <p className="text-xs text-indigo-500 font-semibold uppercase tracking-widest">จำนวน</p>
+              <p
+                className="text-2xl font-extrabold text-indigo-500 leading-tight mt-0.5"
+                style={{ animation: "bounce-num 1.4s 0.4s ease-in-out infinite" }}
+              >
+                {data.pax} <span className="text-base font-semibold">ท่าน</span>
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleClose}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow hover:opacity-90 transition-opacity active:scale-95"
+          >
+            เยี่ยมมาก! ✨
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -77,6 +209,9 @@ export function CustomerLeadDialog({
   const tours   = useServices((s) => s.tours);
   const cars    = useServices((s) => s.cars);
   const flights = useServices((s) => s.flights);
+
+  // ── Won celebration popup ────────────────────────────────────────────────────
+  const [wonData, setWonData] = useState<WonData | null>(null);
 
   // UI state
   const [mode, setMode]                   = useState<"new" | "existing">("new");
@@ -254,6 +389,38 @@ export function CustomerLeadDialog({
     });
 
     toast.success(isInquiry ? "บันทึก Quick Inquiry แล้ว (⚠️ ยังไม่มีข้อมูลติดต่อ)" : "สร้าง Lead สำเร็จ");
+
+    // ── Won celebration popup ─────────────────────────────────────────────────
+    if (finalStatus === "จองแล้ว") {
+      const paxNum = parseInt(pax) || 1;
+      const selectedTour = tours.find((t) => t.id === tourId);
+      const selectedPeriod = selectedTour?.periods?.find((p) => p.period_id === periodId);
+      const pricePerSeat = selectedPeriod?.price_per_seat ?? 0;
+      const totalPrice = pricePerSeat > 0 ? pricePerSeat * paxNum : 0;
+      let periodLabel = "";
+      if (selectedPeriod?.start_date) {
+        const s = new Date(selectedPeriod.start_date + "T00:00:00");
+        const sStr = `${s.getDate()} ${TH_MONTHS_SHORT[s.getMonth()]} ${String(s.getFullYear() + 543).slice(-2)}`;
+        if (selectedPeriod.end_date) {
+          const e = new Date(selectedPeriod.end_date + "T00:00:00");
+          const eStr = `${e.getDate()} ${TH_MONTHS_SHORT[e.getMonth()]} ${String(e.getFullYear() + 543).slice(-2)}`;
+          periodLabel = `${sStr} – ${eStr}`;
+        } else {
+          periodLabel = sStr;
+        }
+      }
+      setWonData({
+        program,
+        pax: paxNum,
+        price: totalPrice,
+        periodLabel,
+        customerName: fullName,
+      });
+      reset();
+      onOpenChange(false);
+      return;
+    }
+
     reset();
     onOpenChange(false);
   };
@@ -650,5 +817,13 @@ export function CustomerLeadDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 🎉 Won Celebration Popup */}
+    {wonData && (
+      <WonCelebration
+        data={wonData}
+        onClose={() => setWonData(null)}
+      />
+    )}
   );
 }
