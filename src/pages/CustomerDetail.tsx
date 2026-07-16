@@ -244,9 +244,9 @@ export default function CustomerDetail() {
     .filter((l) => l.customer_id === customerId)
     .sort((a, b) => {
       const order: Record<string, number> = {
-        "New": 0, "ติดต่อแล้ว": 1, "ส่ง Quote แล้ว": 2, "กำลังเจรจา": 3, "จองแล้ว": 4, "ยกเลิก": 5,
+        "ใหม่": 0, "ติดต่อแล้ว": 1, "ตอบแล้ว": 2, "ส่ง Quote แล้ว": 3, "กำลังเจรจา": 4, "จองแล้ว": 5, "ยกเลิก": 6,
       };
-      return (order[a.status] ?? 6) - (order[b.status] ?? 6);
+      return (order[a.status] ?? 7) - (order[b.status] ?? 7);
     });
 
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -268,7 +268,7 @@ export default function CustomerDetail() {
   const wonLeads      = customerLeads.filter((l) => l.status === "จองแล้ว");
   const lostLeads     = customerLeads.filter((l) => isLostStatus(l.status));
   const activeLeads   = customerLeads.filter((l) => !isLostStatus(l.status) && l.status !== "จองแล้ว");
-  const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
+  const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
   const activeQuoted  = activeLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
   const filteredLeads = leadFilter === "all" ? customerLeads : customerLeads.filter((l) => l.status === leadFilter);
 
