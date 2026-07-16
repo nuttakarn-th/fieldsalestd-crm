@@ -1,10 +1,15 @@
 /**
  * MarketingLayout.tsx — Dedicated sidebar layout for Marketing role
  * Route: /marketing/* (standalone, independent from AppLayout)
+ *
+ * Features:
+ *  - Collapsible sidebar (icon-only mode) — toggle via < > button on sidebar edge
+ *  - Collapsible section categories — click section header to fold/unfold items
+ *  - Tooltip on every icon in collapsed mode
  */
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { MessageSquare } from "lucide-react";
-import { useMemo } from "react";
+import { MessageSquare, ChevronDown, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
   TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus,
@@ -19,11 +24,12 @@ import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
 interface NavItem { label: string; icon: typeof Home; to: string; end?: boolean }
-interface NavSection { category: string; items: NavItem[] }
+interface NavSection { category: string; items: NavItem[]; defaultCollapsed?: boolean }
 
 const NAV_SECTIONS: NavSection[] = [
   {
@@ -57,6 +63,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     category: "STOCK & TOOLS",
+    defaultCollapsed: true, // เยอะ — พับไว้ก่อน
     items: [
       { label: "Service & Stock",   icon: PackageSearch, to: "/marketing/all-service"             },
       { label: "Stock Analytics",   icon: TrendingUp,    to: "/marketing/stock-analytics"         },
@@ -68,33 +75,57 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
-// ── Nav item — uses Link + manual active check to support ?dept= query params ─
-function SideNavItem({ item }: { item: NavItem }) {
-  const Icon = item.icon;
-  const location = useLocation();
+// Category label colors
+function catColor(category: string) {
+  if (category === "OUTBOUND LEADS") return "text-purple-500/70";
+  if (category === "SALES LEADS")    return "text-blue-500/70";
+  return "text-muted-foreground/50";
+}
 
-  const isActive = useMemo(() => {
+// ── useActiveItem: check if current URL matches a nav item ───────────────────
+function useIsActive(item: NavItem) {
+  const location = useLocation();
+  return useMemo(() => {
     try {
       const toUrl  = new URL(item.to, "http://x");
       if (toUrl.pathname !== location.pathname) return false;
-      // If link has query params, they must match exactly
       const toDept  = new URLSearchParams(toUrl.search).get("dept");
       const curDept = new URLSearchParams(location.search).get("dept");
-      return toDept === curDept; // both null → match; or same value
+      return toDept === curDept;
     } catch {
       return location.pathname === item.to;
     }
   }, [item.to, location.pathname, location.search]);
+}
+
+// ── SideNavItem ──────────────────────────────────────────────────────────────
+function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  const Icon = item.icon;
+  const isActive = useIsActive(item);
+
+  const cls = `flex items-center rounded-lg font-medium transition-colors ${
+    isActive
+      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+  }`;
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link to={item.to} className={`${cls} w-10 h-10 justify-center mx-auto`}>
+            <Icon className="w-4.5 h-4.5 w-[18px] h-[18px] shrink-0" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="text-xs font-medium">
+          {item.label}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
-    <Link
-      to={item.to}
-      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-        isActive
-          ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-          : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-      }`}
-    >
+    <Link to={item.to} className={`${cls} gap-2.5 px-3 py-2.5 text-sm`}>
       <Icon className="w-4 h-4 shrink-0" />
       <span className="truncate">{item.label}</span>
     </Link>
@@ -130,17 +161,36 @@ function ChatBtn() {
 
 // ── Main layout ──────────────────────────────────────────────────────────────
 export default function MarketingLayout() {
-  const user = useCurrentUser();
+  // Sidebar collapsed state (พับเหลือแค่ icon)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Section collapsed state — ใช้ Set เก็บ category ที่พับอยู่
+  const [closedSections, setClosedSections] = useState<Set<string>>(
+    () => new Set(NAV_SECTIONS.filter((s) => s.defaultCollapsed).map((s) => s.category))
+  );
+
+  function toggleSection(category: string) {
+    setClosedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }
 
   return (
     <div className="min-h-screen flex bg-background">
 
       {/* ── Sidebar ── */}
-      <aside className="w-56 shrink-0 flex flex-col bg-card border-r border-border">
+      <aside
+        className={`relative shrink-0 flex flex-col bg-card border-r border-border transition-[width] duration-200 ease-in-out overflow-hidden ${
+          sidebarCollapsed ? "w-[60px]" : "w-56"
+        }`}
+      >
 
-        {/* Brand — real logo */}
-        <div className="px-4 pt-4 pb-3 border-b border-border">
-          <div className="flex items-center gap-2.5">
+        {/* ── Brand ── */}
+        <div className={`border-b border-border shrink-0 ${sidebarCollapsed ? "px-0 pt-4 pb-3 flex justify-center" : "px-4 pt-4 pb-3"}`}>
+          <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
             <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 shadow-sm">
               <img
                 src="/logo-icon.png"
@@ -149,52 +199,99 @@ export default function MarketingLayout() {
                 onError={(e) => { (e.target as HTMLImageElement).src = "/logo-icon.svg"; }}
               />
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold leading-none truncate">Standard Tour CRM</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none truncate">Travel Sales Suite</p>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-none truncate">Standard Tour CRM</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-none truncate">Travel Sales Suite</p>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* ── Navigation ── */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.category}>
-              {/* Section header */}
-              <div className="pt-3 pb-1 px-3">
-                <p className={`text-[9px] font-bold uppercase tracking-widest ${
-                  section.category === "OUTBOUND LEADS"
-                    ? "text-purple-500/70"
-                    : section.category === "SALES LEADS"
-                    ? "text-blue-500/70"
-                    : "text-muted-foreground/50"
-                }`}>
-                  {section.category}
-                </p>
-              </div>
-              {section.items.map((item) => <SideNavItem key={item.to} item={item} />)}
+          {NAV_SECTIONS.map((section) => {
+            const isClosed = closedSections.has(section.category);
 
-              {/* Notification badges หลัง CAMPAIGNS section */}
-              {section.category === "CAMPAIGNS" && (
-                <div className="px-1 space-y-0.5 pt-0.5">
-                  <NewProgramNotification collapsed={false} />
-                  <AtRiskNotification collapsed={false} />
+            if (sidebarCollapsed) {
+              // Icon-only mode — แสดงทุก item เป็น icon + tooltip, ไม่มี section header
+              return (
+                <div key={section.category} className="flex flex-col items-center gap-0.5 py-1">
+                  {section.items.map((item) => (
+                    <SideNavItem key={item.to} item={item} collapsed={true} />
+                  ))}
+                  {/* Divider ระหว่าง section */}
+                  <div className="w-6 border-t border-border/40 my-1" />
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            }
+
+            // Expanded mode
+            return (
+              <div key={section.category}>
+                {/* Section header — คลิกพับ/ขยาย */}
+                <button
+                  onClick={() => toggleSection(section.category)}
+                  className="w-full flex items-center justify-between pt-3 pb-1 px-3 group"
+                >
+                  <p className={`text-[9px] font-bold uppercase tracking-widest ${catColor(section.category)}`}>
+                    {section.category}
+                  </p>
+                  {isClosed
+                    ? <ChevronRight className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                    : <ChevronDown  className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                  }
+                </button>
+
+                {/* Items (hidden when section is closed) */}
+                {!isClosed && (
+                  <>
+                    {section.items.map((item) => (
+                      <SideNavItem key={item.to} item={item} collapsed={false} />
+                    ))}
+
+                    {/* Notification badges หลัง CAMPAIGNS section */}
+                    {section.category === "CAMPAIGNS" && (
+                      <div className="px-1 space-y-0.5 pt-0.5">
+                        <NewProgramNotification collapsed={false} />
+                        <AtRiskNotification collapsed={false} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </nav>
+
+        {/* ── Collapse toggle button — วางชิดขอบขวาของ sidebar ── */}
+        <div className="shrink-0 border-t border-border p-2 flex justify-end">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setSidebarCollapsed((v) => !v)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                aria-label={sidebarCollapsed ? "ขยาย sidebar" : "พับ sidebar"}
+              >
+                {sidebarCollapsed
+                  ? <ChevronRightIcon className="w-4 h-4" />
+                  : <ChevronLeft className="w-4 h-4" />
+                }
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              {sidebarCollapsed ? "ขยาย" : "พับ sidebar"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </aside>
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Top bar — matches AppLayout style */}
+        {/* Top bar */}
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40 flex items-center px-4 gap-3">
-          {/* Customer search */}
           <GlobalSearch />
-
-          {/* Right actions */}
           <div className="ml-auto flex items-center gap-1 shrink-0">
             <ChatBtn />
             <ActivityFeed />
@@ -209,9 +306,8 @@ export default function MarketingLayout() {
         </main>
       </div>
 
-      {/* Chat panel (same as AppLayout) */}
+      {/* Chat panel + AI Standy */}
       <ChatWidget />
-      {/* AI Standy chatbot */}
       <StandyWidget />
     </div>
   );
