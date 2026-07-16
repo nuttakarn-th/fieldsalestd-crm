@@ -1345,7 +1345,7 @@ export const useCRM = create<CRMState>()(
         (l) => l.customer_id === lead.customer_id && isClosedStatus(l.status)
       );
       const newTrips = wonLeads.length;
-      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
+      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price || l.quoted_price || 0), 0);
       get().updateCustomer(lead.customer_id, {
         total_trips: newTrips,
         total_spend: newSpend,
@@ -1360,7 +1360,7 @@ export const useCRM = create<CRMState>()(
         (l) => l.customer_id === lead.customer_id && isClosedStatus(l.status)
       );
       const newTrips = wonLeads.length;
-      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
+      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price || l.quoted_price || 0), 0);
       get().updateCustomer(lead.customer_id, {
         total_trips: newTrips,
         total_spend: newSpend,

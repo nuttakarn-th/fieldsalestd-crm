@@ -268,7 +268,7 @@ export default function CustomerDetail() {
   const wonLeads      = customerLeads.filter((l) => l.status === "จองแล้ว");
   const lostLeads     = customerLeads.filter((l) => isLostStatus(l.status));
   const activeLeads   = customerLeads.filter((l) => !isLostStatus(l.status) && l.status !== "จองแล้ว");
-  const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.closed_price ?? l.quoted_price ?? 0), 0);
+  const wonAmount     = wonLeads.reduce((sum, l) => sum + (l.closed_price || l.quoted_price || 0), 0);
   const activeQuoted  = activeLeads.reduce((sum, l) => sum + (l.quoted_price || 0), 0);
   const filteredLeads = leadFilter === "all" ? customerLeads : customerLeads.filter((l) => l.status === leadFilter);
 
