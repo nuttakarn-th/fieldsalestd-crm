@@ -220,7 +220,15 @@ export function AhagramWidget({ inline = false }: { inline?: boolean }) {
   // ── Auth + leaderboard ───────────────────────────────────────────────────────
   const user       = useCurrentUser();
   const actorName  = user?.full_name ?? user?.username ?? "";
-  const { entries, upsertScore } = useAhagramLeaderboard();
+  const entries    = useAhagramLeaderboard((s) => s.entries);
+  const upsertScore = useAhagramLeaderboard((s) => s.upsertScore);
+  const init       = useAhagramLeaderboard((s) => s.init);
+
+  // Init: load scores from Supabase + subscribe realtime (once on mount)
+  useEffect(() => {
+    const cleanup = init();
+    return cleanup;
+  }, [init]);
 
   // ── Open/close ───────────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
