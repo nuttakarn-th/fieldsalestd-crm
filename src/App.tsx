@@ -161,10 +161,17 @@ const App = () => (
           <Route path="/marketing" element={<RouteGuard><MarketingLayout /></RouteGuard>}>
             <Route index element={<MarketingPortal />} />
             <Route path="tasks" element={<MyTasksPage />} />
+            {/* Leads */}
             <Route path="ob-leads" element={<MarketingOBLeads />} />
             <Route path="sales-leads" element={<MarketingSalesLeads />} />
+            <Route path="marketing-leads" element={<MarketingLeads />} />
             <Route path="customers" element={<Customers />} />
             <Route path="customers/:customerId" element={<CustomerDetail />} />
+            {/* Campaigns & Tools */}
+            <Route path="campaigns" element={<CampaignManagement />} />
+            <Route path="all-service" element={<AllService />} />
+            <Route path="stock-analytics" element={<StockAnalytics />} />
+            <Route path="marketing-report" element={<MarketingReport />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>

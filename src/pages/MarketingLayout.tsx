@@ -36,7 +36,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     category: "CAMPAIGNS",
     items: [
-      { label: "Campaigns",         icon: Megaphone,     to: "/app/campaigns"                     },
+      { label: "Campaigns",         icon: Megaphone,     to: "/marketing/campaigns"               },
       { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"       },
       { label: "Gallery",           icon: Images,        to: "/gallery"                           },
     ],
@@ -52,15 +52,15 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Sales Leads",       icon: Users,         to: "/marketing/sales-leads"             },
       { label: "ลูกค้าทั้งหมด",      icon: UserPlus,      to: "/marketing/customers"               },
-      { label: "Marketing Leads",   icon: Target,        to: "/app/marketing-leads"               },
+      { label: "Marketing Leads",   icon: Target,        to: "/marketing/marketing-leads"         },
     ],
   },
   {
     category: "STOCK & TOOLS",
     items: [
-      { label: "Service & Stock",   icon: PackageSearch, to: "/app/all-service"                   },
-      { label: "Stock Analytics",   icon: TrendingUp,    to: "/app/stock-analytics"               },
-      { label: "Reports",           icon: BarChart3,     to: "/app/marketing-report"              },
+      { label: "Service & Stock",   icon: PackageSearch, to: "/marketing/all-service"             },
+      { label: "Stock Analytics",   icon: TrendingUp,    to: "/marketing/stock-analytics"         },
+      { label: "Reports",           icon: BarChart3,     to: "/marketing/marketing-report"        },
       { label: "Audience Builder",  icon: Target,        to: "/audience-builder/line-export"      },
       { label: "My Tasks",          icon: CheckSquare,   to: "/marketing/tasks"                   },
       { label: "Tour Presentation", icon: BookOpen,      to: "/tour-presentation"                 },

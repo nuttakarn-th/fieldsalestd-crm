@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -326,6 +326,11 @@ export default function Customers() {
     });
     toast.success(`นำเข้า ${rows.length} ลูกค้าแล้ว`);
   };
+
+  // Marketing role ที่เข้า /app/customers → redirect ไป /marketing/customers
+  if (user?.role === "Marketing") {
+    return <Navigate to="/marketing/customers" replace />;
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
