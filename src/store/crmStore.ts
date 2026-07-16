@@ -507,6 +507,7 @@ interface CRMState {
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
   addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }) => void;
+  deleteLead: (leadId: string) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
   addFollowupLog: (leadId: string, log: Omit<FollowupLog, "log_id" | "lead_id">) => void;
@@ -1255,6 +1256,38 @@ export const useCRM = create<CRMState>()(
       entity_id:   id,
       entity_name: cust?.full_name ?? l.customer_id,
     });
+  },
+
+  deleteLead: (leadId) => {
+    const lead = get().leads.find((l) => l.lead_id === leadId);
+    if (!lead) return;
+    set({ leads: get().leads.filter((l) => l.lead_id !== leadId) });
+    // Recalculate customer stats after deletion
+    const wasWon = isClosedStatus(lead.status);
+    if (wasWon) {
+      const wonLeads = get().leads.filter(
+        (l) => l.customer_id === lead.customer_id && isClosedStatus(l.status)
+      );
+      const newTrips = wonLeads.length;
+      const newSpend = wonLeads.reduce((sum, l) => sum + (l.closed_price || l.quoted_price || 0), 0);
+      get().updateCustomer(lead.customer_id, {
+        total_trips: newTrips,
+        total_spend: newSpend,
+        customer_tier: calcTier(newTrips, newSpend),
+      });
+      // Restore quota if it was a tour
+      const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
+      if (isTour && lead.tour_id) {
+        const { adjustQuota, adjustPeriodQuota } = useServices.getState();
+        if (lead.period_id) adjustPeriodQuota(lead.tour_id, lead.period_id, +lead.pax_count);
+        else adjustQuota(lead.tour_id, +lead.pax_count);
+      }
+    }
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("leads").delete().eq("lead_id", leadId).then(({ error }) => {
+        if (error) console.error("[supabase] ลบ lead ล้มเหลว:", error);
+      });
+    }
   },
 
   setTarget: (month, rep, patch) => {

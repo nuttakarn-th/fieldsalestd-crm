@@ -3,12 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Pencil, Plus, Phone, MessageCircle, Mail, MapPin, Cake, Star,
   TrendingUp, CalendarDays, Clock, ChevronDown, ChevronUp, ArrowRightLeft,
-  User, FileText,
+  User, FileText, Trash2, Save, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  useCRM, formatTHB, tierBadge, statusColor, urgencyBadge, isLostStatus,
+  useCRM, formatTHB, tierBadge, statusColor, urgencyBadge, isLostStatus, isClosedStatus,
   LEAD_STATUSES, URGENCY_OPTIONS,
   type Customer, type Lead, type LeadStatus, type TransferLog,
 } from "@/store/crmStore";
@@ -16,6 +16,11 @@ import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
@@ -28,96 +33,250 @@ const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ประกันการเดินทาง": { label: "🛡️ ประกันการเดินทาง",  className: "bg-orange-100 text-orange-700 border-orange-200" },
 };
 
-function LeadCard({ lead }: { lead: Lead }) {
-  const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
-  const updateLead = useCRM((s) => s.updateLead);
-  const [expanded, setExpanded] = useState(false);
-  const [statusNote, setStatusNote] = useState(lead.status_note ?? "");
-  const [editingNote, setEditingNote] = useState(false);
+// ── Helper: split "CODE - ชื่อโปรแกรม" ────────────────────────────────────
+function splitProgram(program: string): { code: string; name: string } {
+  const idx = program.indexOf(" - ");
+  if (idx === -1) return { code: "", name: program };
+  return { code: program.slice(0, idx), name: program.slice(idx + 3) };
+}
 
-  const urgencyOpt = URGENCY_OPTIONS.find((u) => u.val === lead.urgency);
+// ── LeadEditDialog ────────────────────────────────────────────────────────
+function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const updateLead = useCRM((s) => s.updateLead);
+  const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
+
+  const [status, setStatus] = useState<LeadStatus>(lead.status);
+  const [urgency, setUrgency] = useState(lead.urgency ?? "Warm");
+  const [pax, setPax] = useState(String(lead.pax_count));
+  const [travelMonth, setTravelMonth] = useState(lead.travel_month ?? "");
+  const [quotedPrice, setQuotedPrice] = useState(String(lead.quoted_price ?? 0));
+  const [nextFollowup, setNextFollowup] = useState(lead.next_followup_date ?? "");
+  const [note, setNote] = useState(lead.status_note ?? "");
+
+  function handleSave() {
+    const patch: Partial<Lead> = {
+      urgency: urgency as Lead["urgency"],
+      pax_count: parseInt(pax) || lead.pax_count,
+      travel_month: travelMonth,
+      quoted_price: parseFloat(quotedPrice) || 0,
+      next_followup_date: nextFollowup || null,
+      status_note: note || null,
+    };
+    updateLead(lead.lead_id, patch);
+    if (status !== lead.status) updateLeadStatus(lead.lead_id, status);
+    toast.success("บันทึก Lead เรียบร้อยแล้ว");
+    onClose();
+  }
 
   return (
-    <div className="border rounded-xl bg-card shadow-soft overflow-hidden">
-      <div className="flex items-start justify-between gap-2 p-3">
-        <div className="flex-1 min-w-0">
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">✏️ แก้ไข Lead</DialogTitle>
+          <p className="text-xs text-muted-foreground">{lead.lead_id}</p>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          {/* Program (read-only) */}
+          <div>
+            <Label className="text-xs text-muted-foreground">โปรแกรม</Label>
+            <p className="text-sm font-medium mt-0.5 text-foreground/80">{lead.program || lead.bu_type}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Status */}
+            <div>
+              <Label className="text-xs">สถานะ</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as LeadStatus)}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEAD_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Urgency */}
+            <div>
+              <Label className="text-xs">ความเร่งด่วน</Label>
+              <Select value={urgency} onValueChange={setUrgency}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {URGENCY_OPTIONS.map((u) => (
+                    <SelectItem key={u.val} value={u.val} className="text-xs">{u.emoji} {u.val}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Pax */}
+            <div>
+              <Label className="text-xs">จำนวน Pax</Label>
+              <Input value={pax} onChange={(e) => setPax(e.target.value)} type="number" min={1} className="h-8 text-xs mt-1" />
+            </div>
+            {/* Travel month */}
+            <div>
+              <Label className="text-xs">เดือนเดินทาง</Label>
+              <Input value={travelMonth} onChange={(e) => setTravelMonth(e.target.value)} className="h-8 text-xs mt-1" placeholder="เช่น สิงหาคม" />
+            </div>
+            {/* Quoted price */}
+            <div>
+              <Label className="text-xs">ราคา Quote (฿)</Label>
+              <Input value={quotedPrice} onChange={(e) => setQuotedPrice(e.target.value)} type="number" className="h-8 text-xs mt-1" />
+            </div>
+            {/* Follow-up */}
+            <div>
+              <Label className="text-xs">วัน Follow-up</Label>
+              <Input value={nextFollowup} onChange={(e) => setNextFollowup(e.target.value)} type="date" className="h-8 text-xs mt-1" />
+            </div>
+          </div>
+          {/* Note */}
+          <div>
+            <Label className="text-xs">หมายเหตุ</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[60px] text-sm mt-1" placeholder="เพิ่มหมายเหตุ..." />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}><X className="w-3.5 h-3.5 mr-1" />ยกเลิก</Button>
+          <Button size="sm" className="bg-gradient-primary" onClick={handleSave}><Save className="w-3.5 h-3.5 mr-1" />บันทึก</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── LeadCard (redesigned) ─────────────────────────────────────────────────
+function LeadCard({ lead }: { lead: Lead }) {
+  const deleteLead = useCRM((s) => s.deleteLead);
+  const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const urgencyOpt = URGENCY_OPTIONS.find((u) => u.val === lead.urgency);
+  const isWon = isClosedStatus(lead.status);
+  const isLost = isLostStatus(lead.status);
+  const wonValue = (lead.closed_price || lead.quoted_price || 0);
+  const { code, name } = splitProgram(lead.program || lead.bu_type);
+
+  return (
+    <>
+      {editing && <LeadEditDialog lead={lead} onClose={() => setEditing(false)} />}
+
+      {/* Delete confirm dialog */}
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base text-destructive">🗑️ ลบ Lead นี้?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{name || lead.program} — ยืนยันการลบ Lead นี้ ข้อมูลจะหายถาวร</p>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>ยกเลิก</Button>
+            <Button variant="destructive" size="sm" onClick={() => {
+              deleteLead(lead.lead_id);
+              toast.success("ลบ Lead เรียบร้อยแล้ว");
+              setConfirmDelete(false);
+            }}>ลบ Lead</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className={`border rounded-xl bg-card shadow-soft overflow-hidden transition-all ${isWon ? "border-emerald-200" : isLost ? "border-muted" : ""}`}>
+        {/* ── Top bar: status + urgency + assignee ── */}
+        <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className={`${statusColor(lead.status)} text-xs`}>{lead.status}</Badge>
+            <Badge variant="outline" className={`${statusColor(lead.status)} text-[11px] px-2 py-0`}>{lead.status}</Badge>
             {urgencyOpt && (
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${urgencyBadge(lead.urgency)}`}>
                 {urgencyOpt.emoji} {lead.urgency}
               </span>
             )}
-            <span className="text-[10px] text-muted-foreground font-mono">{lead.lead_id}</span>
+            <span className="text-[10px] text-muted-foreground/60 font-mono">{lead.lead_id}</span>
           </div>
-          <p className="mt-0.5 font-semibold text-sm truncate">{lead.program || lead.bu_type}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground shrink-0">{lead.assigned_to}</span>
+        </div>
+
+        {/* ── Program name + code ── */}
+        <div className="px-3 pb-2">
+          <p className="font-semibold text-sm leading-snug">{name || lead.bu_type}</p>
+          {code && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{code}</p>}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
             <span>🗓️ {lead.travel_month}</span>
             <span>👥 {lead.pax_count} ท่าน</span>
-            <span>💰 {lead.budget_range}</span>
-            {lead.quoted_price > 0 && <span className="font-semibold text-primary">฿ {formatTHB(lead.quoted_price)}</span>}
+            {!isWon && lead.budget_range && <span>💰 {lead.budget_range}</span>}
           </div>
-          {lead.next_followup_date && !["จองแล้ว", "ยกเลิก"].includes(lead.status) && (
-            <div className="flex items-center gap-1 text-[11px] mt-0.5 text-amber-700">
-              <CalendarDays className="w-3 h-3" /> Follow up: {new Date(lead.next_followup_date).toLocaleDateString("th-TH", { dateStyle: "medium" })}
-            </div>
-          )}
-          {lead.closed_date && (
-            <div className="flex items-center gap-1 text-[11px] mt-0.5 text-muted-foreground">
-              <Clock className="w-3 h-3" /> ปิดดีล: {new Date(lead.closed_date).toLocaleDateString("th-TH", { dateStyle: "medium" })}
-            </div>
-          )}
-          {lead.lost_reason && (
-            <div className="text-[11px] mt-0.5 text-destructive">❌ {lead.lost_reason}</div>
-          )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="text-xs text-muted-foreground hidden sm:block">{lead.assigned_to}</span>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+
+        {/* ── Won value banner ── */}
+        {isWon && wonValue > 0 && (
+          <div className="mx-3 mb-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">มูลค่าการจอง</p>
+              <p className="text-xl font-extrabold text-emerald-600 leading-tight">฿{wonValue.toLocaleString()}</p>
+            </div>
+            <div className="text-right">
+              {lead.closed_date && (
+                <p className="text-[10px] text-emerald-700/70">
+                  ✅ {new Date(lead.closed_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                </p>
+              )}
+              <p className="text-[11px] text-emerald-700/80 font-medium">{lead.pax_count} ท่าน</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Pending quote + follow-up ── */}
+        {!isWon && !isLost && (
+          <div className="px-3 pb-2 flex flex-wrap gap-2">
+            {lead.quoted_price > 0 && (
+              <span className="text-xs bg-primary/8 text-primary font-semibold rounded-md px-2 py-0.5">
+                ฿{lead.quoted_price.toLocaleString()}
+              </span>
+            )}
+            {lead.next_followup_date && (
+              <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-md px-2 py-0.5 flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" />
+                {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ── Lost reason ── */}
+        {isLost && lead.lost_reason && (
+          <div className="mx-3 mb-2 text-xs text-destructive/80 bg-destructive/5 rounded-md px-2 py-1.5">
+            ❌ {lead.lost_reason}
+          </div>
+        )}
+
+        {/* ── Action bar ── */}
+        <div className="border-t flex items-center gap-1 px-2 py-1.5 bg-muted/20">
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-primary" onClick={() => setEditing(true)}>
+            <Pencil className="w-3.5 h-3.5 mr-1" />แก้ไข
+          </Button>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="w-3.5 h-3.5 mr-1" />ลบ
+          </Button>
+          <div className="flex-1" />
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? <><ChevronUp className="w-3.5 h-3.5 mr-1" />ซ่อน</> : <><ChevronDown className="w-3.5 h-3.5 mr-1" />รายละเอียด</>}
           </Button>
         </div>
-      </div>
 
-      {expanded && (
-        <div className="border-t bg-muted/30 px-3 py-2.5 space-y-2.5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-            <div><span className="text-muted-foreground">BU Type</span><p className="font-medium">{lead.bu_type}</p></div>
-            <div><span className="text-muted-foreground">Category</span><p className="font-medium">{lead.lead_category}</p></div>
-            <div><span className="text-muted-foreground">Scope</span><p className="font-medium">{lead.scope}</p></div>
-            <div><span className="text-muted-foreground">Tour Type</span><p className="font-medium">{lead.tour_type}</p></div>
-            <div><span className="text-muted-foreground">Assigned to</span><p className="font-medium">{lead.assigned_to}</p></div>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">📝 หมายเหตุ Lead</p>
-            {editingNote ? (
-              <div className="space-y-1.5">
-                <Textarea value={statusNote} onChange={(e) => setStatusNote(e.target.value)} className="min-h-[60px] text-sm" placeholder="เพิ่มหมายเหตุ..." />
-                <div className="flex gap-2">
-                  <Button size="sm" className="h-7 text-xs" onClick={() => { updateLead(lead.lead_id, { status_note: statusNote || null }); setEditingNote(false); toast.success("บันทึกหมายเหตุแล้ว"); }}>บันทึก</Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setStatusNote(lead.status_note ?? ""); setEditingNote(false); }}>ยกเลิก</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition min-h-[28px] rounded px-2 py-1 hover:bg-muted" onClick={() => setEditingNote(true)}>
-                {lead.status_note || <span className="italic text-xs">คลิกเพื่อเพิ่มหมายเหตุ...</span>}
+        {/* ── Expanded detail ── */}
+        {expanded && (
+          <div className="border-t bg-muted/20 px-3 py-3 space-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div><span className="text-muted-foreground">BU Type</span><p className="font-medium mt-0.5">{lead.bu_type}</p></div>
+              <div><span className="text-muted-foreground">Category</span><p className="font-medium mt-0.5">{lead.lead_category}</p></div>
+              <div><span className="text-muted-foreground">Scope</span><p className="font-medium mt-0.5">{lead.scope}</p></div>
+              <div><span className="text-muted-foreground">Tour Type</span><p className="font-medium mt-0.5">{lead.tour_type}</p></div>
+            </div>
+            {lead.status_note && (
+              <div className="text-xs bg-muted/40 rounded px-2 py-1.5 text-muted-foreground italic">
+                📝 {lead.status_note}
               </div>
             )}
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">เปลี่ยนสถานะ</p>
-            <Select value={lead.status} onValueChange={(v) => { updateLeadStatus(lead.lead_id, v as LeadStatus); toast.success(`เปลี่ยนสถานะ Lead เป็น "${v}" แล้ว`); }}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LEAD_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s} className={`text-xs ${statusColor(s)}`}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 
