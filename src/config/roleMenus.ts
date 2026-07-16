@@ -272,7 +272,7 @@ const obManagerMenu: RoleMenu = {
       category: "OB MANAGEMENT",
       items: [
         { title: "Sales Pipeline", url: "/app/pipeline", icon: KanbanSquare },
-        { title: "Target Pipeline", url: "/app/targets", icon: Target },
+        { title: "Target Pipeline", url: "/app/ob-targets", icon: Target },
         { title: "Follow-up", url: "/app/followup", icon: CalendarDays },
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/service-stock", icon: PackageSearch },

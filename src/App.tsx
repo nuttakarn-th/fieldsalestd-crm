@@ -41,6 +41,7 @@ import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
 import OBDashboard from "./pages/OBDashboard.tsx";
+import OBTargets from "./pages/OBTargets.tsx";
 import ProvinceHeatmap from "./pages/ProvinceHeatmap.tsx";
 import LoginBannerManagement from "./pages/LoginBannerManagement.tsx";
 import UsersPage from "./pages/UsersPage.tsx";
@@ -210,6 +211,7 @@ const App = () => (
             <Route path="payment" element={<PaymentInvoice />} />
             <Route path="booking-overview" element={<BookingOverview />} />
             <Route path="ob-dashboard" element={<OBDashboard />} />
+            <Route path="ob-targets"   element={<OBTargets />} />
             <Route path="heatmap" element={<ProvinceHeatmap />} />
             <Route path="marketing-leads" element={<MarketingLeads />} />
             <Route path="weekly-plan" element={<WeeklySalesPlan />} />
