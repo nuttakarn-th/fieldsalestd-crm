@@ -1758,7 +1758,19 @@ export const useCRM = create<CRMState>()(
         // field หนักอย่าง transfer_logs / note โหลดจาก Supabase เมื่อเปิด detail
         customers: state.customers.map((c) => ({
           customer_id:       c.customer_id,
-          full
+          full_name:         c.full_name,
+          company:           c.company,
+          phone:             c.phone,
+          line_id:           c.line_id,
+          email:             c.email,
+          source:            c.source,
+          segment:           c.segment,
+          total_trips:       c.total_trips,
+          total_spend:       c.total_spend,
+          customer_tier:     c.customer_tier,
+          first_contact_date: c.first_contact_date,
+          created_by:        c.created_by,
+          transferred_to:    c.transferred_to,
           created_at:        c.created_at,
           last_contacted_at: c.last_contacted_at,
           // ไม่เก็บ: transfer_logs, note, interests, province, birthday

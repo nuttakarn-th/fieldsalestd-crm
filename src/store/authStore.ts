@@ -443,10 +443,7 @@ export function useActiveOBNames(): string[] {
     .map((u) => u.full_name);
 }
 
-/**
- * Returns seconds remaining until JWT expires (negative = already expired).
- * Used to show re-login warning before session expires.
- */
+/** Hook: คืนจำนวนวินาทีที่เหลือก่อน JWT หมดอายุ (null = ไม่ได้ login) */
 export function useJWTSecondsLeft(): number | null {
   const expiresAt = useAuth((s) => s.jwtExpiresAt);
   if (!expiresAt) return null;
