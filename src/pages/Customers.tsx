@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +91,7 @@ function exportFBList(customers: Customer[]) {
 
 export default function Customers() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useCurrentUser();
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
@@ -328,7 +329,8 @@ export default function Customers() {
   };
 
   // Marketing role ที่เข้า /app/customers → redirect ไป /marketing/customers
-  if (user?.role === "Marketing") {
+  // (ตรวจ path ก่อน: ไม่ redirect ถ้าอยู่ใน /marketing/* อยู่แล้ว ป้องกัน infinite loop)
+  if (user?.role === "Marketing" && location.pathname.startsWith("/app")) {
     return <Navigate to="/marketing/customers" replace />;
   }
 
