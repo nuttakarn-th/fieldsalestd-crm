@@ -207,7 +207,18 @@ export default function Pipeline() {
                           <span className="col-span-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> {lead.next_followup_date}</span>
                         )}
                       </div>
-                      {lead.quoted_price > 0 && <div className="text-sm font-bold text-primary mb-2">{formatTHB(lead.quoted_price)}</div>}
+                      {lead.status === "จองแล้ว"
+                        ? (lead.closed_price || lead.quoted_price) > 0 && (
+                            <div className="text-base font-extrabold text-emerald-500 mb-2">
+                              ✅ {formatTHB(lead.closed_price || lead.quoted_price)}
+                            </div>
+                          )
+                        : lead.quoted_price > 0 && (
+                            <div className="text-xs font-medium text-muted-foreground mb-2">
+                              {formatTHB(lead.quoted_price)}
+                            </div>
+                          )
+                      }
                       {lead.status_note && (
                         <p className="text-[11px] text-muted-foreground italic line-clamp-2 mb-2 bg-muted/40 rounded px-2 py-1">📝 {lead.status_note}</p>
                       )}
