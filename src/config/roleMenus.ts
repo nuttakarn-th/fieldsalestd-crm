@@ -220,7 +220,6 @@ const obCoordinatorMenu: RoleMenu = {
       category: "OVERVIEW",
       items: [
         { title: "OB Dashboard", url: "/app/ob-dashboard", icon: LayoutDashboard },
-        { title: "Sales Dashboard", url: "/app", icon: BarChart3, end: true },
       ],
     },
     {
