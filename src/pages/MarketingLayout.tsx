@@ -36,7 +36,7 @@ const NAV_SECTIONS: NavSection[] = [
     category: "OVERVIEW",
     items: [
       { label: "Home",              icon: Home,          to: "/marketing",              end: true },
-      { label: "Dashboard",         icon: BarChart3,     to: "/marketing-dashboard"               },
+      { label: "Dashboard",         icon: BarChart3,     to: "/marketing/dashboard"               },
     ],
   },
   {

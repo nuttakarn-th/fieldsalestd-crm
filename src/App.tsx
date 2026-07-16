@@ -172,6 +172,7 @@ const App = () => (
             <Route path="all-service" element={<AllService />} />
             <Route path="stock-analytics" element={<StockAnalytics />} />
             <Route path="marketing-report" element={<MarketingReport />} />
+            <Route path="dashboard" element={<MarketingDashboardPage />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
