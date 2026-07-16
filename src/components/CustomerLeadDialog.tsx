@@ -491,6 +491,7 @@ export function CustomerLeadDialog({
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -825,5 +826,6 @@ export function CustomerLeadDialog({
         onClose={() => setWonData(null)}
       />
     )}
+    </>
   );
 }
