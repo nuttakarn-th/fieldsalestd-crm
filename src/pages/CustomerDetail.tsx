@@ -478,6 +478,7 @@ export default function CustomerDetail() {
         </div>
         {/* 3 — Active Leads */}
         <div className="bg-card border rounded-xl shadow-soft p-2.5 text-center">
+
           <p className="text-xl font-bold text-amber-500">{activeLeads.length}</p>
           <p className="text-[11px] text-muted-foreground leading-tight">Active Leads</p>
         </div>

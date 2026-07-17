@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
-import { Pencil, AlertCircle, Calendar, Users, RefreshCw, User as UserIcon, Plus } from "lucide-react";
+import {
+  AlertCircle, Calendar, Users, RefreshCw, User as UserIcon, Plus,
+  LayoutList, Columns3, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +15,18 @@ import { toast } from "sonner";
 import {
   useCRM, formatTHB, statusColor, urgencyBadge, tierBadge,
   LEAD_STATUSES, OB_LEAD_STATUSES, OB_STAGE_META, LOST_REASONS,
-  isLostStatus,
+  isLostStatus, isClosedStatus,
   type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
 import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
+
+// ── helper: split "CODE - ชื่อโปรแกรม" ───────────────────────────────────
+function splitProg(p: string) {
+  const i = p.indexOf(" - ");
+  return i === -1 ? { code: "", name: p } : { code: p.slice(0, i), name: p.slice(i + 3) };
+}
 
 export default function Pipeline() {
   const leads = useCRM((s) => s.leads);
@@ -31,6 +40,7 @@ export default function Pipeline() {
   const obNames = useActiveOBNames();
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
+  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [addLeadCustomerId, setAddLeadCustomerId] = useState<string | null>(null);
   const [pendingLost, setPendingLost] = useState<string | null>(null);
@@ -133,107 +143,246 @@ export default function Pipeline() {
 
   const cust = (id: string) => customers.find((c) => c.customer_id === id);
 
+  // ── Compact Kanban card (Option B) ───────────────────────────────────────
+  const KanbanCard = ({ lead }: { lead: Lead }) => {
+    const c = cust(lead.customer_id);
+    const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
+    const isWon = isClosedStatus(lead.status);
+    const wonValue = (lead.closed_price || lead.quoted_price || 0);
+    const { code, name } = splitProg(lead.program || lead.bu_type);
+    const [expanded, setExpanded] = useState(false);
+
+    return (
+      <div className={`bg-card rounded-lg border shadow-soft transition-shadow hover:shadow-pop overflow-hidden ${isWon ? "border-emerald-200/70" : ""}`}>
+        {/* accent line */}
+        <div className={`h-0.5 w-full ${isWon ? "bg-emerald-400" : isLostStatus(lead.status) ? "bg-destructive/30" : "bg-primary/30"}`} />
+
+        <div className="px-2.5 pt-2 pb-1.5">
+          {/* row 1: customer + actions */}
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <p className="font-semibold text-xs truncate">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
+            <div className="flex gap-0.5 shrink-0">
+              {noContact && <AlertCircle className="w-3 h-3 text-warning-foreground" title="ยังไม่มีข้อมูลติดต่อ" />}
+              {c && (
+                <button onClick={() => setEditingCustomer(c)} className="text-muted-foreground hover:text-primary p-0.5">
+                  <UserIcon className="w-3 h-3" />
+                </button>
+              )}
+              <button onClick={() => setAddLeadCustomerId(lead.customer_id)} className="text-muted-foreground hover:text-success p-0.5">
+                <Plus className="w-3 h-3" />
+              </button>
+              <button onClick={() => setExpanded(v => !v)} className="text-muted-foreground hover:text-primary p-0.5">
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+          </div>
+
+          {/* row 2: badges */}
+          <div className="flex items-center gap-1 flex-wrap mb-1.5">
+            <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[9px] px-1 py-0 h-4`}>{lead.urgency}</Badge>
+            {isWon && <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1 py-0">จองแล้ว</span>}
+          </div>
+
+          {/* row 3: program */}
+          <p className="text-[11px] font-medium leading-tight truncate">{name || lead.bu_type}</p>
+          {code && <p className="text-[9px] text-muted-foreground font-mono">{code}</p>}
+
+          {/* row 4: meta + price */}
+          <div className="flex items-end justify-between mt-1.5 gap-1">
+            <div className="text-[10px] text-muted-foreground space-y-0">
+              <span className="flex gap-1.5">
+                <span><Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน</span>
+                <span>{lead.travel_month}</span>
+              </span>
+              {lead.next_followup_date && !isWon && !isLostStatus(lead.status) && (
+                <span className="text-amber-600 flex items-center gap-0.5">
+                  <Calendar className="w-2.5 h-2.5" />
+                  {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                </span>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              {isWon && wonValue > 0
+                ? <p className="text-sm font-bold text-emerald-600">฿{wonValue.toLocaleString()}</p>
+                : lead.quoted_price > 0
+                  ? <p className="text-[10px] text-muted-foreground">฿{lead.quoted_price.toLocaleString()}</p>
+                  : null}
+              {lead.assigned_to && <p className="text-[9px] text-muted-foreground">{lead.assigned_to}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* expand: update status */}
+        {expanded && (
+          <div className="border-t px-2.5 py-2 bg-muted/20">
+            {lead.status_note && (
+              <p className="text-[10px] text-muted-foreground italic mb-1.5 line-clamp-2">📝 {lead.status_note}</p>
+            )}
+            {isLostStatus(lead.status) && lead.lost_reason && (
+              <p className="text-[10px] text-destructive mb-1.5">❌ {lead.lost_reason}</p>
+            )}
+            <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => openStatusDialog(lead)}>
+              <RefreshCw className="w-2.5 h-2.5 mr-1" /> Update Status
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Table view (Option D) ─────────────────────────────────────────────────
+  const TableView = () => (
+    <div className="bg-card border rounded-xl shadow-soft overflow-hidden">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-muted/40 border-b">
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground">ลูกค้า</th>
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground">โปรแกรม</th>
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground">สถานะ</th>
+            <th className="text-center px-2 py-2 font-medium text-muted-foreground">ท่าน</th>
+            <th className="text-left px-2 py-2 font-medium text-muted-foreground">เดือน</th>
+            <th className="text-right px-3 py-2 font-medium text-muted-foreground">มูลค่า</th>
+            <th className="text-left px-2 py-2 font-medium text-muted-foreground">ผู้รับผิดชอบ</th>
+            <th className="text-left px-2 py-2 font-medium text-muted-foreground">Follow-up</th>
+            <th className="px-2 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.length === 0 && (
+            <tr><td colSpan={9} className="text-center py-10 text-muted-foreground">ไม่มี Lead</td></tr>
+          )}
+          {visible.map((lead) => {
+            const c = cust(lead.customer_id);
+            const isWon = isClosedStatus(lead.status);
+            const wonValue = lead.closed_price || lead.quoted_price || 0;
+            const { code, name } = splitProg(lead.program || lead.bu_type);
+            const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
+            return (
+              <tr key={lead.lead_id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isWon ? "bg-emerald-50/30" : ""}`}>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1">
+                    {noContact && <AlertCircle className="w-3 h-3 text-warning-foreground shrink-0" />}
+                    <div>
+                      <p className="font-medium truncate max-w-[100px]">{c?.full_name ?? "(ถูกลบ)"}</p>
+                      <p className="text-[10px] text-muted-foreground">{c?.company !== "-" ? c?.company : "B2C"}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-3 py-2">
+                  <p className="font-medium truncate max-w-[160px]">{name || lead.bu_type}</p>
+                  {code && <p className="text-[10px] text-muted-foreground font-mono">{code}</p>}
+                </td>
+                <td className="px-3 py-2">
+                  <Badge variant="outline" className={`${statusColor(lead.status)} text-[10px] px-1.5 py-0`}>
+                    {OB_STAGE_META[lead.status] ? `${OB_STAGE_META[lead.status].emoji} ${lead.status}` : lead.status}
+                  </Badge>
+                </td>
+                <td className="px-2 py-2 text-center">
+                  <span className="flex items-center justify-center gap-0.5">
+                    <Users className="w-3 h-3 text-muted-foreground" />{lead.pax_count}
+                  </span>
+                </td>
+                <td className="px-2 py-2 text-muted-foreground">{lead.travel_month}</td>
+                <td className="px-3 py-2 text-right">
+                  {isWon && wonValue > 0
+                    ? <span className="font-bold text-emerald-600">฿{wonValue.toLocaleString()}</span>
+                    : lead.quoted_price > 0
+                      ? <span className="text-muted-foreground">฿{lead.quoted_price.toLocaleString()}</span>
+                      : <span className="text-muted-foreground">—</span>}
+                </td>
+                <td className="px-2 py-2 text-muted-foreground">{lead.assigned_to}</td>
+                <td className="px-2 py-2 text-muted-foreground">
+                  {lead.next_followup_date && !isWon && !isLostStatus(lead.status)
+                    ? <span className="text-amber-600 flex items-center gap-0.5">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                      </span>
+                    : <span>—</span>}
+                </td>
+                <td className="px-2 py-2">
+                  <div className="flex gap-1">
+                    {c && (
+                      <button onClick={() => setEditingCustomer(c)} className="text-muted-foreground hover:text-primary">
+                        <UserIcon className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button onClick={() => openStatusDialog(lead)} className="text-muted-foreground hover:text-primary">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => setAddLeadCustomerId(lead.customer_id)} className="text-muted-foreground hover:text-success">
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
-    <div className="p-4 sm:p-6 space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Sales Pipeline</h1>
-        <p className="text-sm text-muted-foreground">
-          Kanban — {visible.length} leads {currentRep !== "All" && `• ผู้รับผิดชอบ: ${currentRep}`}
-        </p>
+    <div className="p-4 sm:p-6 space-y-4">
+      {/* ── Header ── */}
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">Sales Pipeline</h1>
+          <p className="text-sm text-muted-foreground">
+            {visible.length} leads {currentRep !== "All" && `• ${currentRep}`}
+          </p>
+        </div>
+        {/* View toggle */}
+        <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-muted/30">
+          <Button
+            size="sm"
+            variant={viewMode === "kanban" ? "default" : "ghost"}
+            className={`h-7 px-2.5 text-xs gap-1.5 ${viewMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            onClick={() => setViewMode("kanban")}
+          >
+            <Columns3 className="w-3.5 h-3.5" /> Kanban
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "table" ? "default" : "ghost"}
+            className={`h-7 px-2.5 text-xs gap-1.5 ${viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+            onClick={() => setViewMode("table")}
+          >
+            <LayoutList className="w-3.5 h-3.5" /> ตาราง
+          </Button>
+        </div>
       </div>
 
-      <div className={`grid gap-3 ${isOB ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-4" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"}`}>
-        {activeStatuses.map((status) => {
-          const items = grouped[status] ?? [];
-          const total = items.reduce((s, l) => s + (l.quoted_price || 0), 0);
-          const obMeta = OB_STAGE_META[status];
-          return (
-            <div key={status} className="bg-muted/30 rounded-xl p-3 border min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <Badge variant="outline" className={statusColor(status)}>
-                  {obMeta ? `${obMeta.emoji} ${status}` : status}
-                </Badge>
-                <span className="text-xs font-semibold">{items.length}</span>
+      {/* ── Kanban view ── */}
+      {viewMode === "kanban" && (
+        <div className={`grid gap-3 ${isOB ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-4" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"}`}>
+          {activeStatuses.map((status) => {
+            const items = grouped[status] ?? [];
+            const total = items.filter(l => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0)
+              || items.reduce((s, l) => s + (l.quoted_price || 0), 0);
+            const obMeta = OB_STAGE_META[status];
+            return (
+              <div key={status} className="bg-muted/30 rounded-xl p-2.5 border min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <Badge variant="outline" className={statusColor(status)}>
+                    {obMeta ? `${obMeta.emoji} ${status}` : status}
+                  </Badge>
+                  <span className="text-xs font-semibold">{items.length}</span>
+                </div>
+                {obMeta && <p className="text-[10px] text-muted-foreground mb-1.5 leading-tight">{obMeta.desc}</p>}
+                {total > 0 && <div className="text-[10px] text-muted-foreground mb-1.5">{formatTHB(total)}</div>}
+                <div className="space-y-1.5 max-h-[72vh] overflow-y-auto pr-0.5">
+                  {items.map((lead) => <KanbanCard key={lead.lead_id} lead={lead} />)}
+                  {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">ไม่มี Lead</p>}
+                </div>
               </div>
-              {obMeta && <p className="text-[10px] text-muted-foreground mb-2 leading-tight">{obMeta.desc}</p>}
-              {total > 0 && <div className="text-[11px] text-muted-foreground mb-2">{formatTHB(total)}</div>}
-              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-                {items.map((lead) => {
-                  const c = cust(lead.customer_id);
-                  const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
-                  return (
-                    <div key={lead.lead_id} className="bg-card rounded-lg p-3 border shadow-soft hover:shadow-pop transition-smooth">
-                      {/* ⚠️ Quick Inquiry — ยังไม่มีข้อมูลติดต่อ */}
-                      {noContact && (
-                        <div className="bg-warning/10 text-warning-foreground text-[11px] px-2 py-1 rounded mb-2 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3 shrink-0" /> Quick Inquiry — ยังไม่มีข้อมูลติดต่อ
-                        </div>
-                      )}
-                      {isLostStatus(lead.status) && lead.lost_reason && (
-                        <div className="bg-destructive/10 text-destructive text-[11px] px-2 py-1 rounded mb-2 flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3 shrink-0" /> {lead.lost_reason}
-                        </div>
-                      )}
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">{c?.company !== "-" ? c?.company : "B2C"}</p>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          {c && (
-                            <button onClick={() => setEditingCustomer(c)} title="แก้ไขข้อมูลลูกค้า" className="text-muted-foreground hover:text-primary">
-                              <UserIcon className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button onClick={() => setAddLeadCustomerId(lead.customer_id)} title="สร้าง Lead ใหม่ (ลูกค้าเดิม)" className="text-muted-foreground hover:text-success">
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => openStatusDialog(lead)} title="Update Status + Note + Follow-up" className="text-muted-foreground hover:text-primary">
-                            <RefreshCw className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 mb-2">
-                        {c && <Badge variant="outline" className={`${tierBadge(c.customer_tier)} text-[10px] px-1.5 py-0`}>{c.customer_tier}</Badge>}
-                        <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[10px] px-1.5 py-0`}>{lead.urgency}</Badge>
-                      </div>
-                      <p className="text-xs text-foreground/80 line-clamp-2 mb-2">{lead.program}</p>
-                      <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground mb-2">
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {lead.pax_count} pax</span>
-                        <span>{lead.travel_month}</span>
-                        <span>💰 {lead.budget_range}</span>
-                        <span>👤 {lead.assigned_to}</span>
-                        {lead.next_followup_date && (
-                          <span className="col-span-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> {lead.next_followup_date}</span>
-                        )}
-                      </div>
-                      {lead.status === "จองแล้ว"
-                        ? (lead.closed_price || lead.quoted_price) > 0 && (
-                            <div className="text-base font-extrabold text-emerald-500 mb-2">
-                              ✅ {formatTHB(lead.closed_price || lead.quoted_price)}
-                            </div>
-                          )
-                        : lead.quoted_price > 0 && (
-                            <div className="text-xs font-medium text-muted-foreground mb-2">
-                              {formatTHB(lead.quoted_price)}
-                            </div>
-                          )
-                      }
-                      {lead.status_note && (
-                        <p className="text-[11px] text-muted-foreground italic line-clamp-2 mb-2 bg-muted/40 rounded px-2 py-1">📝 {lead.status_note}</p>
-                      )}
-                      <Button size="sm" variant="outline" className="w-full h-7 text-[11px]" onClick={() => openStatusDialog(lead)}>
-                        <RefreshCw className="w-3 h-3 mr-1" /> Update Status
-                      </Button>
-                    </div>
-                  );
-                })}
-                {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">ไม่มี Lead</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Table view ── */}
+      {viewMode === "table" && <TableView />}
 
       <Dialog open={!!pendingLost} onOpenChange={(v) => !v && setPendingLost(null)}>
         <DialogContent>
