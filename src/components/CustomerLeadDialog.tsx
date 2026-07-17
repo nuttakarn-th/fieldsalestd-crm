@@ -247,6 +247,7 @@ export function CustomerLeadDialog({
   const [tourType, setTourType]           = useState(TOUR_TYPES[0] ?? "ครอบครัว");
   const [province, setProvince]           = useState("");
   const [company, setCompany]             = useState("");
+  const [birthday, setBirthday]           = useState("");
   const [nextFollowUp, setNextFollowUp]   = useState(new Date().toISOString().split("T")[0]);
   const [meetingNote, setMeetingNote]     = useState("");
 
@@ -290,6 +291,7 @@ export function CustomerLeadDialog({
         setLineId(c.line_id);
         setEmail(c.email ?? "");
         setProvince(c.province ?? "");
+        setBirthday(c.birthday ?? "");
         setMeetingNote(c.note ?? "");
         setSource(c.source);
       }
@@ -322,7 +324,8 @@ export function CustomerLeadDialog({
     setTravelMonth(ALL_MONTHS_KEY); setPax("2"); setUrgency("Warm");
     setFullName(""); setPhone(""); setLineId(""); setEmail("");
     setBudget(BUDGETS[0] ?? "<30k"); setTourType(TOUR_TYPES[0] ?? "ครอบครัว");
-    setProvince(""); setCompany(""); setNextFollowUp(new Date().toISOString().split("T")[0]);
+    setProvince(""); setCompany(""); setBirthday("");
+    setNextFollowUp(new Date().toISOString().split("T")[0]);
     setMeetingNote(""); setStatusOverride("__auto__");
   };
 
@@ -338,6 +341,7 @@ export function CustomerLeadDialog({
       line_id: lineId,
       email: email || undefined,
       province: province || undefined,
+      birthday: birthday || undefined,
       note: meetingNote || undefined,
       source,
     };
@@ -761,6 +765,10 @@ export function CustomerLeadDialog({
                 <div>
                   <Label>บริษัท / องค์กร</Label>
                   <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+                </div>
+                <div className="col-span-2">
+                  <Label>วันเกิด <span className="text-[10px] text-muted-foreground">(🎂 สำหรับ Birthday Campaign)</span></Label>
+                  <ThaiDateInput value={birthday} onChange={(e) => setBirthday(e.target.value)} />
                 </div>
               </div>
               <div>
