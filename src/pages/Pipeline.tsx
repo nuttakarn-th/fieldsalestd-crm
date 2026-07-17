@@ -367,7 +367,7 @@ export default function Pipeline() {
             <th className="text-left px-3 py-2 font-medium text-muted-foreground">โปรแกรม</th>
             <th className="text-left px-3 py-2 font-medium text-muted-foreground">สถานะ</th>
             <th className="text-center px-2 py-2 font-medium text-muted-foreground">ท่าน</th>
-            <th className="text-left px-2 py-2 font-medium text-muted-foreground">เดือน</th>
+            <th className="text-left px-2 py-2 font-medium text-muted-foreground">วันเดินทาง</th>
             <th className="text-right px-3 py-2 font-medium text-muted-foreground">มูลค่า</th>
             <th className="text-left px-2 py-2 font-medium text-muted-foreground">ผู้รับผิดชอบ</th>
             <th className="text-left px-2 py-2 font-medium text-muted-foreground">Follow-up</th>
@@ -381,11 +381,13 @@ export default function Pipeline() {
           {visible.map((lead) => {
             const c = cust(lead.customer_id);
             const isWon = isClosedStatus(lead.status);
+            const isLost = isLostStatus(lead.status);
             const wonValue = lead.closed_price || lead.quoted_price || 0;
             const { code, name } = splitProg(lead.program || lead.bu_type);
             const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
+            const periodLabel = getPeriodLabel(lead.tour_id, lead.period_id, "");
             return (
-              <tr key={lead.lead_id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isWon ? "bg-emerald-50/30" : ""}`}>
+              <tr key={lead.lead_id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isWon ? "bg-emerald-50/30" : isLost ? "bg-destructive/5 opacity-80" : ""}`}>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1">
                     {noContact && <AlertCircle className="w-3 h-3 text-warning-foreground shrink-0" />}
@@ -400,16 +402,30 @@ export default function Pipeline() {
                   {code && <p className="text-[10px] text-muted-foreground font-mono">{code}</p>}
                 </td>
                 <td className="px-3 py-2">
-                  <Badge variant="outline" className={`${statusColor(lead.status)} text-[10px] px-1.5 py-0`}>
-                    {OB_STAGE_META[lead.status] ? `${OB_STAGE_META[lead.status].emoji} ${lead.status}` : lead.status}
-                  </Badge>
+                  <div>
+                    <Badge variant="outline" className={`${statusColor(lead.status)} text-[10px] px-1.5 py-0`}>
+                      {OB_STAGE_META[lead.status] ? `${OB_STAGE_META[lead.status].emoji} ${lead.status}` : lead.status}
+                    </Badge>
+                    {isLost && lead.lost_reason && (
+                      <p className="text-[10px] text-destructive mt-0.5 truncate max-w-[140px]">❌ {lead.lost_reason}</p>
+                    )}
+                  </div>
                 </td>
                 <td className="px-2 py-2 text-center">
                   <span className="flex items-center justify-center gap-0.5">
                     <Users className="w-3 h-3 text-muted-foreground" />{lead.pax_count}
                   </span>
                 </td>
-                <td className="px-2 py-2 text-muted-foreground">{lead.travel_month}</td>
+                <td className="px-2 py-2">
+                  {periodLabel ? (
+                    <div>
+                      <p className="text-xs font-medium">{periodLabel}</p>
+                      <p className="text-[10px] text-muted-foreground">{lead.travel_month}</p>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">{lead.travel_month || "—"}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-right">
                   {isWon && wonValue > 0
                     ? <span className="font-bold text-emerald-600">฿{wonValue.toLocaleString()}</span>
