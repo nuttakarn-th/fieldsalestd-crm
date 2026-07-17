@@ -24,6 +24,7 @@ import {
   type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
 import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
+import { useServices } from "@/store/serviceStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 
@@ -31,6 +32,11 @@ import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
 function splitProg(p: string) {
   const i = p.indexOf(" - ");
   return i === -1 ? { code: "", name: p } : { code: p.slice(0, i), name: p.slice(i + 3) };
+}
+
+// ── helper: แปลง ISO date → "26 ก.ค." ───────────────────────────────────
+function fmtDate(iso: string) {
+  return new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
 export default function Pipeline() {
@@ -44,6 +50,18 @@ export default function Pipeline() {
   const isOBRole = user?.role === "OB Co-ordinator" || user?.role === "OB Manager";
   const obNames = useActiveOBNames();
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
+
+  const tours = useServices((s) => s.tours);
+
+  // ── ดึง period label "26 ก.ค. – 31 ก.ค." จาก tour_id + period_id ────────
+  const getPeriodLabel = (tourId?: string, periodId?: string, fallback?: string): string => {
+    if (!tourId || !periodId) return fallback ?? "";
+    const period = tours.find((t) => t.tour_id === tourId)?.periods?.find((p) => p.period_id === periodId);
+    if (!period) return fallback ?? "";
+    if (period.start_date && period.end_date) return `${fmtDate(period.start_date)} – ${fmtDate(period.end_date)}`;
+    if (period.start_date) return fmtDate(period.start_date);
+    return fallback ?? "";
+  };
 
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -176,36 +194,40 @@ export default function Pipeline() {
     const isLost = isLostStatus(lead.status);
     const wonValue = (lead.closed_price || lead.quoted_price || 0);
     const { code, name } = splitProg(lead.program || lead.bu_type);
+    const periodLabel = getPeriodLabel(lead.tour_id, lead.period_id, lead.travel_month);
     const [expanded, setExpanded] = useState(false);
 
-    // ── การ์ด "ยกเลิก" — compact + muted ──────────────────────────────────
+    // ── การ์ด "ยกเลิก" — compact, ข้อความชัดแต่ de-emphasized ─────────────
     if (isLost) {
       return (
-        <div className="bg-muted/40 rounded-lg border border-dashed border-destructive/20 opacity-70 hover:opacity-90 transition-opacity overflow-hidden">
+        <div className="bg-card rounded-lg border border-destructive/20 overflow-hidden">
+          <div className="h-0.5 w-full bg-destructive/30" />
           <div className="px-2.5 py-1.5">
             {/* row 1: name + expand */}
             <div className="flex items-center justify-between gap-1">
-              <p className="text-[11px] text-muted-foreground truncate">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
-              <button onClick={() => setExpanded(v => !v)} className="text-muted-foreground/60 hover:text-muted-foreground p-0.5 shrink-0">
+              <p className="text-xs font-medium truncate text-foreground/70">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
+              <button onClick={() => setExpanded(v => !v)} className="text-muted-foreground hover:text-foreground p-0.5 shrink-0">
                 {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             </div>
-            {/* row 2: program + lost reason */}
-            <p className="text-[10px] text-muted-foreground/70 truncate">{name || lead.bu_type}</p>
-            <div className="flex items-center justify-between mt-1 gap-1">
-              <p className="text-[10px] text-destructive/70 truncate">
+            {/* row 2: program */}
+            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{name || lead.bu_type}{code && ` · ${code}`}</p>
+            {/* row 3: lost reason + price */}
+            <div className="flex items-center justify-between gap-1 mt-1">
+              <p className="text-[11px] text-destructive font-medium truncate">
                 ❌ {lead.lost_reason ?? "ไม่ระบุเหตุผล"}
               </p>
               {lead.quoted_price > 0 && (
-                <p className="text-[10px] text-muted-foreground/60 shrink-0">฿{lead.quoted_price.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground shrink-0">฿{lead.quoted_price.toLocaleString()}</p>
               )}
             </div>
           </div>
-          {/* expand: reopen / update */}
+          {/* expand: detail + reopen */}
           {expanded && (
-            <div className="border-t border-dashed border-destructive/20 px-2.5 py-1.5 bg-muted/20">
-              <p className="text-[10px] text-muted-foreground mb-1">
-                <Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน · {lead.travel_month}
+            <div className="border-t border-destructive/10 px-2.5 py-1.5 bg-muted/20">
+              <p className="text-[10px] text-muted-foreground mb-1.5">
+                <Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน
+                {periodLabel && ` · ${periodLabel}`}
                 {lead.assigned_to && ` · ${lead.assigned_to}`}
               </p>
               <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => openStatusDialog(lead)}>
@@ -223,9 +245,9 @@ export default function Pipeline() {
         {/* accent line */}
         <div className={`h-0.5 w-full ${isWon ? "bg-emerald-400" : "bg-primary/30"}`} />
 
-        <div className="px-2.5 pt-2 pb-1.5">
+        <div className="px-2.5 pt-1.5 pb-1">
           {/* row 1: customer + actions */}
-          <div className="flex items-center justify-between gap-1 mb-1">
+          <div className="flex items-center justify-between gap-1">
             <p className="font-semibold text-xs truncate">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
             <div className="flex gap-0.5 shrink-0">
               {noContact && <AlertCircle className="w-3 h-3 text-warning-foreground" title="ยังไม่มีข้อมูลติดต่อ" />}
@@ -243,44 +265,48 @@ export default function Pipeline() {
             </div>
           </div>
 
-          {/* row 2: badges */}
-          <div className="flex items-center gap-1 flex-wrap mb-1.5">
-            <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[9px] px-1 py-0 h-4`}>{lead.urgency}</Badge>
-            {isWon && <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1 py-0">จองแล้ว</span>}
+          {/* row 2: badge + program (same row เพื่อประหยัดพื้นที่) */}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[9px] px-1 py-0 h-4 shrink-0`}>{lead.urgency}</Badge>
+            {isWon && <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded px-1 py-0 shrink-0">จองแล้ว</span>}
+            <p className="text-[10px] font-medium truncate text-foreground/80">{name || lead.bu_type}</p>
           </div>
 
-          {/* row 3: program */}
-          <p className="text-[11px] font-medium leading-tight truncate">{name || lead.bu_type}</p>
-          {code && <p className="text-[9px] text-muted-foreground font-mono">{code}</p>}
-
-          {/* row 4: meta + price */}
-          <div className="flex items-end justify-between mt-1.5 gap-1">
-            <div className="text-[10px] text-muted-foreground space-y-0">
-              <span className="flex gap-1.5">
-                <span><Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน</span>
-                <span>{lead.travel_month}</span>
+          {/* row 3: code + period + price */}
+          <div className="flex items-center justify-between mt-0.5 gap-1">
+            <div className="text-[9px] text-muted-foreground flex items-center gap-1.5 min-w-0">
+              {code && <span className="font-mono shrink-0">{code}</span>}
+              <span className="truncate">
+                <Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน
+                {periodLabel && ` · ${periodLabel}`}
               </span>
-              {lead.next_followup_date && !isWon && (
-                <span className="text-amber-600 flex items-center gap-0.5">
-                  <Calendar className="w-2.5 h-2.5" />
-                  {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
-                </span>
-              )}
             </div>
             <div className="text-right shrink-0">
               {isWon && wonValue > 0
-                ? <p className="text-sm font-bold text-emerald-600">฿{wonValue.toLocaleString()}</p>
+                ? <p className="text-xs font-bold text-emerald-600">฿{wonValue.toLocaleString()}</p>
                 : lead.quoted_price > 0
-                  ? <p className="text-[10px] text-muted-foreground">฿{lead.quoted_price.toLocaleString()}</p>
+                  ? <p className="text-[9px] text-muted-foreground">฿{lead.quoted_price.toLocaleString()}</p>
                   : null}
-              {lead.assigned_to && <p className="text-[9px] text-muted-foreground">{lead.assigned_to}</p>}
             </div>
           </div>
+
+          {/* row 4: follow-up + assigned_to */}
+          {(lead.next_followup_date || lead.assigned_to) && (
+            <div className="flex items-center justify-between mt-0.5">
+              {lead.next_followup_date && !isWon ? (
+                <span className="text-[9px] text-amber-600 flex items-center gap-0.5">
+                  <Calendar className="w-2.5 h-2.5" />
+                  {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                </span>
+              ) : <span />}
+              {lead.assigned_to && <p className="text-[9px] text-muted-foreground">{lead.assigned_to}</p>}
+            </div>
+          )}
         </div>
 
         {/* expand: update status */}
         {expanded && (
-          <div className="border-t px-2.5 py-2 bg-muted/20">
+          <div className="border-t px-2.5 py-1.5 bg-muted/20">
             {lead.status_note && (
               <p className="text-[10px] text-muted-foreground italic mb-1.5 line-clamp-2">📝 {lead.status_note}</p>
             )}
