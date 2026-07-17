@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   useCRM, formatTHB, tierBadge, statusColor, urgencyBadge, isLostStatus, isClosedStatus,
-  LEAD_STATUSES, URGENCY_OPTIONS,
+  LEAD_STATUSES, URGENCY_OPTIONS, LOST_REASONS,
   type Customer, type Lead, type LeadStatus, type TransferLog,
 } from "@/store/crmStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
@@ -52,12 +52,13 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
   const [quotedPrice, setQuotedPrice] = useState(String(lead.quoted_price ?? 0));
   const [nextFollowup, setNextFollowup] = useState(lead.next_followup_date ?? "");
   const [note, setNote] = useState(lead.status_note ?? "");
-  const [lostReason, setLostReason] = useState(lead.lost_reason ?? "");
+  const [lostReason, setLostReason] = useState(lead.lost_reason ?? LOST_REASONS[0]);
+  const [lostNote, setLostNote]     = useState("");
 
   const isCancelling = status === "ยกเลิก";
 
   function handleSave() {
-    if (isCancelling && !lostReason.trim()) {
+    if (isCancelling && !lostReason) {
       toast.error("กรุณาระบุเหตุผลที่ยกเลิก");
       return;
     }
@@ -70,7 +71,10 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
       status_note: note || null,
     };
     updateLead(lead.lead_id, patch);
-    if (status !== lead.status) updateLeadStatus(lead.lead_id, status, isCancelling ? lostReason.trim() : undefined);
+    const finalLostReason = isCancelling
+      ? (lostNote.trim() ? `${lostReason} — ${lostNote.trim()}` : lostReason)
+      : undefined;
+    if (status !== lead.status) updateLeadStatus(lead.lead_id, status, finalLostReason);
     toast.success("บันทึก Lead เรียบร้อยแล้ว");
     onClose();
   }
@@ -136,15 +140,30 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
           </div>
           {/* Lost reason — แสดงเฉพาะเมื่อเลือกสถานะยกเลิก */}
           {isCancelling && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-1.5">
-              <Label className="text-xs text-destructive font-semibold">❌ เหตุผลที่ยกเลิก <span className="text-destructive">*</span></Label>
-              <Textarea
-                value={lostReason}
-                onChange={(e) => setLostReason(e.target.value)}
-                className="min-h-[60px] text-sm border-destructive/30 focus-visible:ring-destructive/40"
-                placeholder="เช่น ราคาสูงเกินงบ / ลูกค้าเลือกเจ้าอื่น / เลื่อนแผนการเดินทาง..."
-                autoFocus
-              />
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2.5">
+              <p className="text-xs font-semibold text-destructive">❌ ระบุเหตุผลที่ยกเลิก</p>
+              <div>
+                <Label className="text-xs">เหตุผลหลัก *</Label>
+                <Select value={lostReason} onValueChange={setLostReason}>
+                  <SelectTrigger className="mt-1 border-destructive/30 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOST_REASONS.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">รายละเอียดเพิ่มเติม (ไม่บังคับ)</Label>
+                <Textarea
+                  value={lostNote}
+                  onChange={(e) => setLostNote(e.target.value)}
+                  className="mt-1 min-h-[50px] text-sm border-destructive/30"
+                  placeholder="เช่น ลูกค้าบอกว่าเพื่อนแนะนำบริษัทอื่น..."
+                />
+              </div>
             </div>
           )}
           {/* Note */}
