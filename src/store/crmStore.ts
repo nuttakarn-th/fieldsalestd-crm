@@ -109,6 +109,8 @@ export interface MonthlyTarget {
   domestic_pax: number;
   international_sales: number;
   international_pax: number;
+  incentive_sales: number;
+  incentive_pax: number;
 }
 
 export type StopStatus = "planned" | "in_progress" | "completed" | "skipped";
@@ -465,6 +467,8 @@ function defaultTargets(): MonthlyTarget[] {
         domestic_pax: 40,
         international_sales: 800_000,
         international_pax: 30,
+        incentive_sales: 0,
+        incentive_pax: 0,
       });
     });
   }
@@ -1302,6 +1306,7 @@ export const useCRM = create<CRMState>()(
         month, rep,
         domestic_sales: 0, domestic_pax: 0,
         international_sales: 0, international_pax: 0,
+        incentive_sales: 0, incentive_pax: 0,
         ...patch,
       };
       set({ targets: [...list, upserted] });
