@@ -56,7 +56,7 @@ export default function Pipeline() {
   // ── ดึง period label "26 ก.ค. – 31 ก.ค." จาก tour_id + period_id ────────
   const getPeriodLabel = (tourId?: string, periodId?: string, fallback?: string): string => {
     if (!tourId || !periodId) return fallback ?? "";
-    const period = tours.find((t) => t.tour_id === tourId)?.periods?.find((p) => p.period_id === periodId);
+    const period = tours.find((t) => t.id === tourId)?.periods?.find((p) => p.period_id === periodId);
     if (!period) return fallback ?? "";
     if (period.start_date && period.end_date) return `${fmtDate(period.start_date)} – ${fmtDate(period.end_date)}`;
     if (period.start_date) return fmtDate(period.start_date);
