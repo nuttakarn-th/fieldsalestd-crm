@@ -34,9 +34,12 @@ function splitProg(p: string) {
   return i === -1 ? { code: "", name: p } : { code: p.slice(0, i), name: p.slice(i + 3) };
 }
 
-// ── helper: แปลง ISO date → "26 ก.ค." ───────────────────────────────────
+// ── helper: แปลง ISO date → "26 ก.ค. 69" ────────────────────────────────
 function fmtDate(iso: string) {
-  return new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const d = new Date(iso + "T00:00:00");
+  const day = d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const year = (d.getFullYear() + 543).toString().slice(-2); // พ.ศ. 2 หลัก
+  return `${day} ${year}`;
 }
 
 export default function Pipeline() {
