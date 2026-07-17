@@ -173,14 +173,55 @@ export default function Pipeline() {
     const c = cust(lead.customer_id);
     const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
     const isWon = isClosedStatus(lead.status);
+    const isLost = isLostStatus(lead.status);
     const wonValue = (lead.closed_price || lead.quoted_price || 0);
     const { code, name } = splitProg(lead.program || lead.bu_type);
     const [expanded, setExpanded] = useState(false);
 
+    // ── การ์ด "ยกเลิก" — compact + muted ──────────────────────────────────
+    if (isLost) {
+      return (
+        <div className="bg-muted/40 rounded-lg border border-dashed border-destructive/20 opacity-70 hover:opacity-90 transition-opacity overflow-hidden">
+          <div className="px-2.5 py-1.5">
+            {/* row 1: name + expand */}
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[11px] text-muted-foreground truncate">{c?.full_name ?? "(ลูกค้าถูกลบ)"}</p>
+              <button onClick={() => setExpanded(v => !v)} className="text-muted-foreground/60 hover:text-muted-foreground p-0.5 shrink-0">
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+            {/* row 2: program + lost reason */}
+            <p className="text-[10px] text-muted-foreground/70 truncate">{name || lead.bu_type}</p>
+            <div className="flex items-center justify-between mt-1 gap-1">
+              <p className="text-[10px] text-destructive/70 truncate">
+                ❌ {lead.lost_reason ?? "ไม่ระบุเหตุผล"}
+              </p>
+              {lead.quoted_price > 0 && (
+                <p className="text-[10px] text-muted-foreground/60 shrink-0">฿{lead.quoted_price.toLocaleString()}</p>
+              )}
+            </div>
+          </div>
+          {/* expand: reopen / update */}
+          {expanded && (
+            <div className="border-t border-dashed border-destructive/20 px-2.5 py-1.5 bg-muted/20">
+              <p className="text-[10px] text-muted-foreground mb-1">
+                <Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน · {lead.travel_month}
+                {lead.assigned_to && ` · ${lead.assigned_to}`}
+              </p>
+              <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => openStatusDialog(lead)}>
+                <RefreshCw className="w-2.5 h-2.5 mr-1" /> เปลี่ยนสถานะ
+              </Button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── การ์ดปกติ ──────────────────────────────────────────────────────────
     return (
       <div className={`bg-card rounded-lg border shadow-soft transition-shadow hover:shadow-pop overflow-hidden ${isWon ? "border-emerald-200/70" : ""}`}>
         {/* accent line */}
-        <div className={`h-0.5 w-full ${isWon ? "bg-emerald-400" : isLostStatus(lead.status) ? "bg-destructive/30" : "bg-primary/30"}`} />
+        <div className={`h-0.5 w-full ${isWon ? "bg-emerald-400" : "bg-primary/30"}`} />
 
         <div className="px-2.5 pt-2 pb-1.5">
           {/* row 1: customer + actions */}
@@ -219,7 +260,7 @@ export default function Pipeline() {
                 <span><Users className="w-2.5 h-2.5 inline mr-0.5" />{lead.pax_count} ท่าน</span>
                 <span>{lead.travel_month}</span>
               </span>
-              {lead.next_followup_date && !isWon && !isLostStatus(lead.status) && (
+              {lead.next_followup_date && !isWon && (
                 <span className="text-amber-600 flex items-center gap-0.5">
                   <Calendar className="w-2.5 h-2.5" />
                   {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
@@ -242,9 +283,6 @@ export default function Pipeline() {
           <div className="border-t px-2.5 py-2 bg-muted/20">
             {lead.status_note && (
               <p className="text-[10px] text-muted-foreground italic mb-1.5 line-clamp-2">📝 {lead.status_note}</p>
-            )}
-            {isLostStatus(lead.status) && lead.lost_reason && (
-              <p className="text-[10px] text-destructive mb-1.5">❌ {lead.lost_reason}</p>
             )}
             <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => openStatusDialog(lead)}>
               <RefreshCw className="w-2.5 h-2.5 mr-1" /> Update Status
