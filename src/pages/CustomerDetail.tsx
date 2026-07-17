@@ -52,8 +52,15 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
   const [quotedPrice, setQuotedPrice] = useState(String(lead.quoted_price ?? 0));
   const [nextFollowup, setNextFollowup] = useState(lead.next_followup_date ?? "");
   const [note, setNote] = useState(lead.status_note ?? "");
+  const [lostReason, setLostReason] = useState(lead.lost_reason ?? "");
+
+  const isCancelling = status === "ยกเลิก";
 
   function handleSave() {
+    if (isCancelling && !lostReason.trim()) {
+      toast.error("กรุณาระบุเหตุผลที่ยกเลิก");
+      return;
+    }
     const patch: Partial<Lead> = {
       urgency: urgency as Lead["urgency"],
       pax_count: parseInt(pax) || lead.pax_count,
@@ -63,7 +70,7 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
       status_note: note || null,
     };
     updateLead(lead.lead_id, patch);
-    if (status !== lead.status) updateLeadStatus(lead.lead_id, status);
+    if (status !== lead.status) updateLeadStatus(lead.lead_id, status, isCancelling ? lostReason.trim() : undefined);
     toast.success("บันทึก Lead เรียบร้อยแล้ว");
     onClose();
   }
@@ -127,6 +134,19 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
               <Input value={nextFollowup} onChange={(e) => setNextFollowup(e.target.value)} type="date" className="h-8 text-xs mt-1" />
             </div>
           </div>
+          {/* Lost reason — แสดงเฉพาะเมื่อเลือกสถานะยกเลิก */}
+          {isCancelling && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-1.5">
+              <Label className="text-xs text-destructive font-semibold">❌ เหตุผลที่ยกเลิก <span className="text-destructive">*</span></Label>
+              <Textarea
+                value={lostReason}
+                onChange={(e) => setLostReason(e.target.value)}
+                className="min-h-[60px] text-sm border-destructive/30 focus-visible:ring-destructive/40"
+                placeholder="เช่น ราคาสูงเกินงบ / ลูกค้าเลือกเจ้าอื่น / เลื่อนแผนการเดินทาง..."
+                autoFocus
+              />
+            </div>
+          )}
           {/* Note */}
           <div>
             <Label className="text-xs">หมายเหตุ</Label>
@@ -135,7 +155,9 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}><X className="w-3.5 h-3.5 mr-1" />ยกเลิก</Button>
-          <Button size="sm" className="bg-gradient-primary" onClick={handleSave}><Save className="w-3.5 h-3.5 mr-1" />บันทึก</Button>
+          <Button size="sm" className={isCancelling ? "bg-destructive hover:bg-destructive/90" : "bg-gradient-primary"} onClick={handleSave}>
+            <Save className="w-3.5 h-3.5 mr-1" />{isCancelling ? "ยืนยันยกเลิก" : "บันทึก"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
