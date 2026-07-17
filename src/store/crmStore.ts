@@ -1121,18 +1121,16 @@ export const useCRM = create<CRMState>()(
 
   deleteCustomer: (id) => {
     const cust = get().customers.find((c) => c.customer_id === id);
-    // ลบ customer + leads ทั้งหมดที่ผูกกับ customer_id นี้พร้อมกัน
+    // ลบ local state ก่อน (UI ตอบสนองทันที)
     set({
       customers: get().customers.filter((c) => c.customer_id !== id),
       leads: get().leads.filter((l) => l.customer_id !== id),
     });
     if (SUPABASE_ENABLED && supabase) {
-      // ลบ leads ก่อน (FK constraint) แล้วค่อยลบ customer
-      supabase.from("leads").delete().eq("customer_id", id).then(({ error }) => {
-        if (error) console.error("[supabase] delete leads ล้มเหลว:", error);
-      });
+      // FK มี ON DELETE CASCADE → ลบ customer ตัวเดียวพอ DB จัดการ leads ให้เอง
       supabase.from("customers").delete().eq("customer_id", id).then(({ error }) => {
         if (error) console.error("[supabase] delete customer ล้มเหลว:", error);
+        else console.info("[supabase] ลบลูกค้า", id, "เรียบร้อย");
       });
     }
     if (cust) {
