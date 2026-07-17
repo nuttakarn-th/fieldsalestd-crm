@@ -302,7 +302,8 @@ export const useServices = create<ServiceState>()(
       adjustQuota: (tourId, delta) => {
         const tour = get().tours.find((x) => x.id === tourId);
         if (!tour) return;
-        const newQuota = Math.max(0, tour.quota + delta);
+        // clamp 0 ≤ quota ≤ total_seats (ป้องกัน "จอง" ติดลบ)
+        const newQuota = Math.min(tour.total_seats, Math.max(0, tour.quota + delta));
         set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, quota: newQuota } : x) });
         sbUpdate("tours", tourId, { quota: newQuota });
       },
@@ -421,7 +422,8 @@ export const useServices = create<ServiceState>()(
             if (x.period_id !== periodId) return x;
             return {
               ...x,
-              quota: Math.max(0, x.quota + delta),
+              // clamp 0 ≤ quota ≤ total_seats (ป้องกัน "จอง" ติดลบ)
+              quota: Math.min(x.total_seats, Math.max(0, x.quota + delta)),
               ...(updatedBy ? { updated_by: updatedBy, updated_at: now } : {}),
             };
           });

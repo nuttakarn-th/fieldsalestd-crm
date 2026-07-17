@@ -42,7 +42,7 @@ function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; tota
 
   if (total_seats === 0) return <span className="text-xs text-muted-foreground">—</span>;
 
-  const booked = total_seats - quota;
+  const booked = Math.max(0, total_seats - quota);
   const pct = Math.round((quota / total_seats) * 100);
   const barColor = quota === 0 ? "bg-destructive" : pct <= 20 ? "bg-amber-500" : "bg-success";
 
@@ -89,7 +89,7 @@ function PeriodQuotaBar({ quota, total_seats, canEdit, tourId, periodId }: {
   const [delta, setDelta] = useState("");
 
   if (total_seats === 0) return <span className="text-xs text-muted-foreground">—</span>;
-  const booked = total_seats - quota;
+  const booked = Math.max(0, total_seats - quota);
   const pct = Math.round((quota / total_seats) * 100);
   const barColor = quota === 0 ? "bg-destructive" : pct <= 20 ? "bg-amber-500" : "bg-success";
 
