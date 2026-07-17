@@ -22,6 +22,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useServices } from "@/store/serviceStore";
+
+// ── Date helpers ──────────────────────────────────────────────────────────
+function fmtDate(iso: string) {
+  const d = new Date(iso + "T00:00:00");
+  const day = d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const year = (d.getFullYear() + 543).toString().slice(-2);
+  return `${day} ${year}`;
+}
 
 const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ทัวร์ต่างประเทศ":  { label: "✈️ ทัวร์ต่างประเทศ",   className: "bg-blue-100 text-blue-700 border-blue-200" },
@@ -186,6 +195,7 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
 // ── LeadCard (redesigned) ─────────────────────────────────────────────────
 function LeadCard({ lead }: { lead: Lead }) {
   const deleteLead = useCRM((s) => s.deleteLead);
+  const tours = useServices((s) => s.tours);
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -195,6 +205,16 @@ function LeadCard({ lead }: { lead: Lead }) {
   const isLost = isLostStatus(lead.status);
   const wonValue = (lead.closed_price || lead.quoted_price || 0);
   const { code, name } = splitProgram(lead.program || lead.bu_type);
+
+  // Compute period date label
+  const periodLabel = (() => {
+    if (lead.tour_id && lead.period_id) {
+      const period = tours.find((t) => t.id === lead.tour_id)?.periods?.find((p) => p.period_id === lead.period_id);
+      if (period?.start_date && period?.end_date) return `${fmtDate(period.start_date)} – ${fmtDate(period.end_date)}`;
+      if (period?.start_date) return fmtDate(period.start_date);
+    }
+    return lead.travel_month ?? "";
+  })();
 
   return (
     <>
@@ -238,7 +258,7 @@ function LeadCard({ lead }: { lead: Lead }) {
           <p className="font-semibold text-sm leading-snug">{name || lead.bu_type}</p>
           {code && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{code}</p>}
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
-            <span>🗓️ {lead.travel_month}</span>
+            <span>🗓️ {periodLabel}</span>
             <span>👥 {lead.pax_count} ท่าน</span>
             {!isWon && lead.budget_range && <span>💰 {lead.budget_range}</span>}
           </div>
