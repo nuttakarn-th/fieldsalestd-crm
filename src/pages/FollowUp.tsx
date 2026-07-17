@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { fmtDateStr } from "@/lib/dateUtils";
-import { Phone, MessageCircle, Calendar as CalendarIcon, AlertCircle, Clock, Pencil, RefreshCw, ClipboardCheck, ChevronDown, ChevronUp, History } from "lucide-react";
+import { Phone, Calendar as CalendarIcon, AlertCircle, Clock, RefreshCw, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { VoiceTextarea } from "@/components/VoiceTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useCRM, urgencyBadge, LEAD_STATUSES, LOST_REASONS, type Lead, type Customer, type LeadStatus } from "@/store/crmStore";
+import { useCRM, urgencyBadge, statusColor, LEAD_STATUSES, LOST_REASONS, type Lead, type LeadStatus } from "@/store/crmStore";
 import { useAuth } from "@/store/authStore";
 import { FollowupLogDialog } from "@/components/FollowupLogDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
@@ -18,45 +18,38 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const RESULT_COLOR: Record<string, string> = {
-  "ไม่เจอ/ไม่รับ": "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-  "เจอแต่ไม่ว่าง":  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  "คุยแล้ว":        "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  "นัดได้แล้ว":     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+  "ไม่เจอ/ไม่รับ": "bg-slate-100 text-slate-600",
+  "เจอแต่ไม่ว่าง":  "bg-amber-100 text-amber-700",
+  "คุยแล้ว":        "bg-blue-100 text-blue-700",
+  "นัดได้แล้ว":     "bg-emerald-100 text-emerald-700",
 };
 
 export default function FollowUp() {
-  const leads = useCRM((s) => s.leads);
-  const customers = useCRM((s) => s.customers);
-  const currentRep = useCRM((s) => s.currentRep);
-  const updateLead = useCRM((s) => s.updateLead);
+  const leads        = useCRM((s) => s.leads);
+  const customers    = useCRM((s) => s.customers);
+  const currentRep   = useCRM((s) => s.currentRep);
+  const updateLead   = useCRM((s) => s.updateLead);
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
 
-  // ── Department scoping ─────────────────────────────────────────────────
-  const authUsers = useAuth((s) => s.users);
+  // ── Department scoping ────────────────────────────────────────────────
+  const authUsers     = useAuth((s) => s.users);
   const currentUserId = useAuth((s) => s.currentUserId);
-  const currentUser = authUsers.find((u) => u.user_id === currentUserId);
-  const currentRole = currentUser?.role ?? "";
-  const isOBManager = currentRole === "OB Manager";
+  const currentUser   = authUsers.find((u) => u.user_id === currentUserId);
+  const currentRole   = currentUser?.role ?? "";
+  const isOBManager   = currentRole === "OB Manager";
   const isSalesManager = currentRole === "Sales Manager";
-  // รายชื่อ OB Co-ordinator ทั้งหมด
-  const obRepNames = new Set(
+  const obRepNames    = new Set(
     authUsers.filter((u) => u.role === "OB Co-ordinator").map((u) => u.full_name)
   );
-  const [editing, setEditing] = useState<Customer | null>(null);
-  const [statusLead, setStatusLead] = useState<Lead | null>(null);
-  const [logLead, setLogLead] = useState<Lead | null>(null);
-  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
 
-  const toggleLogs = (id: string) =>
-    setExpandedLogs((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  const [stStatus, setStStatus] = useState<LeadStatus>("ติดต่อแล้ว");
-  const [stNote, setStNote] = useState("");
-  const [stNext, setStNext] = useState<Date | undefined>(undefined);
-  const [stLost, setStLost] = useState<string>(LOST_REASONS[0]);
+  // ── Dialog state ──────────────────────────────────────────────────────
+  const [editing,    setEditing]    = useState<typeof customers[0] | null>(null);
+  const [statusLead, setStatusLead] = useState<Lead | null>(null);
+  const [logLead,    setLogLead]    = useState<Lead | null>(null);
+  const [stStatus,   setStStatus]   = useState<LeadStatus>("ติดต่อแล้ว");
+  const [stNote,     setStNote]     = useState("");
+  const [stNext,     setStNext]     = useState<Date | undefined>(undefined);
+  const [stLost,     setStLost]     = useState<string>(LOST_REASONS[0]);
 
   const openStatus = (l: Lead) => {
     setStatusLead(l);
@@ -78,7 +71,6 @@ export default function FollowUp() {
       next_followup_date: closed ? null : (stNext ? stNext.toISOString().split("T")[0] : statusLead.next_followup_date),
     });
     if (stNote.trim()) {
-      // Append note to program text as a lightweight log
       updateLead(statusLead.lead_id, {
         program: `${statusLead.program}\n[${new Date().toLocaleDateString("th-TH")}] ${stNote.trim()}`,
       });
@@ -87,162 +79,223 @@ export default function FollowUp() {
     setStatusLead(null);
   };
 
+  // ── Data ──────────────────────────────────────────────────────────────
   const visible = useMemo(() => leads.filter((l) => {
     if (!l.next_followup_date) return false;
     if (["จองแล้ว", "ยกเลิก"].includes(l.status)) return false;
-    // OB Manager เห็นแค่ lead ของทีม OB เท่านั้น
-    if (isOBManager) return obRepNames.has(l.assigned_to ?? "");
-    // Sales Manager เห็นแค่ lead ที่ไม่ใช่ OB
+    if (isOBManager)   return obRepNames.has(l.assigned_to ?? "");
     if (isSalesManager) return !obRepNames.has(l.assigned_to ?? "");
-    // Sales / OB Co-ord เห็นแค่ของตัวเอง
     return currentRep === "All" || l.assigned_to === currentRep;
   }), [leads, currentRep, isOBManager, isSalesManager, obRepNames]);
 
-  const today = new Date().toISOString().split("T")[0];
-  const overdue = visible.filter((l) => l.next_followup_date! < today).sort((a, b) => a.next_followup_date!.localeCompare(b.next_followup_date!));
-  const todays = visible.filter((l) => l.next_followup_date === today);
+  const today    = new Date().toISOString().split("T")[0];
+  const overdue  = visible.filter((l) => l.next_followup_date! < today).sort((a, b) => a.next_followup_date!.localeCompare(b.next_followup_date!));
+  const todays   = visible.filter((l) => l.next_followup_date === today);
   const upcoming = visible.filter((l) => l.next_followup_date! > today).sort((a, b) => a.next_followup_date!.localeCompare(b.next_followup_date!));
 
   const cust = (id: string) => customers.find((c) => c.customer_id === id);
 
-  const Card = ({ lead }: { lead: Lead }) => {
-    const c = cust(lead.customer_id);
-    const logs = lead.followup_logs ?? [];
+  // ── Table Row ─────────────────────────────────────────────────────────
+  const TableRow = ({ lead, dateClass }: { lead: Lead; dateClass: string }) => {
+    const c       = cust(lead.customer_id);
+    const logs    = lead.followup_logs ?? [];
     const lastLog = logs[logs.length - 1];
-    const showLogs = expandedLogs.has(lead.lead_id);
-    return (
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
-        {/* Main row */}
-        <div className="p-3 flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold">{c?.full_name}</p>
-              <Badge variant="outline" className={`${urgencyBadge(lead.urgency)} text-[10px]`}>{lead.urgency}</Badge>
-              <span className="text-xs text-muted-foreground">{c?.company !== "-" ? c?.company : "B2C"}</span>
-              {c && (
-                <button onClick={() => setEditing(c)} className="ml-auto md:ml-0 inline-flex items-center gap-1 text-[11px] text-primary hover:text-accent transition-smooth">
-                  <Pencil className="w-3 h-3" /> แก้ไข
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{lead.program}</p>
-            <div className="flex flex-wrap gap-3 mt-1 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><CalendarIcon className="w-3 h-3" /> {fmtDateStr(lead.next_followup_date)}</span>
-              <span>👤 {lead.assigned_to}</span>
-              <span>📌 {lead.status}</span>
-              {lastLog && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${RESULT_COLOR[lastLog.result] ?? ""}`}>
-                  ล่าสุด: {lastLog.result}
-                </span>
-              )}
-            </div>
-          </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 items-center">
-            {/* PRIMARY: บันทึกผล */}
+    return (
+      <tr className="border-b border-border hover:bg-muted/30 transition-colors group">
+        {/* วันนัด */}
+        <td className={`pl-3 pr-2 py-1.5 text-xs font-semibold whitespace-nowrap ${dateClass}`}>
+          {fmtDateStr(lead.next_followup_date)}
+        </td>
+
+        {/* ชื่อลูกค้า */}
+        <td className="px-2 py-1.5 whitespace-nowrap">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => c && setEditing(c)}
+              className="text-sm font-semibold hover:text-primary transition-colors"
+            >
+              {c?.full_name ?? "—"}
+            </button>
+            <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold leading-4 ${urgencyBadge(lead.urgency)}`}>
+              {lead.urgency}
+            </span>
+          </div>
+          {c?.phone && (
+            <a href={`tel:${c.phone}`} className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-0.5 mt-0.5">
+              <Phone className="w-2.5 h-2.5" />{c.phone}
+            </a>
+          )}
+        </td>
+
+        {/* โปรแกรม */}
+        <td className="px-2 py-1.5 max-w-[220px]">
+          <p className="text-xs text-foreground/80 truncate">{lead.program || lead.bu_type}</p>
+          <p className="text-[10px] text-muted-foreground">{lead.pax_count} ท่าน</p>
+        </td>
+
+        {/* สถานะ */}
+        <td className="px-2 py-1.5 whitespace-nowrap">
+          <Badge variant="outline" className={`${statusColor(lead.status)} text-[10px] px-1.5 py-0`}>
+            {lead.status}
+          </Badge>
+        </td>
+
+        {/* Assigned */}
+        <td className="px-2 py-1.5 text-[11px] text-muted-foreground whitespace-nowrap">
+          {lead.assigned_to}
+        </td>
+
+        {/* ผลล่าสุด */}
+        <td className="px-2 py-1.5">
+          {lastLog ? (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${RESULT_COLOR[lastLog.result] ?? "bg-muted text-muted-foreground"}`}>
+              {lastLog.result}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground/50">—</span>
+          )}
+        </td>
+
+        {/* Actions */}
+        <td className="pl-2 pr-3 py-1.5">
+          <div className="flex items-center gap-1">
             <Button
               size="sm"
               onClick={() => setLogLead(lead)}
-              className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5"
+              className="h-6 px-2 text-[11px] bg-violet-600 hover:bg-violet-700 text-white gap-1"
             >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">บันทึกผล</span>
+              <ClipboardCheck className="w-3 h-3" />
+              <span className="hidden lg:inline">บันทึกผล</span>
             </Button>
-            {/* Update status */}
-            <Button size="sm" variant="outline" onClick={() => openStatus(lead)} className="border-primary/40 text-primary hover:bg-primary/10 gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Update Status</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openStatus(lead)}
+              className="h-6 px-2 text-[11px] border-primary/30 text-primary hover:bg-primary/10 gap-1"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span className="hidden lg:inline">Update</span>
             </Button>
-            <a href={`tel:${c?.phone}`} className="px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs flex items-center gap-1.5 hover:bg-primary/20">
-              <Phone className="w-3.5 h-3.5" /> {c?.phone}
-            </a>
           </div>
-        </div>
-
-        {/* Log history toggle */}
-        {logs.length > 0 && (
-          <>
-            <button
-              onClick={() => toggleLogs(lead.lead_id)}
-              className="w-full flex items-center gap-2 px-3 py-1.5 bg-muted/40 hover:bg-muted/70 transition-colors text-xs text-muted-foreground border-t border-border"
-            >
-              <History className="w-3 h-3" />
-              <span>ประวัติ Follow-up ({logs.length} ครั้ง)</span>
-              {showLogs ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
-            </button>
-            {showLogs && (
-              <div className="divide-y divide-border border-t border-border">
-                {[...logs].reverse().map((log) => (
-                  <div key={log.log_id} className="px-4 py-2.5 flex items-start gap-3">
-                    <div className="mt-0.5 shrink-0">
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${RESULT_COLOR[log.result] ?? "bg-muted text-muted-foreground"}`}>
-                        {log.result}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {log.note && <p className="text-xs text-foreground">{log.note}</p>}
-                      <div className="flex gap-3 mt-0.5 text-[10px] text-muted-foreground">
-                        <span>{log.date}</span>
-                        <span>โดย {log.logged_by}</span>
-                        {log.next_followup_date && (
-                          <span className="text-primary">→ นัด {fmtDateStr(log.next_followup_date)}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+        </td>
+      </tr>
     );
   };
 
-  const Section = ({ title, items, icon: Icon, colorClass }: { title: string; items: Lead[]; icon: typeof Clock; colorClass: string }) => (
-    <section className="space-y-2">
-      <div className={`flex items-center gap-2 ${colorClass}`}>
-        <Icon className="w-5 h-5" />
-        <h2 className="font-bold">{title}</h2>
-        <span className="text-sm">({items.length})</span>
-      </div>
-      <div className="space-y-2">
-        {items.length === 0 ? <p className="text-sm text-muted-foreground pl-7">— ไม่มีรายการ —</p> : items.map((l) => <Card key={l.lead_id} lead={l} />)}
-      </div>
-    </section>
+  // ── Section header row ────────────────────────────────────────────────
+  const SectionRow = ({
+    label, count, bgClass, textClass, icon: Icon,
+  }: { label: string; count: number; bgClass: string; textClass: string; icon: typeof Clock }) => (
+    <tr className={bgClass}>
+      <td colSpan={7} className={`px-3 py-1 text-xs font-bold ${textClass}`}>
+        <span className="flex items-center gap-1.5">
+          <Icon className="w-3.5 h-3.5" />
+          {label}
+          <span className="ml-1 px-1.5 py-0 rounded-full bg-white/60 text-inherit">{count}</span>
+        </span>
+      </td>
+    </tr>
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">ตาราง Follow Up</h1>
-        <p className="text-sm text-muted-foreground">นัดหมายติดตามลูกค้า {currentRep !== "All" && `— ${currentRep}`}</p>
+        <p className="text-sm text-muted-foreground">
+          นัดหมายติดตามลูกค้า {currentRep !== "All" && `— ${currentRep}`}
+        </p>
       </div>
 
       {/* KPI summary */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
-          <div className="p-2.5 rounded-lg bg-destructive/15 text-destructive"><AlertCircle className="w-5 h-5" /></div>
-          <p className="text-xs text-muted-foreground font-medium">เลยกำหนด</p>
-          <p className="text-3xl md:text-4xl font-extrabold leading-none text-destructive">{overdue.length}</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-card rounded-xl border p-4 shadow-soft flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-destructive/15 text-destructive shrink-0">
+            <AlertCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">เลยกำหนด</p>
+            <p className="text-3xl font-extrabold leading-none text-destructive">{overdue.length}</p>
+          </div>
         </div>
-        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
-          <div className="p-2.5 rounded-lg bg-warning/20 text-warning-foreground"><Clock className="w-5 h-5" /></div>
-          <p className="text-xs text-muted-foreground font-medium">วันนี้</p>
-          <p className="text-3xl md:text-4xl font-extrabold leading-none text-warning-foreground">{todays.length}</p>
+        <div className="bg-card rounded-xl border p-4 shadow-soft flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-warning/20 text-warning-foreground shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">วันนี้</p>
+            <p className="text-3xl font-extrabold leading-none text-warning-foreground">{todays.length}</p>
+          </div>
         </div>
-        <div className="bg-card rounded-xl border p-5 shadow-soft flex flex-col items-center justify-center text-center min-h-[140px] gap-2">
-          <div className="p-2.5 rounded-lg bg-primary/10 text-primary"><CalendarIcon className="w-5 h-5" /></div>
-          <p className="text-xs text-muted-foreground font-medium">นัดหมายล่วงหน้า</p>
-          <p className="text-3xl md:text-4xl font-extrabold leading-none text-primary">{upcoming.length}</p>
+        <div className="bg-card rounded-xl border p-4 shadow-soft flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+            <CalendarIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">ล่วงหน้า</p>
+            <p className="text-3xl font-extrabold leading-none text-primary">{upcoming.length}</p>
+          </div>
         </div>
       </div>
 
-      <Section title="เลยกำหนด (Overdue)" items={overdue} icon={AlertCircle} colorClass="text-destructive" />
-      <Section title="วันนี้ (Today)" items={todays} icon={Clock} colorClass="text-warning-foreground" />
-      <Section title="นัดหมายล่วงหน้า (Upcoming)" items={upcoming} icon={CalendarIcon} colorClass="text-primary" />
+      {/* Compact Table */}
+      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            {/* Column headers */}
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="pl-3 pr-2 py-2 text-left text-[11px] font-semibold text-muted-foreground whitespace-nowrap">วันนัด</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold text-muted-foreground">ชื่อลูกค้า</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold text-muted-foreground">โปรแกรม</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold text-muted-foreground">สถานะ</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold text-muted-foreground">ผู้รับผิดชอบ</th>
+                <th className="px-2 py-2 text-left text-[11px] font-semibold text-muted-foreground">ผลล่าสุด</th>
+                <th className="pl-2 pr-3 py-2 text-left text-[11px] font-semibold text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Overdue section */}
+              {overdue.length > 0 && (
+                <>
+                  <SectionRow label="เลยกำหนด" count={overdue.length} bgClass="bg-destructive/8" textClass="text-destructive" icon={AlertCircle} />
+                  {overdue.map((l) => <TableRow key={l.lead_id} lead={l} dateClass="text-destructive" />)}
+                </>
+              )}
+
+              {/* Today section */}
+              {todays.length > 0 && (
+                <>
+                  <SectionRow label="วันนี้" count={todays.length} bgClass="bg-amber-50" textClass="text-amber-700" icon={Clock} />
+                  {todays.map((l) => <TableRow key={l.lead_id} lead={l} dateClass="text-amber-600 font-bold" />)}
+                </>
+              )}
+
+              {/* Upcoming section */}
+              {upcoming.length > 0 && (
+                <>
+                  <SectionRow label="นัดหมายล่วงหน้า" count={upcoming.length} bgClass="bg-primary/5" textClass="text-primary" icon={CalendarIcon} />
+                  {upcoming.map((l) => <TableRow key={l.lead_id} lead={l} dateClass="text-primary" />)}
+                </>
+              )}
+
+              {/* Empty state */}
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-sm text-muted-foreground">
+                    ✅ ไม่มีรายการที่ต้อง Follow Up
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Dialogs ── */}
       <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
+
       {logLead && (
         <FollowupLogDialog
           lead={logLead}
@@ -262,7 +315,7 @@ export default function FollowUp() {
                 <p className="text-xs text-muted-foreground line-clamp-2">{statusLead.program}</p>
               </div>
               <div>
-                <Label>สถานะ (อ้างอิง Sales Pipeline)</Label>
+                <Label>สถานะ</Label>
                 <Select value={stStatus} onValueChange={(v) => setStStatus(v as LeadStatus)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
