@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useCRM, urgencyBadge, LEAD_STATUSES, LOST_REASONS, type Lead, type Customer, type LeadStatus } from "@/store/crmStore";
+import { useAuth } from "@/store/authStore";
 import { FollowupLogDialog } from "@/components/FollowupLogDialog";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,18 @@ export default function FollowUp() {
   const currentRep = useCRM((s) => s.currentRep);
   const updateLead = useCRM((s) => s.updateLead);
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
+
+  // ── Department scoping ─────────────────────────────────────────────────
+  const authUsers = useAuth((s) => s.users);
+  const currentUserId = useAuth((s) => s.currentUserId);
+  const currentUser = authUsers.find((u) => u.user_id === currentUserId);
+  const currentRole = currentUser?.role ?? "";
+  const isOBManager = currentRole === "OB Manager";
+  const isSalesManager = currentRole === "Sales Manager";
+  // รายชื่อ OB Co-ordinator ทั้งหมด
+  const obRepNames = new Set(
+    authUsers.filter((u) => u.role === "OB Co-ordinator").map((u) => u.full_name)
+  );
   const [editing, setEditing] = useState<Customer | null>(null);
   const [statusLead, setStatusLead] = useState<Lead | null>(null);
   const [logLead, setLogLead] = useState<Lead | null>(null);
@@ -74,10 +87,16 @@ export default function FollowUp() {
     setStatusLead(null);
   };
 
-  const visible = useMemo(() => leads.filter((l) =>
-    l.next_followup_date && !["จองแล้ว", "ยกเลิก"].includes(l.status) &&
-    (currentRep === "All" || l.assigned_to === currentRep),
-  ), [leads, currentRep]);
+  const visible = useMemo(() => leads.filter((l) => {
+    if (!l.next_followup_date) return false;
+    if (["จองแล้ว", "ยกเลิก"].includes(l.status)) return false;
+    // OB Manager เห็นแค่ lead ของทีม OB เท่านั้น
+    if (isOBManager) return obRepNames.has(l.assigned_to ?? "");
+    // Sales Manager เห็นแค่ lead ที่ไม่ใช่ OB
+    if (isSalesManager) return !obRepNames.has(l.assigned_to ?? "");
+    // Sales / OB Co-ord เห็นแค่ของตัวเอง
+    return currentRep === "All" || l.assigned_to === currentRep;
+  }), [leads, currentRep, isOBManager, isSalesManager, obRepNames]);
 
   const today = new Date().toISOString().split("T")[0];
   const overdue = visible.filter((l) => l.next_followup_date! < today).sort((a, b) => a.next_followup_date!.localeCompare(b.next_followup_date!));
