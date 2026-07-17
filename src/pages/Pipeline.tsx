@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
+import {
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  closestCenter, type DragEndEvent, type DragStartEvent,
+} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import {
   AlertCircle, Calendar, Users, RefreshCw, User as UserIcon, Plus,
-  LayoutList, Columns3, ChevronDown, ChevronUp,
+  LayoutList, Columns3, ChevronDown, ChevronUp, GripVertical,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +46,7 @@ export default function Pipeline() {
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [addLeadCustomerId, setAddLeadCustomerId] = useState<string | null>(null);
   const [pendingLost, setPendingLost] = useState<string | null>(null);
@@ -141,6 +147,25 @@ export default function Pipeline() {
     setPendingLost(null);
   };
 
+  // ── Drag-and-drop ────────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
+  const activeLead = activeId ? visible.find((l) => l.lead_id === activeId) ?? null : null;
+
+  const onDragStart = ({ active }: DragStartEvent) => setActiveId(active.id as string);
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    setActiveId(null);
+    if (!over) return;
+    const lead = visible.find((l) => l.lead_id === active.id);
+    if (!lead) return;
+    const targetStatus = over.id as LeadStatus;
+    if (targetStatus !== lead.status && activeStatuses.includes(targetStatus)) {
+      handleStatusChange(lead.lead_id, targetStatus);
+    }
+  };
+
   const cust = (id: string) => customers.find((c) => c.customer_id === id);
 
   // ── Compact Kanban card (Option B) ───────────────────────────────────────
@@ -226,6 +251,44 @@ export default function Pipeline() {
             </Button>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // ── Draggable wrapper ────────────────────────────────────────────────────
+  const DraggableCard = ({ lead }: { lead: Lead }) => {
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.lead_id });
+    return (
+      <div
+        ref={setNodeRef}
+        className={`relative group ${isDragging ? "opacity-40" : ""}`}
+        {...attributes}
+      >
+        {/* drag handle — ลากที่แถบนี้เพื่อย้าย */}
+        <div
+          {...listeners}
+          className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <GripVertical className="w-3 h-3 text-muted-foreground/50" />
+        </div>
+        <div className="pl-4">
+          <KanbanCard lead={lead} />
+        </div>
+      </div>
+    );
+  };
+
+  // ── Droppable column ──────────────────────────────────────────────────────
+  const DroppableCol = ({ status, children }: { status: LeadStatus; children: React.ReactNode }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: status });
+    return (
+      <div
+        ref={setNodeRef}
+        className={`min-h-16 rounded-lg transition-colors duration-150 ${
+          isOver && activeId ? "bg-primary/8 ring-2 ring-primary/30 ring-inset" : ""
+        }`}
+      >
+        {children}
       </div>
     );
   };
@@ -355,36 +418,72 @@ export default function Pipeline() {
 
       {/* ── Kanban view ── */}
       {viewMode === "kanban" && (
-        <div className={`grid gap-3 ${isOB ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-4" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"}`}>
-          {activeStatuses.map((status) => {
-            const items = grouped[status] ?? [];
-            const total = items.filter(l => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0)
-              || items.reduce((s, l) => s + (l.quoted_price || 0), 0);
-            const obMeta = OB_STAGE_META[status];
-            return (
-              <div key={status} className="bg-muted/30 rounded-xl p-2.5 border min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <Badge variant="outline" className={statusColor(status)}>
-                    {obMeta ? `${obMeta.emoji} ${status}` : status}
-                  </Badge>
-                  <span className="text-xs font-semibold">{items.length}</span>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+        >
+          <div className={`grid gap-3 ${isOB ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-4" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"}`}>
+            {activeStatuses.map((status) => {
+              const items = grouped[status] ?? [];
+              const total = items.filter(l => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0)
+                || items.reduce((s, l) => s + (l.quoted_price || 0), 0);
+              const obMeta = OB_STAGE_META[status];
+              return (
+                <div key={status} className="bg-muted/30 rounded-xl p-2.5 border min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <Badge variant="outline" className={statusColor(status)}>
+                      {obMeta ? `${obMeta.emoji} ${status}` : status}
+                    </Badge>
+                    <span className="text-xs font-semibold">{items.length}</span>
+                  </div>
+                  {obMeta && <p className="text-[10px] text-muted-foreground mb-1.5 leading-tight">{obMeta.desc}</p>}
+                  {total > 0 && <div className="text-[10px] text-muted-foreground mb-1.5">{formatTHB(total)}</div>}
+                  <DroppableCol status={status}>
+                    <div className="space-y-1.5 max-h-[72vh] overflow-y-auto pr-0.5 pt-0.5">
+                      {items.map((lead) => (
+                        <DraggableCard key={lead.lead_id} lead={lead} />
+                      ))}
+                      {items.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-6">
+                          {activeId ? "⬇ วางที่นี่" : "ไม่มี Lead"}
+                        </p>
+                      )}
+                    </div>
+                  </DroppableCol>
                 </div>
-                {obMeta && <p className="text-[10px] text-muted-foreground mb-1.5 leading-tight">{obMeta.desc}</p>}
-                {total > 0 && <div className="text-[10px] text-muted-foreground mb-1.5">{formatTHB(total)}</div>}
-                <div className="space-y-1.5 max-h-[72vh] overflow-y-auto pr-0.5">
-                  {items.map((lead) => <KanbanCard key={lead.lead_id} lead={lead} />)}
-                  {items.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">ไม่มี Lead</p>}
+              );
+            })}
+          </div>
+
+          {/* Ghost card while dragging */}
+          <DragOverlay dropAnimation={null}>
+            {activeLead ? (
+              <div className="bg-card rounded-lg border border-primary/50 shadow-xl opacity-95 overflow-hidden w-[220px] rotate-1 scale-105">
+                <div className={`h-0.5 w-full ${isClosedStatus(activeLead.status) ? "bg-emerald-400" : "bg-primary"}`} />
+                <div className="px-2.5 py-2">
+                  <p className="text-xs font-semibold truncate">{cust(activeLead.customer_id)?.full_name ?? "—"}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{splitProg(activeLead.program || activeLead.bu_type).name}</p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] text-muted-foreground"><Users className="w-2.5 h-2.5 inline mr-0.5" />{activeLead.pax_count} ท่าน</span>
+                    {(activeLead.closed_price || activeLead.quoted_price) > 0 && (
+                      <span className={`text-[10px] font-bold ${isClosedStatus(activeLead.status) ? "text-emerald-600" : "text-muted-foreground"}`}>
+                        ฿{(activeLead.closed_price || activeLead.quoted_price).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* ── Table view ── */}
       {viewMode === "table" && <TableView />}
 
-      <Dialog open={!!pendingLost} onOpenChange={(v) => !v && setPendingLost(null)}>
+            <Dialog open={!!pendingLost} onOpenChange={(v) => !v && setPendingLost(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>{isOB ? "ระบุเหตุผลที่ยกเลิก" : "ระบุเหตุผลที่เสียดีล (Lost Reason)"}</DialogTitle></DialogHeader>
           <Label>เหตุผลหลัก *</Label>
