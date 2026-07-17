@@ -238,85 +238,68 @@ function LeadCard({ lead }: { lead: Lead }) {
         </DialogContent>
       </Dialog>
 
-      <div className={`border rounded-xl bg-card shadow-soft overflow-hidden transition-all ${isWon ? "border-emerald-200" : isLost ? "border-muted" : ""}`}>
-        {/* ── Top bar: status + urgency + assignee ── */}
-        <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className={`${statusColor(lead.status)} text-[11px] px-2 py-0`}>{lead.status}</Badge>
-            {urgencyOpt && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${urgencyBadge(lead.urgency)}`}>
-                {urgencyOpt.emoji} {lead.urgency}
-              </span>
-            )}
-            <span className="text-[10px] text-muted-foreground/60 font-mono">{lead.lead_id}</span>
+      <div className={`border rounded-lg bg-card shadow-soft overflow-hidden transition-all ${isWon ? "border-emerald-200" : isLost ? "border-muted" : ""}`}>
+        <div className="px-3 pt-2 pb-1.5 space-y-0.5">
+          {/* ── Row 1: badges + assignee ── */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="outline" className={`${statusColor(lead.status)} text-[11px] px-1.5 py-0`}>{lead.status}</Badge>
+              {urgencyOpt && (
+                <span className={`text-[10px] px-1.5 py-0 rounded-full border font-semibold ${urgencyBadge(lead.urgency)}`}>
+                  {urgencyOpt.emoji} {lead.urgency}
+                </span>
+              )}
+              <span className="text-[10px] text-muted-foreground/50 font-mono">{lead.lead_id}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground shrink-0">{lead.assigned_to}</span>
           </div>
-          <span className="text-[11px] text-muted-foreground shrink-0">{lead.assigned_to}</span>
-        </div>
 
-        {/* ── Program name + code ── */}
-        <div className="px-3 pb-2">
-          <p className="font-semibold text-sm leading-snug">{name || lead.bu_type}</p>
-          {code && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{code}</p>}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
+          {/* ── Row 2: program name · code ── */}
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <p className="font-semibold text-sm leading-tight">{name || lead.bu_type}</p>
+            {code && <span className="text-[10px] text-muted-foreground font-mono">{code}</span>}
+          </div>
+
+          {/* ── Row 3: meta + lost reason inline ── */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0 text-[11px] text-muted-foreground">
             <span>🗓️ {periodLabel}</span>
             <span>👥 {lead.pax_count} ท่าน</span>
             {!isWon && lead.budget_range && <span>💰 {lead.budget_range}</span>}
+            {!isWon && !isLost && lead.quoted_price > 0 && (
+              <span className="text-primary font-semibold">฿{lead.quoted_price.toLocaleString()}</span>
+            )}
+            {!isWon && !isLost && lead.next_followup_date && (
+              <span className="text-amber-600">📌 {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}</span>
+            )}
+            {isLost && lead.lost_reason && (
+              <span className="text-destructive/80">❌ {lead.lost_reason}</span>
+            )}
           </div>
+
+          {/* ── Won value (compact) ── */}
+          {isWon && wonValue > 0 && (
+            <div className="flex items-center gap-3 mt-0.5">
+              <span className="text-sm font-extrabold text-emerald-600">฿{wonValue.toLocaleString()}</span>
+              {lead.closed_date && (
+                <span className="text-[10px] text-emerald-700/70">
+                  ✅ {new Date(lead.closed_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ── Won value banner ── */}
-        {isWon && wonValue > 0 && (
-          <div className="mx-3 mb-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">มูลค่าการจอง</p>
-              <p className="text-xl font-extrabold text-emerald-600 leading-tight">฿{wonValue.toLocaleString()}</p>
-            </div>
-            <div className="text-right">
-              {lead.closed_date && (
-                <p className="text-[10px] text-emerald-700/70">
-                  ✅ {new Date(lead.closed_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
-                </p>
-              )}
-              <p className="text-[11px] text-emerald-700/80 font-medium">{lead.pax_count} ท่าน</p>
-            </div>
-          </div>
-        )}
-
-        {/* ── Pending quote + follow-up ── */}
-        {!isWon && !isLost && (
-          <div className="px-3 pb-2 flex flex-wrap gap-2">
-            {lead.quoted_price > 0 && (
-              <span className="text-xs bg-primary/8 text-primary font-semibold rounded-md px-2 py-0.5">
-                ฿{lead.quoted_price.toLocaleString()}
-              </span>
-            )}
-            {lead.next_followup_date && (
-              <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-md px-2 py-0.5 flex items-center gap-1">
-                <CalendarDays className="w-3 h-3" />
-                {new Date(lead.next_followup_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ── Lost reason ── */}
-        {isLost && lead.lost_reason && (
-          <div className="mx-3 mb-2 text-xs text-destructive/80 bg-destructive/5 rounded-md px-2 py-1.5">
-            ❌ {lead.lost_reason}
-          </div>
-        )}
-
         {/* ── Action bar ── */}
-        <div className="border-t flex items-center gap-1 px-2 py-1.5 bg-muted/20">
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-primary" onClick={() => setEditing(true)}>
-            <Pencil className="w-3.5 h-3.5 mr-1" />แก้ไข
+        <div className="border-t flex items-center gap-1 px-2 py-0.5 bg-muted/20">
+          <Button variant="ghost" size="sm" className="h-6 text-[11px] text-muted-foreground hover:text-primary px-2" onClick={() => setEditing(true)}>
+            <Pencil className="w-3 h-3 mr-1" />แก้ไข
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="w-3.5 h-3.5 mr-1" />ลบ
+          <Button variant="ghost" size="sm" className="h-6 text-[11px] text-muted-foreground hover:text-destructive px-2" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="w-3 h-3 mr-1" />ลบ
           </Button>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? <><ChevronUp className="w-3.5 h-3.5 mr-1" />ซ่อน</> : <><ChevronDown className="w-3.5 h-3.5 mr-1" />รายละเอียด</>}
+          <Button variant="ghost" size="sm" className="h-6 text-[11px] text-muted-foreground px-2" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? <><ChevronUp className="w-3 h-3 mr-1" />ซ่อน</> : <><ChevronDown className="w-3 h-3 mr-1" />รายละเอียด</>}
           </Button>
         </div>
 
