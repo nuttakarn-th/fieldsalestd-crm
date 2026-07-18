@@ -105,6 +105,10 @@ export interface MonthlyTarget {
   // YYYY-MM
   month: string;
   rep: SalesRep;
+  // Simple mode total (reference target)
+  total_sales: number;
+  total_pax: number;
+  // Advanced mode breakdown
   domestic_sales: number;
   domestic_pax: number;
   international_sales: number;
@@ -463,6 +467,8 @@ function defaultTargets(): MonthlyTarget[] {
     SALES_REPS.forEach((rep) => {
       out.push({
         month, rep,
+        total_sales: 1_100_000,
+        total_pax: 70,
         domestic_sales: 300_000,
         domestic_pax: 40,
         international_sales: 800_000,
@@ -1304,6 +1310,7 @@ export const useCRM = create<CRMState>()(
     } else {
       upserted = {
         month, rep,
+        total_sales: 0, total_pax: 0,
         domestic_sales: 0, domestic_pax: 0,
         international_sales: 0, international_pax: 0,
         incentive_sales: 0, incentive_pax: 0,

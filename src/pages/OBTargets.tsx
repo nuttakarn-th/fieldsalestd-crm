@@ -1,40 +1,36 @@
 /**
  * OBTargets.tsx — OB Team yearly target planner (OB Manager only)
  *
- * โหมด Simple (default): ตั้งเป้ายอดรวม + Pax รวม รายเดือน (2 columns)
- * โหมด Advanced:         แยก Domestic / International / Incentive (6 columns)
- *
- * Data model: domestic_sales เก็บ "ยอดรวม" ในโหมด Simple
- *             switching to Advanced → ยอดรวมปรากฏใน Domestic, Inter/Incentive = 0
+ * โหมด Simple (default): กรอก total_sales + total_pax รายเดือน (2 columns)
+ * โหมด Advanced:         แสดง "เป้ารวม (อ้างอิง)" read-only จาก Simple
+ *                        + กรอก Domestic / International / Incentive แยก
+ *                        + แสดง delta ถ้า breakdown ยังไม่ครบเป้า
  */
 import { useMemo, useState, useCallback } from "react";
-import { Target, Save, ChevronLeft, ChevronRight, SlidersHorizontal, LayoutList } from "lucide-react";
+import { Target, Save, ChevronLeft, ChevronRight, SlidersHorizontal, LayoutList, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCRM, formatTHB } from "@/store/crmStore";
 import { toast } from "sonner";
 
-// ── Constants ──────────────────────────────────────────────────────────────────
 const OB_TEAM_REP = "OB Team";
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
 function yearMonths(year: number): string[] {
   return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
 }
-
-function thMonthLabel(monthKey: string): string {
-  const [y, m] = monthKey.split("-").map(Number);
+function thMonthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString("th-TH", { month: "long" });
 }
-
 function currentMonthKey(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
 interface MonthRow {
   month:               string;
+  total_sales:         number;
+  total_pax:           number;
   domestic_sales:      number;
   domestic_pax:        number;
   international_sales: number;
@@ -43,24 +39,32 @@ interface MonthRow {
   incentive_pax:       number;
 }
 
-// ── Main Page ──────────────────────────────────────────────────────────────────
+const EMPTY_ROW = (month: string): MonthRow => ({
+  month,
+  total_sales: 0, total_pax: 0,
+  domestic_sales: 0, domestic_pax: 0,
+  international_sales: 0, international_pax: 0,
+  incentive_sales: 0, incentive_pax: 0,
+});
+
 export default function OBTargets() {
   const targets   = useCRM((s) => s.targets);
   const setTarget = useCRM((s) => s.setTarget);
 
-  const [year, setYear]         = useState(new Date().getFullYear());
-  const [draft, setDraft]       = useState<Record<string, MonthRow>>({});
-  const [splitMode, setSplitMode] = useState(false);  // false = Simple, true = Advanced
-  const months  = useMemo(() => yearMonths(year), [year]);
-  const curKey  = currentMonthKey();
+  const [year,      setYear]      = useState(new Date().getFullYear());
+  const [draft,     setDraft]     = useState<Record<string, MonthRow>>({});
+  const [splitMode, setSplitMode] = useState(false);
+  const months = useMemo(() => yearMonths(year), [year]);
+  const curKey = currentMonthKey();
 
-  // Build base rows from stored targets
   const baseRows = useMemo((): Record<string, MonthRow> => {
     const map: Record<string, MonthRow> = {};
     for (const month of months) {
       const t = targets.find((x) => x.month === month && x.rep === OB_TEAM_REP);
       map[month] = {
         month,
+        total_sales:         t?.total_sales         ?? 0,
+        total_pax:           t?.total_pax           ?? 0,
         domestic_sales:      t?.domestic_sales      ?? 0,
         domestic_pax:        t?.domestic_pax        ?? 0,
         international_sales: t?.international_sales ?? 0,
@@ -73,12 +77,7 @@ export default function OBTargets() {
   }, [targets, months]);
 
   const getRow = useCallback(
-    (month: string): MonthRow => draft[month] ?? baseRows[month] ?? {
-      month,
-      domestic_sales: 0, domestic_pax: 0,
-      international_sales: 0, international_pax: 0,
-      incentive_sales: 0, incentive_pax: 0,
-    },
+    (month: string): MonthRow => draft[month] ?? baseRows[month] ?? EMPTY_ROW(month),
     [draft, baseRows]
   );
 
@@ -92,29 +91,12 @@ export default function OBTargets() {
     [getRow]
   );
 
-  // In Simple mode: update total → store in domestic_sales, zero inter+incentive
-  const updateSimple = useCallback(
-    (month: string, field: "domestic_sales" | "domestic_pax", value: string) => {
-      setDraft((prev) => ({
-        ...prev,
-        [month]: {
-          ...getRow(month),
-          [field]: parseInt(value) || 0,
-          // zero-out the other types when entering simple total
-          ...(field === "domestic_sales"
-            ? { international_sales: 0, incentive_sales: 0 }
-            : { international_pax: 0, incentive_pax: 0 }),
-        },
-      }));
-    },
-    [getRow]
-  );
-
-  // Save all 12 months
   const save = () => {
     months.forEach((month) => {
       const r = getRow(month);
       setTarget(month, OB_TEAM_REP, {
+        total_sales:         r.total_sales,
+        total_pax:           r.total_pax,
         domestic_sales:      r.domestic_sales,
         domestic_pax:        r.domestic_pax,
         international_sales: r.international_sales,
@@ -127,18 +109,17 @@ export default function OBTargets() {
     toast.success(`บันทึกเป้าหมายทีม OB ปี ${year} แล้ว`);
   };
 
-  // Totals
   const totals = useMemo(() => months.reduce(
     (acc, month) => {
       const r = getRow(month);
-      acc.total_sales      += r.domestic_sales + r.international_sales + r.incentive_sales;
-      acc.total_pax        += r.domestic_pax   + r.international_pax   + r.incentive_pax;
-      acc.domestic_sales   += r.domestic_sales;
-      acc.domestic_pax     += r.domestic_pax;
+      acc.total_sales         += r.total_sales;
+      acc.total_pax           += r.total_pax;
+      acc.domestic_sales      += r.domestic_sales;
+      acc.domestic_pax        += r.domestic_pax;
       acc.international_sales += r.international_sales;
       acc.international_pax   += r.international_pax;
-      acc.incentive_sales  += r.incentive_sales;
-      acc.incentive_pax    += r.incentive_pax;
+      acc.incentive_sales     += r.incentive_sales;
+      acc.incentive_pax       += r.incentive_pax;
       return acc;
     },
     { total_sales: 0, total_pax: 0, domestic_sales: 0, domestic_pax: 0,
@@ -147,29 +128,16 @@ export default function OBTargets() {
 
   const isDirty = Object.keys(draft).length > 0;
 
-  // ── Number input cell ───────────────────────────────────────────────────────
-  const NumInput = ({ month, field, placeholder = "0" }: {
-    month: string;
-    field: keyof Omit<MonthRow, "month">;
-    placeholder?: string;
-  }) => {
-    const r = getRow(month);
-    const isSimpleField = field === "domestic_sales" || field === "domestic_pax";
-    return (
-      <Input
-        type="number"
-        min={0}
-        value={r[field] || ""}
-        onChange={(e) =>
-          !splitMode && isSimpleField
-            ? updateSimple(month, field as "domestic_sales" | "domestic_pax", e.target.value)
-            : updateField(month, field, e.target.value)
-        }
-        className="text-right h-8 w-full min-w-[90px]"
-        placeholder={placeholder}
-      />
-    );
-  };
+  // ── Number input cell ─────────────────────────────────────────────────────
+  const NumInput = ({ month, field }: { month: string; field: keyof Omit<MonthRow, "month"> }) => (
+    <Input
+      type="number" min={0}
+      value={getRow(month)[field] || ""}
+      onChange={(e) => updateField(month, field, e.target.value)}
+      className="text-right h-8 w-full min-w-[90px]"
+      placeholder="0"
+    />
+  );
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-6xl">
@@ -189,19 +157,15 @@ export default function OBTargets() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {/* Simple / Advanced toggle */}
           <Button
-            variant="outline"
-            size="sm"
+            variant="outline" size="sm"
             onClick={() => setSplitMode((v) => !v)}
             className={`gap-2 text-xs ${splitMode ? "border-teal-500 text-teal-600 bg-teal-500/8" : ""}`}
           >
             {splitMode
-              ? <><LayoutList className="w-3.5 h-3.5" /> โหมดรวม</>
-              : <><SlidersHorizontal className="w-3.5 h-3.5" /> แยกประเภท</>}
+              ? <><LayoutList className="w-3.5 h-3.5" />โหมดรวม</>
+              : <><SlidersHorizontal className="w-3.5 h-3.5" />แยกประเภท</>}
           </Button>
-
-          {/* Year nav */}
           <Button variant="outline" size="icon" onClick={() => { setYear((y) => y - 1); setDraft({}); }}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -211,8 +175,6 @@ export default function OBTargets() {
           <Button variant="outline" size="icon" onClick={() => { setYear((y) => y + 1); setDraft({}); }}>
             <ChevronRight className="w-4 h-4" />
           </Button>
-
-          {/* Save */}
           <Button onClick={save} className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
             <Save className="w-4 h-4" />
             บันทึกเป้า{isDirty && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />}
@@ -222,7 +184,6 @@ export default function OBTargets() {
 
       {/* ── Summary cards ── */}
       {!splitMode ? (
-        // Simple mode: 2 cards
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border p-4 bg-teal-500/8">
             <p className="text-xs text-muted-foreground">เป้ายอดรวม (ทั้งปี)</p>
@@ -234,41 +195,35 @@ export default function OBTargets() {
           </div>
         </div>
       ) : (
-        // Advanced mode: 4 cards
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-xl border p-4 bg-muted/40 col-span-2">
+            <p className="text-xs text-muted-foreground">เป้ารวม (อ้างอิงจากโหมดรวม)</p>
+            <div className="flex items-baseline gap-4 mt-1">
+              <span className="text-xl font-bold text-foreground/70">{formatTHB(totals.total_sales)}</span>
+              <span className="text-sm text-muted-foreground">{totals.total_pax} ท่าน</span>
+            </div>
+          </div>
           {[
-            { label: "Domestic (ยอด)", value: formatTHB(totals.domestic_sales),        color: "text-violet-600", bg: "bg-violet-500/8" },
-            { label: "Domestic (Pax)",  value: `${totals.domestic_pax} ท่าน`,           color: "text-violet-600", bg: "bg-violet-500/8" },
-            { label: "International (ยอด)", value: formatTHB(totals.international_sales), color: "text-teal-600",   bg: "bg-teal-500/8"   },
-            { label: "International (Pax)",  value: `${totals.international_pax} ท่าน`,   color: "text-teal-600",   bg: "bg-teal-500/8"   },
+            { label: "Domestic", sales: totals.domestic_sales, pax: totals.domestic_pax, color: "text-violet-600", bg: "bg-violet-500/8" },
+            { label: "International", sales: totals.international_sales, pax: totals.international_pax, color: "text-teal-600", bg: "bg-teal-500/8" },
+            { label: "Incentive", sales: totals.incentive_sales, pax: totals.incentive_pax, color: "text-amber-600", bg: "bg-amber-500/8" },
           ].map((c) => (
             <div key={c.label} className={`rounded-xl border p-4 ${c.bg}`}>
               <p className="text-xs text-muted-foreground">{c.label}</p>
-              <p className={`text-lg font-bold mt-1 ${c.color}`}>{c.value}</p>
+              <p className={`text-lg font-bold mt-1 ${c.color}`}>{formatTHB(c.sales)}</p>
+              <p className="text-[10px] text-muted-foreground/70">{c.pax} ท่าน</p>
             </div>
           ))}
-          {(totals.incentive_sales > 0 || totals.incentive_pax > 0) && (
-            <>
-              <div className="rounded-xl border p-4 bg-amber-500/8">
-                <p className="text-xs text-muted-foreground">Incentive (ยอด)</p>
-                <p className="text-lg font-bold mt-1 text-amber-600">{formatTHB(totals.incentive_sales)}</p>
-              </div>
-              <div className="rounded-xl border p-4 bg-amber-500/8">
-                <p className="text-xs text-muted-foreground">Incentive (Pax)</p>
-                <p className="text-lg font-bold mt-1 text-amber-600">{totals.incentive_pax} ท่าน</p>
-              </div>
-            </>
-          )}
         </div>
       )}
 
-      {/* ── Mode label ── */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        {splitMode
-          ? <><SlidersHorizontal className="w-3.5 h-3.5" /> โหมดแยกประเภท — Domestic / International / Incentive</>
-          : <><LayoutList className="w-3.5 h-3.5" /> โหมดรวม — กรอกยอดรวมและ Pax รวมต่อเดือน</>
-        }
-      </div>
+      {/* ── Advanced mode note ── */}
+      {splitMode && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+          <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+          <span>คอลัมน์ <strong>เป้ารวม</strong> คือยอดที่กรอกในโหมดรวม — ใช้เป็น reference เท่านั้น ไม่สามารถแก้ไขได้ที่นี่</span>
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
@@ -281,77 +236,88 @@ export default function OBTargets() {
                 {!splitMode ? (
                   <>
                     <th className="text-right p-3 font-semibold">
-                      <div>ยอดรวม</div>
-                      <div className="text-[10px] font-normal opacity-70">(THB)</div>
+                      <div>ยอดรวม</div><div className="text-[10px] font-normal opacity-70">(THB)</div>
                     </th>
                     <th className="text-right p-3 font-semibold">
-                      <div>Pax รวม</div>
-                      <div className="text-[10px] font-normal opacity-70">(ท่าน)</div>
+                      <div>Pax รวม</div><div className="text-[10px] font-normal opacity-70">(ท่าน)</div>
                     </th>
                   </>
                 ) : (
                   <>
-                    <th className="text-right p-3 font-semibold text-violet-600">
-                      <div>Domestic</div>
-                      <div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
+                    {/* Reference column */}
+                    <th className="text-right p-3 font-semibold text-muted-foreground bg-muted/30">
+                      <div>เป้ารวม</div><div className="text-[10px] font-normal opacity-70">อ้างอิง (THB)</div>
                     </th>
                     <th className="text-right p-3 font-semibold text-violet-600">
-                      <div>Domestic</div>
-                      <div className="text-[10px] font-normal opacity-70">Pax</div>
+                      <div>Domestic</div><div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
+                    </th>
+                    <th className="text-right p-3 font-semibold text-violet-600">
+                      <div>Domestic</div><div className="text-[10px] font-normal opacity-70">Pax</div>
                     </th>
                     <th className="text-right p-3 font-semibold text-teal-600">
-                      <div>International</div>
-                      <div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
+                      <div>International</div><div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
                     </th>
                     <th className="text-right p-3 font-semibold text-teal-600">
-                      <div>International</div>
-                      <div className="text-[10px] font-normal opacity-70">Pax</div>
+                      <div>International</div><div className="text-[10px] font-normal opacity-70">Pax</div>
                     </th>
                     <th className="text-right p-3 font-semibold text-amber-600">
-                      <div>Incentive</div>
-                      <div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
+                      <div>Incentive</div><div className="text-[10px] font-normal opacity-70">ยอด (THB)</div>
                     </th>
                     <th className="text-right p-3 font-semibold text-amber-600">
-                      <div>Incentive</div>
-                      <div className="text-[10px] font-normal opacity-70">Pax</div>
+                      <div>Incentive</div><div className="text-[10px] font-normal opacity-70">Pax</div>
                     </th>
                   </>
                 )}
 
                 <th className="text-right p-3 font-semibold bg-teal-500/5 text-teal-700">
-                  รวม (THB)
+                  {splitMode ? "รวม Breakdown" : "รวม (THB)"}
                 </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-border">
               {months.map((month) => {
-                const r         = getRow(month);
-                const rowTotal  = r.domestic_sales + r.international_sales + r.incentive_sales;
-                const rowPax    = r.domestic_pax   + r.international_pax   + r.incentive_pax;
-                const isCurrent = month === curKey;
-                const inDraft   = !!draft[month];
+                const r          = getRow(month);
+                const isCurrent  = month === curKey;
+                const inDraft    = !!draft[month];
+
+                // Breakdown sum (Advanced)
+                const breakdownSales = r.domestic_sales + r.international_sales + r.incentive_sales;
+                const breakdownPax   = r.domestic_pax   + r.international_pax   + r.incentive_pax;
+                const deltaSales     = r.total_sales - breakdownSales;
+                const hasRef         = r.total_sales > 0;
+                const balanced       = Math.abs(deltaSales) <= 0;
 
                 return (
                   <tr key={month} className={`transition-colors ${isCurrent ? "bg-teal-500/5" : "hover:bg-muted/30"}`}>
-                    {/* Month label */}
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
                         {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />}
                         <span className={`font-medium text-sm ${isCurrent ? "text-teal-600" : ""}`}>
                           {thMonthLabel(month)}
                         </span>
-                        {inDraft && <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" title="ยังไม่บันทึก" />}
+                        {inDraft && <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />}
                       </div>
                     </td>
 
                     {!splitMode ? (
                       <>
-                        <td className="p-2"><NumInput month={month} field="domestic_sales" /></td>
-                        <td className="p-2"><NumInput month={month} field="domestic_pax" /></td>
+                        <td className="p-2"><NumInput month={month} field="total_sales" /></td>
+                        <td className="p-2"><NumInput month={month} field="total_pax" /></td>
                       </>
                     ) : (
                       <>
+                        {/* Reference (read-only) */}
+                        <td className="p-3 text-right bg-muted/20">
+                          {hasRef ? (
+                            <div>
+                              <span className="font-semibold text-foreground/60 text-sm">{formatTHB(r.total_sales)}</span>
+                              <div className="text-[10px] text-muted-foreground">{r.total_pax} ท่าน</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground/30 text-xs">—</span>
+                          )}
+                        </td>
                         <td className="p-2"><NumInput month={month} field="domestic_sales" /></td>
                         <td className="p-2"><NumInput month={month} field="domestic_pax" /></td>
                         <td className="p-2"><NumInput month={month} field="international_sales" /></td>
@@ -361,13 +327,30 @@ export default function OBTargets() {
                       </>
                     )}
 
-                    {/* Row total */}
+                    {/* Row total / breakdown sum */}
                     <td className="p-3 text-right bg-teal-500/5">
-                      <span className={rowTotal > 0 ? "font-bold text-teal-600" : "text-muted-foreground/30"}>
-                        {rowTotal > 0 ? formatTHB(rowTotal) : "—"}
-                      </span>
-                      {rowPax > 0 && (
-                        <div className="text-[10px] text-muted-foreground">{rowPax} ท่าน</div>
+                      {!splitMode ? (
+                        <span className={r.total_sales > 0 ? "font-bold text-teal-600" : "text-muted-foreground/30"}>
+                          {r.total_sales > 0 ? formatTHB(r.total_sales) : "—"}
+                        </span>
+                      ) : (
+                        <div>
+                          <span className={breakdownSales > 0 ? "font-bold text-teal-600 text-sm" : "text-muted-foreground/30 text-sm"}>
+                            {breakdownSales > 0 ? formatTHB(breakdownSales) : "—"}
+                          </span>
+                          {/* Delta indicator */}
+                          {hasRef && breakdownSales > 0 && (
+                            <div className={`flex items-center justify-end gap-0.5 mt-0.5 text-[10px] ${balanced ? "text-emerald-600" : "text-amber-600"}`}>
+                              {balanced
+                                ? <><CheckCircle2 className="w-3 h-3" />ครบ</>
+                                : <><AlertTriangle className="w-3 h-3" />{deltaSales > 0 ? `ขาด ${formatTHB(deltaSales)}` : `เกิน ${formatTHB(-deltaSales)}`}</>
+                              }
+                            </div>
+                          )}
+                          {breakdownPax > 0 && (
+                            <div className="text-[10px] text-muted-foreground">{breakdownPax} ท่าน</div>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -378,7 +361,6 @@ export default function OBTargets() {
             <tfoot>
               <tr className="bg-muted/40 border-t-2 border-border font-bold text-sm">
                 <td className="p-3 text-muted-foreground">รวมทั้งปี</td>
-
                 {!splitMode ? (
                   <>
                     <td className="p-3 text-right text-teal-600">{formatTHB(totals.total_sales)}</td>
@@ -386,6 +368,7 @@ export default function OBTargets() {
                   </>
                 ) : (
                   <>
+                    <td className="p-3 text-right text-muted-foreground bg-muted/30">{formatTHB(totals.total_sales)}</td>
                     <td className="p-3 text-right text-violet-600">{formatTHB(totals.domestic_sales)}</td>
                     <td className="p-3 text-right text-violet-600">{totals.domestic_pax} ท่าน</td>
                     <td className="p-3 text-right text-teal-600">{formatTHB(totals.international_sales)}</td>
@@ -394,10 +377,20 @@ export default function OBTargets() {
                     <td className="p-3 text-right text-amber-600">{totals.incentive_pax} ท่าน</td>
                   </>
                 )}
-
                 <td className="p-3 text-right bg-teal-500/10 text-teal-700">
-                  <div>{formatTHB(totals.total_sales)}</div>
-                  <div className="text-[11px] font-normal text-teal-600/70">{totals.total_pax} ท่าน</div>
+                  {!splitMode ? (
+                    <div>
+                      <div>{formatTHB(totals.total_sales)}</div>
+                      <div className="text-[11px] font-normal text-teal-600/70">{totals.total_pax} ท่าน</div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div>{formatTHB(totals.domestic_sales + totals.international_sales + totals.incentive_sales)}</div>
+                      <div className="text-[11px] font-normal text-teal-600/70">
+                        {totals.domestic_pax + totals.international_pax + totals.incentive_pax} ท่าน
+                      </div>
+                    </div>
+                  )}
                 </td>
               </tr>
             </tfoot>
