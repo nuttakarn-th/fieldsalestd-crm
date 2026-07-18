@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Megaphone, Plus, Calendar, TrendingUp, Search, Pencil, Trash2,
   Users2, BarChart3, ChevronDown, X, LayoutList, CalendarDays,
-  ArrowUpDown, ChevronUp,
+  ArrowUpDown, ChevronUp, Rocket, CheckCircle2, Zap,
 } from "lucide-react";
 import { CampaignCalendar } from "@/components/CampaignCalendar";
 import { CampaignDetail }  from "@/components/CampaignDetail";
@@ -46,14 +46,20 @@ import { useCurrentUser } from "@/store/authStore";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-type StatusCfg = { label: string; cls: string; dot: string };
+type StatusCfg = { label: string; cls: string; dot: string; accent: string; selectBg: string };
 
 const STATUS_CFG: Record<CampaignStatus, StatusCfg> = {
-  Draft:     { label: "Draft",     cls: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",       dot: "bg-zinc-400"    },
-  Scheduled: { label: "Scheduled", cls: "bg-amber-400/20 text-amber-300 border-amber-400/40",    dot: "bg-amber-400"   },
-  Active:    { label: "Active",    cls: "bg-emerald-400/15 text-emerald-400 border-emerald-400/30", dot: "bg-emerald-400" },
-  Paused:    { label: "Paused",    cls: "bg-orange-400/15 text-orange-400 border-orange-400/30", dot: "bg-orange-400"  },
-  Completed: { label: "Completed", cls: "bg-sky-400/15 text-sky-400 border-sky-400/30",          dot: "bg-sky-400"     },
+  Draft:     { label: "Draft",     cls: "bg-slate-100 text-slate-600 border-slate-200",        dot: "bg-slate-400",    accent: "#94a3b8", selectBg: "bg-slate-100" },
+  Scheduled: { label: "Scheduled", cls: "bg-amber-50 text-amber-700 border-amber-200",         dot: "bg-amber-400",    accent: "#f59e0b", selectBg: "bg-amber-50" },
+  Active:    { label: "Active",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200",   dot: "bg-emerald-500",  accent: "#10b981", selectBg: "bg-emerald-50" },
+  Paused:    { label: "Paused",    cls: "bg-orange-50 text-orange-700 border-orange-200",      dot: "bg-orange-500",   accent: "#f97316", selectBg: "bg-orange-50" },
+  Completed: { label: "Completed", cls: "bg-sky-50 text-sky-700 border-sky-200",              dot: "bg-sky-500",      accent: "#0ea5e9", selectBg: "bg-sky-50" },
+};
+
+const DEPT_CFG: Record<string, { bg: string; text: string; border: string; emoji: string; circleBg: string }> = {
+  Outbound:       { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", emoji: "✈️", circleBg: "bg-orange-100" },
+  Ticket:         { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", emoji: "🎫", circleBg: "bg-violet-100" },
+  Transportation: { bg: "bg-sky-50",    text: "text-sky-700",    border: "border-sky-200",    emoji: "🚍", circleBg: "bg-sky-100" },
 };
 
 const TH_MONTH = [
@@ -72,16 +78,18 @@ function fmtPeriod(start: string, end: string): string {
   const sy = s.getFullYear() + 543;
   const ey = e.getFullYear() + 543;
   if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
-    return `${s.getDate()}-${e.getDate()} ${sm} ${sy}`;
+    return `${s.getDate()}–${e.getDate()} ${sm} ${sy}`;
   }
   if (s.getFullYear() === e.getFullYear()) {
-    return `${s.getDate()} ${sm} - ${e.getDate()} ${em} ${sy}`;
+    return `${s.getDate()} ${sm} – ${e.getDate()} ${em} ${sy}`;
   }
-  return `${s.getDate()} ${sm} ${sy} - ${e.getDate()} ${em} ${ey}`;
+  return `${s.getDate()} ${sm} ${sy} – ${e.getDate()} ${em} ${ey}`;
 }
 
-function fmtNum(n: number): string {
-  return n.toLocaleString("th-TH");
+function diffDays(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const ms = new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime();
+  return Math.max(1, Math.round(ms / 86_400_000) + 1);
 }
 
 // ── Form types ────────────────────────────────────────────────────────────────
@@ -124,33 +132,29 @@ function formFromCampaign(c: Campaign): FormState {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, icon: Icon, color = "text-primary",
+  label, value, icon: Icon, gradient, iconBg, iconColor, subLabel,
 }: {
   label: string;
   value: string | number;
   icon: typeof Megaphone;
-  color?: string;
+  gradient: string;
+  iconBg: string;
+  iconColor: string;
+  subLabel?: string;
 }) {
   return (
-    <div className="bg-card rounded-xl border shadow-soft p-5 flex items-center gap-4">
-      <div className={`p-3 rounded-lg bg-primary/10 ${color}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold">{value}</p>
+    <div className={`rounded-2xl border p-5 bg-gradient-to-br ${gradient} relative overflow-hidden`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
+          <p className="text-4xl font-bold tracking-tight">{value}</p>
+          {subLabel && <p className="text-[11px] text-muted-foreground mt-1.5">{subLabel}</p>}
+        </div>
+        <div className={`p-2.5 rounded-xl ${iconBg} shrink-0`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} />
+        </div>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: CampaignStatus }) {
-  const cfg = STATUS_CFG[status];
-  return (
-    <Badge variant="outline" className={`text-xs font-medium gap-1.5 ${cfg.cls}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-      {cfg.label}
-    </Badge>
   );
 }
 
@@ -202,7 +206,7 @@ export default function CampaignManagement() {
     return (
       <button
         onClick={() => toggleSort(col)}
-        className={`flex items-center gap-1 text-left hover:text-foreground transition-colors ${active ? "text-foreground" : "text-muted-foreground"}`}
+        className={`flex items-center gap-1 text-left hover:text-foreground transition-colors font-medium ${active ? "text-foreground" : "text-muted-foreground"}`}
       >
         {label}
         {active
@@ -229,7 +233,7 @@ export default function CampaignManagement() {
       if (sortKey === "date")   cmp = a.start_date.localeCompare(b.start_date);
       if (sortKey === "name")   cmp = a.name.localeCompare(b.name);
       if (sortKey === "status") cmp = a.status.localeCompare(b.status);
-      if (sortKey === "team")   cmp = a.target_team.localeCompare(b.target_team);
+      if (sortKey === "team")   cmp = (a.target_teams?.[0] ?? "").localeCompare(b.target_teams?.[0] ?? "");
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [campaigns, q, filterStatus, sortKey, sortDir]);
@@ -362,7 +366,7 @@ export default function CampaignManagement() {
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* View toggle */}
-          <div className="flex rounded-lg border border-border overflow-hidden h-9">
+          <div className="flex rounded-lg border border-border overflow-hidden h-9 shrink-0">
             <button
               onClick={() => setViewMode("table")}
               className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors
@@ -384,17 +388,41 @@ export default function CampaignManagement() {
               ปฏิทิน
             </button>
           </div>
-          <Button onClick={openCreate} className="bg-gradient-primary text-primary-foreground flex-1 sm:flex-none">
-            <Plus className="w-4 h-4 mr-1" /> สร้าง Campaign
+          <Button onClick={openCreate} className="bg-gradient-primary text-primary-foreground flex-1 sm:flex-none gap-1.5">
+            <Plus className="w-4 h-4" /> สร้าง Campaign
           </Button>
         </div>
       </div>
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Active Campaigns" value={activeCnt}   icon={Calendar}   color="text-emerald-400" />
-        <StatCard label="Campaigns ทั้งหมด" value={totalCamps} icon={TrendingUp}  color="text-sky-400"     />
-        <StatCard label="Completed"         value={doneCnt}    icon={Users2}      color="text-purple-400"  />
+        <StatCard
+          label="Active Campaigns"
+          value={activeCnt}
+          icon={Zap}
+          gradient="from-emerald-50 to-teal-50/60 border-emerald-100"
+          iconBg="bg-emerald-100"
+          iconColor="text-emerald-600"
+          subLabel={activeCnt > 0 ? "กำลังดำเนินการอยู่" : "ยังไม่มี Campaign ที่ Active"}
+        />
+        <StatCard
+          label="Campaigns ทั้งหมด"
+          value={totalCamps}
+          icon={Rocket}
+          gradient="from-violet-50 to-purple-50/60 border-violet-100"
+          iconBg="bg-violet-100"
+          iconColor="text-violet-600"
+          subLabel={`${CAMPAIGN_DEPARTMENTS.length} แผนก · ${CAMPAIGN_CHANNELS.length} ช่องทาง`}
+        />
+        <StatCard
+          label="Completed"
+          value={doneCnt}
+          icon={CheckCircle2}
+          gradient="from-sky-50 to-blue-50/60 border-sky-100"
+          iconBg="bg-sky-100"
+          iconColor="text-sky-600"
+          subLabel={totalCamps > 0 ? `${Math.round((doneCnt / totalCamps) * 100)}% ของทั้งหมด` : "ยังไม่มี"}
+        />
       </div>
 
       {/* ── Filter bar ── */}
@@ -405,7 +433,7 @@ export default function CampaignManagement() {
             placeholder="ค้นหาชื่อ, ID, ช่องทาง…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-9"
           />
           {search && (
             <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -413,177 +441,256 @@ export default function CampaignManagement() {
             </button>
           )}
         </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as "All" | CampaignStatus)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <option value="All">ทุกสถานะ</option>
-          {CAMPAIGN_STATUS_LIST.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        {/* Status filter chips */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(["All", ...CAMPAIGN_STATUS_LIST] as const).map((s) => {
+            const isAll = s === "All";
+            const active = filterStatus === s;
+            const cfg = !isAll ? STATUS_CFG[s] : null;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s as typeof filterStatus)}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${
+                  active
+                    ? isAll
+                      ? "bg-foreground text-background border-foreground"
+                      : `${cfg!.cls} border-current`
+                    : "bg-background text-muted-foreground border-border hover:border-muted-foreground/40 hover:text-foreground"
+                }`}
+              >
+                {!isAll && cfg && <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />}
+                {isAll ? "ทั้งหมด" : s}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Calendar View ── */}
       {viewMode === "calendar" && (
         <CampaignCalendar
           campaigns={campaigns}
-          onSelect={(c) => openEdit(c)}
+          onSelect={(c) => setDetailCampaign(c)}
         />
       )}
 
       {/* ── Table ── */}
-      {viewMode === "table" && <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-xs">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium" style={{ minWidth: 180 }}>
-                  <SortBtn col="date" label="ช่วงเวลา" />
-                </th>
-                <th className="px-4 py-3 text-left font-medium" style={{ minWidth: 200 }}>
-                  <SortBtn col="name" label="ชื่อแคมเปญ" />
-                </th>
-                <th className="px-4 py-3 text-left font-medium w-20">
-                  <SortBtn col="team" label="ทีม" />
-                </th>
-                <th className="px-4 py-3 text-left font-medium">ช่องทาง</th>
-                <th className="px-4 py-3 text-left font-medium w-36">ความคืบหน้า</th>
-                <th className="px-4 py-3 text-center font-medium w-36">
-                  <SortBtn col="status" label="สถานะ" />
-                </th>
-                <th className="px-4 py-3 text-center font-medium w-20">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                    <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    <p>{search || filterStatus !== "All" ? "ไม่พบแคมเปญที่ตรงกับเงื่อนไข" : "ยังไม่มีแคมเปญ กด + สร้าง Campaign เลย"}</p>
-                  </td>
+      {viewMode === "table" && (
+        <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-5 py-3.5 text-left" style={{ minWidth: 170 }}>
+                    <SortBtn col="date" label="ช่วงเวลา" />
+                  </th>
+                  <th className="px-5 py-3.5 text-left" style={{ minWidth: 220 }}>
+                    <SortBtn col="name" label="ชื่อแคมเปญ" />
+                  </th>
+                  <th className="px-5 py-3.5 text-left" style={{ minWidth: 130 }}>
+                    <SortBtn col="team" label="ทีม" />
+                  </th>
+                  <th className="px-5 py-3.5 text-left" style={{ minWidth: 160 }}>ช่องทาง</th>
+                  <th className="px-5 py-3.5 text-left" style={{ minWidth: 150 }}>ความคืบหน้า</th>
+                  <th className="px-5 py-3.5 text-center" style={{ minWidth: 130 }}>
+                    <SortBtn col="status" label="สถานะ" />
+                  </th>
+                  <th className="px-5 py-3.5 text-center" style={{ minWidth: 80 }}>จัดการ</th>
                 </tr>
-              )}
-              {filtered.map((c) => {
-                const plans = plansByCampaign[c.id] ?? [];
-                const done  = plans.filter((p) => p.status === "Done").length;
-                const pct   = plans.length > 0 ? Math.round((done / plans.length) * 100) : null;
-                return (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
-                    onClick={() => setDetailCampaign(c)}
-                  >
-                    {/* ช่วงเวลา */}
-                    <td className="px-4 py-3">
-                      <div className="text-xs font-medium">{fmtPeriod(c.start_date, c.end_date)}</div>
-                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{c.campaign_id}</div>
-                    </td>
-
-                    {/* ชื่อ */}
-                    <td className="px-4 py-3">
-                      <div className="font-semibold">{c.name}</div>
-                      {c.notes && <div className="text-[11px] text-muted-foreground/70 truncate max-w-[220px] mt-0.5">{c.notes}</div>}
-                    </td>
-
-                    {/* ทีม */}
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        {(c.target_teams ?? []).map((t) => (
-                          <span key={t} className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${
-                            t === "Outbound"       ? "bg-orange-100 text-orange-700 border border-orange-200" :
-                            t === "Ticket"         ? "bg-violet-100 text-violet-700 border border-violet-200" :
-                            t === "Transportation" ? "bg-sky-100 text-sky-700 border border-sky-200" :
-                            "bg-muted text-muted-foreground border border-border"
-                          }`}>
-                            {t === "Outbound" ? "✈️" : t === "Ticket" ? "🎫" : "🚍"} {t}
-                          </span>
-                        ))}
-                        {(!c.target_teams || c.target_teams.length === 0) && (
-                          <span className="text-[10px] text-muted-foreground/50 italic">-</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* ช่องทาง */}
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {c.channels.slice(0, 3).map((ch) => (
-                          <span key={ch} className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ch}</span>
-                        ))}
-                        {c.channels.length > 3 && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">+{c.channels.length - 3}</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* ความคืบหน้า */}
-                    <td className="px-4 py-3">
-                      {pct !== null ? (
-                        <div>
-                          <div className="text-[10px] text-muted-foreground mb-1">{done}/{plans.length} tasks · {pct}%</div>
-                          <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full">
-                            <div
-                              className="h-full rounded-full bg-violet-500 transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-muted/60 flex items-center justify-center">
+                          <BarChart3 className="w-7 h-7 text-muted-foreground/40" />
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground/50 italic">ยังไม่มี task</span>
-                      )}
-                    </td>
-
-                    {/* สถานะ */}
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative inline-block">
-                        <select
-                          value={c.status}
-                          onChange={(e) => handleInlineStatus(c.id, e.target.value as CampaignStatus)}
-                          className={`appearance-none text-xs font-medium pl-5 pr-5 py-1 rounded-full border cursor-pointer focus:outline-none transition-colors ${STATUS_CFG[c.status].cls} bg-transparent`}
-                          style={{ backgroundImage: "none" }}
-                        >
-                          {CAMPAIGN_STATUS_LIST.map((s) => (
-                            <option key={s} value={s} className="bg-background text-foreground">{s}</option>
-                          ))}
-                        </select>
-                        <span className={`pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${STATUS_CFG[c.status].dot}`} />
-                        <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 opacity-60" />
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => openEdit(c)}
-                          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                          title="แก้ไข"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(c)}
-                          className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                          title="ลบ"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div>
+                          <p className="font-medium text-muted-foreground">
+                            {search || filterStatus !== "All" ? "ไม่พบแคมเปญที่ตรงกับเงื่อนไข" : "ยังไม่มีแคมเปญ"}
+                          </p>
+                          {!search && filterStatus === "All" && (
+                            <p className="text-xs text-muted-foreground/60 mt-1">กด "+ สร้าง Campaign" เพื่อเริ่มต้น</p>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {filtered.length > 0 && (
-          <div className="px-4 py-2 border-t text-xs text-muted-foreground">
-            แสดง {filtered.length} จาก {campaigns.length} แคมเปญ · คลิก row เพื่อดู Action Plan
+                )}
+                {filtered.map((c) => {
+                  const plans = plansByCampaign[c.id] ?? [];
+                  const done  = plans.filter((p) => p.status === "Done").length;
+                  const pct   = plans.length > 0 ? Math.round((done / plans.length) * 100) : null;
+                  const days  = diffDays(c.start_date, c.end_date);
+                  const statusCfg = STATUS_CFG[c.status];
+
+                  return (
+                    <tr
+                      key={c.id}
+                      className="hover:bg-muted/20 transition-colors cursor-pointer group"
+                      onClick={() => setDetailCampaign(c)}
+                    >
+                      {/* ช่วงเวลา */}
+                      <td className="px-5 py-4">
+                        <div
+                          className="pl-3 border-l-2"
+                          style={{ borderColor: statusCfg.accent }}
+                        >
+                          <div className="text-xs font-semibold text-foreground leading-snug">
+                            {fmtPeriod(c.start_date, c.end_date)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] font-mono text-muted-foreground/70 bg-muted px-1.5 py-0.5 rounded">
+                              {c.campaign_id}
+                            </span>
+                            {days > 0 && (
+                              <span className="text-[10px] text-muted-foreground/50">{days} วัน</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* ชื่อ */}
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-foreground leading-snug group-hover:text-primary transition-colors">
+                          {c.name}
+                        </div>
+                        {c.notes && (
+                          <div className="text-[11px] text-muted-foreground/60 truncate max-w-[220px] mt-0.5">
+                            {c.notes}
+                          </div>
+                        )}
+                        {c.budget && (
+                          <div className="text-[11px] text-muted-foreground/70 mt-0.5">
+                            💰 {Number(c.budget).toLocaleString("th-TH")} บาท
+                          </div>
+                        )}
+                      </td>
+
+                      {/* ทีม */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(c.target_teams ?? []).map((t) => {
+                            const d = DEPT_CFG[t];
+                            if (!d) return null;
+                            return (
+                              <div
+                                key={t}
+                                title={t}
+                                className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border ${d.bg} ${d.text} ${d.border}`}
+                              >
+                                <span className="text-sm leading-none">{d.emoji}</span>
+                                <span className="hidden sm:inline">{t}</span>
+                              </div>
+                            );
+                          })}
+                          {(!c.target_teams || c.target_teams.length === 0) && (
+                            <span className="text-[11px] text-muted-foreground/40 italic">-</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* ช่องทาง */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {c.channels.slice(0, 3).map((ch) => (
+                            <span
+                              key={ch}
+                              className="text-[11px] px-2 py-0.5 rounded-md bg-muted/70 text-muted-foreground border border-border/50"
+                            >
+                              {ch}
+                            </span>
+                          ))}
+                          {c.channels.length > 3 && (
+                            <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted/70 text-muted-foreground border border-border/50">
+                              +{c.channels.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* ความคืบหน้า */}
+                      <td className="px-5 py-4">
+                        {pct !== null ? (
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] text-muted-foreground">{done}/{plans.length} tasks</span>
+                              <span className={`text-[11px] font-bold ${pct === 100 ? "text-emerald-600" : "text-violet-600"}`}>{pct}%</span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "bg-violet-500"}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[11px] text-muted-foreground/40 italic">ยังไม่มี task</span>
+                            </div>
+                            <div className="h-1.5 bg-muted/40 rounded-full" />
+                          </div>
+                        )}
+                      </td>
+
+                      {/* สถานะ */}
+                      <td className="px-5 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative inline-flex items-center">
+                          <select
+                            value={c.status}
+                            onChange={(e) => handleInlineStatus(c.id, e.target.value as CampaignStatus)}
+                            className={`appearance-none text-[11px] font-semibold pl-5 pr-5 py-1.5 rounded-full border cursor-pointer focus:outline-none transition-colors ${STATUS_CFG[c.status].cls} ${STATUS_CFG[c.status].selectBg}`}
+                            style={{ backgroundImage: "none" }}
+                          >
+                            {CAMPAIGN_STATUS_LIST.map((s) => (
+                              <option key={s} value={s} className="bg-white text-gray-800">{s}</option>
+                            ))}
+                          </select>
+                          <span className={`pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${STATUS_CFG[c.status].dot}`} />
+                          <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 opacity-50" />
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openEdit(c)}
+                            className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                            title="แก้ไข"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(c)}
+                            className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                            title="ลบ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>}
+
+          {/* Footer */}
+          {filtered.length > 0 && (
+            <div className="px-5 py-2.5 border-t border-border/60 flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground">
+                แสดง <span className="font-semibold text-foreground">{filtered.length}</span> จาก {campaigns.length} แคมเปญ
+              </p>
+              <p className="text-[11px] text-muted-foreground">คลิก row เพื่อดู Action Plan</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Campaign Detail Drawer ── */}
       <CampaignDetail
@@ -640,11 +747,14 @@ export default function CampaignManagement() {
               <div className="flex gap-2">
                 {CAMPAIGN_DEPARTMENTS.map((dept) => {
                   const active = form.target_teams.includes(dept.id);
-                  const colorCls = dept.id === "Outbound"
-                    ? active ? "bg-orange-500 text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-400"
-                    : dept.id === "Ticket"
-                    ? active ? "bg-violet-500 text-white border-violet-500" : "border-border text-muted-foreground hover:border-violet-400"
-                    : active ? "bg-sky-500 text-white border-sky-500" : "border-border text-muted-foreground hover:border-sky-400";
+                  const d = DEPT_CFG[dept.id];
+                  const colorCls = active
+                    ? dept.id === "Outbound"
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : dept.id === "Ticket"
+                      ? "bg-violet-500 text-white border-violet-500"
+                      : "bg-sky-500 text-white border-sky-500"
+                    : `${d.bg} ${d.text} ${d.border} hover:opacity-80`;
                   return (
                     <button
                       key={dept.id}
@@ -657,19 +767,15 @@ export default function CampaignManagement() {
                             : [...f.target_teams, dept.id],
                         }))
                       }
-                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors font-medium relative ${colorCls}`}
+                      className={`flex-1 text-xs px-2 py-2.5 rounded-xl border transition-all font-semibold flex items-center justify-center gap-1.5 ${colorCls}`}
                     >
-                      {active && (
-                        <span className="absolute top-1 right-1 w-3 h-3 rounded-full bg-white/30 flex items-center justify-center text-[8px]">✓</span>
-                      )}
-                      {dept.label}
+                      <span>{d.emoji}</span>
+                      <span>{dept.id}</span>
+                      {active && <span className="text-[10px] opacity-80">✓</span>}
                     </button>
                   );
                 })}
               </div>
-              {form.target_teams.length > 0 && (
-                <p className="text-[11px] text-muted-foreground">เลือกแล้ว: {form.target_teams.join(", ")}</p>
-              )}
             </div>
 
             {/* Dates */}
@@ -725,30 +831,6 @@ export default function CampaignManagement() {
               </div>
             </div>
 
-            {/* Reach + Leads */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="camp-reach">Reach</Label>
-                <Input
-                  id="camp-reach"
-                  type="number"
-                  min="0"
-                  value={form.reach}
-                  onChange={(e) => setForm((f) => ({ ...f, reach: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="camp-leads">Leads</Label>
-                <Input
-                  id="camp-leads"
-                  type="number"
-                  min="0"
-                  value={form.leads}
-                  onChange={(e) => setForm((f) => ({ ...f, leads: e.target.value }))}
-                />
-              </div>
-            </div>
-
             {/* Notes */}
             <div className="space-y-1.5">
               <Label htmlFor="camp-notes">หมายเหตุ</Label>
@@ -763,7 +845,7 @@ export default function CampaignManagement() {
 
             {/* Error */}
             {formErr && (
-              <p className="text-xs text-destructive">{formErr}</p>
+              <p className="text-xs text-destructive bg-destructive/5 px-3 py-2 rounded-lg">{formErr}</p>
             )}
           </div>
 
