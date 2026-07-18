@@ -1,13 +1,16 @@
 /**
- * CampaignManagement — fully functional with Zustand store
- * Features: Create / Edit / Delete / inline status change / search + filter
+ * CampaignManagement — Project-style Campaign management
+ * Features: Create / Edit / Delete / inline status change / search + filter / sort / Action Plans drawer
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Megaphone, Plus, Calendar, TrendingUp, Search, Pencil, Trash2,
   Users2, BarChart3, ChevronDown, X, LayoutList, CalendarDays,
+  ArrowUpDown, ChevronUp,
 } from "lucide-react";
 import { CampaignCalendar } from "@/components/CampaignCalendar";
+import { CampaignDetail }  from "@/components/CampaignDetail";
+import { useActionPlans }  from "@/store/actionPlanStore";
 import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Input }    from "@/components/ui/input";
@@ -159,16 +162,26 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
+type SortKey = "date" | "name" | "status" | "team";
+type SortDir = "asc" | "desc";
+
 export default function CampaignManagement() {
   const { campaigns, loadCampaigns, addCampaign, updateCampaign, deleteCampaign } = useCampaigns();
   useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
   const user = useCurrentUser();
   const actorName = user?.full_name ?? user?.username ?? "ไม่ระบุ";
 
-  // ── Search / filter ──
-  const [viewMode, setViewMode]        = useState<"table" | "calendar">("table");
-  const [search, setSearch]           = useState("");
+  const { plansByCampaign } = useActionPlans();
+
+  // ── Search / filter / sort ──
+  const [viewMode, setViewMode]         = useState<"table" | "calendar">("table");
+  const [search, setSearch]             = useState("");
   const [filterStatus, setFilterStatus] = useState<"All" | CampaignStatus>("All");
+  const [sortKey, setSortKey]           = useState<SortKey>("date");
+  const [sortDir, setSortDir]           = useState<SortDir>("asc");
+
+  // ── Detail drawer ──
+  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
 
   // ── Dialog (create / edit) ──
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -180,21 +193,52 @@ export default function CampaignManagement() {
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
 
   // ── Computed stats ──
-  const activeCnt  = campaigns.filter((c) => c.status === "Active").length;
-  const totalReach = campaigns.reduce((s, c) => s + c.reach, 0);
-  const totalLeads = campaigns.reduce((s, c) => s + c.leads, 0);
+  const activeCnt   = campaigns.filter((c) => c.status === "Active").length;
+  const totalCamps  = campaigns.length;
+  const doneCnt     = campaigns.filter((c) => c.status === "Completed").length;
 
-  // ── Filtered list ──
+  // ── Sort helper ──
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  function SortBtn({ col, label }: { col: SortKey; label: string }) {
+    const active = sortKey === col;
+    return (
+      <button
+        onClick={() => toggleSort(col)}
+        className={`flex items-center gap-1 text-left hover:text-foreground transition-colors ${active ? "text-foreground" : "text-muted-foreground"}`}
+      >
+        {label}
+        {active
+          ? <ChevronUp className={`w-3 h-3 transition-transform ${sortDir === "desc" ? "rotate-180" : ""}`} />
+          : <ArrowUpDown className="w-3 h-3 opacity-40" />}
+      </button>
+    );
+  }
+
+  // ── Filtered + sorted list ──
   const q = search.toLowerCase();
-  const filtered = campaigns.filter((c) => {
-    const matchStatus = filterStatus === "All" || c.status === filterStatus;
-    const matchSearch =
-      !q ||
-      c.name.toLowerCase().includes(q) ||
-      c.campaign_id.toLowerCase().includes(q) ||
-      c.channels.some((ch) => ch.toLowerCase().includes(q));
-    return matchStatus && matchSearch;
-  });
+  const filtered = useMemo(() => {
+    const base = campaigns.filter((c) => {
+      const matchStatus = filterStatus === "All" || c.status === filterStatus;
+      const matchSearch =
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.campaign_id.toLowerCase().includes(q) ||
+        c.channels.some((ch) => ch.toLowerCase().includes(q));
+      return matchStatus && matchSearch;
+    });
+    return [...base].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "date")   cmp = a.start_date.localeCompare(b.start_date);
+      if (sortKey === "name")   cmp = a.name.localeCompare(b.name);
+      if (sortKey === "status") cmp = a.status.localeCompare(b.status);
+      if (sortKey === "team")   cmp = a.target_team.localeCompare(b.target_team);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [campaigns, q, filterStatus, sortKey, sortDir]);
 
   // ── Handlers ──
   function openCreate() {
@@ -350,9 +394,9 @@ export default function CampaignManagement() {
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Active Campaigns" value={activeCnt}          icon={Calendar}  color="text-emerald-400" />
-        <StatCard label="Reach รวม"        value={fmtNum(totalReach)} icon={TrendingUp} color="text-sky-400"     />
-        <StatCard label="Leads รวม"        value={fmtNum(totalLeads)} icon={Users2}    color="text-purple-400"  />
+        <StatCard label="Active Campaigns" value={activeCnt}   icon={Calendar}   color="text-emerald-400" />
+        <StatCard label="Campaigns ทั้งหมด" value={totalCamps} icon={TrendingUp}  color="text-sky-400"     />
+        <StatCard label="Completed"         value={doneCnt}    icon={Users2}      color="text-purple-400"  />
       </div>
 
       {/* ── Filter bar ── */}
@@ -395,106 +439,152 @@ export default function CampaignManagement() {
       {viewMode === "table" && <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
+            <thead className="bg-muted/40 text-xs">
               <tr>
-                <th className="px-4 py-3 text-left w-24">ID</th>
-                <th className="px-4 py-3 text-left min-w-[180px]">ชื่อแคมเปญ</th>
-                <th className="px-4 py-3 text-left w-20">ทีม</th>
-                <th className="px-4 py-3 text-left">ช่องทาง</th>
-                <th className="px-4 py-3 text-left">ช่วงเวลา</th>
-                <th className="px-4 py-3 text-right">Reach</th>
-                <th className="px-4 py-3 text-right">Leads</th>
-                <th className="px-4 py-3 text-right">งบ (บาท)</th>
-                <th className="px-4 py-3 text-center w-36">สถานะ</th>
-                <th className="px-4 py-3 text-center w-20">จัดการ</th>
+                <th className="px-4 py-3 text-left font-medium" style={{ minWidth: 180 }}>
+                  <SortBtn col="date" label="ช่วงเวลา" />
+                </th>
+                <th className="px-4 py-3 text-left font-medium" style={{ minWidth: 200 }}>
+                  <SortBtn col="name" label="ชื่อแคมเปญ" />
+                </th>
+                <th className="px-4 py-3 text-left font-medium w-20">
+                  <SortBtn col="team" label="ทีม" />
+                </th>
+                <th className="px-4 py-3 text-left font-medium">ช่องทาง</th>
+                <th className="px-4 py-3 text-left font-medium w-36">ความคืบหน้า</th>
+                <th className="px-4 py-3 text-center font-medium w-36">
+                  <SortBtn col="status" label="สถานะ" />
+                </th>
+                <th className="px-4 py-3 text-center font-medium w-20">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-30" />
                     <p>{search || filterStatus !== "All" ? "ไม่พบแคมเปญที่ตรงกับเงื่อนไข" : "ยังไม่มีแคมเปญ กด + สร้าง Campaign เลย"}</p>
                   </td>
                 </tr>
               )}
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.campaign_id}</td>
-                  <td className="px-4 py-3 font-semibold">{c.name}</td>
-                  <td className="px-4 py-3">
-                    {c.target_team === "OB" ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">📣 OB</span>
-                    ) : c.target_team === "Sales" ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">🤝 Sales</span>
-                    ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">ทั้งคู่</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {c.channels.map((ch) => (
-                        <span key={ch} className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ch}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {fmtPeriod(c.start_date, c.end_date)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">{fmtNum(c.reach)}</td>
-                  <td className="px-4 py-3 text-right font-bold tabular-nums">{fmtNum(c.leads)}</td>
-                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">
-                    {c.budget !== undefined ? fmtNum(c.budget) : "-"}
-                  </td>
+              {filtered.map((c) => {
+                const plans = plansByCampaign[c.id] ?? [];
+                const done  = plans.filter((p) => p.status === "Done").length;
+                const pct   = plans.length > 0 ? Math.round((done / plans.length) * 100) : null;
+                return (
+                  <tr
+                    key={c.id}
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => setDetailCampaign(c)}
+                  >
+                    {/* ช่วงเวลา */}
+                    <td className="px-4 py-3">
+                      <div className="text-xs font-medium">{fmtPeriod(c.start_date, c.end_date)}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{c.campaign_id}</div>
+                    </td>
 
-                  {/* Inline status dropdown */}
-                  <td className="px-4 py-3 text-center">
-                    <div className="relative inline-block">
-                      <select
-                        value={c.status}
-                        onChange={(e) => handleInlineStatus(c.id, e.target.value as CampaignStatus)}
-                        className={`appearance-none text-xs font-medium pl-5 pr-5 py-1 rounded-full border cursor-pointer focus:outline-none transition-colors ${STATUS_CFG[c.status].cls} bg-transparent`}
-                        style={{ backgroundImage: "none" }}
-                      >
-                        {CAMPAIGN_STATUS_LIST.map((s) => (
-                          <option key={s} value={s} className="bg-background text-foreground">{s}</option>
+                    {/* ชื่อ */}
+                    <td className="px-4 py-3">
+                      <div className="font-semibold">{c.name}</div>
+                      {c.notes && <div className="text-[11px] text-muted-foreground/70 truncate max-w-[220px] mt-0.5">{c.notes}</div>}
+                    </td>
+
+                    {/* ทีม */}
+                    <td className="px-4 py-3">
+                      {c.target_team === "OB" ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">📣 OB</span>
+                      ) : c.target_team === "Sales" ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">🤝 Sales</span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">ทั้งคู่</span>
+                      )}
+                    </td>
+
+                    {/* ช่องทาง */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {c.channels.slice(0, 3).map((ch) => (
+                          <span key={ch} className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ch}</span>
                         ))}
-                      </select>
-                      <span className={`pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${STATUS_CFG[c.status].dot}`} />
-                      <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 opacity-60" />
-                    </div>
-                  </td>
+                        {c.channels.length > 3 && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">+{c.channels.length - 3}</span>
+                        )}
+                      </div>
+                    </td>
 
-                  {/* Actions */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                        title="แก้ไข"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(c)}
-                        className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
-                        title="ลบ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    {/* ความคืบหน้า */}
+                    <td className="px-4 py-3">
+                      {pct !== null ? (
+                        <div>
+                          <div className="text-[10px] text-muted-foreground mb-1">{done}/{plans.length} tasks · {pct}%</div>
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden w-full">
+                            <div
+                              className="h-full rounded-full bg-violet-500 transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground/50 italic">ยังไม่มี task</span>
+                      )}
+                    </td>
+
+                    {/* สถานะ */}
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative inline-block">
+                        <select
+                          value={c.status}
+                          onChange={(e) => handleInlineStatus(c.id, e.target.value as CampaignStatus)}
+                          className={`appearance-none text-xs font-medium pl-5 pr-5 py-1 rounded-full border cursor-pointer focus:outline-none transition-colors ${STATUS_CFG[c.status].cls} bg-transparent`}
+                          style={{ backgroundImage: "none" }}
+                        >
+                          {CAMPAIGN_STATUS_LIST.map((s) => (
+                            <option key={s} value={s} className="bg-background text-foreground">{s}</option>
+                          ))}
+                        </select>
+                        <span className={`pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${STATUS_CFG[c.status].dot}`} />
+                        <ChevronDown className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 opacity-60" />
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="แก้ไข"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(c)}
+                          className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
+                          title="ลบ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
         {filtered.length > 0 && (
           <div className="px-4 py-2 border-t text-xs text-muted-foreground">
-            แสดง {filtered.length} จาก {campaigns.length} แคมเปญ
+            แสดง {filtered.length} จาก {campaigns.length} แคมเปญ · คลิก row เพื่อดู Action Plan
           </div>
         )}
       </div>}
+
+      {/* ── Campaign Detail Drawer ── */}
+      <CampaignDetail
+        campaign={detailCampaign}
+        onClose={() => setDetailCampaign(null)}
+        onEdit={(c) => { setDetailCampaign(null); openEdit(c); }}
+      />
 
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
