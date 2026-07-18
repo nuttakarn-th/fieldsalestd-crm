@@ -5,8 +5,9 @@
 import { useState } from "react";
 import {
   Megaphone, Plus, Calendar, TrendingUp, Search, Pencil, Trash2,
-  Users2, BarChart3, ChevronDown, X,
+  Users2, BarChart3, ChevronDown, X, LayoutList, CalendarDays,
 } from "lucide-react";
+import { CampaignCalendar } from "@/components/CampaignCalendar";
 import { Button }   from "@/components/ui/button";
 import { Badge }    from "@/components/ui/badge";
 import { Input }    from "@/components/ui/input";
@@ -164,6 +165,7 @@ export default function CampaignManagement() {
   const actorName = user?.full_name ?? user?.username ?? "ไม่ระบุ";
 
   // ── Search / filter ──
+  const [viewMode, setViewMode]        = useState<"table" | "calendar">("table");
   const [search, setSearch]           = useState("");
   const [filterStatus, setFilterStatus] = useState<"All" | CampaignStatus>("All");
 
@@ -315,9 +317,34 @@ export default function CampaignManagement() {
             <p className="text-sm text-muted-foreground">จัดการแคมเปญการตลาดทั้งหมด</p>
           </div>
         </div>
-        <Button onClick={openCreate} className="bg-gradient-primary text-primary-foreground w-full sm:w-auto">
-          <Plus className="w-4 h-4 mr-1" /> สร้าง Campaign
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* View toggle */}
+          <div className="flex rounded-lg border border-border overflow-hidden h-9">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors
+                ${viewMode === "table"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              ตาราง
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors border-l border-border
+                ${viewMode === "calendar"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-background text-muted-foreground hover:bg-muted"}`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              ปฏิทิน
+            </button>
+          </div>
+          <Button onClick={openCreate} className="bg-gradient-primary text-primary-foreground flex-1 sm:flex-none">
+            <Plus className="w-4 h-4 mr-1" /> สร้าง Campaign
+          </Button>
+        </div>
       </div>
 
       {/* ── Stats ── */}
@@ -355,8 +382,16 @@ export default function CampaignManagement() {
         </select>
       </div>
 
+      {/* ── Calendar View ── */}
+      {viewMode === "calendar" && (
+        <CampaignCalendar
+          campaigns={campaigns}
+          onSelect={(c) => openEdit(c)}
+        />
+      )}
+
       {/* ── Table ── */}
-      <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
+      {viewMode === "table" && <div className="bg-card rounded-xl border shadow-soft overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
@@ -458,7 +493,7 @@ export default function CampaignManagement() {
             แสดง {filtered.length} จาก {campaigns.length} แคมเปญ
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Create / Edit Dialog ── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
