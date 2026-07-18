@@ -37,10 +37,10 @@ import { logActivity } from "@/lib/activityLog";
 import {
   useCampaigns,
   CAMPAIGN_CHANNELS,
+  CAMPAIGN_DEPARTMENTS,
   CAMPAIGN_STATUS_LIST,
   type Campaign,
   type CampaignStatus,
-  type CampaignTargetTeam,
 } from "@/store/campaignStore";
 import { useCurrentUser } from "@/store/authStore";
 
@@ -89,12 +89,10 @@ function fmtNum(n: number): string {
 interface FormState {
   name: string;
   channels: string[];
-  target_team: CampaignTargetTeam;
+  target_teams: string[];
   start_date: string;
   end_date: string;
   budget: string;
-  reach: string;
-  leads: string;
   status: CampaignStatus;
   notes: string;
 }
@@ -102,28 +100,24 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   name: "",
   channels: [],
-  target_team: "Both",
+  target_teams: [],
   start_date: "",
   end_date: "",
   budget: "",
-  reach: "0",
-  leads: "0",
   status: "Draft",
   notes: "",
 };
 
 function formFromCampaign(c: Campaign): FormState {
   return {
-    name:        c.name,
-    channels:    [...c.channels],
-    target_team: c.target_team ?? "Both",
-    start_date:  c.start_date,
-    end_date:    c.end_date,
-    budget:      c.budget !== undefined ? String(c.budget) : "",
-    reach:       String(c.reach),
-    leads:       String(c.leads),
-    status:      c.status,
-    notes:       c.notes ?? "",
+    name:         c.name,
+    channels:     [...c.channels],
+    target_teams: [...(c.target_teams ?? [])],
+    start_date:   c.start_date,
+    end_date:     c.end_date,
+    budget:       c.budget !== undefined ? String(c.budget) : "",
+    status:       c.status,
+    notes:        c.notes ?? "",
   };
 }
 
@@ -273,18 +267,22 @@ export default function CampaignManagement() {
       setFormErr("กรุณาเลือกช่องทางอย่างน้อย 1 ช่องทาง");
       return;
     }
+    if (form.target_teams.length === 0) {
+      setFormErr("กรุณาเลือกแผนกอย่างน้อย 1 แผนก");
+      return;
+    }
     const payload = {
-      name:        form.name.trim(),
-      channels:    form.channels,
-      target_team: form.target_team,
-      start_date:  form.start_date,
-      end_date:    form.end_date,
-      budget:      form.budget ? parseFloat(form.budget) : undefined,
-      reach:       parseInt(form.reach)  || 0,
-      leads:       parseInt(form.leads)  || 0,
-      status:      form.status,
-      notes:       form.notes.trim() || undefined,
-      created_by:  actorName,
+      name:         form.name.trim(),
+      channels:     form.channels,
+      target_teams: form.target_teams,
+      start_date:   form.start_date,
+      end_date:     form.end_date,
+      budget:       form.budget ? parseFloat(form.budget) : undefined,
+      reach:        0,
+      leads:        0,
+      status:       form.status,
+      notes:        form.notes.trim() || undefined,
+      created_by:   actorName,
     };
     if (editId) {
       updateCampaign(editId, payload);
@@ -491,13 +489,21 @@ export default function CampaignManagement() {
 
                     {/* ทีม */}
                     <td className="px-4 py-3">
-                      {c.target_team === "OB" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">📣 OB</span>
-                      ) : c.target_team === "Sales" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">🤝 Sales</span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">ทั้งคู่</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {(c.target_teams ?? []).map((t) => (
+                          <span key={t} className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${
+                            t === "Outbound"       ? "bg-orange-100 text-orange-700 border border-orange-200" :
+                            t === "Ticket"         ? "bg-violet-100 text-violet-700 border border-violet-200" :
+                            t === "Transportation" ? "bg-sky-100 text-sky-700 border border-sky-200" :
+                            "bg-muted text-muted-foreground border border-border"
+                          }`}>
+                            {t === "Outbound" ? "✈️" : t === "Ticket" ? "🎫" : "🚍"} {t}
+                          </span>
+                        ))}
+                        {(!c.target_teams || c.target_teams.length === 0) && (
+                          <span className="text-[10px] text-muted-foreground/50 italic">-</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* ช่องทาง */}
@@ -628,33 +634,42 @@ export default function CampaignManagement() {
               </div>
             </div>
 
-            {/* Target Team */}
+            {/* Target Departments — multi-select */}
             <div className="space-y-1.5">
-              <Label>ทีมเป้าหมาย <span className="text-destructive">*</span></Label>
+              <Label>แผนกเป้าหมาย <span className="text-destructive">*</span></Label>
               <div className="flex gap-2">
-                {(["OB", "Sales", "Both"] as CampaignTargetTeam[]).map((t) => {
-                  const labels = { OB: "📣 OB Leads", Sales: "🤝 Sales Leads", Both: "ทั้งสองทีม" };
-                  const active = form.target_team === t;
+                {CAMPAIGN_DEPARTMENTS.map((dept) => {
+                  const active = form.target_teams.includes(dept.id);
+                  const colorCls = dept.id === "Outbound"
+                    ? active ? "bg-orange-500 text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-400"
+                    : dept.id === "Ticket"
+                    ? active ? "bg-violet-500 text-white border-violet-500" : "border-border text-muted-foreground hover:border-violet-400"
+                    : active ? "bg-sky-500 text-white border-sky-500" : "border-border text-muted-foreground hover:border-sky-400";
                   return (
                     <button
-                      key={t}
+                      key={dept.id}
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, target_team: t }))}
-                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors font-medium ${
-                        active
-                          ? t === "OB"
-                            ? "bg-purple-500 text-white border-purple-500"
-                            : t === "Sales"
-                            ? "bg-blue-500 text-white border-blue-500"
-                            : "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                      }`}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          target_teams: active
+                            ? f.target_teams.filter((x) => x !== dept.id)
+                            : [...f.target_teams, dept.id],
+                        }))
+                      }
+                      className={`flex-1 text-xs px-2 py-2 rounded-lg border transition-colors font-medium relative ${colorCls}`}
                     >
-                      {labels[t]}
+                      {active && (
+                        <span className="absolute top-1 right-1 w-3 h-3 rounded-full bg-white/30 flex items-center justify-center text-[8px]">✓</span>
+                      )}
+                      {dept.label}
                     </button>
                   );
                 })}
               </div>
+              {form.target_teams.length > 0 && (
+                <p className="text-[11px] text-muted-foreground">เลือกแล้ว: {form.target_teams.join(", ")}</p>
+              )}
             </div>
 
             {/* Dates */}

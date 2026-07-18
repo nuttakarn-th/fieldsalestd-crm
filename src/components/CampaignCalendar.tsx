@@ -9,16 +9,17 @@ import { Button } from "@/components/ui/button";
 import { type Campaign } from "@/store/campaignStore";
 
 // ── Color map ─────────────────────────────────────────────────────────────────
-// แต่ละ Campaign ได้สีตาม target_team ก่อน จากนั้น cycle ถ้าซ้ำ
-const TEAM_COLORS: Record<string, string[]> = {
-  OB:    ["#f97316", "#ea580c", "#c2410c"],   // orange ramp
-  Sales: ["#8b5cf6", "#7c3aed", "#6d28d9"],   // purple ramp
-  Both:  ["#0ea5e9", "#0284c7", "#0369a1"],   // blue ramp
+// สีตาม dept หลัก (ตัวแรกใน target_teams) จากนั้น cycle ถ้าซ้ำ
+const DEPT_COLORS: Record<string, string[]> = {
+  Outbound:       ["#f97316", "#ea580c", "#c2410c"],   // orange ramp  ✈️
+  Ticket:         ["#8b5cf6", "#7c3aed", "#6d28d9"],   // violet ramp  🎫
+  Transportation: ["#0ea5e9", "#0284c7", "#0369a1"],   // sky ramp     🚍
 };
 const FALLBACK_COLORS = ["#10b981", "#059669", "#047857", "#d946ef", "#db2777"];
 
 function getCampaignColor(c: Campaign, indexInTeam: number): string {
-  const ramp = TEAM_COLORS[c.target_team];
+  const primaryDept = (c.target_teams ?? [])[0];
+  const ramp = primaryDept ? DEPT_COLORS[primaryDept] : null;
   if (ramp) return ramp[indexInTeam % ramp.length];
   return FALLBACK_COLORS[indexInTeam % FALLBACK_COLORS.length];
 }
@@ -79,15 +80,15 @@ export function CampaignCalendar({ campaigns, onSelect }: Props) {
 
   // กำหนดสีให้แต่ละ Campaign (ตาม team + index ใน team)
   const campaignColors = useMemo(() => {
-    const teamCount: Record<string, number> = {};
+    const deptCount: Record<string, number> = {};
     const map: Record<string, string> = {};
     // เรียงตาม start_date ก่อน เพื่อให้สีสม่ำเสมอ
     const sorted = [...campaigns].sort((a, b) => a.start_date.localeCompare(b.start_date));
     for (const c of sorted) {
-      const key = c.target_team;
-      teamCount[key] = (teamCount[key] ?? 0);
-      map[c.id] = getCampaignColor(c, teamCount[key]);
-      teamCount[key]++;
+      const key = (c.target_teams ?? [])[0] ?? "Other";
+      deptCount[key] = (deptCount[key] ?? 0);
+      map[c.id] = getCampaignColor(c, deptCount[key]);
+      deptCount[key]++;
     }
     return map;
   }, [campaigns]);
@@ -123,9 +124,9 @@ export function CampaignCalendar({ campaigns, onSelect }: Props) {
 
   // legend items
   const legend = [
-    { label: "OB Team",   color: TEAM_COLORS.OB[0] },
-    { label: "Sales",     color: TEAM_COLORS.Sales[0] },
-    { label: "ทีมรวม",    color: TEAM_COLORS.Both[0] },
+    { label: "✈️ Outbound",       color: DEPT_COLORS.Outbound[0] },
+    { label: "🎫 Ticket",         color: DEPT_COLORS.Ticket[0] },
+    { label: "🚍 Transportation", color: DEPT_COLORS.Transportation[0] },
   ];
 
   // Day columns header (1–31)

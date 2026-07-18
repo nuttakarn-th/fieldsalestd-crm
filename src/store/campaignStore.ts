@@ -8,7 +8,14 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
 
 export type CampaignStatus = "Draft" | "Scheduled" | "Active" | "Paused" | "Completed";
-export type CampaignTargetTeam = "OB" | "Sales" | "Both";
+
+export const CAMPAIGN_DEPARTMENTS = [
+  { id: "Outbound",       label: "✈️ Outbound"       },
+  { id: "Ticket",         label: "🎫 Ticket"         },
+  { id: "Transportation", label: "🚍 Transportation" },
+] as const;
+
+export type CampaignDept = "Outbound" | "Ticket" | "Transportation";
 
 export const CAMPAIGN_CHANNELS = [
   "Facebook",
@@ -36,7 +43,7 @@ export interface Campaign {
   campaign_id: string;           // CMP-001, CMP-002, ...
   name: string;
   channels: string[];
-  target_team: CampaignTargetTeam;
+  target_teams: string[];        // ["Outbound", "Ticket", "Transportation"] — multi-select
   budget?: number;               // งบประมาณ (บาท)
   start_date: string;            // YYYY-MM-DD
   end_date: string;              // YYYY-MM-DD
@@ -56,7 +63,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-001",
     name: "Summer Tour Promo 2026",
     channels: ["Facebook", "LINE OA", "Instagram", "TikTok"],
-    target_team: "OB",
+    target_teams: ["Outbound"],
     start_date: "2026-07-18",
     end_date: "2026-08-31",
     reach: 12450,
@@ -71,7 +78,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-002",
     name: "Early Bird Japan",
     channels: ["Google Ads"],
-    target_team: "Both",
+    target_teams: ["Outbound", "Ticket"],
     start_date: "2026-05-10",
     end_date: "2026-06-30",
     reach: 0,
@@ -86,7 +93,7 @@ const SEED: Campaign[] = [
     campaign_id: "CMP-003",
     name: "Incentive Corporate",
     channels: ["Email", "LinkedIn"],
-    target_team: "Sales",
+    target_teams: ["Ticket", "Transportation"],
     start_date: "2026-01-01",
     end_date: "2026-03-31",
     reach: 8200,
@@ -101,12 +108,12 @@ const SEED: Campaign[] = [
 // ── Row mapper: Supabase row → Campaign ──────────────────────────────────────
 function rowToCampaign(row: Record<string, unknown>): Campaign {
   return {
-    id:          row.id as string,
-    campaign_id: row.campaign_id as string,
-    name:        row.name as string,
-    channels:    (row.channels as string[]) ?? [],
-    target_team: (row.target_team as CampaignTargetTeam) ?? "Both",
-    budget:      row.budget != null ? Number(row.budget) : undefined,
+    id:           row.id as string,
+    campaign_id:  row.campaign_id as string,
+    name:         row.name as string,
+    channels:     (row.channels as string[]) ?? [],
+    target_teams: (row.target_teams as string[]) ?? [],
+    budget:       row.budget != null ? Number(row.budget) : undefined,
     start_date:  row.start_date as string,
     end_date:    row.end_date as string,
     reach:       Number(row.reach ?? 0),
@@ -126,7 +133,7 @@ interface CampaignStore {
   _nextNum: number;
 
   loadCampaigns: () => Promise<void>;
-  addCampaign: (data: Omit<Campaign, "id" | "campaign_id" | "created_at" | "updated_at">) => Promise<void>;
+  addCampaign: (data: Omit<Campaign, "id" | "campaign_id" | "created_at" | "updated_at" | "reach" | "leads"> & { reach?: number; leads?: number }) => Promise<void>;
   updateCampaign: (id: string, patch: Partial<Campaign>) => Promise<void>;
   deleteCampaign: (id: string) => Promise<void>;
 }
@@ -180,12 +187,12 @@ export const useCampaigns = create<CampaignStore>((set, get) => ({
 
     if (SUPABASE_ENABLED && supabase) {
       const row = {
-        id:          newCampaign.id,
-        campaign_id: newCampaign.campaign_id,
-        name:        newCampaign.name,
-        channels:    newCampaign.channels,
-        target_team: newCampaign.target_team,
-        budget:      newCampaign.budget ?? null,
+        id:           newCampaign.id,
+        campaign_id:  newCampaign.campaign_id,
+        name:         newCampaign.name,
+        channels:     newCampaign.channels,
+        target_teams: newCampaign.target_teams,
+        budget:       newCampaign.budget ?? null,
         start_date:  newCampaign.start_date,
         end_date:    newCampaign.end_date,
         reach:       newCampaign.reach,

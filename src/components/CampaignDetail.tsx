@@ -181,15 +181,16 @@ export function CampaignDetail({ campaign, onClose, onEdit }: Props) {
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${CAMP_STATUS_CFG[campaign.status] ?? ""}`}>
                 {campaign.status}
               </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                campaign.target_team === "OB"
-                  ? "bg-purple-100 text-purple-700"
-                  : campaign.target_team === "Sales"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {campaign.target_team === "OB" ? "📣 OB" : campaign.target_team === "Sales" ? "🤝 Sales" : "ทั้งคู่"}
-              </span>
+              {(campaign.target_teams ?? []).map((t) => (
+                <span key={t} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  t === "Outbound"       ? "bg-orange-100 text-orange-700" :
+                  t === "Ticket"         ? "bg-violet-100 text-violet-700" :
+                  t === "Transportation" ? "bg-sky-100 text-sky-700" :
+                  "bg-muted text-muted-foreground"
+                }`}>
+                  {t === "Outbound" ? "✈️" : t === "Ticket" ? "🎫" : "🚍"} {t}
+                </span>
+              ))}
             </div>
             <h2 className="text-base font-bold leading-snug">{campaign.name}</h2>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
