@@ -173,14 +173,23 @@ export default function OBDashboard() {
   const wonPax      = useMemo(() => wonThisMonth.reduce((s, l) => s + (l.pax_count || 0), 0), [wonThisMonth]);
   const _lastRevenue = useMemo(() => wonLastMonth.reduce((s, l) => s + (l.quoted_price || 0), 0), [wonLastMonth]);
 
-  // ── Team target this month (sum of all OB Co-ordinator targets) ──────────────
-  const teamTarget = useMemo(
-    () =>
-      targets
-        .filter((t) => t.month === thisMonth && obSet.has(t.rep))
-        .reduce((s, t) => s + t.total_sales, 0),
-    [targets, thisMonth, obSet],
-  );
+  // ── Team target this month ───────────────────────────────────────────────────
+  // Priority: ใช้ "OB Team" aggregate target ถ้ามี, ไม่งั้น sum รายคน
+  const teamTarget = useMemo(() => {
+    const obTeam = targets.find((t) => t.month === thisMonth && t.rep === "OB Team");
+    if (obTeam && obTeam.total_sales > 0) return obTeam.total_sales;
+    return targets
+      .filter((t) => t.month === thisMonth && obSet.has(t.rep))
+      .reduce((s, t) => s + t.total_sales, 0);
+  }, [targets, thisMonth, obSet]);
+
+  const teamTargetPax = useMemo(() => {
+    const obTeam = targets.find((t) => t.month === thisMonth && t.rep === "OB Team");
+    if (obTeam && obTeam.total_pax > 0) return obTeam.total_pax;
+    return targets
+      .filter((t) => t.month === thisMonth && obSet.has(t.rep))
+      .reduce((s, t) => s + t.total_pax, 0);
+  }, [targets, thisMonth, obSet]);
 
   const achievement = pct(wonRevenue, teamTarget);
 
@@ -284,7 +293,7 @@ export default function OBDashboard() {
           icon={Target}
           label="เป้าทีมเดือนนี้"
           value={teamTarget > 0 ? formatTHB(teamTarget) : "ยังไม่ตั้งเป้า"}
-          sub={teamTarget > 0 ? `${wonPax} / ${targets.filter(t => t.month === thisMonth && obSet.has(t.rep)).reduce((s, t) => s + t.total_pax, 0)} ท่าน` : undefined}
+          sub={teamTarget > 0 ? `${wonPax} / ${teamTargetPax} ท่าน` : undefined}
           color="bg-teal-500/15 text-teal-600"
         />
         <PulseCard
