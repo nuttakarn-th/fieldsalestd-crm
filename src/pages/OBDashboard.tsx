@@ -178,7 +178,7 @@ export default function OBDashboard() {
     () =>
       targets
         .filter((t) => t.month === thisMonth && obSet.has(t.rep))
-        .reduce((s, t) => s + t.domestic_sales + t.international_sales, 0),
+        .reduce((s, t) => s + t.total_sales, 0),
     [targets, thisMonth, obSet],
   );
 
@@ -284,7 +284,7 @@ export default function OBDashboard() {
           icon={Target}
           label="เป้าทีมเดือนนี้"
           value={teamTarget > 0 ? formatTHB(teamTarget) : "ยังไม่ตั้งเป้า"}
-          sub={teamTarget > 0 ? `${wonPax} / ${targets.filter(t => t.month === thisMonth && obSet.has(t.rep)).reduce((s, t) => s + t.domestic_pax + t.international_pax, 0)} ท่าน` : undefined}
+          sub={teamTarget > 0 ? `${wonPax} / ${targets.filter(t => t.month === thisMonth && obSet.has(t.rep)).reduce((s, t) => s + t.total_pax, 0)} ท่าน` : undefined}
           color="bg-teal-500/15 text-teal-600"
         />
         <PulseCard
