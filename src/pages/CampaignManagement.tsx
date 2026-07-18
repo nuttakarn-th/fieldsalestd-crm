@@ -2,7 +2,7 @@
  * CampaignManagement — fully functional with Zustand store
  * Features: Create / Edit / Delete / inline status change / search + filter
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Megaphone, Plus, Calendar, TrendingUp, Search, Pencil, Trash2,
   Users2, BarChart3, ChevronDown, X, LayoutList, CalendarDays,
@@ -160,7 +160,8 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function CampaignManagement() {
-  const { campaigns, addCampaign, updateCampaign, deleteCampaign } = useCampaigns();
+  const { campaigns, loadCampaigns, addCampaign, updateCampaign, deleteCampaign } = useCampaigns();
+  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
   const user = useCurrentUser();
   const actorName = user?.full_name ?? user?.username ?? "ไม่ระบุ";
 
