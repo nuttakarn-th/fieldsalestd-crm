@@ -381,22 +381,22 @@ export default function OBDashboard() {
             </div>
             <div className="flex items-center gap-4 mb-3">
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-3 h-0.5 bg-teal-400 inline-block rounded" />เป้า
+                <span className="w-3 h-0.5 bg-pink-400 inline-block rounded" />เป้า
               </span>
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />ยอดจริง
+                <span className="w-3 h-0.5 bg-green-500 inline-block rounded" />ยอดจริง
               </span>
             </div>
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={monthlyChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradTarget" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+                    <stop offset="5%"  stopColor="#ec4899" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0.02} />
                   </linearGradient>
                   <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.55} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.08} />
+                    <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.55} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.08} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
@@ -415,18 +415,16 @@ export default function OBDashboard() {
                     v == null ? ["—", ""] : [formatTHB(v), name === "tSales" ? "เป้า" : "ยอดจริง"]
                   }
                 />
-                {/* เป้า (ด้านล่าง) */}
                 <Area
                   type="monotone" dataKey="tSales" name="tSales"
-                  stroke="#14b8a6" strokeWidth={2}
+                  stroke="#ec4899" strokeWidth={2}
                   fill="url(#gradTarget)" dot={false} activeDot={{ r: 4 }}
                 />
-                {/* จริง (ด้านบน, ทับ) */}
                 <Area
                   type="monotone" dataKey="aSales" name="aSales"
-                  stroke="#10b981" strokeWidth={2.5}
+                  stroke="#22c55e" strokeWidth={2.5}
                   fill="url(#gradActual)" dot={false} connectNulls={false}
-                  activeDot={{ r: 5, stroke: "#059669", strokeWidth: 2 }}
+                  activeDot={{ r: 5, stroke: "#16a34a", strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -441,22 +439,22 @@ export default function OBDashboard() {
             </div>
             <div className="flex items-center gap-4 mb-3">
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-3 h-0.5 bg-teal-400 inline-block rounded" />เป้า
+                <span className="w-3 h-0.5 bg-pink-400 inline-block rounded" />เป้า
               </span>
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />ยอดจริง
+                <span className="w-3 h-0.5 bg-green-500 inline-block rounded" />ยอดจริง
               </span>
             </div>
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={monthlyChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="gradTargetPax" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+                    <stop offset="5%"  stopColor="#ec4899" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#ec4899" stopOpacity={0.02} />
                   </linearGradient>
                   <linearGradient id="gradActualPax" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.55} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.08} />
+                    <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.55} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.08} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
@@ -470,14 +468,14 @@ export default function OBDashboard() {
                 />
                 <Area
                   type="monotone" dataKey="tPax" name="tPax"
-                  stroke="#14b8a6" strokeWidth={2}
+                  stroke="#ec4899" strokeWidth={2}
                   fill="url(#gradTargetPax)" dot={false} activeDot={{ r: 4 }}
                 />
                 <Area
                   type="monotone" dataKey="aPax" name="aPax"
-                  stroke="#10b981" strokeWidth={2.5}
+                  stroke="#22c55e" strokeWidth={2.5}
                   fill="url(#gradActualPax)" dot={false} connectNulls={false}
-                  activeDot={{ r: 5, stroke: "#059669", strokeWidth: 2 }}
+                  activeDot={{ r: 5, stroke: "#16a34a", strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
