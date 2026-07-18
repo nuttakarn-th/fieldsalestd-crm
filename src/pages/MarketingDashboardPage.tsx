@@ -106,15 +106,17 @@ function PipelineFunnel({ stages, color }: FunnelProps) {
     { key: "lost",        label: "Lost" },
   ];
   return (
-    <div className="flex gap-2 mt-3">
-      {STAGE_LABELS.map(({ key, label }) => (
-        <div key={key} className="flex-1 text-center bg-muted/30 rounded-lg py-2 px-1 border border-border/50">
-          <p className={`text-base font-semibold leading-none ${key === "won" ? wonColor : key === "lost" ? lostColor : ""}`}>
-            {stages[key] ?? 0}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-1 leading-none">{label}</p>
-        </div>
-      ))}
+    <div className="overflow-x-auto -mx-4 sm:-mx-5 px-4 sm:px-5 pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="flex gap-2 mt-3 min-w-[320px]">
+        {STAGE_LABELS.map(({ key, label }) => (
+          <div key={key} className="flex-1 min-w-[46px] text-center bg-muted/30 rounded-lg py-2 px-1 border border-border/50">
+            <p className={`text-base font-semibold leading-none ${key === "won" ? wonColor : key === "lost" ? lostColor : ""}`}>
+              {stages[key] ?? 0}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1 leading-none">{label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -126,7 +128,7 @@ function ProgressBar({ value, max, color }: ProgressBarProps) {
   const textCls = color === "purple" ? "text-violet-600" : "text-blue-600";
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between text-xs">
+      <div className="flex flex-wrap justify-between gap-1 text-xs">
         <span className="text-muted-foreground">ยอดขายทีม vs เป้าหมาย</span>
         <span className={`font-semibold ${textCls}`}>{formatTHB(value)} / {formatTHB(max)} ({pct}%)</span>
       </div>
@@ -152,7 +154,7 @@ function TeamBlock({ title, badge, members, stats, color }: TeamBlockProps) {
   const wonCls     = color === "purple" ? "text-violet-600" : "text-blue-600";
 
   return (
-    <div className={`rounded-2xl border ${borderCls} p-5 space-y-4`}>
+    <div className={`rounded-2xl border ${borderCls} p-4 sm:p-5 space-y-4`}>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color === "purple" ? "bg-violet-500/10" : "bg-blue-500/10"}`}>
@@ -173,7 +175,7 @@ function TeamBlock({ title, badge, members, stats, color }: TeamBlockProps) {
       <ProgressBar value={stats.wonRevenue} max={stats.target} color={color} />
 
       {/* KPI cards */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
           <p className="text-[11px] text-muted-foreground">ยอดขาย</p>
           <p className={`text-sm font-semibold ${wonCls}`}>{formatTHB(stats.wonRevenue)}</p>
@@ -241,16 +243,16 @@ export default function MarketingDashboardPage() {
   }), [obStats, salesStats]);
 
   return (
-    <div className="p-5 sm:p-7 space-y-6 max-w-5xl">
+    <div className="p-4 sm:p-6 space-y-5 max-w-5xl">
 
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-bold">ภาพรวมการขาย (Team Dashboard)</h1>
           <p className="text-sm text-muted-foreground mt-0.5">รายงานระดับทีม — OB Team vs Sales Team</p>
         </div>
         <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="w-44 h-9 text-sm">
+          <SelectTrigger className="w-full sm:w-44 h-9 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
