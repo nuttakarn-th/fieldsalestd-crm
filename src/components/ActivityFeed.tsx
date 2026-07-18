@@ -134,10 +134,19 @@ export function ActivityFeed() {
   const isMarketing    = user?.role === "Marketing";
   const isAnyManager   = isAdmin || isSalesManager || isOBManager;
 
-  // Marketing: filter logs by dept tab
-  const visibleLogs = (isMarketing && deptTab !== "all")
-    ? logs.filter((l) => (l as any).department === deptTab)
-    : logs;
+  // กรอง logs ตาม role:
+  // - campaign_ events → เห็นได้เฉพาะ Marketing + Admin เท่านั้น
+  // - Marketing: กรองเพิ่มตาม dept tab
+  const visibleLogs = (() => {
+    let filtered = logs;
+    if (!isMarketing && !isAdmin) {
+      filtered = filtered.filter((l) => !l.event_type.startsWith("campaign_"));
+    }
+    if (isMarketing && deptTab !== "all") {
+      filtered = filtered.filter((l) => (l as any).department === deptTab);
+    }
+    return filtered;
+  })();
 
   // Filter pending requests by department for each manager type
   const pendingRequests = deleteRequests.filter((r) => {
