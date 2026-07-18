@@ -47,6 +47,20 @@ const EMPTY_ROW = (month: string): MonthRow => ({
   incentive_sales: 0, incentive_pax: 0,
 });
 
+// ── ต้องอยู่นอก OBTargets — ถ้าอยู่ข้างในจะ unmount ทุก render → เสีย focus ──
+function NumCell({ value, onChange }: { value: number; onChange: (v: string) => void }) {
+  return (
+    <Input
+      type="number"
+      min={0}
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="text-right h-8 w-full min-w-[90px]"
+      placeholder="0"
+    />
+  );
+}
+
 export default function OBTargets() {
   const targets   = useCRM((s) => s.targets);
   const setTarget = useCRM((s) => s.setTarget);
@@ -127,17 +141,6 @@ export default function OBTargets() {
   ), [months, getRow]);
 
   const isDirty = Object.keys(draft).length > 0;
-
-  // ── Number input cell ─────────────────────────────────────────────────────
-  const NumInput = ({ month, field }: { month: string; field: keyof Omit<MonthRow, "month"> }) => (
-    <Input
-      type="number" min={0}
-      value={getRow(month)[field] || ""}
-      onChange={(e) => updateField(month, field, e.target.value)}
-      className="text-right h-8 w-full min-w-[90px]"
-      placeholder="0"
-    />
-  );
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-6xl">
@@ -302,8 +305,8 @@ export default function OBTargets() {
 
                     {!splitMode ? (
                       <>
-                        <td className="p-2"><NumInput month={month} field="total_sales" /></td>
-                        <td className="p-2"><NumInput month={month} field="total_pax" /></td>
+                        <td className="p-2"><NumCell value={r.total_sales} onChange={(v) => updateField(month, "total_sales", v)} /></td>
+                        <td className="p-2"><NumCell value={r.total_pax} onChange={(v) => updateField(month, "total_pax", v)} /></td>
                       </>
                     ) : (
                       <>
@@ -318,12 +321,12 @@ export default function OBTargets() {
                             <span className="text-muted-foreground/30 text-xs">—</span>
                           )}
                         </td>
-                        <td className="p-2"><NumInput month={month} field="domestic_sales" /></td>
-                        <td className="p-2"><NumInput month={month} field="domestic_pax" /></td>
-                        <td className="p-2"><NumInput month={month} field="international_sales" /></td>
-                        <td className="p-2"><NumInput month={month} field="international_pax" /></td>
-                        <td className="p-2"><NumInput month={month} field="incentive_sales" /></td>
-                        <td className="p-2"><NumInput month={month} field="incentive_pax" /></td>
+                        <td className="p-2"><NumCell value={r.domestic_sales} onChange={(v) => updateField(month, "domestic_sales", v)} /></td>
+                        <td className="p-2"><NumCell value={r.domestic_pax} onChange={(v) => updateField(month, "domestic_pax", v)} /></td>
+                        <td className="p-2"><NumCell value={r.international_sales} onChange={(v) => updateField(month, "international_sales", v)} /></td>
+                        <td className="p-2"><NumCell value={r.international_pax} onChange={(v) => updateField(month, "international_pax", v)} /></td>
+                        <td className="p-2"><NumCell value={r.incentive_sales} onChange={(v) => updateField(month, "incentive_sales", v)} /></td>
+                        <td className="p-2"><NumCell value={r.incentive_pax} onChange={(v) => updateField(month, "incentive_pax", v)} /></td>
                       </>
                     )}
 
