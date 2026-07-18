@@ -48,22 +48,21 @@ export function DepartingBanner({ collapsed }: Props) {
       if (!tour.periods?.length) continue;
       for (const p of tour.periods) {
         if (p.cancelled || p.archived) continue;
-        if (!p.start_date || !p.end_date) continue;
-        if (p.start_date <= today && today <= p.end_date) {
+        if (!p.start_date) continue;
+        if (p.start_date === today) {
           result.push({
             tourName: `${tour.country} ${tour.city}`,
             country: tour.country,
             city: tour.city,
             duration: tour.duration,
-            endDate: p.end_date,
+            endDate: p.end_date ?? "",
             pax: (p.total_seats ?? 0) - (p.quota ?? 0),
           });
         }
       }
     }
 
-    // เรียงตาม endDate ใกล้สุดก่อน
-    return result.sort((a, b) => a.endDate.localeCompare(b.endDate));
+    return result;
   }, [tours, today]);
 
   if (departing.length === 0) return null;
@@ -72,27 +71,27 @@ export function DepartingBanner({ collapsed }: Props) {
   if (collapsed) {
     return (
       <div
-        className="mx-auto flex items-center justify-center w-8 h-8 rounded-full bg-green-500/15 border border-green-500/30"
-        title={`กำลังเดินทาง ${departing.length} ทริป`}
+        className="mx-auto flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/15 border border-amber-500/30"
+        title={`ออกเดินทางวันนี้ ${departing.length} ทริป`}
       >
         <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
         </span>
       </div>
     );
   }
 
   return (
-    <div className="mx-2 rounded-lg border border-green-500/25 bg-green-500/8 px-3 py-2.5">
+    <div className="mx-2 rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2.5">
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
         <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">
-          กำลังเดินทาง {departing.length} ทริป
+        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+          ออกเดินทางวันนี้ {departing.length} ทริป
         </span>
       </div>
 
@@ -100,12 +99,12 @@ export function DepartingBanner({ collapsed }: Props) {
       <div className="space-y-0">
         {departing.map((trip, i) => (
           <div key={i}>
-            {i > 0 && <div className="my-2 border-t border-green-500/20" />}
+            {i > 0 && <div className="my-2 border-t border-amber-500/20" />}
             <div className="text-xs font-medium text-sidebar-foreground leading-snug">
               {countryFlag(trip.country)} {trip.tourName} {trip.duration}
             </div>
             <div className="text-[10px] text-sidebar-foreground/55 mt-0.5">
-              วันกลับ {shortThaiDate(trip.endDate)}
+              {trip.endDate ? `วันกลับ ${shortThaiDate(trip.endDate)}` : ""}
               {trip.pax > 0 && ` · ${trip.pax} pax`}
             </div>
           </div>
