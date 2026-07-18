@@ -171,7 +171,7 @@ export function CampaignDetail({ campaign, onClose, onEdit }: Props) {
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-border shadow-2xl z-50 flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:max-w-md bg-card border-l border-border shadow-2xl z-50 flex flex-col">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border shrink-0">
