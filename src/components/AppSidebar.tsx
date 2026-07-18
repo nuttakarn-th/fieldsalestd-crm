@@ -6,6 +6,7 @@ import { getMenuForRole, roleBadgeColor, type MenuItem, type MenuTone } from "@/
 import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { ReadyToTravelNotification } from "@/components/ReadyToTravelNotification";
+import { DepartingBanner } from "@/components/DepartingBanner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Sidebar,
@@ -130,6 +131,19 @@ export function AppSidebar() {
                   </div>
                 </SidebarMenuItem>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* ── Departing Banner ── */}
+        <SidebarGroup className={collapsed ? "py-1" : "py-1"}>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <div className={collapsed ? "flex justify-center py-1" : ""}>
+                  <DepartingBanner collapsed={collapsed} />
+                </div>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
