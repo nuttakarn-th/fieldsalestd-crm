@@ -116,10 +116,15 @@ export const useDeleteRequests = create<DeleteRequestState>((set, get) => ({
         .update(patch)
         .eq("id", id);
       // Delete the customer row from Supabase
-      await supabase
+      const { error: deleteErr } = await supabase
         .from("customers")
         .delete()
         .eq("customer_id", req.customer_id);
+      if (deleteErr) {
+        console.error("[deleteRequest] ลบลูกค้าจาก Supabase ไม่สำเร็จ:", deleteErr);
+        toast.error(`ลบข้อมูล "${req.customer_name}" ออกจาก server ไม่สำเร็จ — กรุณา login ใหม่แล้วลองอีกครั้ง`);
+        return;
+      }
       // Broadcast notification to ALL users via team_notifications + Supabase Realtime
       await supabase.from("team_notifications").insert({
         id: crypto.randomUUID(),
