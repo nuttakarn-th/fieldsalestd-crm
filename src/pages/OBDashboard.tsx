@@ -18,8 +18,8 @@ import {
   ArrowRight, TrendingUp, Flame, CalendarDays, Award,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -200,10 +200,12 @@ export default function OBDashboard() {
   // ── Chart data: target vs actual per month (ปีปัจจุบัน) ─────────────────────
   const TH_MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
   const chartYear = new Date().getFullYear();
+  const currentMonthIdx = new Date().getMonth(); // 0-based
 
   const monthlyChartData = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const monthKey = `${chartYear}-${String(i + 1).padStart(2, "0")}`;
+      const isPastOrCurrent = i <= currentMonthIdx;
 
       // target: OB Team aggregate ก่อน, fallback sum รายคน
       const obTeam = targets.find((t) => t.month === monthKey && t.rep === "OB Team");
@@ -214,10 +216,16 @@ export default function OBDashboard() {
         ? obTeam.total_pax
         : targets.filter((t) => t.month === monthKey && obSet.has(t.rep)).reduce((s, t) => s + t.total_pax, 0);
 
-      // actual: ดีลที่ปิดได้ในเดือนนั้น
-      const wonMonth = obLeads.filter((l) => isClosedStatus(l.status) && (l.closed_date ?? "").startsWith(monthKey));
-      const aSales = wonMonth.reduce((s, l) => s + (l.quoted_price || 0), 0);
-      const aPax   = wonMonth.reduce((s, l) => s + (l.pax_count   || 0), 0);
+      // actual: เฉพาะเดือนที่ผ่านมาและปัจจุบัน, อนาคต = null (ตัดเส้น)
+      const wonMonth = isPastOrCurrent
+        ? obLeads.filter((l) => isClosedStatus(l.status) && (l.closed_date ?? "").startsWith(monthKey))
+        : [];
+      const aSales: number | null = isPastOrCurrent
+        ? wonMonth.reduce((s, l) => s + (l.quoted_price || 0), 0)
+        : null;
+      const aPax: number | null = isPastOrCurrent
+        ? wonMonth.reduce((s, l) => s + (l.pax_count || 0), 0)
+        : null;
 
       return {
         month: TH_MONTH_SHORT[i],
@@ -229,7 +237,7 @@ export default function OBDashboard() {
         isCurrent: monthKey === thisMonth,
       };
     });
-  }, [targets, obLeads, obSet, thisMonth, chartYear]);
+  }, [targets, obLeads, obSet, thisMonth, chartYear, currentMonthIdx]);
 
   const hasAnyTarget = monthlyChartData.some((d) => d.tSales > 0);
 
@@ -360,23 +368,41 @@ export default function OBDashboard() {
         />
       </div>
 
-      {/* ── Zone 1.5: Charts ── */}
+      {/* ── Zone 1.5: Area Charts ── */}
       {hasAnyTarget && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-          {/* Revenue chart */}
+          {/* Revenue Area Chart */}
           <div className="bg-card rounded-xl border shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-4 h-4 text-teal-500" />
               <h2 className="font-bold text-sm">ยอดขาย vs เป้า รายเดือน</h2>
               <span className="text-xs text-muted-foreground ml-auto">{chartYear}</span>
             </div>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="w-3 h-0.5 bg-teal-400 inline-block rounded" />เป้า
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />ยอดจริง
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={monthlyChartData} barGap={2} barCategoryGap="30%">
+              <AreaChart data={monthlyChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradTarget" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.55} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis
-                  tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={44}
+                  tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={46}
                   tickFormatter={(v: number) =>
                     v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}ล.`
                     : v >= 1_000   ? `${(v / 1_000).toFixed(0)}K`
@@ -385,59 +411,75 @@ export default function OBDashboard() {
                 />
                 <Tooltip
                   contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(v: number, name: string) => [formatTHB(v), name === "tSales" ? "เป้า" : "ยอดจริง"]}
+                  formatter={(v: number | null, name: string) =>
+                    v == null ? ["—", ""] : [formatTHB(v), name === "tSales" ? "เป้า" : "ยอดจริง"]
+                  }
                 />
-                <Legend
-                  iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-                  formatter={(v) => v === "tSales" ? "เป้า" : "ยอดจริง"}
+                {/* เป้า (ด้านล่าง) */}
+                <Area
+                  type="monotone" dataKey="tSales" name="tSales"
+                  stroke="#14b8a6" strokeWidth={2}
+                  fill="url(#gradTarget)" dot={false} activeDot={{ r: 4 }}
                 />
-                <Bar dataKey="tSales" name="tSales" radius={[3, 3, 0, 0]} fill="#ccfbf1" stroke="#0d9488" strokeWidth={1} />
-                <Bar dataKey="aSales" name="aSales" radius={[3, 3, 0, 0]}>
-                  {monthlyChartData.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={d.isCurrent ? "#14b8a6" : d.aSales > 0 ? "#5eead4" : "#f0fdf4"}
-                      stroke={d.isCurrent ? "#0d9488" : "none"}
-                      strokeWidth={d.isCurrent ? 1.5 : 0}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
+                {/* จริง (ด้านบน, ทับ) */}
+                <Area
+                  type="monotone" dataKey="aSales" name="aSales"
+                  stroke="#10b981" strokeWidth={2.5}
+                  fill="url(#gradActual)" dot={false} connectNulls={false}
+                  activeDot={{ r: 5, stroke: "#059669", strokeWidth: 2 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Pax chart */}
+          {/* Pax Area Chart */}
           <div className="bg-card rounded-xl border shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <Users className="w-4 h-4 text-teal-500" />
               <h2 className="font-bold text-sm">Pax vs เป้า รายเดือน</h2>
               <span className="text-xs text-muted-foreground ml-auto">{chartYear}</span>
             </div>
+            <div className="flex items-center gap-4 mb-3">
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="w-3 h-0.5 bg-teal-400 inline-block rounded" />เป้า
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />ยอดจริง
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={monthlyChartData} barGap={2} barCategoryGap="30%">
+              <AreaChart data={monthlyChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradTargetPax" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#14b8a6" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="gradActualPax" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#10b981" stopOpacity={0.55} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.06)" />
                 <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={32} />
                 <Tooltip
                   contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  formatter={(v: number, name: string) => [`${v} ท่าน`, name === "tPax" ? "เป้า" : "ยอดจริง"]}
+                  formatter={(v: number | null, name: string) =>
+                    v == null ? ["—", ""] : [`${v} ท่าน`, name === "tPax" ? "เป้า" : "ยอดจริง"]
+                  }
                 />
-                <Legend
-                  iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-                  formatter={(v) => v === "tPax" ? "เป้า" : "ยอดจริง"}
+                <Area
+                  type="monotone" dataKey="tPax" name="tPax"
+                  stroke="#14b8a6" strokeWidth={2}
+                  fill="url(#gradTargetPax)" dot={false} activeDot={{ r: 4 }}
                 />
-                <Bar dataKey="tPax" name="tPax" radius={[3, 3, 0, 0]} fill="#ccfbf1" stroke="#0d9488" strokeWidth={1} />
-                <Bar dataKey="aPax" name="aPax" radius={[3, 3, 0, 0]}>
-                  {monthlyChartData.map((d, i) => (
-                    <Cell
-                      key={i}
-                      fill={d.isCurrent ? "#14b8a6" : d.aPax > 0 ? "#5eead4" : "#f0fdf4"}
-                      stroke={d.isCurrent ? "#0d9488" : "none"}
-                      strokeWidth={d.isCurrent ? 1.5 : 0}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
+                <Area
+                  type="monotone" dataKey="aPax" name="aPax"
+                  stroke="#10b981" strokeWidth={2.5}
+                  fill="url(#gradActualPax)" dot={false} connectNulls={false}
+                  activeDot={{ r: 5, stroke: "#059669", strokeWidth: 2 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
