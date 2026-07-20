@@ -1330,29 +1330,29 @@ ${catBlocks}
         );
         if (!has) return false;
       }
-      // ── date range filter — show tour if ANY period overlaps with range ──
-      if (filterDateFrom || filterDateTo) {
+      // ── date range + price filter — ต้องเป็น period เดียวกันที่ผ่านทั้งคู่ ──
+      // (เดิมเช็คแยกกันคนละ .some() → tour โผล่มาได้ทั้งที่ไม่มี period ไหนผ่านทั้ง 2 เงื่อนไขพร้อมกัน
+      //  ทำให้ list โปรแกรมมี แต่เปิดดูแล้ว period ว่างเปล่า — แก้ให้ตรวจ period เดียวกันเหมือน visiblePeriods)
+      if (filterDateFrom || filterDateTo || filterPricePreset) {
         const periods = t.periods ?? [];
         if (periods.length > 0) {
           const has = periods.some((p) => {
-            const start = p.start_date ?? "";
-            if (!start) return false;
-            const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
-            // Overlap: period ต้องเริ่มก่อน/เท่ากับ filterDateTo AND สิ้นสุดหลัง/เท่ากับ filterDateFrom
-            if (filterDateFrom && end   < filterDateFrom) return false;
-            if (filterDateTo   && start > filterDateTo)   return false;
+            if (filterDateFrom || filterDateTo) {
+              const start = p.start_date ?? "";
+              if (!start) return false;
+              const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
+              // Overlap: period ต้องเริ่มก่อน/เท่ากับ filterDateTo AND สิ้นสุดหลัง/เท่ากับ filterDateFrom
+              if (filterDateFrom && end   < filterDateFrom) return false;
+              if (filterDateTo   && start > filterDateTo)   return false;
+            }
+            if (filterPricePreset) {
+              const ep = effectivePrice(p);
+              if (ep < activePriceMin || ep > activePriceMax) return false;
+            }
             return true;
           });
           if (!has) return false;
         }
-      }
-      // ── price filter — show tour if ANY period matches price range ──
-      if (filterPricePreset) {
-        const has = (t.periods ?? []).some((p) => {
-          const ep = effectivePrice(p);
-          return ep >= activePriceMin && ep <= activePriceMax;
-        });
-        if (!has) return false;
       }
       return true;
     });
