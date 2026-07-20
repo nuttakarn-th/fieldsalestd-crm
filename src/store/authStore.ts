@@ -427,6 +427,16 @@ export function useActiveSalesNames(): string[] {
     .map((u) => u.full_name);
 }
 
+/** Returns full_names of Sales team only ('Sales', 'Sales Manager') — ไม่รวม OB
+ *  ใช้สำหรับหน้า Target Pipeline (Sales Manager) ที่ต้องตั้งเป้าเฉพาะทีม Sales
+ *  ทีม OB มีหน้า "เป้าหมายทีม OB" ของตัวเองแยกต่างหาก (OBTargets.tsx) */
+export function useActiveSalesTeamNames(): string[] {
+  const users = useAuth((s) => s.users);
+  return users
+    .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+    .map((u) => u.full_name);
+}
+
 /** Returns active Sales + OB Co-ordinator (excluding Manager) — for assignment dropdowns */
 export function useActiveSalesOnly(): string[] {
   const users = useAuth((s) => s.users);
