@@ -463,6 +463,15 @@ export function useActiveSalesTeamNames(): string[] {
     .map((u) => u.full_name);
 }
 
+/** Returns full_names of OB team only ('OB Manager', 'OB Co-ordinator') — ไม่รวม Sales
+ *  ใช้สำหรับ dropdown "Sales Owner" ตอนทีม OB สร้าง Lead เอง — ไม่ต้องเห็นชื่อฝั่ง Sales */
+export function useActiveOBTeamNames(): string[] {
+  const users = useAuth((s) => s.users);
+  return users
+    .filter((u) => u.role === "OB Manager" || u.role === "OB Co-ordinator")
+    .map((u) => u.full_name);
+}
+
 /** Returns active Sales + OB Co-ordinator (excluding Manager) — for assignment dropdowns */
 export function useActiveSalesOnly(): string[] {
   const users = useAuth((s) => s.users);

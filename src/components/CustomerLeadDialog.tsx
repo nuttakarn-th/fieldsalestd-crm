@@ -15,7 +15,7 @@ import {
   LEAD_STATUSES, OB_LEAD_STATUSES, OB_STAGE_META,
   type Source, type SalesRep, type BUType, type Urgency, type LeadStatus,
 } from "@/store/crmStore";
-import { useActiveSalesNames, useAuth } from "@/store/authStore";
+import { useActiveSalesNames, useActiveOBTeamNames, useAuth } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 
 // ── WonCelebration ────────────────────────────────────────────────────────────
@@ -220,7 +220,10 @@ export function CustomerLeadDialog({
 
   // ── Zone 1: Intent ──────────────────────────────────────────────────────────
   const [source, setSource]               = useState<Source>("Line OA");
-  const SALES_REPS = useActiveSalesNames() as SalesRep[];
+  const allSalesNames = useActiveSalesNames() as SalesRep[];
+  const obTeamNames   = useActiveOBTeamNames() as SalesRep[];
+  // ทีม OB สร้าง Lead เอง → เห็นแค่ชื่อฝั่ง OB เท่านั้น ไม่ต้องเห็น Sales
+  const SALES_REPS = (isOB ? obTeamNames : allSalesNames) as SalesRep[];
   const [owner, setOwner]                 = useState<SalesRep>((SALES_REPS[0] ?? "") as SalesRep);
   const [buType, setBuType]               = useState<BUType>("ทัวร์ต่างประเทศ");
   const [intProgram, setIntProgram]       = useState("__custom__");
@@ -233,7 +236,7 @@ export function CustomerLeadDialog({
   const [carDetail, setCarDetail]         = useState("");
   const [flightDetail, setFlightDetail]   = useState("");
   const [travelMonth, setTravelMonth]     = useState(ALL_MONTHS_KEY);
-  const [pax, setPax]                     = useState("2");
+  const [pax, setPax]                     = useState("1");
   const [urgency, setUrgency]             = useState<Urgency>("Warm");
 
   // ── Zone 2: Contact ─────────────────────────────────────────────────────────
@@ -321,7 +324,7 @@ export function CustomerLeadDialog({
     setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined);
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
     setIntNote(""); setDomProvince(""); setCarDetail(""); setFlightDetail("");
-    setTravelMonth(ALL_MONTHS_KEY); setPax("2"); setUrgency("Warm");
+    setTravelMonth(ALL_MONTHS_KEY); setPax("1"); setUrgency("Warm");
     setFullName(""); setPhone(""); setLineId(""); setEmail("");
     setBudget(BUDGETS[0] ?? "<30k"); setTourType(TOUR_TYPES[0] ?? "ครอบครัว");
     setProvince(""); setCompany(""); setBirthday("");
