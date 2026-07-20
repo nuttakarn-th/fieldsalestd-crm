@@ -208,6 +208,7 @@ const marketingMenu: RoleMenu = {
       category: "REPORTS",
       items: [
         { title: "Marketing Report",      url: "/app/marketing-report",   icon: BarChart3 },
+        { title: "Ads Dashboard",         url: "/ads-dashboard",          icon: TrendingUp },
       ],
     },
   ],

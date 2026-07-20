@@ -1,8 +1,20 @@
-import { useState, useMemo } from "react";
-import { BarChart3, TrendingUp, Users, Clock, Target, Zap, Map, Cake, Phone, Download, Copy, Check, Gift } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
+import {
+  BarChart3, TrendingUp, Users, Clock, Target, Zap, Map, Cake, Phone, Download, Copy, Check, Gift,
+  DollarSign, Eye, MousePointerClick, Megaphone, ArrowRight,
+} from "lucide-react";
 import { useCRM } from "@/store/crmStore";
 import type { Lead, SalesRep, BUType, Customer } from "@/store/crmStore";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import ProvinceHeatmap from "./ProvinceHeatmap";
+
+// ─── compact number format (1.2K / 3.4M) ──────────────────────────────────
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -23,6 +35,39 @@ function daysBetween(from: Date, to: Date): number {
 export default function MarketingReport() {
   const [activeTab, setActiveTab] = useState<"report" | "heatmap" | "birthday">("report");
   const leads = useCRM((s) => s.leads);
+
+  // ── Ads & Content Performance snapshot (จากรายงานล่าสุดใน Ads Dashboard) ──
+  const [adsTotals, setAdsTotals] = useState<{ spend: number; reach: number; impressions: number } | null>(null);
+  const [contentTotals, setContentTotals] = useState<{ reach: number; views: number; engagement: number; posts: number } | null>(null);
+  const [loadingPerf, setLoadingPerf] = useState(false);
+
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    setLoadingPerf(true);
+    Promise.all([
+      supabase.from("ads_reports").select("rows_json").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("content_reports").select("rows_json").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(),
+    ]).then(([adsRes, contentRes]) => {
+      const adsRows = (adsRes.data?.rows_json as any[]) ?? [];
+      if (adsRows.length > 0) {
+        setAdsTotals({
+          spend:       adsRows.reduce((s, r) => s + Number(r.spend ?? 0), 0),
+          reach:       adsRows.reduce((s, r) => s + Number(r.reach ?? 0), 0),
+          impressions: adsRows.reduce((s, r) => s + Number(r.impressions ?? 0), 0),
+        });
+      }
+      const contentRows = (contentRes.data?.rows_json as any[]) ?? [];
+      if (contentRows.length > 0) {
+        setContentTotals({
+          reach:      contentRows.reduce((s, r) => s + Number(r.reach ?? 0), 0),
+          views:      contentRows.reduce((s, r) => s + Number(r.views ?? 0), 0),
+          engagement: contentRows.reduce((s, r) => s + Number(r.rcs ?? 0), 0),
+          posts:      contentRows.length,
+        });
+      }
+      setLoadingPerf(false);
+    });
+  }, []);
 
   // ── Closed Won leads with valid timestamps ──
   const wonLeads = leads.filter(
@@ -165,6 +210,40 @@ export default function MarketingReport() {
 
       {/* ── Report Tab content only shows when activeTab === "report" ── */}
       {activeTab === "report" && (<>
+
+      {/* ── Ads & Content Performance snapshot ── */}
+      <div className="bg-card rounded-xl border shadow-soft p-5">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <div>
+            <h3 className="font-bold flex items-center gap-2"><Megaphone className="w-4 h-4 text-pink-500" />Ads &amp; Content Performance</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">สรุปจากรายงานล่าสุดที่อัปโหลดใน Ads Dashboard (Content Creator / VDO Creator / Ads)</p>
+          </div>
+          <Link to="/ads-dashboard" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline shrink-0">
+            ดูรายละเอียด <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+        {loadingPerf ? (
+          <p className="text-sm text-muted-foreground text-center py-6">กำลังโหลด...</p>
+        ) : !adsTotals && !contentTotals ? (
+          <div className="text-center py-6">
+            <Megaphone className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+            <p className="text-sm text-muted-foreground">ยังไม่มีรายงาน Ads/Content</p>
+            <p className="text-xs text-muted-foreground mt-1">อัปโหลด Excel/CSV ได้ที่ <Link to="/ads-dashboard" className="text-primary hover:underline">Ads Dashboard</Link></p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {adsTotals && (<>
+              <MiniStat icon={DollarSign} label="งบ Ads ใช้ไป" value={`฿${fmtCompact(adsTotals.spend)}`} accent="text-violet-600" />
+              <MiniStat icon={Eye} label="Ads Reach" value={fmtCompact(adsTotals.reach)} accent="text-blue-600" />
+              <MiniStat icon={MousePointerClick} label="Impressions" value={fmtCompact(adsTotals.impressions)} accent="text-indigo-600" />
+            </>)}
+            {contentTotals && (<>
+              <MiniStat icon={TrendingUp} label="Content Reach" value={fmtCompact(contentTotals.reach)} sub={`${contentTotals.posts} โพสต์`} accent="text-emerald-600" />
+              <MiniStat icon={Users} label="Engagement รวม" value={fmtCompact(contentTotals.engagement)} accent="text-pink-600" />
+            </>)}
+          </div>
+        )}
+      </div>
 
       {/* ── Summary Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -504,6 +583,26 @@ function BirthdayCampaign() {
 }
 
 // ─── sub-components ──────────────────────────────────────────────────────
+
+function MiniStat({
+  icon: Icon, label, value, sub, accent,
+}: {
+  icon: typeof Clock;
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground truncate">
+        <Icon className={`w-3 h-3 shrink-0 ${accent ?? ""}`} /> <span className="truncate">{label}</span>
+      </div>
+      <p className={`text-lg font-extrabold leading-none truncate ${accent ?? ""}`}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
 
 function MetricCard({
   label, value, sub, icon: Icon, accent,
