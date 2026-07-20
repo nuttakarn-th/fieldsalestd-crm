@@ -34,6 +34,23 @@ const CATEGORY_TAGS = [
 ];
 const VISA_TYPES: VisaType[] = ["TR", "TS", "Non-Immigrant", "O", "ED", "O-A", "O-X"];
 
+// ── Price filter presets ──────────────────────────────────────────────────────
+const PRICE_PRESETS = [
+  { key: "u10",    label: "≤ 9,999",   min: 0,       max: 9_999    },
+  { key: "10-20",  label: "1–2 หมื่น", min: 10_000,  max: 19_999   },
+  { key: "20-30",  label: "2–3 หมื่น", min: 20_000,  max: 29_999   },
+  { key: "30plus", label: "3 หมื่น+",  min: 30_000,  max: Infinity },
+  { key: "custom", label: "กำหนดเอง",  min: 0,       max: Infinity },
+] as const;
+type PricePresetKey = typeof PRICE_PRESETS[number]["key"] | "";
+
+/** ราคาที่ใช้จริง = special_price ถ้ามี ไม่อย่างนั้นใช้ price_per_seat */
+function effectivePrice(p: { price_per_seat: number; special_price?: number }): number {
+  return typeof p.special_price === "number" && p.special_price > 0
+    ? p.special_price
+    : p.price_per_seat;
+}
+
 // ── Quota Progress Bar (legacy tour ที่ไม่มี periods[]) ──
 function QuotaBar({ quota, total_seats, canEdit, tourId }: { quota: number; total_seats: number; canEdit: boolean; tourId: string }) {
   const adjustQuota = useServices((s) => s.adjustQuota);
@@ -421,6 +438,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── date range filter (period travel date) ──
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo,   setFilterDateTo]   = useState("");
+  // ── price filter ──
+  const [filterPricePreset, setFilterPricePreset] = useState<PricePresetKey>("");
+  const [filterPriceMin,    setFilterPriceMin]    = useState("");
+  const [filterPriceMax,    setFilterPriceMax]    = useState("");
   // ── bulk selection (period_id set) ──
   const [selectedPeriods, setSelectedPeriods] = useState<Set<string>>(new Set());
   // ── import error reporting ──
@@ -1316,9 +1337,17 @@ ${catBlocks}
           if (!has) return false;
         }
       }
+      // ── price filter — show tour if ANY period matches price range ──
+      if (filterPricePreset) {
+        const has = (t.periods ?? []).some((p) => {
+          const ep = effectivePrice(p);
+          return ep >= activePriceMin && ep <= activePriceMax;
+        });
+        if (!has) return false;
+      }
       return true;
     });
-  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, tourSort, showArchived, showCancelled, effectiveShowArchived, effectiveShowCancelled]);
+  }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, filterPricePreset, activePriceMin, activePriceMax, tourSort, showArchived, showCancelled, effectiveShowArchived, effectiveShowCancelled]);
 
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
@@ -1340,11 +1369,21 @@ ${catBlocks}
     return items.sort((a, b) => (b.period.archived_at ?? "").localeCompare(a.period.archived_at ?? ""));
   }, [tours]);
 
-  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
+  // ── derived price range (used in both filteredTours + visiblePeriods) ──
+  const _pricePresetDef = PRICE_PRESETS.find((p) => p.key === filterPricePreset);
+  const activePriceMin = filterPricePreset === "custom"
+    ? (filterPriceMin ? Number(filterPriceMin) : 0)
+    : (_pricePresetDef?.min ?? 0);
+  const activePriceMax = filterPricePreset === "custom"
+    ? (filterPriceMax ? Number(filterPriceMax) : Infinity)
+    : (_pricePresetDef?.max ?? Infinity);
+
+  const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo || filterPricePreset);
   const clearFilters = () => {
     setFilterText(""); setFilterCat(""); setFilterCountry("");
     setFilterStatus(""); setFilterSeatHold(false); setFilterPromo(false); setFilterTags([]);
     setFilterDateFrom(""); setFilterDateTo("");
+    setFilterPricePreset(""); setFilterPriceMin(""); setFilterPriceMax("");
     setShowCancelled(false); setShowArchived(false);
   };
 
@@ -1571,6 +1610,44 @@ ${catBlocks}
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          {/* ── Price preset chips ── */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-muted-foreground/60 font-medium shrink-0">฿</span>
+            {PRICE_PRESETS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setFilterPricePreset((prev) => (prev === key ? "" : key as PricePresetKey));
+                  if (key !== "custom") { setFilterPriceMin(""); setFilterPriceMax(""); }
+                }}
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
+                style={filterPricePreset === key
+                  ? { background: "#7C3AED", color: "#fff", borderColor: "#7C3AED" }
+                  : { borderColor: "#E5E7EB", color: "#9CA3AF" }}
+              >{label}</button>
+            ))}
+            {filterPricePreset === "custom" && (
+              <div className="flex items-center gap-1 border border-violet-300 dark:border-violet-700 rounded-md px-2 h-6 ml-1">
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="ต่ำสุด"
+                  value={filterPriceMin}
+                  onChange={(e) => setFilterPriceMin(e.target.value)}
+                  className="w-[72px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
+                />
+                <span className="text-muted-foreground/40 text-xs">–</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="สูงสุด"
+                  value={filterPriceMax}
+                  onChange={(e) => setFilterPriceMax(e.target.value)}
+                  className="w-[72px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1890,6 +1967,10 @@ ${catBlocks}
                     const end   = p.end_date ?? start;
                     if (filterDateFrom && end   < filterDateFrom) return false;
                     if (filterDateTo   && start > filterDateTo)   return false;
+                  }
+                  if (filterPricePreset) {
+                    const ep = effectivePrice(p);
+                    if (ep < activePriceMin || ep > activePriceMax) return false;
                   }
                   // ── ถ้า filterText match ผ่าน period date (ไม่ใช่ meta) → ซ่อน period ที่ไม่ตรง ──
                   if (filterText) {
