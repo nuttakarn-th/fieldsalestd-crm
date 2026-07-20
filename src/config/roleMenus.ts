@@ -182,18 +182,23 @@ const marketingMenu: RoleMenu = {
     },
     {
       // Outbound / OB team leads
+      // ── ใช้ path /marketing/* ตรงๆ (ไม่ใช่ /app/customers?dept=) ──
+      // เหตุผล: /app/customers มี redirect guard เด้งกลับ /marketing/customers อยู่แล้วสำหรับ role Marketing
+      // แต่ redirect ไม่เก็บ query string (?dept=) ไว้ ทำให้ตัวกรอง OB/Sales หายไป และ NavLink
+      // ไฮไลท์ผิด (3 ปุ่มติดสีพร้อมกัน เพราะ pathname ซ้ำกันหมด ต่างแค่ query) — ชี้ตรงไปที่หน้าเฉพาะทาง
+      // (MarketingOBLeads / MarketingSalesLeads) แก้ปัญหาได้ตรงจุดและ UX ดีกว่าด้วย
       category: "OUTBOUND LEADS",
       items: [
-        { title: "OB Leads",              url: "/app/customers?dept=ob",     icon: Users2 },
+        { title: "OB Leads",              url: "/marketing/ob-leads",     icon: Users2 },
       ],
     },
     {
       // Sales team leads
       category: "SALES LEADS",
       items: [
-        { title: "Sales Leads",           url: "/app/customers?dept=sales",  icon: Users },
-        { title: "ลูกค้าทั้งหมด",          url: "/app/customers",             icon: UserPlus },
-        { title: "Marketing Leads",       url: "/app/marketing-leads",       icon: UserPlus },
+        { title: "Sales Leads",           url: "/marketing/sales-leads",  icon: Users },
+        { title: "ลูกค้าทั้งหมด",          url: "/marketing/customers",    icon: UserPlus },
+        { title: "Marketing Leads",       url: "/marketing/marketing-leads", icon: UserPlus },
       ],
     },
     {

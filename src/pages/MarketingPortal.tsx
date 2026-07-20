@@ -115,7 +115,7 @@ const QUICK_ACTIONS = [
   { label: "สร้างแคมเปญ",  icon: Megaphone, to: "/app/campaigns",                 gradient: "from-pink-500 to-rose-500"    },
   { label: "เพิ่มคอนเทนต์", icon: FileText,  to: "/marketing-contents/calendar",   gradient: "from-violet-500 to-purple-600" },
   { label: "ดูรายงาน",      icon: BarChart3, to: "/app/marketing-report",           gradient: "from-emerald-500 to-teal-500"  },
-  { label: "เพิ่มลูกค้า",   icon: UserPlus,  to: "/app/customers",                  gradient: "from-blue-500 to-indigo-500"   },
+  { label: "เพิ่มลูกค้า",   icon: UserPlus,  to: "/marketing/customers",            gradient: "from-blue-500 to-indigo-500"   },
 ];
 
 // ── Tool search index (categories + nav shortcuts) ───────────────────────────

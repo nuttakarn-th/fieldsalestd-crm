@@ -144,7 +144,9 @@ function MarketingCategorisedGrid() {
     { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
   ];
   const custStock: CompactTile[] = [
-    { title: "Leads/Customers",  icon: Users,         to: "/app/customers" },
+    // ชี้ตรงไปที่ /marketing/customers — /app/customers มี redirect guard ที่ทำให้เพี้ยน
+    // (blank page + sidebar ไฮไลท์ผิด) เมื่อ role เป็น Marketing แล้วเข้าผ่าน path /app/*
+    { title: "Leads/Customers",  icon: Users,         to: "/marketing/customers" },
     { title: "Marketing Leads",  icon: UserPlus,      to: "/app/marketing-leads" },
     { title: "Service & Stock",  icon: PackageSearch, to: "/app/all-service" },
   ];

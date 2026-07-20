@@ -330,8 +330,9 @@ export default function Customers() {
 
   // Marketing role ที่เข้า /app/customers → redirect ไป /marketing/customers
   // (ตรวจ path ก่อน: ไม่ redirect ถ้าอยู่ใน /marketing/* อยู่แล้ว ป้องกัน infinite loop)
+  // เก็บ query string (เช่น ?dept=ob) ไว้ด้วย — ไม่งั้นตัวกรอง OB/Sales จะหายไปตอน redirect
   if (user?.role === "Marketing" && location.pathname.startsWith("/app")) {
-    return <Navigate to="/marketing/customers" replace />;
+    return <Navigate to={`/marketing/customers${location.search}`} replace />;
   }
 
   return (
