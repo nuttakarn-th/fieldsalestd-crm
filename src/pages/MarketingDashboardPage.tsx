@@ -57,7 +57,13 @@ interface TeamStats {
   stages:     Record<string, number>;
 }
 
-function computeTeamStats(leads: Lead[], targets: ReturnType<typeof useCRM>["targets"] extends never ? [] : any[], reps: Set<string>, month: string): TeamStats {
+function computeTeamStats(
+  leads: Lead[],
+  targets: ReturnType<typeof useCRM>["targets"] extends never ? [] : any[],
+  reps: Set<string>,
+  month: string,
+  aggregateRep?: string, // เช่น "OB Team" — เป้าแบบรวมทีม (ไม่ใช่รายคน) ที่ตั้งจากหน้า "เป้าหมายทีม OB"
+): TeamStats {
   const monthLeads = leads.filter((l) => {
     const d = l.created_at ?? "";
     return d.startsWith(month);
@@ -70,9 +76,16 @@ function computeTeamStats(leads: Lead[], targets: ReturnType<typeof useCRM>["tar
   const activeCount = monthLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status)).length;
   const winRate     = (wonCount + lostCount) > 0 ? Math.round(wonCount / (wonCount + lostCount) * 100) : 0;
 
-  const target = targets
-    .filter((t: any) => t.month === month && reps.has(t.rep))
-    .reduce((s: number, t: any) => s + (t.domestic_sales ?? 0) + (t.international_sales ?? 0), 0);
+  // Priority: ใช้ target แบบ "รวมทีม" (aggregateRep) ถ้ามีและ > 0 — ไม่งั้น sum เป้ารายคน
+  // เหมือน logic ใน OBDashboard.tsx (เป้าทีม OB ตั้งเป็นก้อนเดียว ไม่แยกรายคน)
+  const aggTarget = aggregateRep
+    ? targets.find((t: any) => t.month === month && t.rep === aggregateRep)
+    : undefined;
+  const target = (aggTarget && (aggTarget.total_sales ?? 0) > 0)
+    ? aggTarget.total_sales
+    : targets
+        .filter((t: any) => t.month === month && reps.has(t.rep))
+        .reduce((s: number, t: any) => s + (t.domestic_sales ?? 0) + (t.international_sales ?? 0), 0);
 
   const stages: Record<string, number> = { new: 0, contacted: 0, quotation: 0, negotiating: 0, won: 0, lost: 0 };
   monthLeads.forEach((l) => { stages[stageKey(l)] = (stages[stageKey(l)] ?? 0) + 1; });
@@ -222,13 +235,15 @@ export default function MarketingDashboardPage() {
   const salesLeads = useMemo(() => allLeads.filter((l) => !obSet.has(l.assigned_to)), [allLeads, obSet]);
 
   // Get sales rep names (not in OB) from targets — deduplicated
+  // "OB Team" คือ rep พิเศษที่ใช้เก็บเป้าหมายรวมทีม OB (ตั้งจากหน้า "เป้าหมายทีม OB")
+  // ไม่ใช่ชื่อคนจริง — ต้องกันไม่ให้หลุดเข้ามารวมกับเป้า Sales
   const salesReps = useMemo(() => {
     const s = new Set<string>();
-    allTargets.forEach((t: any) => { if (!obSet.has(t.rep) && t.rep !== "All") s.add(t.rep); });
+    allTargets.forEach((t: any) => { if (!obSet.has(t.rep) && t.rep !== "All" && t.rep !== "OB Team") s.add(t.rep); });
     return s;
   }, [allTargets, obSet]);
 
-  const obStats    = useMemo(() => computeTeamStats(obLeads, allTargets,    obSet,     month), [obLeads,    allTargets, obSet,     month]);
+  const obStats    = useMemo(() => computeTeamStats(obLeads, allTargets,    obSet,     month, "OB Team"), [obLeads,    allTargets, obSet,     month]);
   const salesStats = useMemo(() => computeTeamStats(salesLeads, allTargets, salesReps, month), [salesLeads, allTargets, salesReps, month]);
 
   // Combined KPI
