@@ -2,12 +2,17 @@
  * CampaignManagement — Project-style Campaign management
  * Responsive: card layout on mobile, table on desktop
  */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ComponentType, type CSSProperties } from "react";
 import {
   Megaphone, Plus, Search, Pencil, Trash2,
   BarChart3, ChevronDown, X, LayoutList, CalendarDays,
   ArrowUpDown, ChevronUp, Rocket, CheckCircle2, Zap, ChevronRight,
+  Mail, MoreHorizontal,
 } from "lucide-react";
+import {
+  SiFacebook, SiInstagram, SiLine, SiGoogleads, SiTiktok, SiYoutube, SiX,
+} from "react-icons/si";
+import { FaLinkedin } from "react-icons/fa6";
 import { CampaignCalendar } from "@/components/CampaignCalendar";
 import { CampaignDetail }  from "@/components/CampaignDetail";
 import { useActionPlans }  from "@/store/actionPlanStore";
@@ -67,6 +72,45 @@ const DEPT_CFG: Record<string, DeptCfg> = {
   Ticket:         { emoji: "🎫", badge: "bg-violet-50 text-violet-700 border-violet-300 dark:bg-violet-400/20 dark:text-violet-300 dark:border-violet-400/50" },
   Transportation: { emoji: "🚍", badge: "bg-sky-50 text-sky-700 border-sky-300 dark:bg-sky-400/20 dark:text-sky-300 dark:border-sky-400/50" },
 };
+
+// ── Channel icon config — โลโก้จริงของแต่ละแพลตฟอร์ม (react-icons/si) ────────────
+// color: undefined → ใช้สี currentColor (text-foreground/70 dark:invert) สำหรับแบรนด์ขาว-ดำ (TikTok, X)
+type ChannelCfg = { Icon: ComponentType<{ className?: string; style?: CSSProperties }>; color?: string };
+const CHANNEL_CFG: Record<string, ChannelCfg> = {
+  "Facebook":     { Icon: SiFacebook,  color: "#1877F2" },
+  "Instagram":    { Icon: SiInstagram, color: "#E4405F" },
+  "LINE OA":      { Icon: SiLine,      color: "#06C755" },
+  "Google Ads":   { Icon: SiGoogleads, color: "#4285F4" },
+  "TikTok":       { Icon: SiTiktok }, // ขาว-ดำ → ใช้ currentColor
+  "LinkedIn":     { Icon: FaLinkedin, color: "#0A66C2" },
+  "YouTube":      { Icon: SiYoutube,  color: "#FF0000" },
+  "X (Twitter)":  { Icon: SiX },      // ขาว-ดำ → ใช้ currentColor
+  "Email":        { Icon: Mail },     // ไม่มีโลโก้แบรนด์ → ใช้ไอคอนซองจดหมาย
+  "อื่นๆ":         { Icon: MoreHorizontal },
+};
+
+function ChannelChip({ channel, size = "sm" }: { channel: string; size?: "sm" | "xs" }) {
+  const cfg = CHANNEL_CFG[channel];
+  const box = size === "xs" ? "w-5 h-5" : "w-6 h-6";
+  const icon = size === "xs" ? "w-3 h-3" : "w-3.5 h-3.5";
+  if (!cfg) {
+    return (
+      <span title={channel} className={`inline-flex items-center justify-center ${box} rounded-md bg-muted border border-border text-muted-foreground`}>
+        <MoreHorizontal className={icon} />
+      </span>
+    );
+  }
+  const { Icon, color } = cfg;
+  return (
+    <span
+      title={channel}
+      className={`inline-flex items-center justify-center ${box} rounded-md border ${color ? "border-transparent" : "bg-muted border-border text-foreground/70 dark:text-foreground/80"}`}
+      style={color ? { backgroundColor: `${color}1A`, borderColor: `${color}33` } : undefined}
+    >
+      <Icon className={icon} style={color ? { color } : undefined} />
+    </span>
+  );
+}
 
 type StatScheme = "emerald" | "violet" | "sky";
 const STAT_SCHEME: Record<StatScheme, { border: string; bg: string; bar: string; iconBg: string; iconColor: string }> = {
@@ -382,19 +426,17 @@ export default function CampaignManagement() {
                       const d = DEPT_CFG[t];
                       if (!d) return null;
                       return (
-                        <span key={t} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${d.badge}`}>
-                          {d.emoji} {t}
+                        <span key={t} title={t} className={`inline-flex items-center justify-center w-5 h-5 rounded-full border text-[11px] leading-none ${d.badge}`}>
+                          {d.emoji}
                         </span>
                       );
                     })}
-                    {c.channels.slice(0, 3).map((ch) => (
-                      <span key={ch} className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">
-                        {ch}
-                      </span>
+                    {c.channels.slice(0, 4).map((ch) => (
+                      <ChannelChip key={ch} channel={ch} size="xs" />
                     ))}
-                    {c.channels.length > 3 && (
+                    {c.channels.length > 4 && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                        +{c.channels.length - 3}
+                        +{c.channels.length - 4}
                       </span>
                     )}
                   </div>
@@ -472,17 +514,21 @@ export default function CampaignManagement() {
                         <div className="flex items-center gap-1 flex-wrap">
                           {(c.target_teams ?? []).map((t) => {
                             const d = DEPT_CFG[t]; if (!d) return null;
-                            return <span key={t} title={t} className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border ${d.badge}`}><span className="text-sm leading-none">{d.emoji}</span>{t}</span>;
+                            return (
+                              <span key={t} title={t} className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-[11px] leading-none ${d.badge}`}>
+                                {d.emoji}
+                              </span>
+                            );
                           })}
                           {(!c.target_teams || !c.target_teams.length) && <span className="text-[11px] text-muted-foreground/40 italic">-</span>}
                         </div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {c.channels.slice(0, 3).map((ch) => (
-                            <span key={ch} className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">{ch}</span>
+                          {c.channels.slice(0, 4).map((ch) => (
+                            <ChannelChip key={ch} channel={ch} size="sm" />
                           ))}
-                          {c.channels.length > 3 && <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">+{c.channels.length - 3}</span>}
+                          {c.channels.length > 4 && <span className="text-[11px] px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">+{c.channels.length - 4}</span>}
                         </div>
                       </td>
                       <td className="px-5 py-4">
