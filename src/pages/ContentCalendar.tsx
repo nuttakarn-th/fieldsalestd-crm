@@ -5,12 +5,17 @@
  * Content Type: Single Photo / Photo Album / Short VDO / Long VDO
  */
 import { useState, useMemo, useEffect } from "react";
+import type { ReactNode } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import {
   CalendarDays, List, Plus, Pencil, Trash2,
   ChevronLeft, ChevronRight, Megaphone, X as CloseIcon,
-  Filter, Image, Images, Video, Clapperboard,
+  Filter, Image, Images, Video, Clapperboard, ArrowRight, Lightbulb,
 } from "lucide-react";
+import {
+  DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
+  type DragEndEvent, type DragStartEvent,
+} from "@dnd-kit/core";
 import { useCRM, CONTENT_CHANNELS, CONTENT_STATUSES, CONTENT_TYPES } from "@/store/crmStore";
 import type { ContentPost, ContentChannel, ContentStatus, ContentType } from "@/store/crmStore";
 import { useCampaigns } from "@/store/campaignStore";
@@ -23,16 +28,17 @@ interface PlatformConfig {
   selectedText: string;
   textColor: string;
   dotBg: string;       // calendar dot bg (hex/tw)
+  hex: string;         // raw hex — ใช้กับ inline style (border-left accent ฯลฯ)
 }
 const PLATFORM: Record<ContentChannel, PlatformConfig> = {
-  Facebook:  { color:"bg-[#1877F2]", selectedBg:"bg-[#1877F2]", selectedText:"text-white", textColor:"text-[#1877F2]", dotBg:"bg-[#1877F2]" },
-  Instagram: { color:"bg-[#E1306C]", selectedBg:"bg-[#E1306C]", selectedText:"text-white", textColor:"text-[#E1306C]", dotBg:"bg-[#E1306C]" },
-  TikTok:    { color:"bg-[#010101]", selectedBg:"bg-[#010101]", selectedText:"text-white", textColor:"text-[#010101]", dotBg:"bg-[#010101]" },
-  LINE:      { color:"bg-[#06C755]", selectedBg:"bg-[#06C755]", selectedText:"text-white", textColor:"text-[#06C755]", dotBg:"bg-[#06C755]" },
-  YouTube:   { color:"bg-[#FF0000]", selectedBg:"bg-[#FF0000]", selectedText:"text-white", textColor:"text-[#FF0000]", dotBg:"bg-[#FF0000]" },
-  Lemon8:    { color:"bg-[#FFD600]", selectedBg:"bg-[#FFD600]", selectedText:"text-black", textColor:"text-[#b59600]", dotBg:"bg-[#FFD600]" },
-  X:         { color:"bg-[#14171A]", selectedBg:"bg-[#14171A]", selectedText:"text-white", textColor:"text-[#14171A]", dotBg:"bg-[#14171A]" },
-  LinkedIn:  { color:"bg-[#0A66C2]", selectedBg:"bg-[#0A66C2]", selectedText:"text-white", textColor:"text-[#0A66C2]", dotBg:"bg-[#0A66C2]" },
+  Facebook:  { color:"bg-[#1877F2]", selectedBg:"bg-[#1877F2]", selectedText:"text-white", textColor:"text-[#1877F2]", dotBg:"bg-[#1877F2]", hex:"#1877F2" },
+  Instagram: { color:"bg-[#E1306C]", selectedBg:"bg-[#E1306C]", selectedText:"text-white", textColor:"text-[#E1306C]", dotBg:"bg-[#E1306C]", hex:"#E1306C" },
+  TikTok:    { color:"bg-[#010101]", selectedBg:"bg-[#010101]", selectedText:"text-white", textColor:"text-[#010101]", dotBg:"bg-[#010101]", hex:"#010101" },
+  LINE:      { color:"bg-[#06C755]", selectedBg:"bg-[#06C755]", selectedText:"text-white", textColor:"text-[#06C755]", dotBg:"bg-[#06C755]", hex:"#06C755" },
+  YouTube:   { color:"bg-[#FF0000]", selectedBg:"bg-[#FF0000]", selectedText:"text-white", textColor:"text-[#FF0000]", dotBg:"bg-[#FF0000]", hex:"#FF0000" },
+  Lemon8:    { color:"bg-[#FFD600]", selectedBg:"bg-[#FFD600]", selectedText:"text-black", textColor:"text-[#b59600]", dotBg:"bg-[#FFD600]", hex:"#FFD600" },
+  X:         { color:"bg-[#14171A]", selectedBg:"bg-[#14171A]", selectedText:"text-white", textColor:"text-[#14171A]", dotBg:"bg-[#14171A]", hex:"#14171A" },
+  LinkedIn:  { color:"bg-[#0A66C2]", selectedBg:"bg-[#0A66C2]", selectedText:"text-white", textColor:"text-[#0A66C2]", dotBg:"bg-[#0A66C2]", hex:"#0A66C2" },
 };
 
 // ─── Platform SVG logos (inline, brand-accurate) ──────────────────────────────
@@ -123,6 +129,34 @@ export default function ContentCalendar() {
   const [filterStatus, setFilterStatus]   = useState<ContentStatus | "All">("All");
   const [filterChannel, setFilterChannel] = useState<ContentChannel | "All">("All");
   const [selectedDay, setSelectedDay]     = useState<string | null>(null);
+
+  // ── Drag & drop (ลาก content ย้ายวัน) ──────────────────────────────────────
+  const [activeDragPost, setActiveDragPost] = useState<ContentPost | null>(null);
+  const [pendingMove, setPendingMove]       = useState<{ post: ContentPost; toDate: string } | null>(null);
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  function handleDragStart(e: DragStartEvent) {
+    const p = contentPosts.find((c) => c.post_id === e.active.id);
+    setActiveDragPost(p ?? null);
+  }
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveDragPost(null);
+    const { active, over } = e;
+    if (!over) return;
+    const toDate = String(over.id);
+    const post = contentPosts.find((c) => c.post_id === active.id);
+    if (!post || post.scheduled_date === toDate) return;
+    setPendingMove({ post, toDate });
+  }
+  function confirmMove() {
+    if (!pendingMove) return;
+    updateContentPost(pendingMove.post.post_id, { scheduled_date: pendingMove.toDate });
+    setPendingMove(null);
+  }
+  function formatDateFull(dateStr: string) {
+    const d = new Date(dateStr + "T00:00:00");
+    return `${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+  }
 
   // ── Calendar grid ──────────────────────────────────────────────────────────
   const calDays = useMemo(() => {
@@ -246,93 +280,108 @@ export default function ContentCalendar() {
 
       {/* ════════════════════════════ CALENDAR VIEW ════════════════════════════ */}
       {view === "calendar" && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-all"><ChevronLeft className="w-4 h-4"/></button>
-            <h2 className="font-bold text-lg">{MONTHS_FULL[calMonth]} {calYear}</h2>
-            <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-all"><ChevronRight className="w-4 h-4"/></button>
-          </div>
+        <DndContext sensors={dndSensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-all"><ChevronLeft className="w-4 h-4"/></button>
+              <h2 className="font-bold text-lg">{MONTHS_FULL[calMonth]} {calYear}</h2>
+              <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-all"><ChevronRight className="w-4 h-4"/></button>
+            </div>
 
-          <div className="bg-card border rounded-xl overflow-hidden shadow-soft">
-            <div className="grid grid-cols-7 border-b">
-              {DAYS_TH.map((d, i) => (
-                <div key={d} className={`py-2 text-center text-xs font-semibold ${i===0?"text-red-500":i===6?"text-blue-500":"text-muted-foreground"}`}>{d}</div>
+            {/* Drag hint */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
+              <Lightbulb className="w-3.5 h-3.5 text-primary shrink-0"/>
+              ลากการ์ด Content ไปวางวันอื่นเพื่อย้ายวันที่โพสต์ได้เลย
+            </div>
+
+            <div className="bg-border border rounded-2xl overflow-hidden shadow-soft">
+              <div className="grid grid-cols-7 gap-px bg-border">
+                {DAYS_TH.map((d, i) => (
+                  <div key={d} className={`py-2.5 text-center text-xs font-bold bg-muted/40 ${i===0?"text-red-500":i===6?"text-blue-500":"text-muted-foreground"}`}>{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-px bg-border">
+                {calDays.map((day, idx) => {
+                  if (!day) return <div key={`e-${idx}`} className="p-1.5 min-h-[108px] bg-muted/10"/>;
+                  const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                  const posts   = postsByDate[dateStr] ?? [];
+                  const isToday = dateStr === todayStr;
+                  const isSel   = dateStr === selectedDay;
+                  const dow     = new Date(calYear, calMonth, day).getDay();
+                  const photoCount = posts.filter((p) => (p.content_type ?? "Single Photo") === "Single Photo" || p.content_type === "Photo Album").length;
+                  const vdoCount   = posts.filter((p) => p.content_type === "Short VDO" || p.content_type === "Long VDO").length;
+                  return (
+                    <DroppableDay key={day} dateStr={dateStr} isSel={isSel} onClick={() => setSelectedDay(isSel ? null : dateStr)}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday?"bg-primary text-primary-foreground":dow===0?"text-red-500":dow===6?"text-blue-500":""}`}>
+                          {day}
+                        </div>
+                        {posts.length > 0 && (
+                          <div className="flex items-center gap-1 text-[9px] font-semibold text-muted-foreground bg-muted/60 rounded-full px-1.5 py-0.5">
+                            {photoCount > 0 && <span className="flex items-center gap-0.5"><Image className="w-2.5 h-2.5"/>{photoCount}</span>}
+                            {vdoCount > 0 && <span className="flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>{vdoCount}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        {posts.slice(0,3).map((p) => <DraggableMiniPost key={p.post_id} post={p} />)}
+                        {posts.length > 3 && (
+                          <button onClick={(e)=>{e.stopPropagation();setSelectedDay(dateStr);}} className="w-full text-[9px] text-center text-muted-foreground hover:text-primary bg-muted/50 hover:bg-muted rounded-md py-0.5 transition-all">
+                            +{posts.length-3} อีก
+                          </button>
+                        )}
+                        {posts.length === 0 && (
+                          <button onClick={(e)=>{e.stopPropagation();openNew(dateStr);}} className="w-full flex items-center justify-center py-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20"><Plus className="w-3.5 h-3.5"/></span>
+                          </button>
+                        )}
+                      </div>
+                    </DroppableDay>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Day detail */}
+            {selectedDay && (
+              <div className="bg-card border rounded-xl shadow-soft p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold">
+                    {formatDateFull(selectedDay)}
+                    <span className="text-xs text-muted-foreground ml-2">({dayPosts.length} รายการ)</span>
+                  </h3>
+                  <button onClick={() => openNew(selectedDay)} className="flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="w-3.5 h-3.5"/>เพิ่ม</button>
+                </div>
+                {dayPosts.length === 0
+                  ? <p className="text-sm text-muted-foreground">ยังไม่มี Content วันนี้</p>
+                  : <div className="space-y-2">{dayPosts.map((p) => <PostRow key={p.post_id} post={p} onEdit={()=>openEdit(p)} onDelete={()=>deleteContentPost(p.post_id)} onAdvance={()=>advanceStatus(p)}/>)}</div>
+                }
+              </div>
+            )}
+
+            {/* Platform legend */}
+            <div className="flex gap-3 flex-wrap">
+              {CONTENT_CHANNELS.map((ch) => (
+                <div key={ch} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className={`w-3 h-3 rounded-sm ${PLATFORM[ch].dotBg}`}/>
+                  {ch}
+                </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
-              {calDays.map((day, idx) => {
-                if (!day) return <div key={`e-${idx}`} className="border-b border-r p-1 min-h-[80px] bg-muted/20"/>;
-                const dateStr = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                const posts   = postsByDate[dateStr] ?? [];
-                const isToday = dateStr === todayStr;
-                const isSel   = dateStr === selectedDay;
-                const dow     = new Date(calYear, calMonth, day).getDay();
-                const photoCount = posts.filter((p) => (p.content_type ?? "Single Photo") === "Single Photo" || p.content_type === "Photo Album").length;
-                const vdoCount   = posts.filter((p) => p.content_type === "Short VDO" || p.content_type === "Long VDO").length;
-                return (
-                  <div key={day} onClick={() => setSelectedDay(isSel ? null : dateStr)}
-                    className={`border-b border-r p-1 min-h-[80px] cursor-pointer transition-all ${isSel?"bg-primary/10 ring-1 ring-inset ring-primary":"hover:bg-muted/40"}`}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday?"bg-primary text-primary-foreground":dow===0?"text-red-500":dow===6?"text-blue-500":""}`}>
-                        {day}
-                      </div>
-                      {posts.length > 0 && (
-                        <div className="flex items-center gap-1 text-[9px] font-semibold text-muted-foreground pr-0.5">
-                          {photoCount > 0 && <span className="flex items-center gap-0.5"><Image className="w-2.5 h-2.5"/>{photoCount}</span>}
-                          {vdoCount > 0 && <span className="flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>{vdoCount}</span>}
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-0.5">
-                      {posts.slice(0,3).map((p) => {
-                        const ch = (p.channels ?? [])[0];
-                        const dotBg = ch ? PLATFORM[ch]?.dotBg : "bg-slate-400";
-                        const type = p.content_type ?? "Single Photo";
-                        return (
-                          <div key={p.post_id} className={`flex items-center gap-1 text-[10px] leading-tight px-1 py-0.5 rounded truncate text-white ${dotBg ?? "bg-slate-400"}`}>
-                            <ContentTypeIcon type={type} size={9}/>
-                            <span className="truncate">{p.title}</span>
-                          </div>
-                        );
-                      })}
-                      {posts.length > 3 && <div className="text-[9px] text-muted-foreground pl-1">+{posts.length-3} อีก</div>}
-                      {posts.length === 0 && (
-                        <button onClick={(e)=>{e.stopPropagation();openNew(dateStr);}} className="w-full text-[10px] text-muted-foreground/50 hover:text-primary transition-all text-left pl-0.5 mt-1">+ เพิ่ม</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
 
-          {/* Day detail */}
-          {selectedDay && (
-            <div className="bg-card border rounded-xl shadow-soft p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold">
-                  {(() => { const d = new Date(selectedDay+"T00:00:00"); return `${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`; })()}
-                  <span className="text-xs text-muted-foreground ml-2">({dayPosts.length} รายการ)</span>
-                </h3>
-                <button onClick={() => openNew(selectedDay)} className="flex items-center gap-1 text-xs text-primary hover:underline"><Plus className="w-3.5 h-3.5"/>เพิ่ม</button>
+          <DragOverlay>
+            {activeDragPost ? (
+              <div
+                style={{ borderLeftColor: activeDragPost.channels?.[0] ? PLATFORM[activeDragPost.channels[0]].hex : "#94a3b8" }}
+                className="flex items-center gap-1 text-[10px] leading-tight pl-1.5 pr-2 py-1 rounded-md bg-background border-l-4 shadow-xl font-medium"
+              >
+                <ContentTypeIcon type={activeDragPost.content_type ?? "Single Photo"} size={9}/>
+                {activeDragPost.title}
               </div>
-              {dayPosts.length === 0
-                ? <p className="text-sm text-muted-foreground">ยังไม่มี Content วันนี้</p>
-                : <div className="space-y-2">{dayPosts.map((p) => <PostRow key={p.post_id} post={p} onEdit={()=>openEdit(p)} onDelete={()=>deleteContentPost(p.post_id)} onAdvance={()=>advanceStatus(p)}/>)}</div>
-              }
-            </div>
-          )}
-
-          {/* Platform legend */}
-          <div className="flex gap-3 flex-wrap">
-            {CONTENT_CHANNELS.map((ch) => (
-              <div key={ch} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className={`w-3 h-3 rounded-sm ${PLATFORM[ch].dotBg}`}/>
-                {ch}
-              </div>
-            ))}
-          </div>
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* ════════════════════════════ LIST VIEW ════════════════════════════ */}
@@ -474,6 +523,77 @@ export default function ContentCalendar() {
           </div>
         </div>
       )}
+
+      {/* ── Confirm Move Dialog (drag-and-drop ย้ายวัน) ── */}
+      {pendingMove && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-background border rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                <CalendarDays className="w-5 h-5 text-amber-600"/>
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-bold text-sm">ย้าย Content ไปวันอื่นหรือไม่?</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+                  {formatDateFull(pendingMove.post.scheduled_date)}
+                  <ArrowRight className="w-3 h-3 shrink-0"/>
+                  <span className="font-semibold text-foreground">{formatDateFull(pendingMove.toDate)}</span>
+                </p>
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 flex items-center gap-2">
+              <ContentTypeIcon type={pendingMove.post.content_type ?? "Single Photo"} size={14}/>
+              <p className="text-sm font-semibold truncate">{pendingMove.post.title}</p>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setPendingMove(null)} className="px-4 py-2 rounded-lg text-sm bg-muted hover:bg-accent transition-all">ยกเลิก</button>
+              <button onClick={confirmMove} className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-all">ยืนยันย้าย</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── DroppableDay / DraggableMiniPost — drag & drop ย้ายวัน ────────────────────
+function DroppableDay({
+  dateStr, isSel, onClick, children,
+}: {
+  dateStr: string;
+  isSel: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: dateStr });
+  return (
+    <div
+      ref={setNodeRef}
+      onClick={onClick}
+      className={`group bg-card p-1.5 min-h-[108px] cursor-pointer transition-all ${
+        isSel ? "bg-primary/10 ring-2 ring-inset ring-primary" : isOver ? "bg-primary/5 ring-2 ring-inset ring-primary/50" : "hover:bg-muted/40"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableMiniPost({ post }: { post: ContentPost }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.post_id });
+  const ch   = (post.channels ?? [])[0];
+  const type = post.content_type ?? "Single Photo";
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      title="ลากเพื่อย้ายวันที่"
+      style={{ borderLeftColor: ch ? PLATFORM[ch].hex : "#94a3b8", opacity: isDragging ? 0.35 : 1 }}
+      className="flex items-center gap-1 text-[10px] leading-tight pl-1.5 pr-1.5 py-1 rounded-md truncate bg-background border-l-4 border-y border-r border-border/60 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:-translate-y-0.5 transition-all"
+    >
+      <ContentTypeIcon type={type} size={9}/>
+      <span className="truncate font-medium text-foreground/90">{post.title}</span>
     </div>
   );
 }
