@@ -79,7 +79,9 @@ const SEED_USERS: AppUser[] = [
   { user_id: "std-003", full_name: "โดนัท", username: "sales02", password: "sales123", plain_password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(3).toISOString() },
   { user_id: "std-004", full_name: "ปาม", username: "sales03", password: "sales123", plain_password: "sales123", role: "Sales", email: "", tel: "", created_at: new Date(4).toISOString() },
   { user_id: "std-005", full_name: "ณัฐกานต์", username: "mktstd", password: "mkt123", plain_password: "mkt123", role: "Marketing", email: "", tel: "", created_at: new Date(5).toISOString() },
-  { user_id: "std-006", full_name: "บีม", username: "cosales1", password: "co123", plain_password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
+  // user_id เปลี่ยนจาก "std-006" → "seed-006" เพื่อไม่ให้ชนกับ std-006 จริงใน DB
+  // (ปัจจุบัน std-006 ถูกใช้เป็นพนักงานจริงคนอื่นแล้ว — ถ้า id ชนกัน จะได้ 2 การ์ดชื่อซ้ำในหน้า Standard Teams)
+  { user_id: "seed-006", full_name: "บีม", username: "cosales1", password: "co123", plain_password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
   { user_id: "std-007", full_name: "ยา", username: "acstd", password: "ac123", plain_password: "ac123", role: "Accounting", email: "", tel: "", created_at: new Date(7).toISOString() },
   { user_id: "std-008", full_name: "OB Manager", username: "obmgr", password: "ob123", plain_password: "ob123", role: "OB Manager", email: "", tel: "", created_at: new Date(8).toISOString() },
 ];
@@ -398,10 +400,13 @@ export const useAuth = create<AuthState>()(
           state.users = [ADMIN_USER, ...state.users];
         }
         // Seed demo users on first run if missing
+        // เช็คทั้ง username และ user_id — กัน seed ปลอมมาชนกับ user_id จริงที่ Admin เอา id เดิม
+        // ไปสร้าง user จริงทับ (เช่น std-006 เคยเป็น seed "บีม" แต่ปัจจุบันถูกใช้จริงเป็นพนักงานอีกคน)
         if (state) {
           const existingUsernames = new Set(state.users.map((u) => u.username.toLowerCase()));
+          const existingIds       = new Set(state.users.map((u) => u.user_id));
           for (const seed of SEED_USERS) {
-            if (!existingUsernames.has(seed.username.toLowerCase())) {
+            if (!existingUsernames.has(seed.username.toLowerCase()) && !existingIds.has(seed.user_id)) {
               state.users.push(seed);
             }
           }
