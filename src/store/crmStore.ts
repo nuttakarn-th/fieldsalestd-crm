@@ -1131,16 +1131,24 @@ export const useCRM = create<CRMState>()(
 
   deleteCustomer: (id) => {
     const cust = get().customers.find((c) => c.customer_id === id);
+    if (!cust) return;
+    // snapshot ไว้ rollback ถ้า Supabase ล้มเหลว
+    const snapCustomers = get().customers;
+    const snapLeads     = get().leads;
     // ลบ local state ก่อน (UI ตอบสนองทันที)
     set({
-      customers: get().customers.filter((c) => c.customer_id !== id),
-      leads: get().leads.filter((l) => l.customer_id !== id),
+      customers: snapCustomers.filter((c) => c.customer_id !== id),
+      leads:     snapLeads.filter((l) => l.customer_id !== id),
     });
     if (SUPABASE_ENABLED && supabase) {
       // FK มี ON DELETE CASCADE → ลบ customer ตัวเดียวพอ DB จัดการ leads ให้เอง
       supabase.from("customers").delete().eq("customer_id", id).then(({ error }) => {
-        if (error) console.error("[supabase] delete customer ล้มเหลว:", error);
-        else console.info("[supabase] ลบลูกค้า", id, "เรียบร้อย");
+        if (error) {
+          console.error("[supabase] delete customer ล้มเหลว:", error);
+          // rollback local state
+          set({ customers: snapCustomers, leads: snapLeads });
+          toast.error(`ลบ "${cust.full_name}" ล้มเหลว — กรุณาลองใหม่หรือติดต่อ Admin`);
+        }
       });
     }
     if (cust) {
@@ -1292,9 +1300,16 @@ export const useCRM = create<CRMState>()(
       }
     }
     if (SUPABASE_ENABLED && supabase) {
+      const snapLeadsForLead = get().leads; // snapshot หลัง set แล้ว ใช้ restore ถ้า fail
       supabase.from("leads").delete().eq("lead_id", leadId).then(({ error }) => {
-        if (error) console.error("[supabase] ลบ lead ล้มเหลว:", error);
+        if (error) {
+          console.error("[supabase] ลบ lead ล้มเหลว:", error);
+          // rollback — คืน lead กลับ
+          set({ leads: [...get().leads, lead] });
+          toast.error("ลบ Lead ล้มเหลว — กรุณาลองใหม่หรือติดต่อ Admin");
+        }
       });
+      void snapLeadsForLead; // suppress unused warning
     }
   },
 
