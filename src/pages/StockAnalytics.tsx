@@ -138,7 +138,7 @@ function Delta({ cur, prev, unit = "" }: { cur: number; prev: number; unit?: str
 function KpiCard({ icon: Icon, label, curVal, prevVal, format, color }:
   { icon: typeof CalendarDays; label: string; curVal: number; prevVal: number; format: (n: number) => string; color: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-2">
+    <div className="bg-card rounded-2xl border border-border shadow-sm p-4 flex flex-col gap-2">
       <div className="flex items-center gap-2 text-muted-foreground text-xs font-semibold uppercase tracking-wide">
         <Icon className="w-4 h-4" style={{ color }} />
         {label}
@@ -168,26 +168,26 @@ function AtRiskBanner() {
   const hasCrit  = critical.length > 0;
 
   return (
-    <div className={`rounded-2xl border-2 overflow-hidden transition-all ${hasCrit ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+    <div className={`rounded-2xl border-2 overflow-hidden transition-all ${hasCrit ? "border-red-200 bg-red-50 dark:border-red-500/40 dark:bg-red-950/40" : "border-amber-200 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40"}`}>
       {/* Header row */}
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:opacity-80 transition-opacity"
       >
-        <Bell className={`w-4 h-4 shrink-0 ${hasCrit ? "text-red-500" : "text-amber-500"}`} />
+        <Bell className={`w-4 h-4 shrink-0 ${hasCrit ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`} />
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-bold ${hasCrit ? "text-red-700" : "text-amber-700"}`}>
+          <p className={`text-sm font-bold ${hasCrit ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
             {hasCrit ? `🚨 ${critical.length} Period ต้องโปรโมทด่วน` : `⚠ ${warning.length} Period เฝ้าระวัง`}
             {hasCrit && warning.length > 0 && (
-              <span className="ml-2 text-xs font-normal text-amber-600">+ ⚠ {warning.length} อยู่ในเฝ้าระวัง</span>
+              <span className="ml-2 text-xs font-normal text-amber-600 dark:text-amber-400">+ ⚠ {warning.length} อยู่ในเฝ้าระวัง</span>
             )}
           </p>
-          <p className={`text-xs ${hasCrit ? "text-red-500" : "text-amber-500"}`}>
+          <p className={`text-xs ${hasCrit ? "text-red-500 dark:text-red-400/80" : "text-amber-500 dark:text-amber-400/80"}`}>
             fill rate &lt; 40% ใกล้วันเดินทาง — คลิกเพื่อดูรายละเอียด
           </p>
         </div>
-        <span className={`text-xs font-semibold shrink-0 ${hasCrit ? "text-red-400" : "text-amber-400"}`}>
+        <span className={`text-xs font-semibold shrink-0 ${hasCrit ? "text-red-400 dark:text-red-400/70" : "text-amber-400 dark:text-amber-400/70"}`}>
           {collapsed ? "▸ ขยาย" : "▾ ย่อ"}
         </span>
       </button>
@@ -198,10 +198,10 @@ function AtRiskBanner() {
           {/* Critical */}
           {critical.length > 0 && (
             <div>
-              <div className="px-4 py-1.5 bg-red-100 text-[10px] font-bold uppercase text-red-600 tracking-wider">
+              <div className="px-4 py-1.5 bg-red-100 dark:bg-red-500/20 text-[10px] font-bold uppercase text-red-600 dark:text-red-300 tracking-wider">
                 🚨 ด่วนมาก — เหลือ ≤ 7 วัน ({critical.length} period)
               </div>
-              <div className="divide-y divide-red-100">
+              <div className="divide-y divide-red-100 dark:divide-red-900/40">
                 {critical.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
               </div>
             </div>
@@ -209,10 +209,10 @@ function AtRiskBanner() {
           {/* Warning */}
           {warning.length > 0 && (
             <div>
-              <div className="px-4 py-1.5 bg-amber-100 text-[10px] font-bold uppercase text-amber-600 tracking-wider">
+              <div className="px-4 py-1.5 bg-amber-100 dark:bg-amber-500/20 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-300 tracking-wider">
                 ⚠ เฝ้าระวัง — เหลือ 8–30 วัน ({warning.length} period)
               </div>
-              <div className="divide-y divide-amber-100">
+              <div className="divide-y divide-amber-100 dark:divide-amber-900/40">
                 {warning.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
               </div>
             </div>
@@ -228,7 +228,7 @@ function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
   return (
-    <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/50 transition-colors">
+    <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
       <span className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${isCrit ? "bg-red-500" : "bg-amber-400"}`}>
         {p.daysLeft}d
       </span>
@@ -237,11 +237,11 @@ function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
         <p className="text-[10px] text-muted-foreground">{p.country} · เดินทาง {fmtDate(p.startDate)}</p>
       </div>
       <div className="shrink-0 text-right">
-        <p className={`text-sm font-bold ${isCrit ? "text-red-500" : "text-amber-500"}`}>{p.fillRate}%</p>
+        <p className={`text-sm font-bold ${isCrit ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`}>{p.fillRate}%</p>
         <p className="text-[10px] text-muted-foreground">ว่าง {p.quota} ที่</p>
       </div>
       {/* mini fill bar */}
-      <div className="w-16 h-1.5 rounded-full bg-gray-200 overflow-hidden shrink-0">
+      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
         <div className="h-full rounded-full" style={{ width: `${p.fillRate}%`, background: isCrit ? "#EF4444" : "#F59E0B" }} />
       </div>
     </div>
@@ -363,7 +363,7 @@ export default function StockAnalytics() {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-20 flex items-center justify-between">
+      <div className="bg-card border-b border-border px-6 py-4 sticky top-0 z-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow">
             <BarChart3 className="w-5 h-5 text-white" />
@@ -411,7 +411,7 @@ export default function StockAnalytics() {
           {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"]] as const).map(([tab, label]) => (
             <button key={tab} type="button"
               onClick={() => { setActiveTab(tab); if (tab === "pacing") loadPacingData(); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-white shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             >{label}</button>
           ))}
         </div>
@@ -448,15 +448,15 @@ export default function StockAnalytics() {
         </div>
 
         {/* ── Monthly Period Count Chart ── */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">จำนวน Period รายเดือน</h2>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={monthlyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
                 formatter={(val, name) => {
                   const y = name === `periods_${yearA}` ? BE(yearA) : BE(yearB);
                   return [`${val} periods`, `พ.ศ. ${y}`];
@@ -469,15 +469,15 @@ export default function StockAnalytics() {
         </div>
 
         {/* ── Monthly Booking Rate Line ── */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
           <h2 className="text-sm font-bold text-foreground mb-4">Booking Rate รายเดือน (%)</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
               <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
                 formatter={(val, name) => {
                   const y = name === `rate_${yearA}` ? BE(yearA) : BE(yearB);
                   return [`${val}%`, `พ.ศ. ${y}`];
@@ -493,7 +493,7 @@ export default function StockAnalytics() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Country breakdown table */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="lg:col-span-2 bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b flex items-center gap-2">
               <Globe className="w-4 h-4 text-violet-500" />
               <h2 className="text-sm font-bold text-foreground">เปรียบเทียบรายประเทศ</h2>
@@ -546,7 +546,7 @@ export default function StockAnalytics() {
           </div>
 
           {/* Category pie */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
             <h2 className="text-sm font-bold text-foreground mb-1">หมวดหมู่ (พ.ศ. {BE(yearA)})</h2>
             <p className="text-xs text-muted-foreground mb-3">จำนวน Period แบ่งตาม Category</p>
             {statsA.byCategory.length === 0 ? (
@@ -562,7 +562,7 @@ export default function StockAnalytics() {
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} formatter={(val) => [`${val} periods`]} />
+                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }} formatter={(val) => [`${val} periods`]} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="space-y-1 mt-1">
@@ -584,7 +584,7 @@ export default function StockAnalytics() {
         {activeTab === "yoy" && (<>
 
         {/* ── Seasonality Heatmap ── */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
           <h2 className="text-sm font-bold text-foreground mb-1">Seasonality — Booking Rate รายเดือน × ประเทศ (พ.ศ. {BE(yearA)})</h2>
           <p className="text-xs text-muted-foreground mb-4">ช่วยวางแผนว่าเดือนไหน ประเทศไหน ขายดีที่สุด</p>
           <SeasonalityHeatmap periods={allPeriods} year={yearA} />
@@ -596,7 +596,7 @@ export default function StockAnalytics() {
         {activeTab === "pacing" && (<>
 
         {/* Snapshot control */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -630,7 +630,7 @@ export default function StockAnalytics() {
         </div>
 
         {/* Pacing chart */}
-        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
           <div className="flex items-center gap-2 mb-1">
             <Activity className="w-4 h-4 text-pink-500" />
             <h2 className="text-sm font-bold text-foreground">Pacing — ยอดจองสะสมตามเวลา</h2>
@@ -649,11 +649,11 @@ export default function StockAnalytics() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={pacingData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
-                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                  contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
                   formatter={(val) => [`${val} ที่นั่ง`, "จองสะสม"]}
                   labelFormatter={(lbl) => `วันที่: ${lbl}`}
                 />
@@ -802,7 +802,7 @@ function RecentEventsLog() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-violet-500" />
@@ -976,9 +976,9 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
   }, [allPeriods]);
 
   const recColor = (r: CountryInsight["recommendation"]) =>
-    r === "เพิ่ม Period" ? { bg: "#D1FAE5", text: "#065F46", border: "#6EE7B7" }
-    : r === "ดีแล้ว"    ? { bg: "#EFF6FF", text: "#1E40AF", border: "#BFDBFE" }
-    : { bg: "#FEF2F2", text: "#991B1B", border: "#FECACA" };
+    r === "เพิ่ม Period" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40"
+    : r === "ดีแล้ว"    ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/40"
+    : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40";
 
   return (
     <div className="space-y-6">
@@ -1010,7 +1010,7 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
       </div>
 
       {/* ── Capacity Recommendations ── */}
-      <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="px-5 py-3 border-b flex items-center gap-2">
           <Lightbulb className="w-4 h-4 text-amber-500" />
           <h2 className="text-sm font-bold text-foreground">Capacity Recommendations</h2>
@@ -1032,7 +1032,6 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
             </thead>
             <tbody>
               {countryInsights.map((ci) => {
-                const rc = recColor(ci.recommendation);
                 const rateColor = ci.avgFillRate >= 75 ? "#EF4444" : ci.avgFillRate >= 50 ? "#F97316" : ci.avgFillRate >= 30 ? "#EAB308" : "#10B981";
                 return (
                   <tr key={ci.country} className="border-t border-border/40 hover:bg-muted/10">
@@ -1051,8 +1050,7 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
                     <td className="px-3 py-2.5 text-right font-semibold text-violet-600">{fmtMB(ci.confirmedRevenue)}</td>
                     <td className="px-3 py-2.5 text-right text-muted-foreground">+{fmtMB(ci.projectedRevenue)}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border"
-                        style={{ background: rc.bg, color: rc.text, borderColor: rc.border }}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${recColor(ci.recommendation)}`}>
                         {ci.recommendation === "เพิ่ม Period" && "🔥 "}
                         {ci.recommendation === "ระวัง" && "⚠ "}
                         {ci.recommendation === "ดีแล้ว" && "✓ "}
@@ -1067,14 +1065,14 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
         </div>
         {/* Legend */}
         <div className="px-5 py-2.5 border-t bg-muted/10 flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300 inline-block"/>✓ ดีแล้ว = fill 40–74% — เหมาะสม</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-50 border border-green-200 inline-block"/>🔥 เพิ่ม Period = fill ≥ 75% — demand สูง ควรเปิดเพิ่ม</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-50 border border-red-200 inline-block"/>⚠ ระวัง = fill &lt; 40% — อาจ over-supply หรือต้องโปรโมท</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-100 dark:bg-blue-500/30 border border-blue-300 dark:border-blue-500/50 inline-block"/>✓ ดีแล้ว = fill 40–74% — เหมาะสม</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-100 dark:bg-emerald-500/30 border border-emerald-300 dark:border-emerald-500/50 inline-block"/>🔥 เพิ่ม Period = fill ≥ 75% — demand สูง ควรเปิดเพิ่ม</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-100 dark:bg-red-500/30 border border-red-300 dark:border-red-500/50 inline-block"/>⚠ ระวัง = fill &lt; 40% — อาจ over-supply หรือต้องโปรโมท</span>
         </div>
       </div>
 
       {/* ── Next 12 Months Demand Forecast ── */}
-      <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
         <div className="flex items-center gap-2 mb-1">
           <Activity className="w-4 h-4 text-pink-500" />
           <h2 className="text-sm font-bold text-foreground">Demand Forecast — 12 เดือนข้างหน้า</h2>
@@ -1084,34 +1082,36 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
         </p>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
           {monthDemand.map((m, i) => {
-            const bg = m.historicalRate >= 75 ? "#FEE2E2" : m.historicalRate >= 50 ? "#FEF3C7"
-              : m.historicalRate >= 25 ? "#D1FAE5" : "#F0FDF4";
-            const tc = m.historicalRate >= 75 ? "#991B1B" : m.historicalRate >= 50 ? "#92400E"
-              : m.historicalRate >= 25 ? "#065F46" : "#14532D";
+            const cellCls = m.historicalRate >= 75
+              ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-500/15 dark:border-red-500/40 dark:text-red-300"
+              : m.historicalRate >= 50
+              ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-500/15 dark:border-amber-500/40 dark:text-amber-300"
+              : m.historicalRate >= 25
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-500/15 dark:border-emerald-500/40 dark:text-emerald-300"
+              : "bg-muted/40 border-border text-muted-foreground";
             const isPast = (() => {
               const now = new Date();
               return new Date(m.year, m.month - 1) < new Date(now.getFullYear(), now.getMonth());
             })();
             return (
-              <div key={i} className={`rounded-xl p-3 border transition-all ${isPast ? "opacity-40" : ""}`}
-                style={{ background: bg, borderColor: tc + "40" }}>
-                <p className="text-[10px] font-bold mb-1" style={{ color: tc }}>{m.label}</p>
+              <div key={i} className={`rounded-xl p-3 border transition-all ${cellCls} ${isPast ? "opacity-40" : ""}`}>
+                <p className="text-[10px] font-bold mb-1">{m.label}</p>
                 <div className="flex items-end justify-between">
                   <div>
-                    <p className="text-xs font-bold" style={{ color: tc }}>
+                    <p className="text-xs font-bold">
                       {m.historicalRate > 0 ? `${m.historicalRate}%` : "—"}
                     </p>
-                    <p className="text-[9px] opacity-70" style={{ color: tc }}>historical</p>
+                    <p className="text-[9px] opacity-70">historical</p>
                   </div>
                   {m.upcomingPeriods > 0 && (
                     <div className="text-right">
-                      <p className="text-xs font-bold text-blue-600">{m.upcomingPeriods}</p>
-                      <p className="text-[9px] text-blue-400">period</p>
+                      <p className="text-xs font-bold text-blue-600 dark:text-blue-400">{m.upcomingPeriods}</p>
+                      <p className="text-[9px] text-blue-400 dark:text-blue-500">period</p>
                     </div>
                   )}
                 </div>
                 {m.historicalRate >= 75 && !isPast && (
-                  <div className="mt-1.5 text-[8px] font-bold text-red-700 bg-red-100 rounded px-1 py-0.5 text-center">HIGH DEMAND</div>
+                  <div className="mt-1.5 text-[8px] font-bold text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-500/25 rounded px-1 py-0.5 text-center">HIGH DEMAND</div>
                 )}
               </div>
             );
@@ -1124,33 +1124,36 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
         {[
           {
             icon: AlertTriangle,
-            color: "#EF4444",
-            bg: "#FEF2F2",
+            cardCls: "bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/40",
+            accentCls: "text-red-600 dark:text-red-300",
+            chipCls: "bg-black/5 dark:bg-white/10 text-red-600 dark:text-red-300",
             title: "ต้องดูแลด่วน",
             desc: "ประเทศ fill rate ต่ำ < 30%",
             items: countryInsights.filter((c) => c.avgFillRate < 30).map((c) => `${c.country} (${c.avgFillRate}%)`),
           },
           {
             icon: TrendingUp,
-            color: "#10B981",
-            bg: "#F0FDF4",
+            cardCls: "bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/40",
+            accentCls: "text-emerald-600 dark:text-emerald-300",
+            chipCls: "bg-black/5 dark:bg-white/10 text-emerald-600 dark:text-emerald-300",
             title: "เพิ่ม Period แนะนำ",
             desc: "ประเทศ fill rate สูง ≥ 75%",
             items: countryInsights.filter((c) => c.avgFillRate >= 75).map((c) => `${c.country} (${c.avgFillRate}%)`),
           },
           {
             icon: CheckCircle2,
-            color: "#3B82F6",
-            bg: "#EFF6FF",
+            cardCls: "bg-blue-50 border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/40",
+            accentCls: "text-blue-600 dark:text-blue-300",
+            chipCls: "bg-black/5 dark:bg-white/10 text-blue-600 dark:text-blue-300",
             title: "สถานะดี",
             desc: "fill rate 40–74% — balance ดี",
             items: countryInsights.filter((c) => c.avgFillRate >= 40 && c.avgFillRate < 75).map((c) => `${c.country} (${c.avgFillRate}%)`),
           },
-        ].map(({ icon: Icon, color, bg, title, desc, items }) => (
-          <div key={title} className="rounded-2xl border shadow-sm p-4" style={{ background: bg, borderColor: color + "30" }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Icon className="w-4 h-4" style={{ color }} />
-              <p className="text-xs font-bold" style={{ color }}>{title}</p>
+        ].map(({ icon: Icon, cardCls, accentCls, chipCls, title, desc, items }) => (
+          <div key={title} className={`rounded-2xl border shadow-sm p-4 ${cardCls}`}>
+            <div className={`flex items-center gap-2 mb-2 ${accentCls}`}>
+              <Icon className="w-4 h-4" />
+              <p className="text-xs font-bold">{title}</p>
             </div>
             <p className="text-[10px] text-muted-foreground mb-3">{desc}</p>
             {items.length === 0 ? (
@@ -1158,7 +1161,7 @@ function PredictiveTab({ allPeriods, yearA }: PredictiveTabProps) {
             ) : (
               <div className="flex flex-col gap-1">
                 {items.map((item) => (
-                  <span key={item} className="text-xs font-medium px-2 py-0.5 rounded-lg bg-white/60" style={{ color }}>{item}</span>
+                  <span key={item} className={`text-xs font-medium px-2 py-0.5 rounded-lg ${chipCls}`}>{item}</span>
                 ))}
               </div>
             )}

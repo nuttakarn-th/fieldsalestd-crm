@@ -30,29 +30,42 @@ interface MarketingSignal {
 }
 
 // ── signal config ─────────────────────────────────────────────────────────────
+// color = vivid accent (icon/value/fill-bar) — อ่านง่ายทั้ง 2 theme ไม่ต้องเปลี่ยน
+// cardCls = border+bg ของ section/card เมื่อ active (มี dark: variant)
+// borderCls = border อย่างเดียว (ใช้กับ filtered list ที่ bg เป็น bg-card เฉยๆ)
+// textCls = สีตัวหนังสือ label/count/action hint (มี dark: variant)
+// badgeCls = small pill badge ใน SignalRow (มี dark: variant)
 const SIGNAL_META: Record<SignalType, {
   label: string; emoji: string; color: string;
-  bg: string; border: string; textColor: string; lightBg: string;
+  cardCls: string; borderCls: string; textCls: string; badgeCls: string;
 }> = {
   "at-risk": {
-    label: "ต้องโปรโมทด่วน", emoji: "🔥",
-    color: "#ea580c", bg: "#fff7ed", border: "#fed7aa",
-    textColor: "#c2410c", lightBg: "#ffedd5",
+    label: "ต้องโปรโมทด่วน", emoji: "🔥", color: "#ea580c",
+    cardCls: "border-orange-200 bg-orange-50 dark:border-orange-500/40 dark:bg-orange-950/40",
+    borderCls: "border-orange-200 dark:border-orange-500/40",
+    textCls: "text-orange-700 dark:text-orange-300",
+    badgeCls: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40",
   },
   "almost-full": {
-    label: "ใกล้เต็ม — สร้าง FOMO", emoji: "📣",
-    color: "#16a34a", bg: "#f0fdf4", border: "#86efac",
-    textColor: "#15803d", lightBg: "#dcfce7",
+    label: "ใกล้เต็ม — สร้าง FOMO", emoji: "📣", color: "#16a34a",
+    cardCls: "border-emerald-200 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-950/40",
+    borderCls: "border-emerald-200 dark:border-emerald-500/40",
+    textCls: "text-emerald-700 dark:text-emerald-300",
+    badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40",
   },
   "closed": {
-    label: "ปิดกรุ๊ปสำเร็จ", emoji: "✅",
-    color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe",
-    textColor: "#1d4ed8", lightBg: "#dbeafe",
+    label: "ปิดกรุ๊ปสำเร็จ", emoji: "✅", color: "#2563eb",
+    cardCls: "border-blue-200 bg-blue-50 dark:border-blue-500/40 dark:bg-blue-950/40",
+    borderCls: "border-blue-200 dark:border-blue-500/40",
+    textCls: "text-blue-700 dark:text-blue-300",
+    badgeCls: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40",
   },
   "cancelled": {
-    label: "Period ถูกยกเลิก", emoji: "❌",
-    color: "#9333ea", bg: "#fdf4ff", border: "#e9d5ff",
-    textColor: "#7e22ce", lightBg: "#f3e8ff",
+    label: "Period ถูกยกเลิก", emoji: "❌", color: "#9333ea",
+    cardCls: "border-purple-200 bg-purple-50 dark:border-purple-500/40 dark:bg-purple-950/40",
+    borderCls: "border-purple-200 dark:border-purple-500/40",
+    textCls: "text-purple-700 dark:text-purple-300",
+    badgeCls: "bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/40",
   },
 };
 
@@ -136,8 +149,7 @@ function SignalRow({ s }: { s: MarketingSignal }) {
     <div className="flex items-start gap-3 px-4 py-3 hover:bg-muted/20 transition-colors border-b border-border/40 last:border-0">
       {/* Type badge */}
       <span
-        className="shrink-0 mt-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full"
-        style={{ background: meta.lightBg, color: meta.textColor, border: `1px solid ${meta.border}` }}
+        className={`shrink-0 mt-0.5 text-[11px] font-bold px-2 py-0.5 rounded-full border ${meta.badgeCls}`}
       >
         {meta.emoji} {s.daysLeft >= 0 ? `${s.daysLeft}d` : `${Math.abs(s.daysLeft)}d ก่อน`}
       </span>
@@ -151,7 +163,7 @@ function SignalRow({ s }: { s: MarketingSignal }) {
         <p className="text-xs text-muted-foreground mt-0.5">
           เดินทาง {fmtDate(s.startDate)} · {s.category}
         </p>
-        <p className="text-[11px] mt-1 font-medium" style={{ color: meta.color }}>
+        <p className={`text-[11px] mt-1 font-medium ${meta.textCls}`}>
           → {s.actionHint}
         </p>
       </div>
@@ -190,7 +202,7 @@ function SignalSection({ type, signals }: { type: SignalType; signals: Marketing
   if (signals.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: meta.border, background: meta.bg }}>
+    <div className={`rounded-2xl border-2 overflow-hidden ${meta.cardCls}`}>
       {/* Header */}
       <button
         type="button"
@@ -199,8 +211,8 @@ function SignalSection({ type, signals }: { type: SignalType; signals: Marketing
       >
         <span className="text-lg">{meta.emoji}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold" style={{ color: meta.textColor }}>{meta.label}</p>
-          <p className="text-xs" style={{ color: meta.color }}>{signals.length} โปรแกรม</p>
+          <p className={`text-sm font-bold ${meta.textCls}`}>{meta.label}</p>
+          <p className={`text-xs ${meta.textCls} opacity-80`}>{signals.length} โปรแกรม</p>
         </div>
         <span
           className="text-xs font-bold px-2 py-0.5 rounded-full text-white shrink-0"
@@ -209,13 +221,13 @@ function SignalSection({ type, signals }: { type: SignalType; signals: Marketing
           {signals.length}
         </span>
         {open
-          ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: meta.textColor }} />
-          : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: meta.textColor }} />}
+          ? <ChevronUp className={`w-4 h-4 shrink-0 ${meta.textCls}`} />
+          : <ChevronDown className={`w-4 h-4 shrink-0 ${meta.textCls}`} />}
       </button>
 
       {/* Rows */}
       {open && (
-        <div className="bg-white/70 border-t" style={{ borderColor: meta.border }}>
+        <div className={`bg-black/[0.02] dark:bg-black/20 border-t ${meta.borderCls}`}>
           {signals.map((s) => <SignalRow key={`${s.type}-${s.periodId}`} s={s} />)}
         </div>
       )}
@@ -238,20 +250,21 @@ function SummaryCard({ type, count, onClick }: { type: SignalType; count: number
     <button
       type="button"
       onClick={onClick}
-      className="rounded-2xl border-2 p-4 text-left transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col gap-2"
-      style={{ borderColor: count > 0 ? meta.border : "#E5E7EB", background: count > 0 ? meta.bg : "#F9FAFB" }}
+      className={`rounded-2xl border-2 p-4 text-left transition-all hover:shadow-md hover:-translate-y-0.5 flex flex-col gap-2 ${
+        count > 0 ? meta.cardCls : "border-border bg-muted/30 dark:bg-muted/10"
+      }`}
     >
       <div className="flex items-center justify-between">
-        <Icon className="w-5 h-5" style={{ color: count > 0 ? meta.color : "#9CA3AF" }} />
+        <Icon className={`w-5 h-5 ${count > 0 ? "" : "text-muted-foreground"}`} style={count > 0 ? { color: meta.color } : undefined} />
         <span
-          className="text-xl font-black"
-          style={{ color: count > 0 ? meta.color : "#9CA3AF" }}
+          className={`text-xl font-black ${count > 0 ? "" : "text-muted-foreground"}`}
+          style={count > 0 ? { color: meta.color } : undefined}
         >
           {count}
         </span>
       </div>
       <div>
-        <p className="text-xs font-bold" style={{ color: count > 0 ? meta.textColor : "#6B7280" }}>{meta.emoji} {meta.label}</p>
+        <p className={`text-xs font-bold ${count > 0 ? meta.textCls : "text-muted-foreground"}`}>{meta.emoji} {meta.label}</p>
       </div>
     </button>
   );
@@ -280,7 +293,7 @@ export default function MarketingHub() {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <div className="bg-white border-b px-6 py-4 sticky top-0 z-20 flex items-center justify-between">
+      <div className="bg-card border-b border-border px-6 py-4 sticky top-0 z-20 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow">
             <Megaphone className="w-5 h-5 text-white" />
@@ -325,7 +338,7 @@ export default function MarketingHub() {
               key={f}
               type="button"
               onClick={() => setActiveFilter(f)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${activeFilter === f ? "bg-foreground text-background border-foreground" : "bg-white text-muted-foreground border-border hover:border-foreground"}`}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${activeFilter === f ? "bg-foreground text-background border-foreground" : "bg-card text-muted-foreground border-border hover:border-foreground"}`}
             >
               {label}
               {f !== "all" && (
@@ -358,7 +371,7 @@ export default function MarketingHub() {
 
         {/* ── Feed: Filtered flat list ── */}
         {activeFilter !== "all" && filteredSignals.length > 0 && (
-          <div className="bg-white rounded-2xl border-2 overflow-hidden" style={{ borderColor: SIGNAL_META[activeFilter].border }}>
+          <div className={`bg-card rounded-2xl border-2 overflow-hidden ${SIGNAL_META[activeFilter].borderCls}`}>
             {filteredSignals.map((s) => <SignalRow key={`${s.type}-${s.periodId}`} s={s} />)}
           </div>
         )}
