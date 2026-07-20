@@ -817,24 +817,29 @@ export const useCRM = create<CRMState>()(
       const criticalUpdates: Partial<CRMState> = {};
 
       if (!customers.error && customers.data) {
-        // ── Reconciliation: re-insert local-only customers ──────────────────────────
-        // ปัญหา: addCustomer → INSERT → Supabase อาจล้มเหลวเงียบๆ (JWT หมดอายุ, network)
-        //        ข้อมูลจึงอยู่แค่ใน localStorage ของเครื่องนั้น ไม่ถึง device อื่น
-        // แก้:   ตอน loadAll ครั้งต่อไป → เปรียบเทียบ local กับ Supabase
-        //        พบ local-only → re-insert ให้อัตโนมัติ (idempotent: timestamp ID ไม่ซ้ำ)
+        // ── Reconciliation: re-insert local-only customers (ที่สร้างล่าสุดเท่านั้น) ────
+        // ปัญหา: addCustomer → INSERT → Supabase อาจล้มเหลวเงียบๆ → ข้อมูลอยู่แค่ localStorage
+        // แก้:   ตอน loadAll → เปรียบเทียบ local กับ Supabase → พบ local-only ที่สร้างภายใน
+        //        15 นาทีล่าสุด → re-insert (idempotent) → ถ้าเก่ากว่านั้น = ถูกลบโดยตั้งใจ → ไม่ re-insert
+        const RECENT_MS = 15 * 60 * 1000; // 15 นาที
         const supaIds = new Set((customers.data as Customer[]).map((c) => c.customer_id));
-        const localOnly = get().customers.filter((c) => !supaIds.has(c.customer_id));
+        const localOnly = get().customers.filter((c) => {
+          if (supaIds.has(c.customer_id)) return false;
+          // เฉพาะ customer ที่สร้างภายใน 15 นาทีล่าสุด (น่าจะเป็น INSERT fail)
+          const createdAt = c.created_at ? new Date(c.created_at).getTime() : 0;
+          return Date.now() - createdAt < RECENT_MS;
+        });
         if (localOnly.length > 0 && supabase) {
-          console.warn(`[sync] พบ ${localOnly.length} ลูกค้าใน local ที่ไม่มีใน Supabase → re-insert`);
+          console.warn(`[sync] พบ ${localOnly.length} ลูกค้า local-only (ล่าสุด) → re-insert`);
           localOnly.forEach((c) => {
             supabase!.from("customers").insert(c).then(({ error: e }) => {
               if (e) console.error("[sync] re-insert ล้มเหลว:", c.full_name, e.message);
               else   console.log("[sync] re-insert สำเร็จ:", c.full_name);
             });
           });
-          // merge: รวม Supabase data + local-only เข้าด้วยกัน
           criticalUpdates.customers = [...(customers.data as Customer[]), ...localOnly];
         } else {
+          // Supabase เป็น source of truth — ใช้ข้อมูลจาก Supabase เสมอ
           criticalUpdates.customers = customers.data as Customer[];
         }
       }
@@ -1816,7 +1821,7 @@ export const useCRM = create<CRMState>()(
     {
       // v2: เปลี่ยน name → ล้าง localStorage เก่าที่มี seeded data / base64 ปนอยู่
       // ข้อมูลจริงทั้งหมดโหลดจาก Supabase ทันทีที่ app mount
-      name: "std-crm-store-v2",
+      name: "std-crm-store-v3",
       storage: createJSONStorage(() => {
         // Wrapper รอบ localStorage ที่จัดการ QuotaExceededError ได้
         return {
