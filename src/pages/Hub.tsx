@@ -135,20 +135,19 @@ function MarketingCategorisedGrid() {
 
   const intel: CompactTile[] = [
     { title: "Ads Dashboard",    icon: TrendingUp,    to: "/ads-dashboard" },
-    { title: "Stock Analytics",  icon: BarChart3,     to: "/app/stock-analytics" },
-    { title: "Marketing Report", icon: BarChart3,     to: "/app/marketing-report" },
+    { title: "Stock Analytics",  icon: BarChart3,     to: "/marketing/stock-analytics" },
+    { title: "Marketing Report", icon: BarChart3,     to: "/marketing/marketing-report" },
   ];
   const campaigns: CompactTile[] = [
-    { title: "Campaign Mgmt",    icon: Megaphone,     to: "/app/campaigns" },
+    { title: "Campaign Mgmt",    icon: Megaphone,     to: "/marketing/campaigns" },
     { title: "Contents",         icon: LayoutGrid,    to: "/marketing-contents" },
     { title: "Audience Builder", icon: Target,        to: "/audience-builder" },
   ];
   const custStock: CompactTile[] = [
-    // ชี้ตรงไปที่ /marketing/customers — /app/customers มี redirect guard ที่ทำให้เพี้ยน
-    // (blank page + sidebar ไฮไลท์ผิด) เมื่อ role เป็น Marketing แล้วเข้าผ่าน path /app/*
+    // ชี้ตรงไปที่ /marketing/* ทั้งหมด — เลี่ยง /app/* ที่มี redirect guard/NavLink bug เดิม
     { title: "Leads/Customers",  icon: Users,         to: "/marketing/customers" },
-    { title: "Marketing Leads",  icon: UserPlus,      to: "/app/marketing-leads" },
-    { title: "Service & Stock",  icon: PackageSearch, to: "/app/all-service" },
+    { title: "Marketing Leads",  icon: UserPlus,      to: "/marketing/marketing-leads" },
+    { title: "Service & Stock",  icon: PackageSearch, to: "/marketing/all-service" },
   ];
   const company: CompactTile[] = [
     { title: "Presentation",  icon: Sparkles,  to: "/tour-presentation" },

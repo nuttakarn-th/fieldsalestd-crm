@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { MessageSquare, AlertTriangle } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -67,10 +67,25 @@ function SessionExpiryBanner() {
   );
 }
 
+// Marketing role มี sidebar/shell แยกของตัวเอง (MarketingLayout + /marketing/*)
+// หลายหน้ายังถูก dual-registered ไว้ทั้งใต้ /app/* (AppLayout) และ /marketing/* (MarketingLayout)
+// ถ้า Marketing หลุดเข้ามาทาง /app/* ของหน้าที่มีเทียบเท่าใน /marketing อยู่แล้ว ให้ redirect ไปเส้นทางนั้นแทน
+// เพื่อไม่ให้เห็น 2 sidebar คู่ขนาน — path ที่ยังไม่มีเทียบเท่า (เช่น /app/marketing-hub) ไม่อยู่ใน mapping นี้ ปล่อย render ปกติ
+const APP_TO_MARKETING_PATH: Record<string, string> = {
+  "/app": "/marketing",
+  "/app/customers": "/marketing/customers",
+  "/app/campaigns": "/marketing/campaigns",
+  "/app/all-service": "/marketing/all-service",
+  "/app/stock-analytics": "/marketing/stock-analytics",
+  "/app/marketing-report": "/marketing/marketing-report",
+  "/app/marketing-leads": "/marketing/marketing-leads",
+};
+
 export default function AppLayout() {
   const user = useCurrentUser();
   const viewAsRole = useAuth((s) => s.viewAsRole);
   const setCurrentRep = useCRM((s) => s.setCurrentRep);
+  const location = useLocation();
 
   // ใช้ primitive selectors แยกเพื่อป้องกัน effect re-run เมื่อ users array replace
   // (useCurrentUser() return new object ref ทุกครั้งที่ loadUsersFromSupabase runs)
@@ -100,6 +115,17 @@ export default function AppLayout() {
 
   const effectiveRole = user ? (user.role === "Admin" && viewAsRole ? viewAsRole : user.role) : null;
   const showFAB = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";
+
+  // Marketing → กันหลุดเข้า /app/* ของหน้าที่มีเทียบเท่าใน /marketing/* อยู่แล้ว (เก็บ query string ไว้ด้วย)
+  if (effectiveRole === "Marketing") {
+    const path = location.pathname;
+    const mapped =
+      APP_TO_MARKETING_PATH[path] ??
+      (path.startsWith("/app/customers/") ? `/marketing${path.slice("/app".length)}` : null);
+    if (mapped) {
+      return <Navigate to={`${mapped}${location.search}`} replace />;
+    }
+  }
 
   return (
     <SidebarProvider>

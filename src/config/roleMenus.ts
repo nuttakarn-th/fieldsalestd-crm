@@ -175,7 +175,7 @@ const marketingMenu: RoleMenu = {
       // เครื่องมือสร้าง Content & Campaign
       category: "CAMPAIGNS",
       items: [
-        { title: "Campaign Management",   url: "/app/campaigns",              icon: Megaphone },
+        { title: "Campaign Management",   url: "/marketing/campaigns",        icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
       ],
@@ -205,14 +205,14 @@ const marketingMenu: RoleMenu = {
       // ติดตาม Stock โปรแกรม
       category: "STOCK",
       items: [
-        { title: "Service and Stock",     url: "/app/all-service",        icon: PackageSearch },
-        { title: "Stock Analytics",       url: "/app/stock-analytics",    icon: TrendingUp },
+        { title: "Service and Stock",     url: "/marketing/all-service",     icon: PackageSearch },
+        { title: "Stock Analytics",       url: "/marketing/stock-analytics", icon: TrendingUp },
       ],
     },
     {
       category: "REPORTS",
       items: [
-        { title: "Marketing Report",      url: "/app/marketing-report",   icon: BarChart3 },
+        { title: "Marketing Report",      url: "/marketing/marketing-report", icon: BarChart3 },
         { title: "Ads Dashboard",         url: "/ads-dashboard",          icon: TrendingUp },
       ],
     },

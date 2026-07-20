@@ -74,7 +74,7 @@ const CATEGORIES: CategoryItem[] = [
     icon: Megaphone,
     gradient: "from-pink-500 to-rose-500",
     count: 3,
-    to: "/app/campaigns",
+    to: "/marketing/campaigns",
   },
   {
     label: "Content",
@@ -98,7 +98,7 @@ const CATEGORIES: CategoryItem[] = [
     icon: BarChart3,
     gradient: "from-emerald-500 to-teal-500",
     count: 4,
-    to: "/app/marketing-report",
+    to: "/marketing/marketing-report",
   },
   {
     label: "Team",
@@ -112,9 +112,9 @@ const CATEGORIES: CategoryItem[] = [
 
 // ── Quick actions ─────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: "สร้างแคมเปญ",  icon: Megaphone, to: "/app/campaigns",                 gradient: "from-pink-500 to-rose-500"    },
+  { label: "สร้างแคมเปญ",  icon: Megaphone, to: "/marketing/campaigns",           gradient: "from-pink-500 to-rose-500"    },
   { label: "เพิ่มคอนเทนต์", icon: FileText,  to: "/marketing-contents/calendar",   gradient: "from-violet-500 to-purple-600" },
-  { label: "ดูรายงาน",      icon: BarChart3, to: "/app/marketing-report",           gradient: "from-emerald-500 to-teal-500"  },
+  { label: "ดูรายงาน",      icon: BarChart3, to: "/marketing/marketing-report",    gradient: "from-emerald-500 to-teal-500"  },
   { label: "เพิ่มลูกค้า",   icon: UserPlus,  to: "/marketing/customers",            gradient: "from-blue-500 to-indigo-500"   },
 ];
 
@@ -129,8 +129,8 @@ const TOOL_INDEX: ToolEntry[] = [
   { label: "Birthday List",     desc: "ลูกค้าที่มีวันเกิดในช่วงที่เลือก",              icon: Users,       gradient: "from-orange-500 to-amber-500",   to: "/audience-builder/birthday"          },
   { label: "Tour Link",         desc: "สร้าง Link โปรแกรมทัวร์ สำหรับแชร์",            icon: FileText,    gradient: "from-sky-500 to-blue-500",       to: "/marketing-contents/tour-link"       },
   { label: "Photo Frame",       desc: "กรอบรูป, Banner, สำหรับโพสต์",                  icon: LayoutGrid,  gradient: "from-sky-500 to-blue-500",       to: "/marketing-contents/photo-frame"     },
-  { label: "Marketing Leads",   desc: "Leads ที่มาจากช่องทาง Marketing",               icon: UserPlus,    gradient: "from-blue-500 to-indigo-500",    to: "/app/marketing-leads"                },
-  { label: "Stock Analytics",   desc: "วิเคราะห์สต็อก, ที่นั่ง, Period",              icon: TrendingUp,  gradient: "from-violet-500 to-purple-600",  to: "/app/stock-analytics"                },
+  { label: "Marketing Leads",   desc: "Leads ที่มาจากช่องทาง Marketing",               icon: UserPlus,    gradient: "from-blue-500 to-indigo-500",    to: "/marketing/marketing-leads"          },
+  { label: "Stock Analytics",   desc: "วิเคราะห์สต็อก, ที่นั่ง, Period",              icon: TrendingUp,  gradient: "from-violet-500 to-purple-600",  to: "/marketing/stock-analytics"          },
   { label: "My Tasks",          desc: "งานส่วนตัว, บันทึกงาน, to-do",                icon: CheckCircle2, gradient: "from-pink-500 to-rose-500",     to: "/marketing/tasks"                    },
   { label: "Gallery",           desc: "คลังรูปถ่ายทัวร์, อัลบั้ม, รูปสำหรับโพสต์",   icon: Images,       gradient: "from-fuchsia-500 to-pink-500",  to: "/gallery"                            },
   { label: "Tour Presentation", desc: "Company Profile, Social Links, สไลด์ทัวร์",    icon: BookOpen,     gradient: "from-violet-500 to-indigo-600", to: "/tour-presentation"                  },
@@ -386,7 +386,7 @@ export default function MarketingPortal() {
                 <div
                   className="relative overflow-hidden rounded-2xl cursor-pointer group urgent-ring flex-[3] flex flex-col justify-between"
                   style={{ minHeight: 120 }}
-                  onClick={() => navigate("/app/stock-analytics")}
+                  onClick={() => navigate("/marketing/stock-analytics")}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-red-700 via-red-600 to-rose-500" />
                   <div className="relative p-4 flex flex-col justify-between h-full" style={{ paddingRight: 90 }}>
@@ -432,7 +432,7 @@ export default function MarketingPortal() {
                 <div
                   className="relative overflow-hidden rounded-2xl cursor-pointer group flex-[2] flex flex-col justify-between"
                   style={{ minHeight: 80 }}
-                  onClick={() => navigate("/app/stock-analytics")}
+                  onClick={() => navigate("/marketing/stock-analytics")}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-500 via-orange-500 to-orange-400" />
                   <div className="relative px-4 py-3 flex items-center gap-4 h-full" style={{ paddingRight: 80 }}>
