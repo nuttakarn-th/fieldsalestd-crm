@@ -1237,6 +1237,15 @@ ${catBlocks}
     else toast.error("ไม่สามารถเปิดหน้าต่างพิมพ์ได้ — ตรวจสอบ popup blocker");
   };
 
+  // ── derived price range — must be above filteredTours useMemo ──
+  const _pricePresetDef = PRICE_PRESETS.find((p) => p.key === filterPricePreset);
+  const activePriceMin = filterPricePreset === "custom"
+    ? (filterPriceMin ? Number(filterPriceMin) : 0)
+    : (_pricePresetDef?.min ?? 0);
+  const activePriceMax = filterPricePreset === "custom"
+    ? (filterPriceMax ? Number(filterPriceMax) : Infinity)
+    : (_pricePresetDef?.max ?? Infinity);
+
   // ── filter options (computed from store) ──
   const allCountries = useMemo(
     () => [...new Set(tours.map((t) => t.country).filter(Boolean))].sort(),
@@ -1368,15 +1377,6 @@ ${catBlocks}
     });
     return items.sort((a, b) => (b.period.archived_at ?? "").localeCompare(a.period.archived_at ?? ""));
   }, [tours]);
-
-  // ── derived price range (used in both filteredTours + visiblePeriods) ──
-  const _pricePresetDef = PRICE_PRESETS.find((p) => p.key === filterPricePreset);
-  const activePriceMin = filterPricePreset === "custom"
-    ? (filterPriceMin ? Number(filterPriceMin) : 0)
-    : (_pricePresetDef?.min ?? 0);
-  const activePriceMax = filterPricePreset === "custom"
-    ? (filterPriceMax ? Number(filterPriceMax) : Infinity)
-    : (_pricePresetDef?.max ?? Infinity);
 
   const hasFilter = !!(filterText || filterCat || filterCountry || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo || filterPricePreset);
   const clearFilters = () => {
