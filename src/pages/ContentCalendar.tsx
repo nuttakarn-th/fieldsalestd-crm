@@ -267,19 +267,31 @@ export default function ContentCalendar() {
                 const isToday = dateStr === todayStr;
                 const isSel   = dateStr === selectedDay;
                 const dow     = new Date(calYear, calMonth, day).getDay();
+                const photoCount = posts.filter((p) => (p.content_type ?? "Single Photo") === "Single Photo" || p.content_type === "Photo Album").length;
+                const vdoCount   = posts.filter((p) => p.content_type === "Short VDO" || p.content_type === "Long VDO").length;
                 return (
                   <div key={day} onClick={() => setSelectedDay(isSel ? null : dateStr)}
                     className={`border-b border-r p-1 min-h-[80px] cursor-pointer transition-all ${isSel?"bg-primary/10 ring-1 ring-inset ring-primary":"hover:bg-muted/40"}`}>
-                    <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full mb-0.5 ${isToday?"bg-primary text-primary-foreground":dow===0?"text-red-500":dow===6?"text-blue-500":""}`}>
-                      {day}
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday?"bg-primary text-primary-foreground":dow===0?"text-red-500":dow===6?"text-blue-500":""}`}>
+                        {day}
+                      </div>
+                      {posts.length > 0 && (
+                        <div className="flex items-center gap-1 text-[9px] font-semibold text-muted-foreground pr-0.5">
+                          {photoCount > 0 && <span className="flex items-center gap-0.5"><Image className="w-2.5 h-2.5"/>{photoCount}</span>}
+                          {vdoCount > 0 && <span className="flex items-center gap-0.5"><Video className="w-2.5 h-2.5"/>{vdoCount}</span>}
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-0.5">
                       {posts.slice(0,3).map((p) => {
                         const ch = (p.channels ?? [])[0];
                         const dotBg = ch ? PLATFORM[ch]?.dotBg : "bg-slate-400";
+                        const type = p.content_type ?? "Single Photo";
                         return (
-                          <div key={p.post_id} className={`text-[10px] leading-tight px-1 py-0.5 rounded truncate text-white ${dotBg ?? "bg-slate-400"}`}>
-                            {p.title}
+                          <div key={p.post_id} className={`flex items-center gap-1 text-[10px] leading-tight px-1 py-0.5 rounded truncate text-white ${dotBg ?? "bg-slate-400"}`}>
+                            <ContentTypeIcon type={type} size={9}/>
+                            <span className="truncate">{p.title}</span>
                           </div>
                         );
                       })}
