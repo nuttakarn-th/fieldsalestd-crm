@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED, setSupabaseAuthToken } from "@/lib/supabase";
 import { hashPassword, verifyPassword, isHashed } from "@/lib/passwordHash";
 import { useShallow } from "zustand/react/shallow";
+import { toast } from "sonner";
 
 export type AppRole =
   | "Admin"
@@ -242,12 +243,21 @@ export const useAuth = create<AuthState>()(
                 .update(toSupabase({ ...safePatch, password_hash: newHash, plain_password: newPwd }))
                 .eq("user_id", id)
                 .then(({ error }) => {
-                  if (error) console.error("[supabase] update user password ล้มเหลว:", error);
+                  if (error) {
+                    console.error("[supabase] update user password ล้มเหลว:", error);
+                    toast.error("บันทึกข้อมูลไม่สำเร็จ (รวมรหัสผ่าน) — กรุณาลองใหม่ หรือ login ใหม่แล้วลองอีกครั้ง");
+                  }
                 });
             });
           } else {
             supabase.from("app_users").update(toSupabase(safePatch)).eq("user_id", id).then(({ error }) => {
-              if (error) console.error("[supabase] update user ล้มเหลว:", error);
+              if (error) {
+                console.error("[supabase] update user ล้มเหลว:", error);
+                // แจ้งเตือน user ทันที — ก่อนหน้านี้ error เงียบ ทำให้รูปโปรไฟล์/ข้อมูลที่แก้
+                // ดูเหมือนบันทึกสำเร็จ (optimistic local update) แต่จริงๆ ไม่ถึง Supabase
+                // และหายไปหลัง refresh หรือไม่ sync ไปเครื่องอื่น
+                toast.error("บันทึกข้อมูลไม่สำเร็จ — การเปลี่ยนแปลงอาจหายไปหลัง refresh กรุณาลองใหม่ หรือ login ใหม่");
+              }
             });
           }
 
@@ -257,7 +267,7 @@ export const useAuth = create<AuthState>()(
           //   customers(created_by, transferred_to, transferred_from)
           //   leads(assigned_to), monthly_targets(rep)
           //   route_plans(rep), quotations(rep)
-          // chat_messages.author ไม่มี FK → อัปเดตแยก
+          // chat_messages.author, ahagram_scores.username ไม่มี FK → อัปเดตแยก
           if (nameChanged) {
             (async () => {
               // 1. Update sales_reps.name → CASCADE ทำงานอัตโนมัติ
@@ -275,9 +285,25 @@ export const useAuth = create<AuthState>()(
                 .eq("author", oldName);
               if (chatErr) console.error("[rename] chat_messages update ล้มเหลว:", chatErr);
 
-              // 3. Sync in-memory crmStore state ทันที (dynamic import ป้องกัน circular dep)
+              // 3. Update ahagram_scores.username + display_name (plain TEXT, ไม่มี FK)
+              //    ป้องกันคะแนน AHAGRAM แยกเป็น 2 แถวเมื่อเปลี่ยนชื่อ (username เดิม vs ชื่อใหม่)
+              const { error: ahagramErr } = await supabase
+                .from("ahagram_scores")
+                .update({ username: newName, display_name: newName })
+                .eq("username", oldName);
+              if (ahagramErr) console.error("[rename] ahagram_scores update ล้มเหลว:", ahagramErr);
+
+              // 4. Sync in-memory crmStore state ทันที (dynamic import ป้องกัน circular dep)
               const { useCRM } = await import("@/store/crmStore");
               useCRM.getState().renameRepInMemory(oldName!, newName!);
+
+              // 5. Sync in-memory ahagramLeaderboardStore ทันที
+              const { useAhagramLeaderboard } = await import("@/store/ahagramLeaderboardStore");
+              useAhagramLeaderboard.setState((s) => ({
+                entries: s.entries.map((e) =>
+                  e.username === oldName ? { ...e, username: newName!, displayName: newName! } : e
+                ),
+              }));
 
               console.log(`[rename] ✅ เปลี่ยนชื่อ "${oldName}" → "${newName}" ทั่วระบบเรียบร้อย`);
             })();
