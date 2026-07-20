@@ -1358,6 +1358,61 @@ ${catBlocks}
     });
   }, [tours, filterText, filterCat, filterCountry, filterStatus, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, filterPricePreset, activePriceMin, activePriceMax, tourSort, showArchived, showCancelled, effectiveShowArchived, effectiveShowCancelled]);
 
+  // ── Global period summary — สำหรับ header "รวม X/Y โปรแกรม · A/B Period" ──
+  // ใช้ logic เดียวกับ visiblePeriods ในแต่ละ tour (render ด้านล่าง) เพื่อให้ตัวเลขตรงกับที่เห็นจริง
+  const periodStats = useMemo(() => {
+    let visible = 0;
+    let total = 0;
+    filteredTours.forEach((t) => {
+      const periods = t.periods ?? [];
+      total += periods.length;
+      periods.forEach((p) => {
+        if (filterStatus === "archive") {
+          if (p.archived) visible++;
+          return;
+        }
+        if (!effectiveShowArchived && p.archived) return;
+        if (!effectiveShowCancelled && p.cancelled) return;
+        if (!effectiveShowArchived && !p.cancelled && !p.archived && p.end_date) {
+          const _today = new Date(); _today.setHours(0, 0, 0, 0);
+          const _cutoff = new Date(_today); _cutoff.setDate(_cutoff.getDate() - 7);
+          if (new Date(p.end_date + "T00:00:00") <= _cutoff) return;
+        }
+        if (filterSeatHold && !p.seat_hold) return;
+        if (filterPromo && !(typeof p.special_price === "number" && p.special_price > 0 && p.special_price < p.price_per_seat)) return;
+        if (filterStatus === "ยกเลิก"  && !p.cancelled) return;
+        if (filterStatus === "ปิดกรุ๊ป" && (p.cancelled || p.quota !== 0)) return;
+        if (filterStatus === "ว่าง"     && (p.cancelled || p.quota <= 0))  return;
+        if (filterTags.length > 0 && !filterTags.every((tag) => (p.tags ?? []).includes(tag))) return;
+        if (filterDateFrom || filterDateTo) {
+          const start = p.start_date ?? "";
+          const end   = p.end_date ?? start;
+          if (filterDateFrom && end   < filterDateFrom) return;
+          if (filterDateTo   && start > filterDateTo)   return;
+        }
+        if (filterPricePreset) {
+          const ep = effectivePrice(p);
+          if (ep < activePriceMin || ep > activePriceMax) return;
+        }
+        if (filterText) {
+          const q = filterText.toLowerCase();
+          const metaMatch =
+            t.city.toLowerCase().includes(q) ||
+            t.code.toLowerCase().includes(q) ||
+            t.country.toLowerCase().includes(q) ||
+            (t.name ?? "").toLowerCase().includes(q);
+          if (!metaMatch) {
+            const periodDateStr = (_dateSearch(p.start_date) + " " + _dateSearch(p.end_date)).toLowerCase();
+            if (!periodDateStr.includes(q)) return;
+          }
+        }
+        visible++;
+      });
+    });
+    return { visible, total };
+  }, [filteredTours, filterStatus, effectiveShowArchived, effectiveShowCancelled, filterSeatHold, filterPromo, filterTags, filterDateFrom, filterDateTo, filterPricePreset, activePriceMin, activePriceMax, filterText]);
+  const periodFilterGlobalActive = periodStats.visible !== periodStats.total;
+
   const intlTours = useMemo(() => filteredTours.filter((t) => t.category === "International Tour"), [filteredTours]);
   const domTours  = useMemo(() => filteredTours.filter((t) => t.category === "Domestic"),          [filteredTours]);
   const incTours  = useMemo(() => filteredTours.filter((t) => t.category === "Incentive"),         [filteredTours]);
@@ -1624,6 +1679,9 @@ ${catBlocks}
             )}
             รวม <span className="font-semibold text-foreground">{filteredTours.length}</span>
             {hasFilter && <span className="text-muted-foreground"> / {tours.length}</span>} โปรแกรม
+            <span className="text-muted-foreground/50">·</span>
+            <span className="font-semibold text-foreground">{periodStats.visible}</span>
+            {periodFilterGlobalActive && <span className="text-muted-foreground"> / {periodStats.total}</span>} Period
             {hasFilter && <span className="ml-1.5 text-[11px] text-amber-600 font-medium">(กรองอยู่)</span>}
           </p>
           <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
@@ -1947,7 +2005,7 @@ ${catBlocks}
                   }
                   return true;
                 });
-                const periodFilterActive = !!(filterText || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo);
+                const periodFilterActive = !!(filterText || filterStatus || filterSeatHold || filterPromo || filterTags.length || filterDateFrom || filterDateTo || filterPricePreset);
                 const prices = hasPeriods ? t.periods!.map((p) => p.price_per_seat) : [];
                 const priceMin = prices.length ? Math.min(...prices) : t.price_per_seat;
                 const priceMax = prices.length ? Math.max(...prices) : t.price_per_seat;
