@@ -1300,15 +1300,17 @@ ${catBlocks}
         );
         if (!has) return false;
       }
-      // ── date range filter — show tour if ANY period falls within range ──
+      // ── date range filter — show tour if ANY period overlaps with range ──
       if (filterDateFrom || filterDateTo) {
         const periods = t.periods ?? [];
         if (periods.length > 0) {
           const has = periods.some((p) => {
-            const d = p.start_date ?? "";
-            if (!d) return false;
-            if (filterDateFrom && d < filterDateFrom) return false;
-            if (filterDateTo   && d > filterDateTo)   return false;
+            const start = p.start_date ?? "";
+            if (!start) return false;
+            const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
+            // Overlap: period ต้องเริ่มก่อน/เท่ากับ filterDateTo AND สิ้นสุดหลัง/เท่ากับ filterDateFrom
+            if (filterDateFrom && end   < filterDateFrom) return false;
+            if (filterDateTo   && start > filterDateTo)   return false;
             return true;
           });
           if (!has) return false;
@@ -1884,9 +1886,10 @@ ${catBlocks}
                   if (filterStatus === "ว่าง"     && (p.cancelled || p.quota <= 0))  return false;
                   if (filterTags.length > 0 && !filterTags.every((tag) => (p.tags ?? []).includes(tag))) return false;
                   if ((filterDateFrom || filterDateTo)) {
-                    const d = p.start_date ?? "";
-                    if (filterDateFrom && d < filterDateFrom) return false;
-                    if (filterDateTo   && d > filterDateTo)   return false;
+                    const start = p.start_date ?? "";
+                    const end   = p.end_date ?? start;
+                    if (filterDateFrom && end   < filterDateFrom) return false;
+                    if (filterDateTo   && start > filterDateTo)   return false;
                   }
                   // ── ถ้า filterText match ผ่าน period date (ไม่ใช่ meta) → ซ่อน period ที่ไม่ตรง ──
                   if (filterText) {
