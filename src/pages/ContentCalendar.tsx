@@ -4,7 +4,7 @@
  * Platform: Facebook / Instagram / TikTok / LINE / YouTube / Lemon8 / X / LinkedIn (multi-select + logos)
  * Content Type: Single Photo / Photo Album / Short VDO / Long VDO
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import {
   CalendarDays, List, Plus, Pencil, Trash2,
@@ -13,14 +13,8 @@ import {
 } from "lucide-react";
 import { useCRM, CONTENT_CHANNELS, CONTENT_STATUSES, CONTENT_TYPES } from "@/store/crmStore";
 import type { ContentPost, ContentChannel, ContentStatus, ContentType } from "@/store/crmStore";
+import { useCampaigns } from "@/store/campaignStore";
 import { Button } from "@/components/ui/button";
-
-// ─── Static campaigns ─────────────────────────────────────────────────────────
-const CAMPAIGNS = [
-  { id: "CMP-001", name: "Summer Tour Promo 2026" },
-  { id: "CMP-002", name: "Early Bird Japan" },
-  { id: "CMP-003", name: "Incentive Corporate Campaign" },
-];
 
 // ─── Platform config ──────────────────────────────────────────────────────────
 interface PlatformConfig {
@@ -116,6 +110,9 @@ const emptyForm = (): Omit<ContentPost, "post_id" | "created_at"> => ({
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function ContentCalendar() {
   const { contentPosts, addContentPost, updateContentPost, deleteContentPost } = useCRM();
+  const { campaigns, loadCampaigns } = useCampaigns();
+
+  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
 
   const [view, setView]             = useState<"calendar" | "list">("calendar");
   const [calYear, setCalYear]       = useState(new Date().getFullYear());
@@ -450,7 +447,7 @@ export default function ContentCalendar() {
                 <select className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
                   value={form.campaign_id ?? ""} onChange={(e) => setForm({ ...form, campaign_id: e.target.value || undefined })}>
                   <option value="">— ไม่ระบุ —</option>
-                  {CAMPAIGNS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -479,8 +476,9 @@ function PostRow({
   onAdvance: () => void;
   showDate?: boolean;
 }) {
+  const { campaigns } = useCampaigns();
   const nextStatus = STATUS_NEXT[post.status];
-  const camp = CAMPAIGNS.find((c) => c.id === post.campaign_id);
+  const camp = campaigns.find((c) => c.id === post.campaign_id);
   const d = new Date(post.scheduled_date + "T00:00:00");
   const dateLabel = `${d.getDate()} ${MONTHS_TH[d.getMonth()]}`;
   const channels = post.channels ?? [];
