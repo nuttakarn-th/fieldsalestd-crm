@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Users, KanbanSquare, DollarSign, TrendingUp, Trophy, BarChart3, AlertCircle, Target, Building2 } from "lucide-react";
 import { useCRM, formatTHB, LEAD_STATUSES, LOST_REASONS } from "@/store/crmStore";
-import { useActiveSalesNames, useCurrentUser } from "@/store/authStore";
+import { useActiveSalesTeamNames, useCurrentUser } from "@/store/authStore";
 import { Link, Navigate } from "react-router-dom";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -17,7 +17,8 @@ export default function Index() {
   const customers = useCRM((s) => s.customers);
   const currentRep = useCRM((s) => s.currentRep);
   const targets = useCRM((s) => s.targets);
-  const SALES_REPS = useActiveSalesNames();
+  // เฉพาะทีม Sales จริง (Sales, Sales Manager) — ไม่รวม OB (ทีม OB ดูของตัวเองที่ OB Dashboard)
+  const SALES_REPS = useActiveSalesTeamNames();
 
   const [preset, setPreset] = useState<RangePreset>("month");
   const [custom, setCustom] = useState<DateRange | undefined>();
