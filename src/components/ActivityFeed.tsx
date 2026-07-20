@@ -12,7 +12,7 @@ import { createPortal } from "react-dom";
 import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock } from "lucide-react";
 import { useActivityLog, type ActivityLog } from "@/store/activityLogStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
-import { useCurrentUser } from "@/store/authStore";
+import { useCurrentUser, useActiveSalesTeamNames } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,17 +126,22 @@ export function ActivityFeed() {
   const user          = useCurrentUser();
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const { requests: deleteRequests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
+  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager เท่านั้น (ไม่รวม OB)
 
   // Determine role-based visibility
   const isAdmin        = user?.role === "Admin";
   const isSalesManager = user?.role === "Sales Manager";
+  const isSalesRep     = user?.role === "Sales";
   const isOBManager    = user?.role === "OB Manager";
   const isMarketing    = user?.role === "Marketing";
   const isAnyManager   = isAdmin || isSalesManager || isOBManager;
+  // ทีม Sales (rep + manager) — เห็นเฉพาะกิจกรรมของทีมตัวเอง + กิจกรรม Stock เท่านั้น
+  const isSalesTeamView = isSalesRep || isSalesManager;
 
   // กรอง logs ตาม role:
   // - campaign_ events → เห็นได้เฉพาะ Marketing + Admin เท่านั้น
   // - Marketing: กรองเพิ่มตาม dept tab
+  // - ทีม Sales: เห็นเฉพาะกิจกรรมของทีม Sales เอง + กิจกรรม Stock (tour/period/seat) — ไม่เห็นของทีม OB
   const visibleLogs = (() => {
     let filtered = logs;
     if (!isMarketing && !isAdmin) {
@@ -144,6 +149,18 @@ export function ActivityFeed() {
     }
     if (isMarketing && deptTab !== "all") {
       filtered = filtered.filter((l) => (l as any).department === deptTab);
+    }
+    if (isSalesTeamView) {
+      const salesNameSet = new Set(salesTeamNames);
+      filtered = filtered.filter((l) => {
+        const isStockEvent =
+          l.event_type.startsWith("tour_") ||
+          l.event_type.startsWith("period_") ||
+          l.event_type.startsWith("seat_") ||
+          l.event_type === "import_complete";
+        if (isStockEvent) return true;
+        return salesNameSet.has(l.actor);
+      });
     }
     return filtered;
   })();
