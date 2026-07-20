@@ -40,14 +40,6 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    category: "CAMPAIGNS",
-    items: [
-      { label: "Campaigns",         icon: Megaphone,     to: "/marketing/campaigns"               },
-      { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"       },
-      { label: "Gallery",           icon: Images,        to: "/gallery"                           },
-    ],
-  },
-  {
     category: "LEADS",
     items: [
       { label: "OB Leads",          icon: Users2,        to: "/marketing/ob-leads"                },
@@ -57,13 +49,37 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    category: "STOCK & TOOLS",
-    defaultCollapsed: true, // เยอะ — พับไว้ก่อน
+    category: "CAMPAIGNS",
+    items: [
+      { label: "Campaigns",         icon: Megaphone,     to: "/marketing/campaigns"               },
+      { label: "Audience Builder",  icon: Target,        to: "/audience-builder/line-export"      },
+    ],
+  },
+  {
+    category: "CONTENT",
+    items: [
+      { label: "Content",           icon: LayoutGrid,    to: "/marketing-contents/calendar"       },
+      { label: "Gallery",           icon: Images,        to: "/gallery"                           },
+    ],
+  },
+  {
+    category: "STOCK",
     items: [
       { label: "Service & Stock",   icon: PackageSearch, to: "/marketing/all-service"             },
       { label: "Stock Analytics",   icon: TrendingUp,    to: "/marketing/stock-analytics"         },
+    ],
+  },
+  {
+    category: "REPORTS",
+    items: [
       { label: "Reports",           icon: BarChart3,     to: "/marketing/marketing-report"        },
-      { label: "Audience Builder",  icon: Target,        to: "/audience-builder/line-export"      },
+      { label: "Ads Dashboard",     icon: TrendingUp,    to: "/ads-dashboard"                      },
+    ],
+  },
+  {
+    category: "WORKSPACE",
+    defaultCollapsed: true, // ใช้ไม่บ่อยเท่า section อื่น — พับไว้ก่อน
+    items: [
       { label: "My Tasks",          icon: CheckSquare,   to: "/marketing/tasks"                   },
       { label: "Tour Presentation", icon: BookOpen,      to: "/tour-presentation"                 },
     ],
@@ -74,6 +90,9 @@ const NAV_SECTIONS: NavSection[] = [
 function catColor(category: string) {
   if (category === "LEADS")     return "text-purple-500/70";
   if (category === "CAMPAIGNS") return "text-pink-500/70";
+  if (category === "CONTENT")   return "text-sky-500/70";
+  if (category === "STOCK")     return "text-violet-500/70";
+  if (category === "REPORTS")   return "text-emerald-500/70";
   return "text-muted-foreground/50";
 }
 
@@ -203,6 +222,12 @@ export default function MarketingLayout() {
           </div>
         </div>
 
+        {/* ── Global alerts — ไม่ผูกกับ section ไหน (ก่อนหน้านี้เคยแทรกอยู่ใต้ CAMPAIGNS ทำให้ดูเหมือนเป็นส่วนหนึ่งของแคมเปญ) ── */}
+        <div className={`shrink-0 border-b border-border ${sidebarCollapsed ? "px-0 py-2 flex flex-col items-center gap-1" : "px-2 py-1.5 space-y-0.5"}`}>
+          <NewProgramNotification collapsed={sidebarCollapsed} />
+          <AtRiskNotification collapsed={sidebarCollapsed} />
+        </div>
+
         {/* ── Navigation ── */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {NAV_SECTIONS.map((section) => {
@@ -244,14 +269,6 @@ export default function MarketingLayout() {
                     {section.items.map((item) => (
                       <SideNavItem key={item.to} item={item} collapsed={false} />
                     ))}
-
-                    {/* Notification badges หลัง CAMPAIGNS section */}
-                    {section.category === "CAMPAIGNS" && (
-                      <div className="px-1 space-y-0.5 pt-0.5">
-                        <NewProgramNotification collapsed={false} />
-                        <AtRiskNotification collapsed={false} />
-                      </div>
-                    )}
                   </>
                 )}
               </div>
