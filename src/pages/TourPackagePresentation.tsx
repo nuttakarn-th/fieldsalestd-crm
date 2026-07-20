@@ -1994,7 +1994,7 @@ function PublicHeader({ lineUrl, socialLinks, phones }: {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border/40 shadow-sm">
+    <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border/40 shadow-sm">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-3">
 
         {/* ── Left: logo + brand ── */}
@@ -2049,17 +2049,17 @@ function PublicHeader({ lineUrl, socialLinks, phones }: {
             {phoneOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setPhoneOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-border/60 p-2 w-60 z-50">
+                <div className="absolute right-0 top-full mt-1.5 bg-card rounded-2xl shadow-2xl border border-border/60 p-2 w-60 z-50">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">เบอร์โทรติดต่อ</p>
                   {(phones ?? []).map((p) => (
                     <a
                       key={p.num}
                       href={`tel:${p.num.replace(/[-\s]/g, "")}`}
-                      className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-violet-50 transition-colors group"
+                      className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors group"
                       onClick={() => setPhoneOpen(false)}
                     >
-                      <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center shrink-0 group-hover:bg-violet-200 transition-colors">
-                        <Phone className="w-3.5 h-3.5 text-violet-600" />
+                      <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-500/20 flex items-center justify-center shrink-0 group-hover:bg-violet-200 dark:group-hover:bg-violet-500/30 transition-colors">
+                        <Phone className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                       </div>
                       <div className="min-w-0">
                         <div className="text-[10px] text-muted-foreground leading-none mb-0.5">{p.label}</div>
