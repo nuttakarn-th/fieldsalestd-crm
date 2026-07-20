@@ -135,9 +135,9 @@ export function NewProgramNotification({ collapsed }: { collapsed: boolean }) {
         sideOffset={8}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b flex items-center justify-between bg-emerald-50">
+        <div className="px-4 py-3 border-b flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/50">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <p className="text-sm font-bold text-foreground">โปรแกรมใหม่</p>
             <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white bg-emerald-500">
               {total}
@@ -146,7 +146,7 @@ export function NewProgramNotification({ collapsed }: { collapsed: boolean }) {
           <button
             type="button"
             onClick={() => { setOpen(false); navigate("/app/all-service"); }}
-            className="flex items-center gap-1 text-[10px] text-emerald-700 hover:underline font-semibold"
+            className="flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline font-semibold"
           >
             ดูทั้งหมด <ExternalLink className="w-3 h-3" />
           </button>

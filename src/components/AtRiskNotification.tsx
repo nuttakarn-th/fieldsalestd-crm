@@ -120,8 +120,11 @@ export function AtRiskNotification({ collapsed }: { collapsed: boolean }) {
         sideOffset={8}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b flex items-center justify-between"
-          style={{ background: criticalCount > 0 ? "#FEF2F2" : "#FFFBEB" }}>
+        <div className={`px-4 py-3 border-b flex items-center justify-between ${
+          criticalCount > 0
+            ? "bg-red-50 dark:bg-red-950/50"
+            : "bg-amber-50 dark:bg-amber-950/50"
+        }`}>
           <div className="flex items-center gap-2">
             <AlertTriangle className={`w-4 h-4 ${criticalCount > 0 ? "text-red-500" : "text-amber-500"}`} />
             <p className="text-sm font-bold text-foreground">At-Risk Alert</p>
@@ -133,7 +136,7 @@ export function AtRiskNotification({ collapsed }: { collapsed: boolean }) {
           <button
             type="button"
             onClick={() => { setOpen(false); navigate("/app/stock-analytics"); }}
-            className="flex items-center gap-1 text-[10px] text-violet-600 hover:underline font-semibold"
+            className="flex items-center gap-1 text-[10px] text-violet-600 dark:text-violet-400 hover:underline font-semibold"
           >
             ดูใน Analytics <ExternalLink className="w-3 h-3" />
           </button>
