@@ -1425,20 +1425,8 @@ ${catBlocks}
 
         {/* ── MOBILE: expandable filter panel ── */}
         {filterOpen && (
-          <div className="sm:hidden space-y-2 pt-1 pb-0.5 border-t border-border mt-1 anim-filter">
-            {/* Sort row */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
-                <SelectTrigger className="h-9 text-sm flex-1 border-dashed"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">ชื่อโปรแกรม A→Z</SelectItem>
-                  <SelectItem value="code">รหัสทัวร์ A→Z</SelectItem>
-                  <SelectItem value="date">วันเดินทางใกล้สุด</SelectItem>
-                  <SelectItem value="added">เพิ่มเข้าล่าสุด</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="sm:hidden space-y-2.5 pt-2 pb-1 border-t border-border mt-1 anim-filter">
+            {/* Dropdowns 2×2 */}
             <div className="grid grid-cols-2 gap-2">
               <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
                 <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="กลุ่มทัวร์" /></SelectTrigger>
@@ -1464,47 +1452,78 @@ ${catBlocks}
                   <SelectItem value="archive">📦 Archive</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
+                <SelectTrigger className="h-9 text-sm border-dashed"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">ชื่อโปรแกรม A→Z</SelectItem>
+                  <SelectItem value="code">รหัสทัวร์ A→Z</SelectItem>
+                  <SelectItem value="date">วันเดินทางใกล้สุด</SelectItem>
+                  <SelectItem value="added">เพิ่มเข้าล่าสุด</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => setFilterPromo((v) => !v)}
-                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground"}`}
-                style={filterPromo ? {background: "#F59E0B"} : undefined}
-              >🔥 Promo</button>
-              <button
-                onClick={() => setFilterSeatHold((v) => !v)}
-                className={`h-8 px-3 rounded-lg text-sm font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground"}`}
-                style={filterSeatHold ? {background: "#0D9488"} : undefined}
-              >💸 วางที่นั่ง</button>
-
-              {hasFilter && (
-                <button onClick={() => { clearFilters(); setFilterOpen(false); }} className="h-8 px-3 text-sm text-red-500 border border-red-200 rounded-lg">✕ ล้างทั้งหมด</button>
+            {/* Date range */}
+            <div className="flex items-center gap-1 border border-border rounded-md px-2 h-9 w-full">
+              <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <ThaiDateInput className="flex-1 text-sm bg-transparent outline-none text-foreground" title="วันเดินทาง ตั้งแต่" value={filterDateFrom}
+                onChange={(e) => { const v = e.target.value; if (v && filterDateTo && v > filterDateTo) { setFilterDateFrom(filterDateTo); setFilterDateTo(v); } else setFilterDateFrom(v); }} />
+              <span className="text-muted-foreground/40 text-xs">–</span>
+              <ThaiDateInput className="flex-1 text-sm bg-transparent outline-none text-foreground" title="วันเดินทาง ถึง" value={filterDateTo}
+                onChange={(e) => { const v = e.target.value; if (v && filterDateFrom && v < filterDateFrom) { setFilterDateTo(filterDateFrom); setFilterDateFrom(v); } else setFilterDateTo(v); }} />
+              {(filterDateFrom || filterDateTo) && <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground/40 ml-1">✕</button>}
+            </div>
+            {/* Toggles */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setFilterPromo((v) => !v)}
+                className={`h-8 px-3 rounded-md text-sm font-medium border transition-colors ${filterPromo ? "text-white" : "border-border text-muted-foreground"}`}
+                style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}>🔥 Promo</button>
+              <button onClick={() => setFilterSeatHold((v) => !v)}
+                className={`h-8 px-3 rounded-md text-sm font-medium border transition-colors ${filterSeatHold ? "text-white" : "border-border text-muted-foreground"}`}
+                style={filterSeatHold ? {background: "#0D9488", borderColor: "#0D9488"} : undefined}>💸 วางที่นั่ง</button>
+            </div>
+            {/* Price chips — horizontal scroll */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <span className="text-[11px] text-muted-foreground/50 font-medium shrink-0">฿</span>
+              {PRICE_PRESETS.map(({ key, label }) => (
+                <button key={key} onClick={() => { setFilterPricePreset((prev) => (prev === key ? "" : key as PricePresetKey)); if (key !== "custom") { setFilterPriceMin(""); setFilterPriceMax(""); } }}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 whitespace-nowrap transition-colors"
+                  style={filterPricePreset === key ? {background: "#7C3AED", color: "#fff", borderColor: "#7C3AED"} : {borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))"}}>
+                  {label}</button>
+              ))}
+              {filterPricePreset === "custom" && (
+                <div className="flex items-center gap-1 border border-violet-300 rounded-md px-2 h-7 shrink-0">
+                  <input type="number" min={0} placeholder="ต่ำสุด" value={filterPriceMin} onChange={(e) => setFilterPriceMin(e.target.value)} className="w-16 text-xs bg-transparent outline-none" />
+                  <span className="text-muted-foreground/40 text-xs">–</span>
+                  <input type="number" min={0} placeholder="สูงสุด" value={filterPriceMax} onChange={(e) => setFilterPriceMax(e.target.value)} className="w-16 text-xs bg-transparent outline-none" />
+                </div>
               )}
             </div>
-            {/* Tag chips on mobile */}
-            <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Tag chips — horizontal scroll */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {CATEGORY_TAGS.map((tag) => (
-                <button key={tag}
-                  onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
-                  style={filterTags.includes(tag)
-                    ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                    : {borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))"}}
-                >{tag}</button>
+                <button key={tag} onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 whitespace-nowrap transition-colors"
+                  style={filterTags.includes(tag) ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"} : {borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))"}}>
+                  {tag}</button>
               ))}
             </div>
+            {hasFilter && (
+              <button onClick={() => { clearFilters(); setFilterOpen(false); }}
+                className="w-full h-8 text-sm text-red-500 border border-red-200 rounded-md">✕ ล้างตัวกรองทั้งหมด</button>
+            )}
           </div>
         )}
 
-        {/* ── DESKTOP: full filter row ── */}
-        <div className="hidden sm:block space-y-2">
+        {/* ── DESKTOP: 2-row filter ── */}
+        <div className="hidden sm:block space-y-1.5">
+          {/* Row 1: Search + dropdowns + date + toggles + ล้าง */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative flex-1 min-w-[160px] max-w-xs">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input className="pl-8 h-8 text-xs" placeholder="ค้นหารหัส / เมือง / ประเทศ / วันที่..." value={filterText} onChange={(e) => setFilterText(e.target.value)} />
             </div>
             <Select value={filterCat || "__all__"} onValueChange={(v) => setFilterCat(v === "__all__" ? "" : v as TourCategory)}>
-              <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-[140px]"><SelectValue placeholder="กลุ่มทั้งหมด" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">กลุ่มทั้งหมด</SelectItem>
                 {TOUR_CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -1527,81 +1546,60 @@ ${catBlocks}
                 <SelectItem value="archive">📦 Archive</SelectItem>
               </SelectContent>
             </Select>
-            {/* Date range filter */}
             <div className="flex items-center gap-1 border border-border rounded-md px-2 h-8">
               <CalendarDays className="w-3 h-3 text-muted-foreground shrink-0" />
-              <ThaiDateInput
-
-                className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
-                title="วันเดินทาง ตั้งแต่"
-                value={filterDateFrom}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  // auto-swap: ถ้า from > to ที่มีอยู่ → สลับ
-                  if (val && filterDateTo && val > filterDateTo) {
-                    setFilterDateFrom(filterDateTo);
-                    setFilterDateTo(val);
-                  } else {
-                    setFilterDateFrom(val);
-                  }
-                }}
-              />
+              <ThaiDateInput className="h-full text-xs bg-transparent outline-none text-foreground w-[100px]" title="วันเดินทาง ตั้งแต่" value={filterDateFrom}
+                onChange={(e) => { const val = e.target.value; if (val && filterDateTo && val > filterDateTo) { setFilterDateFrom(filterDateTo); setFilterDateTo(val); } else setFilterDateFrom(val); }} />
               <span className="text-muted-foreground/40 text-xs">–</span>
-              <ThaiDateInput
-
-                className="h-full text-xs bg-transparent outline-none text-foreground w-[110px]"
-                title="วันเดินทาง ถึง"
-                value={filterDateTo}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  // auto-swap: ถ้า to < from ที่มีอยู่ → สลับ
-                  if (val && filterDateFrom && val < filterDateFrom) {
-                    setFilterDateTo(filterDateFrom);
-                    setFilterDateFrom(val);
-                  } else {
-                    setFilterDateTo(val);
-                  }
-                }}
-              />
-              {(filterDateFrom || filterDateTo) && (
-                <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground/40 hover:text-muted-foreground transition-colors ml-0.5">✕</button>
-              )}
+              <ThaiDateInput className="h-full text-xs bg-transparent outline-none text-foreground w-[100px]" title="วันเดินทาง ถึง" value={filterDateTo}
+                onChange={(e) => { const val = e.target.value; if (val && filterDateFrom && val < filterDateFrom) { setFilterDateTo(filterDateFrom); setFilterDateFrom(val); } else setFilterDateTo(val); }} />
+              {(filterDateFrom || filterDateTo) && <button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); }} className="text-muted-foreground/40 hover:text-muted-foreground ml-0.5">✕</button>}
             </div>
-            <button
-              onClick={() => setFilterPromo((v) => !v)}
-              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white border-orange-500" : "border-border text-muted-foreground hover:border-orange-300 hover:text-orange-400"}`}
-              style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}
-            >🔥 Promo</button>
-            <button
-              onClick={() => setFilterSeatHold((v) => !v)}
-              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterSeatHold ? "text-white border-teal-600" : "border-border text-muted-foreground hover:border-teal-400 hover:text-teal-600"}`}
-              style={filterSeatHold ? {background: "#0D9488", borderColor: "#0D9488"} : undefined}
-            >💸 วางที่นั่ง</button>
-
+            <button onClick={() => setFilterPromo((v) => !v)}
+              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterPromo ? "text-white" : "border-border text-muted-foreground hover:border-orange-300 hover:text-orange-400"}`}
+              style={filterPromo ? {background: "#F59E0B", borderColor: "#F59E0B"} : undefined}>🔥 Promo</button>
+            <button onClick={() => setFilterSeatHold((v) => !v)}
+              className={`h-8 px-3 rounded-md text-xs font-medium border transition-colors ${filterSeatHold ? "text-white" : "border-border text-muted-foreground hover:border-teal-400 hover:text-teal-600"}`}
+              style={filterSeatHold ? {background: "#0D9488", borderColor: "#0D9488"} : undefined}>💸 วางที่นั่ง</button>
             {hasFilter && (
               <button onClick={clearFilters} className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md transition-colors">✕ ล้าง</button>
             )}
           </div>
-          {/* ── Tag chips + Sort ── */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
-            {CATEGORY_TAGS.map((tag) => (
-              <button key={tag}
-                onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
-                style={filterTags.includes(tag)
-                  ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"}
-                  : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
-              >{tag}</button>
-            ))}
+          {/* Row 2: Chips strip (price + divider + tags) scrollable | Sort pinned right */}
+          <div className="flex items-center gap-0 min-w-0">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {/* Price chips */}
+              <span className="text-[10px] text-muted-foreground/50 font-medium shrink-0">฿</span>
+              {PRICE_PRESETS.map(({ key, label }) => (
+                <button key={key}
+                  onClick={() => { setFilterPricePreset((prev) => (prev === key ? "" : key as PricePresetKey)); if (key !== "custom") { setFilterPriceMin(""); setFilterPriceMax(""); } }}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 whitespace-nowrap transition-colors"
+                  style={filterPricePreset === key ? {background: "#7C3AED", color: "#fff", borderColor: "#7C3AED"} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}>
+                  {label}</button>
+              ))}
+              {filterPricePreset === "custom" && (
+                <div className="flex items-center gap-1 border border-violet-300 dark:border-violet-700 rounded-md px-2 h-6 shrink-0 ml-0.5">
+                  <input type="number" min={0} placeholder="ต่ำสุด" value={filterPriceMin} onChange={(e) => setFilterPriceMin(e.target.value)} className="w-[64px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50" />
+                  <span className="text-muted-foreground/40 text-xs">–</span>
+                  <input type="number" min={0} placeholder="สูงสุด" value={filterPriceMax} onChange={(e) => setFilterPriceMax(e.target.value)} className="w-[64px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50" />
+                </div>
+              )}
+              {/* Divider */}
+              <div className="w-px h-3 bg-border shrink-0 mx-1" />
+              {/* Tag chips */}
+              {CATEGORY_TAGS.map((tag) => (
+                <button key={tag}
+                  onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 whitespace-nowrap transition-colors"
+                  style={filterTags.includes(tag) ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}>
+                  {tag}</button>
+              ))}
             </div>
-            {/* Sort — right-aligned on same row as tags */}
-            <div className="ml-auto flex items-center gap-1.5 shrink-0 pl-2">
+            {/* Sort — pinned right */}
+            <div className="flex items-center gap-1.5 shrink-0 pl-2 ml-1 border-l border-border">
               <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
               <Select value={tourSort} onValueChange={(v) => setTourSort(v as TourSortKey)}>
-                <SelectTrigger className="h-7 text-xs w-[150px] border-dashed">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-7 text-xs w-[150px] border-dashed"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="name">ชื่อโปรแกรม A→Z</SelectItem>
                   <SelectItem value="code">รหัสทัวร์ A→Z</SelectItem>
@@ -1610,44 +1608,6 @@ ${catBlocks}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          {/* ── Price preset chips ── */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-muted-foreground/60 font-medium shrink-0">฿</span>
-            {PRICE_PRESETS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => {
-                  setFilterPricePreset((prev) => (prev === key ? "" : key as PricePresetKey));
-                  if (key !== "custom") { setFilterPriceMin(""); setFilterPriceMax(""); }
-                }}
-                className="px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors"
-                style={filterPricePreset === key
-                  ? { background: "#7C3AED", color: "#fff", borderColor: "#7C3AED" }
-                  : { borderColor: "#E5E7EB", color: "#9CA3AF" }}
-              >{label}</button>
-            ))}
-            {filterPricePreset === "custom" && (
-              <div className="flex items-center gap-1 border border-violet-300 dark:border-violet-700 rounded-md px-2 h-6 ml-1">
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="ต่ำสุด"
-                  value={filterPriceMin}
-                  onChange={(e) => setFilterPriceMin(e.target.value)}
-                  className="w-[72px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
-                />
-                <span className="text-muted-foreground/40 text-xs">–</span>
-                <input
-                  type="number"
-                  min={0}
-                  placeholder="สูงสุด"
-                  value={filterPriceMax}
-                  onChange={(e) => setFilterPriceMax(e.target.value)}
-                  className="w-[72px] text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
