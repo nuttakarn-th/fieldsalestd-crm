@@ -79,7 +79,7 @@ export default function ContentManagementLayout() {
         </Link>
 
         {/* Breadcrumb — desktop only */}
-        <Link to="/app/marketing-hub" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
+        <Link to="/marketing/marketing-hub" className="hidden md:flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ChevronLeft className="w-3.5 h-3.5" /> Marketing Hub
         </Link>
         <span className="hidden md:inline text-muted-foreground/40 text-xs">/</span>

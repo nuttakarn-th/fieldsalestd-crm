@@ -66,7 +66,7 @@ const CATEGORIES: CategoryItem[] = [
     icon: TrendingUp,
     gradient: "from-violet-500 to-purple-600",
     count: 3,
-    to: "/app/marketing-hub",
+    to: "/marketing/marketing-hub",
   },
   {
     label: "Campaigns",
@@ -470,7 +470,7 @@ export default function MarketingPortal() {
             <div
               className="portal-fade relative overflow-hidden rounded-2xl cursor-pointer group h-full"
               style={{ animationDelay: "70ms", minHeight: 140 }}
-              onClick={() => navigate("/app/marketing-hub")}
+              onClick={() => navigate("/marketing/marketing-hub")}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-500 to-pink-500" />
               <div className="relative p-5 h-full flex flex-col justify-between" style={{ paddingRight: 120 }}>
@@ -506,7 +506,7 @@ export default function MarketingPortal() {
           >
             <h2 className="text-base font-bold">Categories</h2>
             <button
-              onClick={() => navigate("/app/marketing-hub")}
+              onClick={() => navigate("/marketing/marketing-hub")}
               className="text-xs text-purple-500 hover:text-purple-400 font-medium transition-colors"
             >
               View all
@@ -633,7 +633,7 @@ export default function MarketingPortal() {
                 </p>
               </div>
               <Link
-                to="/app/marketing-hub"
+                to="/marketing/marketing-hub"
                 className="text-[10px] text-purple-500 hover:text-purple-400 font-medium transition-colors"
               >
                 View all

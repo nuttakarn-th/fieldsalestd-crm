@@ -166,7 +166,7 @@ function MarketingCategorisedGrid() {
     <div className="flex flex-col gap-3.5">
       {/* ── Hero: Marketing Hub ──────────────────────────────────────────── */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both">
-      <Link to="/app/marketing-hub" className="group">
+      <Link to="/marketing/marketing-hub" className="group">
         <div
           className="relative overflow-hidden rounded-2xl px-5 py-4 flex items-center gap-4 transition-all duration-200 group-hover:brightness-108 group-hover:scale-[1.008]"
           style={{ background: "linear-gradient(135deg,#6d28d9 0%,#a855f7 45%,#db2777 100%)" }}
@@ -237,7 +237,7 @@ function MarketingCategorisedGrid() {
             </span>
             <div className="flex-1 h-px bg-red-500/30" />
             <Link
-              to="/app/marketing-hub"
+              to="/marketing/marketing-hub"
               className="text-[9px] text-white/30 hover:text-white/60 transition-colors"
             >
               ดูทั้งหมด →
@@ -245,7 +245,7 @@ function MarketingCategorisedGrid() {
           </div>
           <div className="flex gap-2 flex-wrap">
             {topUrgent.map((s) => (
-              <Link key={s.periodId} to="/app/marketing-hub" className="group/focus">
+              <Link key={s.periodId} to="/marketing/marketing-hub" className="group/focus">
                 <div className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-150 group-hover/focus:brightness-115 bg-red-500/10 border border-red-500/25">
                   <span className="text-[10px]">{s.type === "cancelled" ? "❌" : "🔥"}</span>
                   <span className="text-[10px] font-bold text-white/80">{s.tourCode}</span>

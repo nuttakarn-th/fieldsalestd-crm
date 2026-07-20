@@ -70,7 +70,7 @@ function SessionExpiryBanner() {
 // Marketing role มี sidebar/shell แยกของตัวเอง (MarketingLayout + /marketing/*)
 // หลายหน้ายังถูก dual-registered ไว้ทั้งใต้ /app/* (AppLayout) และ /marketing/* (MarketingLayout)
 // ถ้า Marketing หลุดเข้ามาทาง /app/* ของหน้าที่มีเทียบเท่าใน /marketing อยู่แล้ว ให้ redirect ไปเส้นทางนั้นแทน
-// เพื่อไม่ให้เห็น 2 sidebar คู่ขนาน — path ที่ยังไม่มีเทียบเท่า (เช่น /app/marketing-hub) ไม่อยู่ใน mapping นี้ ปล่อย render ปกติ
+// เพื่อไม่ให้เห็น 2 sidebar คู่ขนาน — path ที่ยังไม่มีเทียบเท่าไม่อยู่ใน mapping นี้ ปล่อย render ปกติ
 const APP_TO_MARKETING_PATH: Record<string, string> = {
   "/app": "/marketing",
   "/app/customers": "/marketing/customers",
@@ -79,6 +79,7 @@ const APP_TO_MARKETING_PATH: Record<string, string> = {
   "/app/stock-analytics": "/marketing/stock-analytics",
   "/app/marketing-report": "/marketing/marketing-report",
   "/app/marketing-leads": "/marketing/marketing-leads",
+  "/app/marketing-hub": "/marketing/marketing-hub",
 };
 
 export default function AppLayout() {

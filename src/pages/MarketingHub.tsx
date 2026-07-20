@@ -298,7 +298,7 @@ export default function MarketingHub() {
           )}
           <button
             type="button"
-            onClick={() => navigate("/app/stock-analytics")}
+            onClick={() => navigate("/marketing/stock-analytics")}
             className="flex items-center gap-1.5 text-xs text-violet-600 font-semibold hover:underline px-3 py-1.5 rounded-lg border border-violet-200 hover:bg-violet-50 transition-colors"
           >
             <TrendingUp className="w-3.5 h-3.5" />
