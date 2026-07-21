@@ -159,7 +159,7 @@ function PeriodRow({ item }: { item: ReadyItem }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ReadyToTravelNotification({ collapsed }: { collapsed: boolean }) {
+export function ReadyToTravelNotification({ collapsed, stockUrl = "/app/all-service" }: { collapsed: boolean; stockUrl?: string }) {
   const { international, domestic, all } = useReadyToTravel();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -208,7 +208,7 @@ export function ReadyToTravelNotification({ collapsed }: { collapsed: boolean })
           </div>
           <button
             type="button"
-            onClick={() => { setOpen(false); navigate("/app/all-service"); }}
+            onClick={() => { setOpen(false); navigate(stockUrl); }}
             className="flex items-center gap-1 text-[10px] text-primary hover:underline font-semibold"
           >
             จัดการ Stock <ExternalLink className="w-3 h-3" />
