@@ -19,7 +19,7 @@ import {
   TrendingUp, Eye, Users, MessageCircle, DollarSign,
   MousePointerClick, AlertTriangle, Info, Plus, Trash2,
   GitCompare, Loader2, CloudUpload, Trophy, Wrench, Rocket,
-  Save, CheckCircle2,
+  Save, CheckCircle2, Search, SlidersHorizontal, Zap,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
@@ -198,7 +198,7 @@ function KPICard({label,numericValue,prefix="",suffix="",decimals=0,compareValue
 // ── ② Chart Section ───────────────────────────────────────────────────────────
 const CHART_LIMIT=6;
 
-function ChartSection({ads,colMap,groupColorMap}:{ads:AdRow[];colMap:ColumnMap;groupColorMap:Record<string,string>}){
+function ChartSection({ads,colMap,groupColorMap,onGroupClick,activeGroupFilter}:{ads:AdRow[];colMap:ColumnMap;groupColorMap:Record<string,string>;onGroupClick:(g:string)=>void;activeGroupFilter:string|null}){
   // Donut — spend by group
   const spendData=Object.entries(
     ads.reduce<Record<string,number>>((acc,ad)=>{
@@ -233,9 +233,11 @@ function ChartSection({ads,colMap,groupColorMap}:{ads:AdRow[];colMap:ColumnMap;g
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={donutData.map(([name,value])=>({name,value}))} cx="50%" cy="50%"
-                    innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={0}>
+                    innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={0}
+                    onClick={(data)=>onGroupClick((data as {name:string}).name)} style={{cursor:"pointer"}}>
                     {donutData.map(([name],i)=>(
-                      <Cell key={name} fill={groupColorMap[name]??groupColor(i)}/>
+                      <Cell key={name} fill={groupColorMap[name]??groupColor(i)}
+                        opacity={activeGroupFilter&&activeGroupFilter!==name?0.3:1}/>
                     ))}
                   </Pie>
                   <RechartTooltip
@@ -270,9 +272,11 @@ function ChartSection({ads,colMap,groupColorMap}:{ads:AdRow[];colMap:ColumnMap;g
                 contentStyle={{background:"var(--background)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}
                 formatter={(v:number,[,,entry]:[unknown,unknown,{payload:{full:string}}])=>[v,entry?.payload?.full??""]}
               />
-              <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={18}>
+              <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={18}
+                onClick={(data)=>onGroupClick((data as {full:string}).full)} style={{cursor:"pointer"}}>
                 {msgData.map((entry,i)=>(
-                  <Cell key={entry.name} fill={groupColorMap[entry.full]??groupColor(i)}/>
+                  <Cell key={entry.name} fill={groupColorMap[entry.full]??groupColor(i)}
+                    opacity={activeGroupFilter&&activeGroupFilter!==entry.full?0.3:1}/>
                 ))}
               </Bar>
             </BarChart>
@@ -559,6 +563,51 @@ function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string
 function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JSON.parse(localStorage.getItem(lsKey(id))??"null");}catch{return null;}}
 function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
 
+// ── Top Performers strip ──────────────────────────────────────────────────────
+function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
+  ads:AdRow[];groupColorMap:Record<string,string>;onGroupClick:(g:string)=>void;activeGroupFilter:string|null;
+}){
+  if(ads.length===0)return null;
+  const groups=ads.reduce<Record<string,AdRow[]>>((acc,ad)=>{
+    if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;
+  },{});
+  const entries=Object.entries(groups);
+  const topCTR=entries.filter(([,a])=>avgN(a,"ctr")!==null)
+    .sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0];
+  const topMsg=entries.filter(([,a])=>sumN(a,"messages")>0)
+    .sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0];
+  const topCPM=entries.filter(([,a])=>avgN(a,"cpm")!==null)
+    .sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0];
+  const stars=[
+    topCTR&&{name:topCTR[0],label:"CTR สูงสุด",icon:<Trophy className="w-3.5 h-3.5"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTR[1],"ctr"),2)}%`},
+    topMsg&&{name:topMsg[0],label:"ข้อความมากสุด",icon:<MessageCircle className="w-3.5 h-3.5"/>,color:"#5DCAA5",val:`${fmtInt(sumN(topMsg[1],"messages"))} msg`},
+    topCPM&&{name:topCPM[0],label:"CPM ต่ำสุด",icon:<Zap className="w-3.5 h-3.5"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPM[1],"cpm"))}`},
+  ].filter(Boolean) as {name:string;label:string;icon:React.ReactNode;color:string;val:string}[];
+  if(stars.length===0)return null;
+  return(
+    <div className="flex gap-3 overflow-x-auto pb-1">
+      {stars.map(({name,label,icon,color,val})=>{
+        const isActive=activeGroupFilter===name;
+        return(
+          <button key={label} onClick={()=>onGroupClick(name)}
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl border text-left shrink-0 transition-all"
+            style={{background:isActive?`${color}18`:"var(--card)",borderColor:isActive?color:"var(--border)",
+              boxShadow:isActive?`0 0 0 2px ${color}44`:"none",transform:isActive?"scale(1.02)":"scale(1)"}}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:`${color}22`,color}}>
+              {icon}
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+              <p className="text-sm font-bold text-foreground max-w-[120px] truncate">{name}</p>
+              <p className="text-xs font-bold" style={{color}}>{val}</p>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdsReport(){
   const currentUser=useCurrentUser();
@@ -570,6 +619,9 @@ export default function AdsReport(){
   const[loadingReport,setLoadingReport]=useState(false);
   const[saving,setSaving]=useState(false);
   const[filterStatus,setFilterStatus]=useState<"all"|"active"|"not_delivering"|"archived">("all");
+  const[sortBy,setSortBy]=useState<"spend"|"messages"|"ctr"|"cpm">("spend");
+  const[activeGroupFilter,setActiveGroupFilter]=useState<string|null>(null);
+  const[searchQuery,setSearchQuery]=useState("");
   const[expandedGroups,setExpandedGroups]=useState<Record<string,boolean>>({});
   const[deleteConfirm,setDeleteConfirm]=useState<string|null>(null);
   const[missingCols,setMissingCols]=useState<string[]>([]);
@@ -632,7 +684,16 @@ export default function AdsReport(){
   // Build group entries + assign colors
   const groupEntries=Object.entries(
     filteredAds.reduce<Record<string,AdRow[]>>((acc,ad)=>{if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;},{})
-  ).sort(([,a],[,b])=>sumN(b,"spend")-sumN(a,"spend"));
+  ).filter(([g])=>{
+    if(activeGroupFilter&&g!==activeGroupFilter)return false;
+    if(searchQuery&&!g.toLowerCase().includes(searchQuery.toLowerCase()))return false;
+    return true;
+  }).sort(([,a],[,b])=>{
+    if(sortBy==="messages")return sumN(b,"messages")-sumN(a,"messages");
+    if(sortBy==="ctr"){const aV=avgN(a,"ctr")??-1,bV=avgN(b,"ctr")??-1;return bV-aV;}
+    if(sortBy==="cpm"){const aV=avgN(a,"cpm")??Infinity,bV=avgN(b,"cpm")??Infinity;return aV-bV;}
+    return sumN(b,"spend")-sumN(a,"spend");
+  });
 
   // Stable color map for all ads (not just filtered)
   const groupColorMap:Record<string,string>=Object.keys(
@@ -640,7 +701,8 @@ export default function AdsReport(){
   ).reduce<Record<string,string>>((acc,name,i)=>{acc[name]=groupColor(i);return acc;},{});
 
   return(
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{backgroundImage:"radial-gradient(ellipse at 30% -10%,rgba(127,119,221,0.08) 0%,transparent 55%)"}}>
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.slide-up{animation:slideUp 0.35s ease-out both}`}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
         {/* Header — hero card */}
@@ -803,30 +865,75 @@ export default function AdsReport(){
             </div>
 
             {/* ② Charts */}
-            <ChartSection ads={ads} colMap={cm} groupColorMap={groupColorMap}/>
+            <ChartSection ads={ads} colMap={cm} groupColorMap={groupColorMap}
+              onGroupClick={g=>setActiveGroupFilter(prev=>prev===g?null:g)}
+              activeGroupFilter={activeGroupFilter}/>
 
-            {/* Filter */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {(["all","active","not_delivering","archived"] as const).map(s=>{
-                const labels={all:`ทั้งหมด (${ads.length})`,active:`Active (${ads.filter(a=>a.status.toLowerCase()==="active").length})`,not_delivering:`Paused (${ads.filter(a=>a.status.toLowerCase()==="not_delivering").length})`,archived:`Archived (${ads.filter(a=>a.status.toLowerCase()==="archived").length})`};
-                return<button key={s} onClick={()=>setFilterStatus(s)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filterStatus===s?"bg-violet-600 text-white":"bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`}>
-                  {labels[s]}</button>;
-              })}
-              <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,true])))}
-                className="ml-auto px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ขยายทั้งหมด</button>
-              <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,false])))}
-                className="px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ย่อทั้งหมด</button>
+            {/* Top Performers — click to filter */}
+            <TopPerformers ads={ads} groupColorMap={groupColorMap}
+              onGroupClick={g=>setActiveGroupFilter(prev=>prev===g?null:g)}
+              activeGroupFilter={activeGroupFilter}/>
+
+            {/* Filter + Sort + Search */}
+            <div className="rounded-2xl border bg-card p-3 space-y-2.5">
+              {/* Row 1: status filter + search */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {(["all","active","not_delivering","archived"] as const).map(s=>{
+                  const labels={all:`ทั้งหมด (${ads.length})`,active:`Active (${ads.filter(a=>a.status.toLowerCase()==="active").length})`,not_delivering:`Paused (${ads.filter(a=>a.status.toLowerCase()==="not_delivering").length})`,archived:`Archived (${ads.filter(a=>a.status.toLowerCase()==="archived").length})`};
+                  return<button key={s} onClick={()=>setFilterStatus(s)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filterStatus===s?"bg-violet-600 text-white":"bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`}>
+                    {labels[s]}</button>;
+                })}
+                <div className="ml-auto flex items-center gap-1.5 bg-muted/60 rounded-xl px-3 py-1.5">
+                  <Search className="w-3 h-3 text-muted-foreground shrink-0"/>
+                  <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+                    placeholder="ค้นหากลุ่มโฆษณา..."
+                    className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/50 outline-none w-32"/>
+                  {searchQuery&&<button onClick={()=>setSearchQuery("")}><X className="w-3 h-3 text-muted-foreground"/></button>}
+                </div>
+              </div>
+              {/* Row 2: sort + active filter clear + expand/collapse */}
+              <div className="flex items-center gap-2 border-t border-border/40 pt-2.5 flex-wrap">
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1 shrink-0">
+                  <SlidersHorizontal className="w-3 h-3"/> เรียง:
+                </span>
+                {([
+                  {key:"spend" as const,label:"Spend"},
+                  {key:"messages" as const,label:"Messages",avail:cm.messages!==undefined},
+                  {key:"ctr" as const,label:"CTR ↑",avail:cm.ctr!==undefined},
+                  {key:"cpm" as const,label:"CPM ↓",avail:cm.cpm!==undefined},
+                ] as {key:"spend"|"messages"|"ctr"|"cpm";label:string;avail?:boolean}[]).map(({key,label,avail=true})=>(
+                  <button key={key} onClick={()=>avail&&setSortBy(key)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${!avail?"opacity-30 cursor-not-allowed":""} ${sortBy===key?"text-white":"bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                    style={sortBy===key?{background:"rgba(127,119,221,0.8)"}:{}}>
+                    {label}
+                  </button>
+                ))}
+                {activeGroupFilter&&(
+                  <button onClick={()=>setActiveGroupFilter(null)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 transition-colors">
+                    <X className="w-3 h-3"/> {activeGroupFilter}
+                  </button>
+                )}
+                <div className="ml-auto flex gap-1">
+                  <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,true])))}
+                    className="px-2.5 py-1 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ขยายทั้งหมด</button>
+                  <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,false])))}
+                    className="px-2.5 py-1 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ย่อทั้งหมด</button>
+                </div>
+              </div>
             </div>
 
             {/* ③ Group Cards */}
             <div className="space-y-3">
               {groupEntries.length===0
                 ?<div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground text-sm">ไม่มีโฆษณาในสถานะนี้</div>
-                :groupEntries.map(([g,gAds])=>(
-                  <GroupCard key={g} groupName={g} ads={gAds} cm={cm}
-                    expanded={expandedGroups[g]??false} onToggle={()=>toggleGroup(g)}
-                    color={groupColorMap[g]??groupColor(0)} totalSpend={totalSpend}/>
+                :groupEntries.map(([g,gAds],i)=>(
+                  <div key={g} className="slide-up" style={{animationDelay:`${i*45}ms`}}>
+                    <GroupCard groupName={g} ads={gAds} cm={cm}
+                      expanded={expandedGroups[g]??false} onToggle={()=>toggleGroup(g)}
+                      color={groupColorMap[g]??groupColor(0)} totalSpend={totalSpend}/>
+                  </div>
                 ))
               }
             </div>
