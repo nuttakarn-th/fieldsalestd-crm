@@ -89,12 +89,13 @@ const NAV_SECTIONS: NavSection[] = [
 
 // Category label colors
 function catColor(category: string) {
-  if (category === "LEADS")     return "text-purple-500/70";
-  if (category === "CAMPAIGNS") return "text-pink-500/70";
-  if (category === "CONTENT")   return "text-sky-500/70";
-  if (category === "STOCK")     return "text-violet-500/70";
-  if (category === "REPORTS")   return "text-emerald-500/70";
-  return "text-muted-foreground/50";
+  if (category === "OVERVIEW")  return "text-violet-400/80";
+  if (category === "LEADS")     return "text-purple-400/80";
+  if (category === "CAMPAIGNS") return "text-fuchsia-400/75";
+  if (category === "CONTENT")   return "text-violet-400/70";
+  if (category === "STOCK")     return "text-purple-400/70";
+  if (category === "REPORTS")   return "text-violet-400/85";
+  return "text-violet-400/50";
 }
 
 // ── useActiveItem: check if current URL matches a nav item ───────────────────
@@ -118,10 +119,10 @@ function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean })
   const Icon = item.icon;
   const isActive = useIsActive(item);
 
-  const cls = `flex items-center rounded-lg font-medium transition-colors ${
+  const cls = `relative flex items-center rounded-lg font-medium transition-colors ${
     isActive
-      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+      ? "bg-violet-500/10 text-violet-400"
+      : "text-muted-foreground hover:text-foreground hover:bg-violet-500/5"
   }`;
 
   if (collapsed) {
@@ -141,6 +142,7 @@ function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean })
 
   return (
     <Link to={item.to} className={`${cls} gap-2.5 px-3 py-2.5 text-sm`}>
+      {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-violet-400"/>}
       <Icon className="w-4 h-4 shrink-0" />
       <span className="truncate">{item.label}</span>
     </Link>
@@ -198,10 +200,13 @@ export default function MarketingLayout() {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`relative shrink-0 flex flex-col bg-card border-r border-border transition-[width] duration-200 ease-in-out overflow-hidden ${
+        className={`relative shrink-0 flex flex-col border-r border-violet-500/15 transition-[width] duration-200 ease-in-out overflow-hidden ${
           sidebarCollapsed ? "w-[60px]" : "w-56"
         }`}
+        style={{background:"linear-gradient(180deg,rgba(127,119,221,0.10) 0%,rgba(127,119,221,0.04) 35%,var(--card) 65%)"}}
       >
+        {/* Top violet accent line */}
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-violet-500 via-purple-400 to-transparent pointer-events-none z-10"/>
 
         {/* ── Brand ── */}
         <div className={`border-b border-border shrink-0 ${sidebarCollapsed ? "px-0 pt-4 pb-3 flex justify-center" : "px-4 pt-4 pb-3"}`}>
