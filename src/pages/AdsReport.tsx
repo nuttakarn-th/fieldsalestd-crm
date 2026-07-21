@@ -768,21 +768,21 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   ].filter(Boolean) as {name:string;label:string;icon:React.ReactNode;color:string;val:string}[];
   if(stars.length===0)return null;
   return(
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="grid grid-cols-3 gap-3">
       {stars.map(({name,label,icon,color,val})=>{
         const isActive=activeGroupFilter===name;
         return(
           <button key={label} onClick={()=>onGroupClick(name)}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl border text-left shrink-0 transition-all"
+            className="flex items-center gap-4 px-5 py-4 rounded-2xl border text-left transition-all w-full"
             style={{background:isActive?`${color}18`:"var(--card)",borderColor:isActive?color:"var(--border)",
-              boxShadow:isActive?`0 0 0 2px ${color}44`:"none",transform:isActive?"scale(1.02)":"scale(1)"}}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:`${color}22`,color}}>
+              boxShadow:isActive?`0 0 0 2px ${color}44`:"none",transform:isActive?"scale(1.01)":"scale(1)"}}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{background:`${color}22`,color}}>
               {icon}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
-              <p className="text-sm font-bold text-foreground max-w-[120px] truncate">{name}</p>
-              <p className="text-xs font-bold" style={{color}}>{val}</p>
+              <p className="text-sm font-bold text-foreground truncate">{name}</p>
+              <p className="text-base font-bold mt-0.5" style={{color}}>{val}</p>
             </div>
           </button>
         );
