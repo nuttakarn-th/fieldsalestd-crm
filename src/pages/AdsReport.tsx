@@ -9,7 +9,7 @@
  *
  * Supabase persistence — ทีม Marketing ทุกคนเห็นข้อมูลเดียวกัน
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PieChart, Pie, Cell, Tooltip as RechartTooltip,
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer,
@@ -148,6 +148,33 @@ function DeltaBadge({a,b,higherIsBetter=true}:{a:number|null;b:number|null;highe
     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${good?"bg-emerald-500/20 text-emerald-400":"bg-red-500/20 text-red-400"}`}>
       {sign}{Math.abs(diffPct).toFixed(1)}%
     </span>
+  );
+}
+
+// ── Sort / Heatmap / InlineDelta ─────────────────────────────────────────────
+type ColSortKey = 'name'|'spend'|'impressions'|'reach'|'cpm'|'ctr'|'messages'|'costPerMsg'|'pageEngagement';
+
+/** Green→Yellow→Red gradient based on relative value within the group */
+function heatBg(value:number|null,min:number,max:number,higherIsBetter:boolean,neutral=false):string{
+  if(value===null||min===max)return"transparent";
+  const pct=(value-min)/(max-min);
+  if(neutral)return`rgba(127,119,221,${(0.04+pct*0.18).toFixed(2)})`;
+  const p=higherIsBetter?pct:1-pct;
+  const g=[29,158,117],y=[239,159,39],r=[239,68,68];
+  const mix=(a:number[],b:number[],t:number)=>a.map((v,i)=>Math.round(v+t*(b[i]-v)));
+  const rgb=p>=0.5?mix(y,g,(p-0.5)*2):mix(r,y,p*2);
+  return`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(0.08+p*0.14).toFixed(2)})`;
+}
+
+/** Tiny inline ▲/▼ % badge shown below cell value when compare period is active */
+function InlineDelta({a,b,higherIsBetter=true}:{a:number|null;b:number|null;higherIsBetter?:boolean}){
+  if(a===null||b===null||b===0)return null;
+  const pct=((a-b)/Math.abs(b))*100;
+  const good=higherIsBetter?pct>=0:pct<=0;
+  return(
+    <div className={`text-[9px] font-bold leading-none mt-0.5 tabular-nums ${good?"text-emerald-400":"text-red-400"}`}>
+      {pct>=0?"▲":"▼"}{Math.abs(pct).toFixed(1)}%
+    </div>
   );
 }
 
@@ -307,10 +334,13 @@ function Sparkline({values,color}:{values:number[];color:string}){
   );
 }
 
-// ── ③ Group Card ──────────────────────────────────────────────────────────────
-function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend}:{
-  groupName:string;ads:AdRow[];cm:ColumnMap;expanded:boolean;onToggle:()=>void;color:string;totalSpend:number;
+// ── ③ Group Card (v6: sortable columns + heatmap + inline compare delta) ─────
+function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend,compareAds}:{
+  groupName:string;ads:AdRow[];cm:ColumnMap;expanded:boolean;onToggle:()=>void;
+  color:string;totalSpend:number;compareAds?:AdRow[];
 }){
+  const[colSort,setColSort]=useState<{key:ColSortKey;dir:'asc'|'desc'}|null>(null);
+
   const gSpend=sumN(ads,"spend");
   const gMsgs=sumN(ads,"messages");
   const gImpr=sumN(ads,"impressions");
@@ -321,6 +351,79 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend}:{
   const spendPct=totalSpend>0?(gSpend/totalSpend)*100:0;
   const sparkValues=ads.map(a=>a.spend??0).filter(v=>v>0);
 
+  // Heatmap ranges (min/max per column across all ads in this group)
+  const heatMeta:{k:keyof AdRow;hib:boolean;neutral?:boolean}[]=[
+    {k:"spend",hib:false,neutral:true},
+    {k:"impressions",hib:true},{k:"reach",hib:true},
+    {k:"cpm",hib:false},{k:"ctr",hib:true},
+    {k:"messages",hib:true},{k:"costPerMsg",hib:false},
+    {k:"pageEngagement",hib:true},
+  ];
+  const heatRange:Record<string,{min:number;max:number;hib:boolean;neutral:boolean}>=useMemo(()=>{
+    const out:Record<string,{min:number;max:number;hib:boolean;neutral:boolean}>={};
+    for(const{k,hib,neutral=false}of heatMeta){
+      const vals=ads.map(a=>a[k]).filter(v=>typeof v==="number")as number[];
+      if(vals.length>1)out[k as string]={min:Math.min(...vals),max:Math.max(...vals),hib,neutral};
+    }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[ads]);
+
+  // Compare map: ad name → compare AdRow
+  const cmpMap=useMemo(()=>
+    compareAds?Object.fromEntries(compareAds.map(a=>[a.name,a])):{},
+  [compareAds]);
+  const hasCmp=!!(compareAds&&compareAds.length>0);
+
+  // Column sort toggle
+  const onColSort=(key:ColSortKey)=>setColSort(prev=>
+    prev?.key===key?{key,dir:prev.dir==='asc'?'desc':'asc'}:{key,dir:'desc'}
+  );
+
+  // Sorted rows
+  const sortedAds=useMemo(()=>{
+    if(!colSort)return ads;
+    return[...ads].sort((a,b)=>{
+      const dir=colSort.dir==='asc'?1:-1;
+      if(colSort.key==='name')return dir*a.name.localeCompare(b.name);
+      const av=a[colSort.key as keyof AdRow]as number|null;
+      const bv=b[colSort.key as keyof AdRow]as number|null;
+      if(av===null&&bv===null)return 0;
+      if(av===null)return 1;
+      if(bv===null)return -1;
+      return dir*(av-bv);
+    });
+  },[ads,colSort]);
+
+  // Sortable header <th>
+  const SortTh=({label,colKey}:{label:string;colKey:ColSortKey})=>{
+    const isActive=colSort?.key===colKey;
+    return(
+      <th onClick={()=>onColSort(colKey)}
+        className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right cursor-pointer select-none hover:text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap">
+        <span className="inline-flex items-center justify-end gap-0.5">
+          {label}
+          <span className={`text-[9px] ${isActive?"text-violet-400":"text-muted-foreground/30"}`}>
+            {isActive?(colSort!.dir==='asc'?'↑':'↓'):'↕'}
+          </span>
+        </span>
+      </th>
+    );
+  };
+
+  // Numeric cell with heatmap background + optional inline compare delta
+  const Cell=({col,value,fmt,hib}:{col:keyof AdRow;value:number|null;fmt:(v:number|null)=>string;hib:boolean})=>{
+    const hr=heatRange[col as string];
+    const bg=hr?heatBg(value,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+    const cmpAd=cmpMap[(sortedAds.find(a=>a[col]===value&&a[col]!==null)||{name:""}).name];
+    return(
+      <td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+        <div className="font-medium">{fmt(value)}</div>
+        {hasCmp&&cmpAd&&<InlineDelta a={value} b={cmpAd[col]as number|null} higherIsBetter={hib}/>}
+      </td>
+    );
+  };
+
   return(
     <div className="rounded-2xl border bg-card overflow-hidden" style={{borderLeftColor:color,borderLeftWidth:3}}>
       <button onClick={onToggle} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
@@ -330,7 +433,6 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend}:{
             <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{ads.length} โฆษณา</span>
             {active>0&&<span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">{active} กำลังแสดง</span>}
           </div>
-          {/* Progress bar */}
           {cm.spend!==undefined&&(
             <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
               <div className="h-full rounded-full transition-all duration-700" style={{width:`${spendPct}%`,background:color}}/>
@@ -358,35 +460,116 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend}:{
           <table className="w-full min-w-max text-left">
             <thead>
               <tr className="bg-muted/30">
-                <th className="py-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ad Name</th>
+                {/* Ad Name — sortable */}
+                <th onClick={()=>onColSort('name')}
+                  className="py-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer select-none hover:text-foreground hover:bg-muted/60 transition-colors">
+                  <span className="inline-flex items-center gap-0.5">
+                    Ad Name
+                    <span className={`text-[9px] ${colSort?.key==='name'?"text-violet-400":"text-muted-foreground/30"}`}>
+                      {colSort?.key==='name'?(colSort.dir==='asc'?'↑':'↓'):'↕'}
+                    </span>
+                  </span>
+                </th>
                 <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                {cm.spend!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Spend (฿)</th>}
-                {cm.impressions!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Impr.</th>}
-                {cm.reach!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Reach</th>}
-                {cm.cpm!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CPM</th>}
-                {cm.ctr!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CTR</th>}
-                {cm.messages!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Messages</th>}
-                {cm.costPerMsg!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Cost/Msg</th>}
-                {cm.pageEngagement!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Page Eng.</th>}
+                {cm.spend!==undefined&&<SortTh label="Spend (฿)" colKey="spend"/>}
+                {cm.impressions!==undefined&&<SortTh label="Impr." colKey="impressions"/>}
+                {cm.reach!==undefined&&<SortTh label="Reach" colKey="reach"/>}
+                {cm.cpm!==undefined&&<SortTh label="CPM" colKey="cpm"/>}
+                {cm.ctr!==undefined&&<SortTh label="CTR" colKey="ctr"/>}
+                {cm.messages!==undefined&&<SortTh label="Messages" colKey="messages"/>}
+                {cm.costPerMsg!==undefined&&<SortTh label="Cost/Msg" colKey="costPerMsg"/>}
+                {cm.pageEngagement!==undefined&&<SortTh label="Page Eng." colKey="pageEngagement"/>}
               </tr>
             </thead>
             <tbody>
-              {ads.map((ad,i)=>(
-                <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                  <td className="py-2.5 px-3 text-xs font-medium max-w-[200px]"><span className="truncate block" title={ad.name}>{ad.name}</span></td>
-                  <td className="py-2.5 px-2 text-center"><StatusBadge status={ad.status}/></td>
-                  {cm.spend!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.spend)}</td>}
-                  {cm.impressions!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.impressions)}</td>}
-                  {cm.reach!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.reach)}</td>}
-                  {cm.cpm!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.cpm)}</td>}
-                  {cm.ctr!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{ad.ctr!==null?fmtN(ad.ctr,2)+"%":"—"}</td>}
-                  {cm.messages!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.messages)}</td>}
-                  {cm.costPerMsg!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.costPerMsg)}</td>}
-                  {cm.pageEngagement!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.pageEngagement)}</td>}
-                </tr>
-              ))}
+              {sortedAds.map((ad,i)=>{
+                const cmpAd=cmpMap[ad.name];
+                return(
+                  <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                    <td className="py-2 px-3 text-xs font-medium max-w-[200px]">
+                      <span className="truncate block" title={ad.name}>{ad.name}</span>
+                    </td>
+                    <td className="py-2 px-2 text-center"><StatusBadge status={ad.status}/></td>
+                    {cm.spend!==undefined&&(()=>{
+                      const hr=heatRange["spend"];
+                      const bg=hr?heatBg(ad.spend,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{ad.spend===null?"—":`฿${fmtB(ad.spend)}`}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.spend} b={cmpAd.spend} higherIsBetter={false}/>}
+                      </td>;
+                    })()}
+                    {cm.impressions!==undefined&&(()=>{
+                      const hr=heatRange["impressions"];
+                      const bg=hr?heatBg(ad.impressions,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{fmtInt(ad.impressions)}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.impressions} b={cmpAd.impressions} higherIsBetter={true}/>}
+                      </td>;
+                    })()}
+                    {cm.reach!==undefined&&(()=>{
+                      const hr=heatRange["reach"];
+                      const bg=hr?heatBg(ad.reach,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{fmtInt(ad.reach)}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.reach} b={cmpAd.reach} higherIsBetter={true}/>}
+                      </td>;
+                    })()}
+                    {cm.cpm!==undefined&&(()=>{
+                      const hr=heatRange["cpm"];
+                      const bg=hr?heatBg(ad.cpm,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{ad.cpm===null?"—":`฿${fmtB(ad.cpm)}`}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.cpm} b={cmpAd.cpm} higherIsBetter={false}/>}
+                      </td>;
+                    })()}
+                    {cm.ctr!==undefined&&(()=>{
+                      const hr=heatRange["ctr"];
+                      const bg=hr?heatBg(ad.ctr,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{ad.ctr!==null?fmtN(ad.ctr,2)+"%":"—"}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.ctr} b={cmpAd.ctr} higherIsBetter={true}/>}
+                      </td>;
+                    })()}
+                    {cm.messages!==undefined&&(()=>{
+                      const hr=heatRange["messages"];
+                      const bg=hr?heatBg(ad.messages,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{fmtInt(ad.messages)}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.messages} b={cmpAd.messages} higherIsBetter={true}/>}
+                      </td>;
+                    })()}
+                    {cm.costPerMsg!==undefined&&(()=>{
+                      const hr=heatRange["costPerMsg"];
+                      const bg=hr?heatBg(ad.costPerMsg,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{ad.costPerMsg===null?"—":`฿${fmtB(ad.costPerMsg)}`}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.costPerMsg} b={cmpAd.costPerMsg} higherIsBetter={false}/>}
+                      </td>;
+                    })()}
+                    {cm.pageEngagement!==undefined&&(()=>{
+                      const hr=heatRange["pageEngagement"];
+                      const bg=hr?heatBg(ad.pageEngagement,hr.min,hr.max,hr.hib,hr.neutral):"transparent";
+                      return<td className="py-2 px-2 text-right text-xs tabular-nums transition-colors" style={{background:bg}}>
+                        <div className="font-medium">{fmtInt(ad.pageEngagement)}</div>
+                        {hasCmp&&cmpAd&&<InlineDelta a={ad.pageEngagement} b={cmpAd.pageEngagement} higherIsBetter={true}/>}
+                      </td>;
+                    })()}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          {/* Legend */}
+          {ads.length>1&&(
+            <div className="flex items-center gap-4 px-3 py-2 border-t border-border/30 bg-muted/10">
+              <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Heatmap:</span>
+              <span className="flex items-center gap-1 text-[9px] text-emerald-400"><span className="w-2.5 h-2 rounded-sm" style={{background:"rgba(29,158,117,0.22)"}}/>ดีสุด</span>
+              <span className="flex items-center gap-1 text-[9px] text-amber-400"><span className="w-2.5 h-2 rounded-sm" style={{background:"rgba(239,159,39,0.16)"}}/>กลาง</span>
+              <span className="flex items-center gap-1 text-[9px] text-red-400"><span className="w-2.5 h-2 rounded-sm" style={{background:"rgba(239,68,68,0.22)"}}/>ต้องปรับ</span>
+              <span className="flex items-center gap-1 text-[9px] text-violet-400"><span className="w-2.5 h-2 rounded-sm" style={{background:"rgba(127,119,221,0.18)"}}/>Spend (scale)</span>
+              {hasCmp&&<span className="ml-auto text-[9px] text-muted-foreground">▲▼ = เทียบ period ก่อน</span>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -695,6 +878,14 @@ export default function AdsReport(){
     return sumN(b,"spend")-sumN(a,"spend");
   });
 
+  // Compare group map — group name → AdRow[] from compare period
+  const compareGroupMap:Record<string,AdRow[]>=useMemo(()=>{
+    if(!compareReport)return{};
+    return compareReport.ads.reduce<Record<string,AdRow[]>>((acc,ad)=>{
+      if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;
+    },{});
+  },[compareReport]);
+
   // Stable color map for all ads (not just filtered)
   const groupColorMap:Record<string,string>=Object.keys(
     ads.reduce<Record<string,boolean>>((acc,ad)=>{acc[ad.group]=true;return acc;},{})
@@ -932,7 +1123,8 @@ export default function AdsReport(){
                   <div key={g} className="slide-up" style={{animationDelay:`${i*45}ms`}}>
                     <GroupCard groupName={g} ads={gAds} cm={cm}
                       expanded={expandedGroups[g]??false} onToggle={()=>toggleGroup(g)}
-                      color={groupColorMap[g]??groupColor(0)} totalSpend={totalSpend}/>
+                      color={groupColorMap[g]??groupColor(0)} totalSpend={totalSpend}
+                      compareAds={compareMode&&compareReport?compareGroupMap[g]:undefined}/>
                   </div>
                 ))
               }
