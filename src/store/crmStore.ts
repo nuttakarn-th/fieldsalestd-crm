@@ -4,7 +4,7 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
-import { logActivity } from "@/lib/activityLog";
+import { logActivity, getDeptFromRole } from "@/lib/activityLog";
 
 export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent";
 export type Tier = "New" | "Regular" | "VIP";
@@ -1121,6 +1121,7 @@ export const useCRM = create<CRMState>()(
       entity_type: "customer",
       entity_id:   id,
       entity_name: newC.full_name,
+      department:  getDeptFromRole(currentUser?.role),
     });
     return id;
   },
@@ -1157,6 +1158,8 @@ export const useCRM = create<CRMState>()(
       });
     }
     if (cust) {
+      const { currentUserId, users: _users } = useAuth.getState();
+      const _delUser = currentUserId ? _users.find((u) => u.user_id === currentUserId) : null;
       logActivity({
         event_type:  "customer_deleted",
         actor:       cust.created_by ?? "ระบบ",
@@ -1165,6 +1168,7 @@ export const useCRM = create<CRMState>()(
         entity_type: "customer",
         entity_id:   id,
         entity_name: cust.full_name,
+        department:  getDeptFromRole(_delUser?.role),
       });
     }
   },
@@ -1268,15 +1272,20 @@ export const useCRM = create<CRMState>()(
       });
     }
     const cust = get().customers.find((c) => c.customer_id === l.customer_id);
-    logActivity({
-      event_type:  "lead_added",
-      actor:       l.sales_rep ?? "ระบบ",
-      subject:     "สร้าง Lead ใหม่",
-      detail:      `${cust?.full_name ?? l.customer_id} · ${l.bu_type} · ${l.pax_count} pax`,
-      entity_type: "lead",
-      entity_id:   id,
-      entity_name: cust?.full_name ?? l.customer_id,
-    });
+    {
+      const { currentUserId, users: _au } = useAuth.getState();
+      const _addLeadUser = currentUserId ? _au.find((u) => u.user_id === currentUserId) : null;
+      logActivity({
+        event_type:  "lead_added",
+        actor:       l.sales_rep ?? "ระบบ",
+        subject:     "สร้าง Lead ใหม่",
+        detail:      `${cust?.full_name ?? l.customer_id} · ${l.bu_type} · ${l.pax_count} pax`,
+        entity_type: "lead",
+        entity_id:   id,
+        entity_name: cust?.full_name ?? l.customer_id,
+        department:  getDeptFromRole(_addLeadUser?.role),
+      });
+    }
   },
 
   deleteLead: (leadId) => {
@@ -1485,6 +1494,8 @@ export const useCRM = create<CRMState>()(
         : isLostStatus(status)
           ? "lead_lost"
           : "lead_status_changed";
+      const { currentUserId, users: _slu } = useAuth.getState();
+      const _slUser = currentUserId ? _slu.find((u) => u.user_id === currentUserId) : null;
       logActivity({
         event_type:  eventType,
         actor:       lead.sales_rep ?? "ระบบ",
@@ -1498,6 +1509,7 @@ export const useCRM = create<CRMState>()(
         entity_id:   leadId,
         entity_name: custName,
         meta:        { prev_status: prevStatus, new_status: status },
+        department:  getDeptFromRole(_slUser?.role),
       });
     }
   },

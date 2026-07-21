@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner";
 import { ImportExportMenu } from "@/components/ImportExportMenu";
 import type { ExcelField } from "@/lib/excelUtils";
-import { logActivity } from "@/lib/activityLog";
+import { logActivity, getDeptFromRole } from "@/lib/activityLog";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -1015,6 +1015,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       detail:      msg,
       entity_type: "tour",
       meta:        { created, periods_added: periodsAdded, errors: errors.length },
+      department:  getDeptFromRole(role),
     });
   };
 

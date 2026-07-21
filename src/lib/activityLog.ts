@@ -55,6 +55,16 @@ export interface ActivityEntry {
   meta?:        Record<string, unknown>;
 }
 
+// ── Role → Department helper ──────────────────────────────────────────────────
+
+export function getDeptFromRole(role?: string): "OB" | "Sales" | "Marketing" | "System" {
+  if (!role) return "System";
+  if (role === "OB Co-ordinator" || role === "OB Manager") return "OB";
+  if (role === "Sales" || role === "Sales Manager")        return "Sales";
+  if (role === "Marketing")                                return "Marketing";
+  return "System";
+}
+
 // ── Tiny in-process bus ───────────────────────────────────────────────────────
 // activityLogStore subscribe ที่นี่เพื่อรับ local push ก่อน Supabase ตอบกลับ
 

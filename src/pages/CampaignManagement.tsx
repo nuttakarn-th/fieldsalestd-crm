@@ -248,22 +248,22 @@ export default function CampaignManagement() {
     if (editId) {
       updateCampaign(editId, payload);
       logActivity({ event_type: "campaign_updated", actor: actorName, subject: "แก้ไขแคมเปญ",
-        detail: `${payload.name} · ${payload.channels.join(", ")}`, entity_type: "campaign", entity_id: editId, entity_name: payload.name });
+        detail: `${payload.name} · ${payload.channels.join(", ")}`, entity_type: "campaign", entity_id: editId, entity_name: payload.name, department: "Marketing" });
     } else {
       addCampaign(payload);
       logActivity({ event_type: "campaign_added", actor: actorName, subject: "สร้างแคมเปญใหม่",
-        detail: `${payload.name} · ${payload.channels.join(", ")}`, entity_type: "campaign", entity_name: payload.name });
+        detail: `${payload.name} · ${payload.channels.join(", ")}`, entity_type: "campaign", entity_name: payload.name, department: "Marketing" });
     }
     setDialogOpen(false); setEditId(null); setForm(EMPTY_FORM);
   }
   function handleInlineStatus(id: string, status: CampaignStatus) {
     const camp = campaigns.find((c) => c.id === id);
     updateCampaign(id, { status });
-    if (camp) logActivity({ event_type: "campaign_status_changed", actor: actorName, subject: `แคมเปญ → ${status}`, detail: camp.name, entity_type: "campaign", entity_id: id, entity_name: camp.name, meta: { new_status: status } });
+    if (camp) logActivity({ event_type: "campaign_status_changed", actor: actorName, subject: `แคมเปญ → ${status}`, detail: camp.name, entity_type: "campaign", entity_id: id, entity_name: camp.name, meta: { new_status: status }, department: "Marketing" });
   }
   function handleDelete() {
     if (deleteTarget) {
-      logActivity({ event_type: "campaign_deleted", actor: actorName, subject: "ลบแคมเปญ", detail: deleteTarget.name, entity_type: "campaign", entity_id: deleteTarget.id, entity_name: deleteTarget.name });
+      logActivity({ event_type: "campaign_deleted", actor: actorName, subject: "ลบแคมเปญ", detail: deleteTarget.name, entity_type: "campaign", entity_id: deleteTarget.id, entity_name: deleteTarget.name, department: "Marketing" });
       deleteCampaign(deleteTarget.id);
     }
     setDeleteTarget(null);
