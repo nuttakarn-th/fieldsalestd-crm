@@ -35,6 +35,8 @@ export interface Customer {
   birthday?: string;          // YYYY-MM-DD — for birthday campaigns
   interests?: string[];       // multi-service tags e.g. ["ทัวร์ต่างประเทศ","Visa"]
   note?: string;              // meeting notes / บันทึกการพบลูกค้า
+  fb_name?: string;           // ชื่อบน Facebook (ถ้า source = "FB")
+  tiktok_username?: string;   // TikTok @username (ถ้า source = "TikTok")
   last_contacted_at?: string; // ISO datetime — auto-updated on new lead
   source: Source;
   segment: Segment;

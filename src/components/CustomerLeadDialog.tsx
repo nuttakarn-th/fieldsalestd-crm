@@ -239,6 +239,10 @@ export function CustomerLeadDialog({
   const [pax, setPax]                     = useState("1");
   const [urgency, setUrgency]             = useState<Urgency>("Warm");
 
+  // ── Social handle (conditional on source) ───────────────────────────────────
+  const [fbName, setFbName]               = useState("");
+  const [tiktokUsername, setTiktokUsername] = useState("");
+
   // ── Zone 2: Contact ─────────────────────────────────────────────────────────
   const [fullName, setFullName]           = useState("");
   const [phone, setPhone]                 = useState("");
@@ -297,6 +301,8 @@ export function CustomerLeadDialog({
         setBirthday(c.birthday ?? "");
         setMeetingNote(c.note ?? "");
         setSource(c.source);
+        setFbName(c.fb_name ?? "");
+        setTiktokUsername(c.tiktok_username ?? "");
       }
     }
   }, [existingId, mode, customers]);
@@ -320,6 +326,7 @@ export function CustomerLeadDialog({
   // ── Reset ────────────────────────────────────────────────────────────────────
   const reset = () => {
     setMode("new"); setExistingId(""); setShowEnrichment(false);
+    setFbName(""); setTiktokUsername("");
     setSource("Line OA"); setBuType("ทัวร์ต่างประเทศ");
     setIntProgram("__custom__"); setTourId(undefined); setPeriodId(undefined);
     setCarServiceId("__custom__"); setFlightServiceId("__custom__");
@@ -347,6 +354,8 @@ export function CustomerLeadDialog({
       birthday: birthday || undefined,
       note: meetingNote || undefined,
       source,
+      fb_name: source === "FB" ? (fbName || undefined) : undefined,
+      tiktok_username: source === "TikTok" ? (tiktokUsername || undefined) : undefined,
     };
     if (mode === "new") {
       cid = addCustomer({ ...customerPatch, segment: "B2C Individual", created_by: owner, interests: [buType] });
@@ -561,6 +570,34 @@ export function CustomerLeadDialog({
               </Select>
             </div>
           </div>
+
+          {/* Conditional Social Handle fields */}
+          {source === "FB" && (
+            <div>
+              <Label className="flex items-center gap-1.5">
+                <span>📘</span> ชื่อบน Facebook
+                <span className="text-[10px] text-muted-foreground font-normal">(ไม่บังคับ)</span>
+              </Label>
+              <Input
+                value={fbName}
+                onChange={(e) => setFbName(e.target.value)}
+                placeholder="เช่น สมชาย ใจดี หรือ Somchai Jaidee"
+              />
+            </div>
+          )}
+          {source === "TikTok" && (
+            <div>
+              <Label className="flex items-center gap-1.5">
+                <span>🎵</span> TikTok Username
+                <span className="text-[10px] text-muted-foreground font-normal">(ไม่บังคับ)</span>
+              </Label>
+              <Input
+                value={tiktokUsername}
+                onChange={(e) => setTiktokUsername(e.target.value)}
+                placeholder="@username"
+              />
+            </div>
+          )}
 
           <div>
             <Label>ประเภทบริการ</Label>
