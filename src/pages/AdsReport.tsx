@@ -172,18 +172,20 @@ function KPICard({label,numericValue,prefix="",suffix="",decimals=0,compareValue
     ?`${prefix}${animated.toLocaleString("th-TH",{minimumFractionDigits:decimals,maximumFractionDigits:decimals})}${suffix}`
     :"ไม่มีข้อมูล";
   return(
-    <div className={`rounded-2xl border bg-card flex flex-col overflow-hidden ${!available?"opacity-40":""}`}>
-      <div className="px-4 pt-4 pb-3 flex flex-col gap-2 flex-1">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground font-medium">{label}</span>
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:accentColor+"33"}}>
+    <div className={`rounded-2xl border bg-card flex flex-col overflow-hidden shadow-sm ${!available?"opacity-40":""}`}>
+      <div className="px-5 pt-5 pb-4 flex flex-col gap-3 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-xs text-muted-foreground font-medium leading-tight pt-0.5">{label}</span>
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{background:accentColor+"22"}}>
             <span style={{color:accentColor}}>{icon}</span>
           </div>
         </div>
-        <div className="flex items-end gap-2 flex-wrap">
-          <p className="text-2xl font-bold tracking-tight" style={{color:accentColor}}>{display}</p>
+        <div>
+          <p className="text-3xl font-bold tracking-tight text-foreground">{display}</p>
           {compareValue!==undefined&&compareValue!==null&&numericValue!==null&&(
-            <DeltaBadge a={numericValue} b={compareValue} higherIsBetter={higherIsBetter}/>
+            <div className="mt-1.5">
+              <DeltaBadge a={numericValue} b={compareValue} higherIsBetter={higherIsBetter}/>
+            </div>
           )}
         </div>
       </div>
@@ -227,11 +229,11 @@ function ChartSection({ads,colMap,groupColorMap}:{ads:AdRow[];colMap:ColumnMap;g
         <div className="rounded-2xl border bg-card p-4">
           <p className="text-sm font-semibold mb-3">Spend by group</p>
           <div className="flex items-center gap-4">
-            <div style={{width:120,height:120,flexShrink:0}}>
+            <div style={{width:148,height:148,flexShrink:0}}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={donutData.map(([name,value])=>({name,value}))} cx="50%" cy="50%"
-                    innerRadius={32} outerRadius={54} paddingAngle={2} dataKey="value" strokeWidth={0}>
+                    innerRadius={40} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={0}>
                     {donutData.map(([name],i)=>(
                       <Cell key={name} fill={groupColorMap[name]??groupColor(i)}/>
                     ))}
@@ -639,21 +641,46 @@ export default function AdsReport(){
 
   return(
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-violet-400"/> Meta Ads Report
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {SUPABASE_ENABLED?"บันทึก report ลง Cloud — ทีม Marketing ทุกคนเห็นข้อมูลเดียวกัน":"บันทึก report ลง localStorage"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
-            <UploadZone onFile={handleFile} compact/>
+        {/* Header — hero card */}
+        <div className="rounded-2xl border bg-card overflow-hidden shadow-sm">
+          <div className="relative px-6 py-5" style={{background:"linear-gradient(135deg,rgba(127,119,221,0.10) 0%,rgba(55,138,221,0.06) 100%)"}}>
+            {/* Top gradient accent line */}
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-violet-500 via-blue-400 to-transparent"/>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{background:"rgba(127,119,221,0.18)"}}>
+                  <TrendingUp className="w-5 h-5 text-violet-400"/>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight">Meta Ads Report</h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {SUPABASE_ENABLED?"Cloud sync · ทีม Marketing เห็นข้อมูลเดียวกัน":"บันทึก report ลง localStorage"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
+                <UploadZone onFile={handleFile} compact/>
+              </div>
+            </div>
+            {activeReport&&(
+              <div className="mt-4 pt-4 border-t border-border/40 flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={{background:"rgba(127,119,221,0.15)",color:"#a5a1ee",border:"1px solid rgba(127,119,221,0.25)"}}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"/>
+                  {activeReport.period_label}
+                </span>
+                {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">ยอดรวม <b className="text-foreground">฿{fmtB(totalSpend)}</b></span>}
+                <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"/>
+                  {ads.filter(a=>a.status.toLowerCase()==="active").length} active
+                </span>
+                <span className="text-xs bg-muted px-2.5 py-1 rounded-full text-muted-foreground">{ads.length} โฆษณา</span>
+                <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by??"—"}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -752,16 +779,6 @@ export default function AdsReport(){
           <>
             {compareMode&&compareReport&&<ComparePanel a={activeReport} b={compareReport}/>}
 
-            {/* Period info */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-muted-foreground">ช่วงเวลา: <b className="text-foreground">{activeReport.period_label}</b></span>
-              <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{ads.length} โฆษณา</span>
-              <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">
-                {ads.filter(a=>a.status.toLowerCase()==="active").length} กำลังแสดง
-              </span>
-              <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by??"—"}</span>
-            </div>
-
             {missingCols.length>0&&(
               <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5"/>
@@ -772,12 +789,12 @@ export default function AdsReport(){
             {/* ① KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                {label:"ยอดใช้จ่าย (฿)",num:sumN(ads,"spend"),prefix:"฿",decimals:2,cmp:compareReport?sumN(compareReport.ads,"spend"):undefined,icon:<DollarSign className="w-4 h-4"/>,color:"#7F77DD",avail:cm.spend!==undefined,hib:false},
-                {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-4 h-4"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
-                {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-4 h-4"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
-                {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-4 h-4"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
-                {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-4 h-4"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
-                {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-4 h-4"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
+                {label:"ยอดใช้จ่าย (฿)",num:sumN(ads,"spend"),prefix:"฿",decimals:2,cmp:compareReport?sumN(compareReport.ads,"spend"):undefined,icon:<DollarSign className="w-5 h-5"/>,color:"#7F77DD",avail:cm.spend!==undefined,hib:false},
+                {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-5 h-5"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
+                {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-5 h-5"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
+                {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-5 h-5"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
+                {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-5 h-5"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
+                {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-5 h-5"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
               ].map(({label,num,prefix,suffix,decimals,cmp,icon,color,avail,hib})=>(
                 <KPICard key={label} label={label} numericValue={num} prefix={prefix} suffix={suffix??""} decimals={decimals}
                   compareValue={compareMode&&compareReport?cmp:undefined}
