@@ -746,7 +746,7 @@ function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string
 function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JSON.parse(localStorage.getItem(lsKey(id))??"null");}catch{return null;}}
 function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
 
-// ── Top Performers strip ──────────────────────────────────────────────────────
+// ── Top Performers — Premium Editorial Cards ──────────────────────────────────
 function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   ads:AdRow[];groupColorMap:Record<string,string>;onGroupClick:(g:string)=>void;activeGroupFilter:string|null;
 }){
@@ -762,31 +762,82 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   const topCPM=entries.filter(([,a])=>avgN(a,"cpm")!==null)
     .sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0];
   const stars=[
-    topCTR&&{name:topCTR[0],label:"CTR สูงสุด",icon:<Trophy className="w-3.5 h-3.5"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTR[1],"ctr"),2)}%`},
-    topMsg&&{name:topMsg[0],label:"ข้อความมากสุด",icon:<MessageCircle className="w-3.5 h-3.5"/>,color:"#5DCAA5",val:`${fmtInt(sumN(topMsg[1],"messages"))} msg`},
-    topCPM&&{name:topCPM[0],label:"CPM ต่ำสุด",icon:<Zap className="w-3.5 h-3.5"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPM[1],"cpm"))}`},
-  ].filter(Boolean) as {name:string;label:string;icon:React.ReactNode;color:string;val:string}[];
+    topCTR&&{name:topCTR[0],label:"CTR สูงสุด",sublabel:"Click-Through Rate",icon:<Trophy className="w-4 h-4"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTR[1],"ctr"),2)}%`},
+    topMsg&&{name:topMsg[0],label:"ข้อความมากสุด",sublabel:"Total Messages",icon:<MessageCircle className="w-4 h-4"/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsg[1],"messages"))}`},
+    topCPM&&{name:topCPM[0],label:"CPM ต่ำสุด",sublabel:"Cost per 1K Impressions",icon:<Zap className="w-4 h-4"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPM[1],"cpm"))}`},
+  ].filter(Boolean) as {name:string;label:string;sublabel:string;icon:React.ReactNode;color:string;val:string}[];
   if(stars.length===0)return null;
+
+  const RANK_LABELS=["WINNER","TOP","BEST"];
+
   return(
-    <div className="grid grid-cols-3 gap-3">
-      {stars.map(({name,label,icon,color,val})=>{
-        const isActive=activeGroupFilter===name;
-        return(
-          <button key={label} onClick={()=>onGroupClick(name)}
-            className="flex items-center gap-4 px-5 py-4 rounded-2xl border text-left transition-all w-full"
-            style={{background:isActive?`${color}18`:"var(--card)",borderColor:isActive?color:"var(--border)",
-              boxShadow:isActive?`0 0 0 2px ${color}44`:"none",transform:isActive?"scale(1.01)":"scale(1)"}}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{background:`${color}22`,color}}>
-              {icon}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
-              <p className="text-sm font-bold text-foreground truncate">{name}</p>
-              <p className="text-base font-bold mt-0.5" style={{color}}>{val}</p>
-            </div>
-          </button>
-        );
-      })}
+    <div className="space-y-2">
+      {/* Divider label */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,var(--border))"}}/>
+        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground/50">Top Performers</span>
+        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,var(--border),transparent)"}}/>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        {stars.map(({name,label,sublabel,icon,color,val},idx)=>{
+          const isActive=activeGroupFilter===name;
+          return(
+            <button key={label} onClick={()=>onGroupClick(name)}
+              className="relative overflow-hidden rounded-2xl text-left transition-all group cursor-pointer"
+              style={{
+                background:`linear-gradient(145deg,${color}1A 0%,${color}06 60%,transparent 100%)`,
+                border:`1px solid ${isActive?color:color+"30"}`,
+                boxShadow:isActive?`0 0 0 2px ${color}40,0 8px 32px ${color}20`:`0 2px 8px ${color}10`,
+                transform:isActive?"scale(1.02)":"scale(1)",
+              }}>
+
+              {/* Watermark rank number */}
+              <span className="absolute -bottom-3 -right-1 text-8xl font-black select-none pointer-events-none leading-none"
+                style={{color,opacity:0.055}}>{String(idx+1).padStart(2,"0")}</span>
+
+              {/* Hover radial glow */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                style={{background:`radial-gradient(circle at 30% 0%,${color}18 0%,transparent 65%)`}}/>
+
+              {/* Top accent line */}
+              <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl"
+                style={{background:`linear-gradient(90deg,${color},${color}40,transparent)`}}/>
+
+              {/* Content */}
+              <div className="relative z-10 p-5">
+                {/* Header row */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
+                    style={{background:`${color}20`,color}}>
+                    {icon}
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full"
+                    style={{background:`${color}15`,color:`${color}dd`}}>
+                    {RANK_LABELS[idx]}
+                  </span>
+                </div>
+
+                {/* Metric value — hero number */}
+                <p className="text-2xl font-black tracking-tight leading-none mb-1.5" style={{color}}>
+                  {val}
+                </p>
+
+                {/* Label */}
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 leading-none mb-1">
+                  {label}
+                </p>
+
+                {/* Group name */}
+                <p className="text-xs font-semibold text-foreground truncate">{name}</p>
+
+                {/* Sublabel */}
+                <p className="text-[9px] text-muted-foreground/60 mt-0.5 truncate">{sublabel}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
