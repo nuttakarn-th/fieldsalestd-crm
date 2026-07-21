@@ -1,323 +1,384 @@
 /**
- * AdsReport.tsx
- * หน้า Upload + วิเคราะห์ผล Meta Ads จาก CSV Export
+ * AdsReport.tsx — v3 Premium UI
  * Route: /marketing/ads-report
  *
- * v2: Supabase persistence — ทีม Marketing ทุกคนเห็น report เดียวกัน
- *     + Compare mode: เลือก 2 period เปรียบเทียบ KPI side-by-side
+ * ① KPI Cards  — colored accent bar + counter animation + delta %
+ * ② Chart zone — Donut (Spend) + Horizontal bar (Messages) via recharts
+ * ③ Group cards — left accent bar + progress bar + SVG sparkline
+ * ④ Insight cards — sticky-note style (Win/Fix/Plan)
+ *
+ * Supabase persistence — ทีม Marketing ทุกคนเห็นข้อมูลเดียวกัน
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Upload, FileText, X, ChevronDown, ChevronRight, Save, CheckCircle2,
-  TrendingUp, Eye, Users, MessageCircle, DollarSign, MousePointerClick,
-  AlertTriangle, Info, BarChart2, Plus, Trash2, GitCompare, Loader2,
-  CloudUpload,
+  PieChart, Pie, Cell, Tooltip as RechartTooltip,
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer,
+} from "recharts";
+import {
+  Upload, FileText, X, ChevronDown, ChevronRight,
+  TrendingUp, Eye, Users, MessageCircle, DollarSign,
+  MousePointerClick, AlertTriangle, Info, Plus, Trash2,
+  GitCompare, Loader2, CloudUpload, Trophy, Wrench, Rocket,
+  Save, CheckCircle2,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
 
+// ── Group color palette ────────────────────────────────────────────────────────
+const GROUP_COLORS = [
+  "#7F77DD", "#1D9E75", "#378ADD", "#EF9F27",
+  "#D4537E", "#5DCAA5", "#D85A30", "#639922", "#884AB7", "#BA7517",
+];
+function groupColor(idx: number) { return GROUP_COLORS[idx % GROUP_COLORS.length]; }
+
 // ── Types ─────────────────────────────────────────────────────────────────────
-
 interface ColumnMap {
-  name?:           number;
-  status?:         number;
-  spend?:          number;
-  impressions?:    number;
-  reach?:          number;
-  cpm?:            number;
-  ctr?:            number;
-  cpcLink?:        number;
-  cpcAll?:         number;
-  messages?:       number;
-  costPerMsg?:     number;
-  pageEngagement?: number;
-  roas?:           number;
-  startDate?:      number;
-  endDate?:        number;
+  name?:number;status?:number;spend?:number;impressions?:number;reach?:number;
+  cpm?:number;ctr?:number;cpcLink?:number;cpcAll?:number;messages?:number;
+  costPerMsg?:number;pageEngagement?:number;roas?:number;startDate?:number;endDate?:number;
 }
-
 interface AdRow {
-  name:            string;
-  status:          string;
-  spend:           number | null;
-  impressions:     number | null;
-  reach:           number | null;
-  cpm:             number | null;
-  ctr:             number | null;
-  cpcLink:         number | null;
-  cpcAll:          number | null;
-  messages:        number | null;
-  costPerMsg:      number | null;
-  pageEngagement:  number | null;
-  roas:            number | null;
-  startDate:       string;
-  endDate:         string;
-  group:           string;
+  name:string;status:string;spend:number|null;impressions:number|null;reach:number|null;
+  cpm:number|null;ctr:number|null;cpcLink:number|null;cpcAll:number|null;
+  messages:number|null;costPerMsg:number|null;pageEngagement:number|null;
+  roas:number|null;startDate:string;endDate:string;group:string;
 }
-
 interface ReportMeta {
-  id:           string;
-  period_label: string;
-  file_name:    string;
-  uploaded_at:  string;
-  uploaded_by:  string | null;
+  id:string;period_label:string;file_name:string;uploaded_at:string;uploaded_by:string|null;
 }
-
-interface ReportData extends ReportMeta {
-  ads:    AdRow[];
-  colMap: ColumnMap;
-}
+interface ReportData extends ReportMeta { ads:AdRow[]; colMap:ColumnMap; }
 
 // ── CSV Parser (RFC 4180) ─────────────────────────────────────────────────────
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let cur = "";
-  let inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuote) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i++; }
-        else inQuote = false;
-      } else { cur += ch; }
-    } else {
-      if (ch === '"') { inQuote = true; }
-      else if (ch === ',') { result.push(cur.trim()); cur = ""; }
-      else { cur += ch; }
-    }
+function parseCSVLine(line:string):string[] {
+  const result:string[]=[]; let cur="",inQuote=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inQuote){if(ch==='"'){if(line[i+1]==='"'){cur+='"';i++;}else inQuote=false;}else cur+=ch;}
+    else{if(ch==='"')inQuote=true;else if(ch===','){result.push(cur.trim());cur="";}else cur+=ch;}
   }
-  result.push(cur.trim());
-  return result;
+  result.push(cur.trim());return result;
 }
-
-function parseCSV(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-  if (lines.length === 0) return { headers: [], rows: [] };
-  return { headers: parseCSVLine(lines[0]), rows: lines.slice(1).map(parseCSVLine) };
+function parseCSV(text:string):{headers:string[];rows:string[][]}{
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()!=="");
+  if(!lines.length)return{headers:[],rows:[]};
+  return{headers:parseCSVLine(lines[0]),rows:lines.slice(1).map(parseCSVLine)};
 }
 
 // ── Column Detector ───────────────────────────────────────────────────────────
-
-const COL_PATTERNS: { key: keyof ColumnMap; keywords: string[] }[] = [
-  { key: "name",           keywords: ["ชื่อโฆษณา"] },
-  { key: "status",         keywords: ["สถานะ"] },
-  { key: "spend",          keywords: ["จำนวนเงินที่ใช้จ่าย", "ใช้จ่าย"] },
-  { key: "impressions",    keywords: ["อิมเพรสชัน"] },
-  { key: "reach",          keywords: ["การเข้าถึง"] },
-  { key: "cpm",            keywords: ["cpm", "ต้นทุนต่ออิมเพรสชั่น"] },
-  { key: "ctr",            keywords: ["ctr"] },
-  { key: "cpcLink",        keywords: ["cpc (ต้นทุนต่อการคลิกลิงก์)", "cpc (ลิงก์)"] },
-  { key: "cpcAll",         keywords: ["cpc (ทั้งหมด)"] },
-  { key: "messages",       keywords: ["ผู้ติดต่อผ่านการส่งข้อความ"] },
-  { key: "costPerMsg",     keywords: ["ต้นทุนต่อการเริ่มการสนทนา"] },
-  { key: "pageEngagement", keywords: ["การมีส่วนร่วมกับเพจ"] },
-  { key: "roas",           keywords: ["roas"] },
-  { key: "startDate",      keywords: ["เริ่มการรายงาน"] },
-  { key: "endDate",        keywords: ["สิ้นสุดการรายงาน"] },
+const COL_PATTERNS:{key:keyof ColumnMap;keywords:string[]}[]=[
+  {key:"name",keywords:["ชื่อโฆษณา"]},{key:"status",keywords:["สถานะ"]},
+  {key:"spend",keywords:["จำนวนเงินที่ใช้จ่าย","ใช้จ่าย"]},
+  {key:"impressions",keywords:["อิมเพรสชัน"]},{key:"reach",keywords:["การเข้าถึง"]},
+  {key:"cpm",keywords:["cpm","ต้นทุนต่ออิมเพรสชั่น"]},{key:"ctr",keywords:["ctr"]},
+  {key:"cpcLink",keywords:["cpc (ต้นทุนต่อการคลิกลิงก์)","cpc (ลิงก์)"]},
+  {key:"cpcAll",keywords:["cpc (ทั้งหมด)"]},
+  {key:"messages",keywords:["ผู้ติดต่อผ่านการส่งข้อความ"]},
+  {key:"costPerMsg",keywords:["ต้นทุนต่อการเริ่มการสนทนา"]},
+  {key:"pageEngagement",keywords:["การมีส่วนร่วมกับเพจ"]},
+  {key:"roas",keywords:["roas"]},
+  {key:"startDate",keywords:["เริ่มการรายงาน"]},{key:"endDate",keywords:["สิ้นสุดการรายงาน"]},
 ];
-
-function detectColumns(headers: string[]): ColumnMap {
-  const map: ColumnMap = {};
-  const lower = headers.map((h) => h.toLowerCase().trim());
-  for (const { key, keywords } of COL_PATTERNS) {
-    for (let i = 0; i < lower.length; i++) {
-      if (keywords.some((kw) => lower[i].includes(kw.toLowerCase()))) {
-        map[key] = i; break;
-      }
+function detectColumns(headers:string[]):ColumnMap{
+  const map:ColumnMap={};const lower=headers.map(h=>h.toLowerCase().trim());
+  for(const{key,keywords}of COL_PATTERNS){
+    for(let i=0;i<lower.length;i++){
+      if(keywords.some(kw=>lower[i].includes(kw.toLowerCase()))){map[key]=i;break;}
     }
   }
   return map;
 }
 
 // ── Row Converter ─────────────────────────────────────────────────────────────
-
-function n(val?: string): number | null {
-  if (!val || val.trim() === "" || val.trim() === "-") return null;
-  const num = parseFloat(val.replace(/,/g, ""));
-  return isNaN(num) ? null : num;
+function n(val?:string):number|null{
+  if(!val||val.trim()===""||val.trim()==="-")return null;
+  const num=parseFloat(val.replace(/,/g,""));return isNaN(num)?null:num;
 }
-
-function getGroup(name: string): string {
-  return name.split("|")[0].trim() || name;
-}
-
-function convertRows(rows: string[][], cm: ColumnMap): AdRow[] {
-  return rows
-    .filter((r) => r.some((c) => c.trim() !== ""))
-    .map((r) => {
-      const g = (idx?: number) => (idx !== undefined ? r[idx] : undefined);
-      const name = g(cm.name) ?? "";
-      return {
-        name, group: getGroup(name),
-        status:          g(cm.status)          ?? "",
-        spend:           n(g(cm.spend)),
-        impressions:     n(g(cm.impressions)),
-        reach:           n(g(cm.reach)),
-        cpm:             n(g(cm.cpm)),
-        ctr:             n(g(cm.ctr)),
-        cpcLink:         n(g(cm.cpcLink)),
-        cpcAll:          n(g(cm.cpcAll)),
-        messages:        n(g(cm.messages)),
-        costPerMsg:      n(g(cm.costPerMsg)),
-        pageEngagement:  n(g(cm.pageEngagement)),
-        roas:            n(g(cm.roas)),
-        startDate:       g(cm.startDate) ?? "",
-        endDate:         g(cm.endDate)   ?? "",
-      };
-    });
+function getGroup(name:string):string{return name.split("|")[0].trim()||name;}
+function convertRows(rows:string[][],cm:ColumnMap):AdRow[]{
+  return rows.filter(r=>r.some(c=>c.trim()!=="")).map(r=>{
+    const g=(idx?:number)=>idx!==undefined?r[idx]:undefined;
+    const name=g(cm.name)??"";
+    return{name,group:getGroup(name),status:g(cm.status)??"",
+      spend:n(g(cm.spend)),impressions:n(g(cm.impressions)),reach:n(g(cm.reach)),
+      cpm:n(g(cm.cpm)),ctr:n(g(cm.ctr)),cpcLink:n(g(cm.cpcLink)),cpcAll:n(g(cm.cpcAll)),
+      messages:n(g(cm.messages)),costPerMsg:n(g(cm.costPerMsg)),
+      pageEngagement:n(g(cm.pageEngagement)),roas:n(g(cm.roas)),
+      startDate:g(cm.startDate)??"",endDate:g(cm.endDate)??"",
+    };
+  });
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
-
-const fmtB  = (v: number | null) => v === null ? "—" : v.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtN  = (v: number | null, dp = 2) => v === null ? "—" : v.toLocaleString("th-TH", { minimumFractionDigits: dp, maximumFractionDigits: dp });
-const fmtInt = (v: number | null) => v === null ? "—" : Math.round(v).toLocaleString("th-TH");
-
-function sumN(rows: AdRow[], key: keyof AdRow): number {
-  return rows.reduce((a, r) => a + (typeof r[key] === "number" ? (r[key] as number) : 0), 0);
+const fmtB=(v:number|null)=>v===null?"—":v.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtN=(v:number|null,dp=2)=>v===null?"—":v.toLocaleString("th-TH",{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const fmtInt=(v:number|null)=>v===null?"—":Math.round(v).toLocaleString("th-TH");
+function sumN(rows:AdRow[],key:keyof AdRow):number{
+  return rows.reduce((a,r)=>a+(typeof r[key]==="number"?(r[key] as number):0),0);
 }
-function avgN(rows: AdRow[], key: keyof AdRow): number | null {
-  const vals = rows.map((r) => r[key]).filter((v) => typeof v === "number") as number[];
-  return vals.length === 0 ? null : vals.reduce((a, b) => a + b, 0) / vals.length;
+function avgN(rows:AdRow[],key:keyof AdRow):number|null{
+  const vals=rows.map(r=>r[key]).filter(v=>typeof v==="number") as number[];
+  return vals.length===0?null:vals.reduce((a,b)=>a+b,0)/vals.length;
 }
 
-// Delta badge for comparison
-function DeltaBadge({ a, b, higherIsBetter = true, pct = false }: {
-  a: number | null; b: number | null; higherIsBetter?: boolean; pct?: boolean;
-}) {
-  if (a === null || b === null || b === 0) return <span className="text-xs text-muted-foreground">—</span>;
-  const diff = a - b;
-  const diffPct = (diff / Math.abs(b)) * 100;
-  const good = higherIsBetter ? diff >= 0 : diff <= 0;
-  const sign = diff >= 0 ? "+" : "";
-  const label = pct
-    ? `${sign}${fmtN(diffPct, 1)}%`
-    : `${sign}${fmtN(diffPct, 1)}%`;
-  return (
-    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${good ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
-      {label}
+// ── Counter animation hook ────────────────────────────────────────────────────
+function useCountUp(target:number,duration=900):number{
+  const [count,setCount]=useState(0);
+  useEffect(()=>{
+    if(target===0){setCount(0);return;}
+    let raf:number;const start=performance.now();
+    const tick=(now:number)=>{
+      const p=Math.min((now-start)/duration,1);
+      const ease=1-Math.pow(1-p,3);
+      setCount(Math.round(target*ease));
+      if(p<1)raf=requestAnimationFrame(tick);
+    };
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[target,duration]);
+  return count;
+}
+
+// ── Delta Badge ───────────────────────────────────────────────────────────────
+function DeltaBadge({a,b,higherIsBetter=true}:{a:number|null;b:number|null;higherIsBetter?:boolean}){
+  if(a===null||b===null||b===0)return null;
+  const diffPct=((a-b)/Math.abs(b))*100;
+  const good=higherIsBetter?diffPct>=0:diffPct<=0;
+  const sign=diffPct>=0?"▲":"▼";
+  return(
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${good?"bg-emerald-500/20 text-emerald-400":"bg-red-500/20 text-red-400"}`}>
+      {sign}{Math.abs(diffPct).toFixed(1)}%
     </span>
   );
 }
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const s = status.toLowerCase();
-  if (s === "active")
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Active</span>;
-  if (s === "not_delivering")
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" />Paused</span>;
-  if (s === "archived")
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/15 text-zinc-400"><span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />Archived</span>;
-  return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">{status}</span>;
+function StatusBadge({status}:{status:string}){
+  const s=status.toLowerCase();
+  if(s==="active")return<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"/>Active</span>;
+  if(s==="not_delivering")return<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400"><span className="w-1.5 h-1.5 rounded-full bg-amber-400"/>Paused</span>;
+  if(s==="archived")return<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-500/15 text-zinc-400"><span className="w-1.5 h-1.5 rounded-full bg-zinc-400"/>Archived</span>;
+  return<span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">{status}</span>;
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
-
-function KPICard({ label, value, compareValue, icon, accent, available, higherIsBetter = true }: {
-  label: string; value: string; compareValue?: string | null;
-  icon: React.ReactNode; accent: string; available: boolean; higherIsBetter?: boolean;
-}) {
-  const numA = available ? parseFloat(value.replace(/[^0-9.-]/g, "")) : null;
-  const numB = compareValue != null ? parseFloat(compareValue.replace(/[^0-9.-]/g, "")) : null;
-
-  return (
-    <div className={`rounded-2xl border bg-card p-4 flex flex-col gap-2 ${!available ? "opacity-40" : ""}`}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent}`}>{icon}</div>
+// ── ① KPI Card with counter animation ────────────────────────────────────────
+interface KPICardProps{
+  label:string;numericValue:number|null;prefix?:string;suffix?:string;decimals?:number;
+  compareValue?:number|null;icon:React.ReactNode;accentColor:string;available:boolean;
+  higherIsBetter?:boolean;
+}
+function KPICard({label,numericValue,prefix="",suffix="",decimals=0,compareValue,icon,accentColor,available,higherIsBetter=true}:KPICardProps){
+  const animated=useCountUp(numericValue??0);
+  const display=available
+    ?`${prefix}${animated.toLocaleString("th-TH",{minimumFractionDigits:decimals,maximumFractionDigits:decimals})}${suffix}`
+    :"ไม่มีข้อมูล";
+  return(
+    <div className={`rounded-2xl border bg-card flex flex-col overflow-hidden ${!available?"opacity-40":""}`}>
+      <div className="px-4 pt-4 pb-3 flex flex-col gap-2 flex-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-medium">{label}</span>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{background:accentColor+"33"}}>
+            <span style={{color:accentColor}}>{icon}</span>
+          </div>
+        </div>
+        <div className="flex items-end gap-2 flex-wrap">
+          <p className="text-2xl font-bold tracking-tight" style={{color:accentColor}}>{display}</p>
+          {compareValue!==undefined&&compareValue!==null&&numericValue!==null&&(
+            <DeltaBadge a={numericValue} b={compareValue} higherIsBetter={higherIsBetter}/>
+          )}
+        </div>
       </div>
-      <div className="flex items-end gap-2 flex-wrap">
-        <p className="text-2xl font-bold tracking-tight">{available ? value : "ไม่มีข้อมูล"}</p>
-        {compareValue !== undefined && compareValue !== null && (
-          <DeltaBadge a={numA} b={numB} higherIsBetter={higherIsBetter} />
-        )}
-      </div>
-      {compareValue !== undefined && compareValue !== null && available && (
-        <p className="text-xs text-muted-foreground">เทียบ: {compareValue}</p>
+      {/* Accent bar */}
+      <div className="h-1 w-full" style={{background:accentColor}}/>
+    </div>
+  );
+}
+
+// ── ② Chart Section ───────────────────────────────────────────────────────────
+const CHART_LIMIT=6;
+
+function ChartSection({ads,colMap,groupColorMap}:{ads:AdRow[];colMap:ColumnMap;groupColorMap:Record<string,string>}){
+  // Donut — spend by group
+  const spendData=Object.entries(
+    ads.reduce<Record<string,number>>((acc,ad)=>{
+      if(ad.spend)acc[ad.group]=(acc[ad.group]??0)+ad.spend;return acc;
+    },{})
+  ).sort(([,a],[,b])=>b-a);
+
+  const topSpend=spendData.slice(0,CHART_LIMIT);
+  const restSpend=spendData.slice(CHART_LIMIT).reduce((s,[,v])=>s+v,0);
+  const donutData=[...topSpend,...(restSpend>0?[["อื่นๆ",restSpend] as [string,number]]:[])];
+  const totalSpend=donutData.reduce((s,[,v])=>s+v,0);
+
+  // Horizontal bar — messages by group
+  const msgData=Object.entries(
+    ads.reduce<Record<string,number>>((acc,ad)=>{
+      if(ad.messages)acc[ad.group]=(acc[ad.group]??0)+ad.messages;return acc;
+    },{})
+  ).sort(([,a],[,b])=>b-a).slice(0,CHART_LIMIT).map(([name,value])=>({name:name.length>12?name.slice(0,11)+"…":name,value,full:name}));
+
+  const hasSpend=colMap.spend!==undefined;
+  const hasMsgs=colMap.messages!==undefined;
+  if(!hasSpend&&!hasMsgs)return null;
+
+  return(
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Donut */}
+      {hasSpend&&(
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-sm font-semibold mb-3">Spend by group</p>
+          <div className="flex items-center gap-4">
+            <div style={{width:120,height:120,flexShrink:0}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={donutData.map(([name,value])=>({name,value}))} cx="50%" cy="50%"
+                    innerRadius={32} outerRadius={54} paddingAngle={2} dataKey="value" strokeWidth={0}>
+                    {donutData.map(([name],i)=>(
+                      <Cell key={name} fill={groupColorMap[name]??groupColor(i)}/>
+                    ))}
+                  </Pie>
+                  <RechartTooltip
+                    contentStyle={{background:"var(--background)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}
+                    formatter={(v:number)=>[`฿${fmtB(v)}`,""]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+              {donutData.map(([name,value],i)=>(
+                <div key={name} className="flex items-center gap-2 text-xs">
+                  <span className="w-2 h-2 rounded-sm shrink-0" style={{background:groupColorMap[name]??groupColor(i)}}/>
+                  <span className="text-muted-foreground truncate flex-1">{name}</span>
+                  <span className="font-semibold tabular-nums">{totalSpend>0?((value/totalSpend)*100).toFixed(0):0}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Horizontal bar */}
+      {hasMsgs&&msgData.length>0&&(
+        <div className="rounded-2xl border bg-card p-4">
+          <p className="text-sm font-semibold mb-3">Messages by group</p>
+          <ResponsiveContainer width="100%" height={msgData.length*36+8}>
+            <BarChart data={msgData} layout="vertical" margin={{left:0,right:24,top:0,bottom:0}}>
+              <XAxis type="number" hide/>
+              <YAxis type="category" dataKey="name" width={90} tick={{fontSize:11,fill:"var(--muted-foreground)"}} axisLine={false} tickLine={false}/>
+              <RechartTooltip
+                contentStyle={{background:"var(--background)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}
+                formatter={(v:number,[,,entry]:[unknown,unknown,{payload:{full:string}}])=>[v,entry?.payload?.full??""]}
+              />
+              <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={18}>
+                {msgData.map((entry,i)=>(
+                  <Cell key={entry.name} fill={groupColorMap[entry.full]??groupColor(i)}/>
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );
 }
 
-// ── Ad Table Row ──────────────────────────────────────────────────────────────
-
-function AdTableRow({ ad, cm }: { ad: AdRow; cm: ColumnMap }) {
-  return (
-    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-      <td className="py-2.5 px-3 text-xs font-medium max-w-[200px]">
-        <span className="truncate block" title={ad.name}>{ad.name}</span>
-      </td>
-      <td className="py-2.5 px-2 text-center"><StatusBadge status={ad.status} /></td>
-      {cm.spend          !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.spend)}</td>}
-      {cm.impressions    !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.impressions)}</td>}
-      {cm.reach          !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.reach)}</td>}
-      {cm.cpm            !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.cpm)}</td>}
-      {cm.ctr            !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{ad.ctr !== null ? fmtN(ad.ctr, 2) + "%" : "—"}</td>}
-      {cm.messages       !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.messages)}</td>}
-      {cm.costPerMsg     !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.costPerMsg)}</td>}
-      {cm.pageEngagement !== undefined && <td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.pageEngagement)}</td>}
-    </tr>
+// ── SVG Sparkline ─────────────────────────────────────────────────────────────
+function Sparkline({values,color}:{values:number[];color:string}){
+  if(values.length<2)return null;
+  const w=64,h=28,pad=3;
+  const min=Math.min(...values),max=Math.max(...values);
+  const range=max-min||1;
+  const pts=values.map((v,i)=>{
+    const x=pad+(i/(values.length-1))*(w-pad*2);
+    const y=h-pad-((v-min)/range)*(h-pad*2);
+    return`${x},${y}`;
+  }).join(" ");
+  const last=pts.split(" ").pop()!.split(",");
+  return(
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={last[0]} cy={last[1]} r="2.5" fill={color}/>
+    </svg>
   );
 }
 
-// ── Group Card ────────────────────────────────────────────────────────────────
+// ── ③ Group Card ──────────────────────────────────────────────────────────────
+function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend}:{
+  groupName:string;ads:AdRow[];cm:ColumnMap;expanded:boolean;onToggle:()=>void;color:string;totalSpend:number;
+}){
+  const gSpend=sumN(ads,"spend");
+  const gMsgs=sumN(ads,"messages");
+  const gImpr=sumN(ads,"impressions");
+  const gReach=sumN(ads,"reach");
+  const avgCPM=avgN(ads,"cpm");
+  const avgCTR=avgN(ads,"ctr");
+  const active=ads.filter(a=>a.status.toLowerCase()==="active").length;
+  const spendPct=totalSpend>0?(gSpend/totalSpend)*100:0;
+  const sparkValues=ads.map(a=>a.spend??0).filter(v=>v>0);
 
-function GroupCard({ groupName, ads, cm, expanded, onToggle }: {
-  groupName: string; ads: AdRow[]; cm: ColumnMap; expanded: boolean; onToggle: () => void;
-}) {
-  const totalSpend = sumN(ads, "spend");
-  const totalMsgs  = sumN(ads, "messages");
-  const totalImpr  = sumN(ads, "impressions");
-  const totalReach = sumN(ads, "reach");
-  const avgCPM     = avgN(ads, "cpm");
-  const avgCTR     = avgN(ads, "ctr");
-  const active     = ads.filter((a) => a.status.toLowerCase() === "active").length;
-
-  return (
-    <div className="rounded-2xl border bg-card overflow-hidden">
+  return(
+    <div className="rounded-2xl border bg-card overflow-hidden" style={{borderLeftColor:color,borderLeftWidth:3}}>
       <button onClick={onToggle} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm truncate">{groupName}</span>
             <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{ads.length} โฆษณา</span>
-            {active > 0 && <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">{active} กำลังแสดง</span>}
+            {active>0&&<span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">{active} กำลังแสดง</span>}
           </div>
-          <div className="flex gap-4 mt-1.5 flex-wrap">
-            {cm.spend        !== undefined && <span className="text-xs text-muted-foreground">ใช้จ่าย <b className="text-foreground">฿{fmtB(totalSpend)}</b></span>}
-            {cm.impressions  !== undefined && <span className="text-xs text-muted-foreground">Impr. <b className="text-foreground">{fmtInt(totalImpr)}</b></span>}
-            {cm.reach        !== undefined && <span className="text-xs text-muted-foreground">Reach <b className="text-foreground">{fmtInt(totalReach)}</b></span>}
-            {cm.messages     !== undefined && <span className="text-xs text-muted-foreground">Msg <b className="text-foreground">{fmtInt(totalMsgs)}</b></span>}
-            {cm.cpm          !== undefined && avgCPM !== null && <span className="text-xs text-muted-foreground">CPM avg <b className="text-foreground">฿{fmtB(avgCPM)}</b></span>}
-            {cm.ctr          !== undefined && avgCTR !== null && <span className="text-xs text-muted-foreground">CTR avg <b className="text-foreground">{fmtN(avgCTR, 2)}%</b></span>}
+          {/* Progress bar */}
+          {cm.spend!==undefined&&(
+            <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700" style={{width:`${spendPct}%`,background:color}}/>
+            </div>
+          )}
+          <div className="flex gap-3 mt-1.5 flex-wrap items-center">
+            {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">Spend <b className="text-foreground">฿{fmtB(gSpend)}</b> <span className="text-[10px] opacity-60">({spendPct.toFixed(0)}%)</span></span>}
+            {cm.impressions!==undefined&&<span className="text-xs text-muted-foreground">Impr. <b className="text-foreground">{fmtInt(gImpr)}</b></span>}
+            {cm.reach!==undefined&&<span className="text-xs text-muted-foreground">Reach <b className="text-foreground">{fmtInt(gReach)}</b></span>}
+            {cm.messages!==undefined&&<span className="text-xs text-muted-foreground">Msg <b className="text-foreground">{fmtInt(gMsgs)}</b></span>}
+            {cm.cpm!==undefined&&avgCPM!==null&&<span className="text-xs text-muted-foreground">CPM <b className="text-foreground">฿{fmtB(avgCPM)}</b></span>}
+            {cm.ctr!==undefined&&avgCTR!==null&&<span className="text-xs text-muted-foreground">CTR <b className="text-foreground">{fmtN(avgCTR,2)}%</b></span>}
           </div>
         </div>
-        <div className="shrink-0 text-muted-foreground">
-          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        <div className="flex items-center gap-2 shrink-0">
+          {sparkValues.length>=2&&<Sparkline values={sparkValues} color={color}/>}
+          <div className="text-muted-foreground">
+            {expanded?<ChevronDown className="w-4 h-4"/>:<ChevronRight className="w-4 h-4"/>}
+          </div>
         </div>
       </button>
 
-      {expanded && (
+      {expanded&&(
         <div className="overflow-x-auto border-t border-border/50">
           <table className="w-full min-w-max text-left">
             <thead>
               <tr className="bg-muted/30">
                 <th className="py-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ad Name</th>
                 <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                {cm.spend          !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Spend (฿)</th>}
-                {cm.impressions    !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Impr.</th>}
-                {cm.reach          !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Reach</th>}
-                {cm.cpm            !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CPM</th>}
-                {cm.ctr            !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CTR</th>}
-                {cm.messages       !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Messages</th>}
-                {cm.costPerMsg     !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Cost/Msg</th>}
-                {cm.pageEngagement !== undefined && <th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Page Eng.</th>}
+                {cm.spend!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Spend (฿)</th>}
+                {cm.impressions!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Impr.</th>}
+                {cm.reach!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Reach</th>}
+                {cm.cpm!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CPM</th>}
+                {cm.ctr!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">CTR</th>}
+                {cm.messages!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Messages</th>}
+                {cm.costPerMsg!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Cost/Msg</th>}
+                {cm.pageEngagement!==undefined&&<th className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right">Page Eng.</th>}
               </tr>
             </thead>
             <tbody>
-              {ads.map((ad, i) => <AdTableRow key={i} ad={ad} cm={cm} />)}
+              {ads.map((ad,i)=>(
+                <tr key={i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                  <td className="py-2.5 px-3 text-xs font-medium max-w-[200px]"><span className="truncate block" title={ad.name}>{ad.name}</span></td>
+                  <td className="py-2.5 px-2 text-center"><StatusBadge status={ad.status}/></td>
+                  {cm.spend!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.spend)}</td>}
+                  {cm.impressions!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.impressions)}</td>}
+                  {cm.reach!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.reach)}</td>}
+                  {cm.cpm!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.cpm)}</td>}
+                  {cm.ctr!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{ad.ctr!==null?fmtN(ad.ctr,2)+"%":"—"}</td>}
+                  {cm.messages!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.messages)}</td>}
+                  {cm.costPerMsg!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtB(ad.costPerMsg)}</td>}
+                  {cm.pageEngagement!==undefined&&<td className="py-2.5 px-2 text-right text-xs tabular-nums">{fmtInt(ad.pageEngagement)}</td>}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -326,154 +387,89 @@ function GroupCard({ groupName, ads, cm, expanded, onToggle }: {
   );
 }
 
-// ── Insight Form ──────────────────────────────────────────────────────────────
+// ── ④ Insight cards (sticky-note style) ──────────────────────────────────────
+function InsightForm({period}:{period:string}){
+  const key=`ads-insight::${period}`;
+  const load=()=>{try{return JSON.parse(localStorage.getItem(key)??"{}") as{win?:string;fix?:string;plan?:string};}catch{return{};}}
+  const[win,setWin]=useState(()=>load().win??"");
+  const[fix,setFix]=useState(()=>load().fix??"");
+  const[plan,setPlan]=useState(()=>load().plan??"");
+  const[saved,setSaved]=useState(false);
+  const handleSave=()=>{localStorage.setItem(key,JSON.stringify({win,fix,plan}));setSaved(true);setTimeout(()=>setSaved(false),2000);};
 
-function InsightForm({ period }: { period: string }) {
-  const key = `ads-insight::${period}`;
-  const load = () => {
-    try { return JSON.parse(localStorage.getItem(key) ?? "{}") as { win?: string; fix?: string; plan?: string }; }
-    catch { return {}; }
-  };
-  const [win,   setWin]   = useState(() => load().win  ?? "");
-  const [fix,   setFix]   = useState(() => load().fix  ?? "");
-  const [plan,  setPlan]  = useState(() => load().plan ?? "");
-  const [saved, setSaved] = useState(false);
+  const cards=[
+    {key:"win",label:"Win",sublabel:"สิ่งที่ทำได้ดี",icon:<Trophy className="w-3.5 h-3.5"/>,val:win,set:setWin,ph:"โฆษณาตัวไหนทำได้ดี? เพราะอะไร?",border:"#1D9E75",bg:"rgba(29,158,117,0.07)",text:"#1D9E75"},
+    {key:"fix",label:"Fix",sublabel:"สิ่งที่ต้องแก้ไข",icon:<Wrench className="w-3.5 h-3.5"/>,val:fix,set:setFix,ph:"โฆษณาตัวไหนแย่? ปัญหาคืออะไร?",border:"#EF9F27",bg:"rgba(239,159,39,0.07)",text:"#EF9F27"},
+    {key:"plan",label:"Plan",sublabel:"แผนถัดไป",icon:<Rocket className="w-3.5 h-3.5"/>,val:plan,set:setPlan,ph:"จะปรับอะไรในช่วงถัดไป?",border:"#7F77DD",bg:"rgba(127,119,221,0.07)",text:"#7F77DD"},
+  ] as const;
 
-  const handleSave = () => {
-    localStorage.setItem(key, JSON.stringify({ win, fix, plan }));
-    setSaved(true); setTimeout(() => setSaved(false), 2000);
-  };
-
-  return (
-    <div className="rounded-2xl border bg-card p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <BarChart2 className="w-4 h-4 text-violet-400" />
-        <h3 className="font-semibold text-sm">Insights — {period || "ช่วงเวลานี้"}</h3>
-        <span className="text-xs text-muted-foreground ml-1">บันทึกเฉพาะ browser นี้</span>
+  return(
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold">Insights</p>
+          <p className="text-xs text-muted-foreground">{period}</p>
+        </div>
+        <button onClick={handleSave}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${saved?"bg-emerald-500/20 text-emerald-400":"bg-violet-600 hover:bg-violet-500 text-white"}`}>
+          {saved?<CheckCircle2 className="w-3.5 h-3.5"/>:<Save className="w-3.5 h-3.5"/>}
+          {saved?"บันทึกแล้ว!":"บันทึก Insights"}
+        </button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {([
-          { key: "win",  label: "Win — สิ่งที่ทำได้ดี",    color: "emerald", val: win,  set: setWin,  ph: "โฆษณาตัวไหนทำได้ดี? เพราะอะไร?" },
-          { key: "fix",  label: "Fix — สิ่งที่ต้องแก้ไข", color: "amber",   val: fix,  set: setFix,  ph: "โฆษณาตัวไหนแย่? ปัญหาคืออะไร?" },
-          { key: "plan", label: "Plan — แผนถัดไป",         color: "violet",  val: plan, set: setPlan, ph: "จะปรับอะไรในช่วงถัดไป?" },
-        ] as const).map(({ key: k, label, color, val, set, ph }) => (
-          <div key={k} className="space-y-1.5">
-            <label className={`text-xs font-semibold flex items-center gap-1.5 text-${color}-400`}>
-              <span className={`w-2 h-2 rounded-full bg-${color}-400`} /> {label}
-            </label>
-            <textarea value={val} onChange={(e) => set(e.target.value)} placeholder={ph}
-              className={`w-full rounded-xl border bg-muted/30 px-3 py-2.5 text-sm resize-none h-28 focus:outline-none focus:ring-2 focus:ring-${color}-500/40 placeholder:text-muted-foreground/40`}
+        {cards.map(({key:k,label,sublabel,icon,val,set,ph,border,bg,text})=>(
+          <div key={k} style={{background:bg,borderLeft:`3px solid ${border}`,borderRadius:"0 12px 12px 0"}} className="p-4 space-y-2">
+            <div className="flex items-center gap-2" style={{color:text}}>
+              {icon}
+              <span className="text-xs font-semibold">{label}</span>
+              <span className="text-[10px] opacity-70">— {sublabel}</span>
+            </div>
+            <textarea
+              value={val}
+              onChange={e=>set(e.target.value)}
+              placeholder={ph}
+              className="w-full text-sm resize-none h-24 bg-transparent focus:outline-none placeholder:text-muted-foreground/40 text-foreground"
             />
           </div>
         ))}
       </div>
-      <div className="flex justify-end">
-        <button onClick={handleSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${saved ? "bg-emerald-500/20 text-emerald-400" : "bg-violet-600 hover:bg-violet-500 text-white"}`}>
-          {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? "บันทึกแล้ว!" : "บันทึก Insights"}
-        </button>
-      </div>
     </div>
   );
 }
 
-// ── Upload Zone ───────────────────────────────────────────────────────────────
-
-function UploadZone({ onFile, compact = false }: { onFile: (text: string, name: string) => void; compact?: boolean }) {
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const readFile = (file: File) => {
-    if (!file.name.endsWith(".csv")) { alert("กรุณาอัปโหลดไฟล์ .csv เท่านั้น"); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => onFile(e.target?.result as string, file.name);
-    reader.readAsText(file, "utf-8");
-  };
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) readFile(file);
-  }, []);
-
-  if (compact) {
-    return (
-      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all text-sm font-semibold
-        ${dragging ? "bg-violet-500/20 text-violet-300" : "bg-violet-600 hover:bg-violet-500 text-white"}`}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-      >
-        <Plus className="w-4 h-4" /> Upload Report
-        <input ref={inputRef} type="file" accept=".csv" className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) readFile(f); e.target.value = ""; }} />
-      </label>
-    );
-  }
-
-  return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={onDrop}
-      onClick={() => inputRef.current?.click()}
-      className={`rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-3 py-16 px-8 text-center
-        ${dragging ? "border-violet-500 bg-violet-500/10" : "border-border hover:border-violet-400 hover:bg-muted/20"}`}
-    >
-      <div className="w-14 h-14 rounded-2xl bg-violet-500/15 flex items-center justify-center">
-        <Upload className="w-7 h-7 text-violet-400" />
-      </div>
-      <div>
-        <p className="font-semibold text-sm">ลาก CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
-        <p className="text-xs text-muted-foreground mt-1">ไฟล์ Meta Ads Manager Export (.csv)</p>
-      </div>
-      <input ref={inputRef} type="file" accept=".csv" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) readFile(f); e.target.value = ""; }} />
-    </div>
-  );
-}
-
-// ── Compare KPI Panel ─────────────────────────────────────────────────────────
-
-function ComparePanel({ a, b }: { a: ReportData; b: ReportData }) {
-  type KPIRow = { label: string; valA: string; valB: string; numA: number | null; numB: number | null; higherIsBetter: boolean };
-
-  const rows: KPIRow[] = [
-    { label: "ยอดใช้จ่าย (฿)", valA: `฿${fmtB(sumN(a.ads, "spend"))}`, valB: `฿${fmtB(sumN(b.ads, "spend"))}`, numA: sumN(a.ads, "spend"), numB: sumN(b.ads, "spend"), higherIsBetter: false },
-    { label: "Impressions",     valA: fmtInt(sumN(a.ads, "impressions")), valB: fmtInt(sumN(b.ads, "impressions")), numA: sumN(a.ads, "impressions"), numB: sumN(b.ads, "impressions"), higherIsBetter: true },
-    { label: "Reach",           valA: fmtInt(sumN(a.ads, "reach")),       valB: fmtInt(sumN(b.ads, "reach")),       numA: sumN(a.ads, "reach"),       numB: sumN(b.ads, "reach"),       higherIsBetter: true },
-    { label: "Messages",        valA: fmtInt(sumN(a.ads, "messages")),    valB: fmtInt(sumN(b.ads, "messages")),    numA: sumN(a.ads, "messages"),    numB: sumN(b.ads, "messages"),    higherIsBetter: true },
-    { label: "CPM เฉลี่ย",     valA: `฿${fmtB(avgN(a.ads, "cpm"))}`,   valB: `฿${fmtB(avgN(b.ads, "cpm"))}`,   numA: avgN(a.ads, "cpm"),         numB: avgN(b.ads, "cpm"),         higherIsBetter: false },
-    { label: "CTR เฉลี่ย",     valA: `${fmtN(avgN(a.ads, "ctr"), 2)}%`, valB: `${fmtN(avgN(b.ads, "ctr"), 2)}%`, numA: avgN(a.ads, "ctr"),        numB: avgN(b.ads, "ctr"),         higherIsBetter: true },
-    { label: "จำนวนโฆษณา",     valA: String(a.ads.length),              valB: String(b.ads.length),              numA: a.ads.length,               numB: b.ads.length,               higherIsBetter: true },
+// ── Compare Panel ─────────────────────────────────────────────────────────────
+function ComparePanel({a,b}:{a:ReportData;b:ReportData}){
+  const rows=[
+    {label:"ยอดใช้จ่าย (฿)",valA:sumN(a.ads,"spend"),valB:sumN(b.ads,"spend"),fmt:(v:number)=>`฿${fmtB(v)}`,hib:false},
+    {label:"Impressions",valA:sumN(a.ads,"impressions"),valB:sumN(b.ads,"impressions"),fmt:fmtInt,hib:true},
+    {label:"Reach",valA:sumN(a.ads,"reach"),valB:sumN(b.ads,"reach"),fmt:fmtInt,hib:true},
+    {label:"Messages",valA:sumN(a.ads,"messages"),valB:sumN(b.ads,"messages"),fmt:fmtInt,hib:true},
+    {label:"CPM เฉลี่ย",valA:avgN(a.ads,"cpm"),valB:avgN(b.ads,"cpm"),fmt:(v:number)=>`฿${fmtB(v)}`,hib:false},
+    {label:"CTR เฉลี่ย",valA:avgN(a.ads,"ctr"),valB:avgN(b.ads,"ctr"),fmt:(v:number)=>`${fmtN(v,2)}%`,hib:true},
   ];
-
-  return (
+  return(
     <div className="rounded-2xl border bg-card overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 bg-muted/20">
-        <GitCompare className="w-4 h-4 text-violet-400" />
+        <GitCompare className="w-4 h-4 text-violet-400"/>
         <span className="font-semibold text-sm">เปรียบเทียบ KPI</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border/50">
-              <th className="py-2.5 px-4 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-left w-32">KPI</th>
+              <th className="py-2.5 px-4 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-left">KPI</th>
               <th className="py-2.5 px-4 text-xs font-semibold text-violet-400 text-right">{a.period_label}</th>
               <th className="py-2.5 px-4 text-xs font-semibold text-blue-400 text-right">{b.period_label}</th>
               <th className="py-2.5 px-4 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-center">เปลี่ยน</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ label, valA, valB, numA, numB, higherIsBetter }) => (
+            {rows.map(({label,valA,valB,fmt,hib})=>(
               <tr key={label} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                 <td className="py-3 px-4 text-xs text-muted-foreground">{label}</td>
-                <td className="py-3 px-4 text-sm font-semibold text-right text-violet-300">{valA}</td>
-                <td className="py-3 px-4 text-sm font-semibold text-right text-blue-300">{valB}</td>
-                <td className="py-3 px-4 text-center">
-                  <DeltaBadge a={numA} b={numB} higherIsBetter={higherIsBetter} />
-                </td>
+                <td className="py-3 px-4 text-sm font-semibold text-right text-violet-300">{valA!==null?fmt(valA):"—"}</td>
+                <td className="py-3 px-4 text-sm font-semibold text-right text-blue-300">{valB!==null?fmt(valB):"—"}</td>
+                <td className="py-3 px-4 text-center"><DeltaBadge a={valA} b={valB} higherIsBetter={hib}/></td>
               </tr>
             ))}
           </tbody>
@@ -483,312 +479,254 @@ function ComparePanel({ a, b }: { a: ReportData; b: ReportData }) {
   );
 }
 
-// ── Supabase Helpers ──────────────────────────────────────────────────────────
-
-async function sbLoadReports(): Promise<ReportMeta[]> {
-  if (!supabase) return lsLoadList();
-  const { data, error } = await supabase
-    .from("ads_reports")
-    .select("id, period_label, file_name, uploaded_at, uploaded_by")
-    .order("uploaded_at", { ascending: false });
-  if (error) { console.error("[AdsReport] load:", error); return lsLoadList(); }
-  return (data ?? []) as ReportMeta[];
+// ── Upload Zone ───────────────────────────────────────────────────────────────
+function UploadZone({onFile,compact=false}:{onFile:(text:string,name:string)=>void;compact?:boolean}){
+  const[dragging,setDragging]=useState(false);
+  const inputRef=useRef<HTMLInputElement>(null);
+  const readFile=(file:File)=>{
+    if(!file.name.endsWith(".csv")){alert("กรุณาอัปโหลดไฟล์ .csv เท่านั้น");return;}
+    const reader=new FileReader();
+    reader.onload=e=>onFile(e.target?.result as string,file.name);
+    reader.readAsText(file,"utf-8");
+  };
+  const onDrop=useCallback((e:React.DragEvent)=>{
+    e.preventDefault();setDragging(false);
+    const file=e.dataTransfer.files[0];if(file)readFile(file);
+  },[]);
+  if(compact){
+    return(
+      <label className={`flex items-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all text-sm font-semibold
+        ${dragging?"bg-violet-500/20 text-violet-300":"bg-violet-600 hover:bg-violet-500 text-white"}`}
+        onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={onDrop}>
+        <Plus className="w-4 h-4"/> Upload Report
+        <input ref={inputRef} type="file" accept=".csv" className="hidden"
+          onChange={e=>{const f=e.target.files?.[0];if(f)readFile(f);e.target.value="";}}/>
+      </label>
+    );
+  }
+  return(
+    <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={onDrop}
+      onClick={()=>inputRef.current?.click()}
+      className={`rounded-2xl border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-3 py-16 px-8 text-center
+        ${dragging?"border-violet-500 bg-violet-500/10":"border-border hover:border-violet-400 hover:bg-muted/20"}`}>
+      <div className="w-14 h-14 rounded-2xl bg-violet-500/15 flex items-center justify-center">
+        <Upload className="w-7 h-7 text-violet-400"/>
+      </div>
+      <div>
+        <p className="font-semibold text-sm">ลาก CSV มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+        <p className="text-xs text-muted-foreground mt-1">ไฟล์ Meta Ads Manager Export (.csv)</p>
+      </div>
+      <input ref={inputRef} type="file" accept=".csv" className="hidden"
+        onChange={e=>{const f=e.target.files?.[0];if(f)readFile(f);e.target.value="";}}/>
+    </div>
+  );
 }
 
-async function sbSaveReport(payload: {
-  period_label: string; start_date: string; end_date: string;
-  file_name: string; uploaded_by: string; rows_json: AdRow[]; col_map: ColumnMap;
-}): Promise<string | null> {
-  if (!supabase) { return lsSaveReport(payload); }
-  const { data, error } = await supabase
-    .from("ads_reports")
-    .insert({ ...payload, rows_json: payload.rows_json, col_map: payload.col_map })
-    .select("id")
-    .single();
-  if (error) { console.error("[AdsReport] save:", error); return lsSaveReport(payload); }
-  return data?.id ?? null;
+// ── Supabase / localStorage helpers ──────────────────────────────────────────
+async function sbLoadReports():Promise<ReportMeta[]>{
+  if(!supabase)return lsLoadList();
+  const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by").order("uploaded_at",{ascending:false});
+  if(error)return lsLoadList();
+  return(data??[]) as ReportMeta[];
+}
+async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap}):Promise<string|null>{
+  if(!supabase)return lsSaveReport(p);
+  const{data,error}=await supabase.from("ads_reports").insert({...p}).select("id").single();
+  if(error)return lsSaveReport(p);
+  return data?.id??null;
+}
+async function sbLoadData(id:string):Promise<{ads:AdRow[];colMap:ColumnMap}|null>{
+  if(!supabase)return lsLoadData(id);
+  const{data,error}=await supabase.from("ads_reports").select("rows_json,col_map").eq("id",id).single();
+  if(error)return lsLoadData(id);
+  return{ads:(data.rows_json as AdRow[])??[],colMap:(data.col_map as ColumnMap)??{}};
+}
+async function sbDeleteReport(id:string):Promise<void>{
+  if(!supabase){lsDeleteReport(id);return;}
+  await supabase.from("ads_reports").delete().eq("id",id);
 }
 
-async function sbLoadData(id: string): Promise<{ ads: AdRow[]; colMap: ColumnMap } | null> {
-  if (!supabase) return lsLoadData(id);
-  const { data, error } = await supabase
-    .from("ads_reports")
-    .select("rows_json, col_map")
-    .eq("id", id)
-    .single();
-  if (error) { console.error("[AdsReport] loadData:", error); return lsLoadData(id); }
-  return { ads: (data.rows_json as AdRow[]) ?? [], colMap: (data.col_map as ColumnMap) ?? {} };
+const LS_LIST="ads-report-list-v2";const lsKey=(id:string)=>`ads-report-data-v2::${id}`;
+function lsLoadList():ReportMeta[]{try{return JSON.parse(localStorage.getItem(LS_LIST)??"[]");}catch{return[];}}
+function lsSaveList(list:ReportMeta[]){localStorage.setItem(LS_LIST,JSON.stringify(list));}
+function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;start_date:string;end_date:string}):string{
+  const id=`local-${Date.now()}`;const list=lsLoadList();
+  const meta:ReportMeta={id,period_label:p.period_label,file_name:p.file_name,uploaded_at:new Date().toISOString(),uploaded_by:p.uploaded_by};
+  lsSaveList([meta,...list]);localStorage.setItem(lsKey(id),JSON.stringify({ads:p.rows_json,colMap:p.col_map}));return id;
 }
-
-async function sbDeleteReport(id: string): Promise<void> {
-  if (!supabase) { lsDeleteReport(id); return; }
-  const { error } = await supabase.from("ads_reports").delete().eq("id", id);
-  if (error) console.error("[AdsReport] delete:", error);
-}
-
-// ── localStorage Fallback ─────────────────────────────────────────────────────
-
-const LS_LIST = "ads-report-list-v2";
-const lsKey   = (id: string) => `ads-report-data-v2::${id}`;
-
-function lsLoadList(): ReportMeta[] {
-  try { return JSON.parse(localStorage.getItem(LS_LIST) ?? "[]"); } catch { return []; }
-}
-function lsSaveList(list: ReportMeta[]) {
-  localStorage.setItem(LS_LIST, JSON.stringify(list));
-}
-function lsSaveReport(payload: { period_label: string; file_name: string; uploaded_by: string; rows_json: AdRow[]; col_map: ColumnMap; start_date: string; end_date: string }): string {
-  const id = `local-${Date.now()}`;
-  const list = lsLoadList();
-  const meta: ReportMeta = { id, period_label: payload.period_label, file_name: payload.file_name, uploaded_at: new Date().toISOString(), uploaded_by: payload.uploaded_by };
-  lsSaveList([meta, ...list]);
-  localStorage.setItem(lsKey(id), JSON.stringify({ ads: payload.rows_json, colMap: payload.col_map }));
-  return id;
-}
-function lsLoadData(id: string): { ads: AdRow[]; colMap: ColumnMap } | null {
-  try { return JSON.parse(localStorage.getItem(lsKey(id)) ?? "null"); } catch { return null; }
-}
-function lsDeleteReport(id: string) {
-  lsSaveList(lsLoadList().filter((r) => r.id !== id));
-  localStorage.removeItem(lsKey(id));
-}
+function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JSON.parse(localStorage.getItem(lsKey(id))??"null");}catch{return null;}}
+function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
+export default function AdsReport(){
+  const currentUser=useCurrentUser();
+  const[reports,setReports]=useState<ReportMeta[]>([]);
+  const[activeReport,setActiveReport]=useState<ReportData|null>(null);
+  const[compareReport,setCompareReport]=useState<ReportData|null>(null);
+  const[compareMode,setCompareMode]=useState(false);
+  const[loadingList,setLoadingList]=useState(true);
+  const[loadingReport,setLoadingReport]=useState(false);
+  const[saving,setSaving]=useState(false);
+  const[filterStatus,setFilterStatus]=useState<"all"|"active"|"not_delivering"|"archived">("all");
+  const[expandedGroups,setExpandedGroups]=useState<Record<string,boolean>>({});
+  const[deleteConfirm,setDeleteConfirm]=useState<string|null>(null);
+  const[missingCols,setMissingCols]=useState<string[]>([]);
 
-export default function AdsReport() {
-  const currentUser = useCurrentUser();
-
-  const [reports,       setReports]       = useState<ReportMeta[]>([]);
-  const [activeReport,  setActiveReport]  = useState<ReportData | null>(null);
-  const [compareReport, setCompareReport] = useState<ReportData | null>(null);
-  const [compareMode,   setCompareMode]   = useState(false);
-  const [loadingList,   setLoadingList]   = useState(true);
-  const [loadingReport, setLoadingReport] = useState(false);
-  const [saving,        setSaving]        = useState(false);
-  const [filterStatus,  setFilterStatus]  = useState<"all" | "active" | "not_delivering" | "archived">("all");
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [missingCols,   setMissingCols]   = useState<string[]>([]);
-
-  // ── Load report list on mount ──
-  useEffect(() => {
+  useEffect(()=>{
     setLoadingList(true);
-    sbLoadReports().then((list) => { setReports(list); setLoadingList(false); });
-  }, []);
+    sbLoadReports().then(list=>{setReports(list);setLoadingList(false);});
+  },[]);
 
-  // ── Select a report to view ──
-  const selectReport = async (meta: ReportMeta, forCompare = false) => {
-    setLoadingReport(true);
-    const data = await sbLoadData(meta.id);
-    setLoadingReport(false);
-    if (!data) return;
-    const report: ReportData = { ...meta, ...data };
-    if (forCompare) {
-      setCompareReport(report);
-    } else {
-      setActiveReport(report);
-      setCompareReport(null);
-      setCompareMode(false);
-      // expand all groups
-      const groups: Record<string, boolean> = {};
-      data.ads.forEach((a) => { groups[a.group] = true; });
-      setExpandedGroups(groups);
+  const selectReport=async(meta:ReportMeta,forCompare=false)=>{
+    setLoadingReport(true);const data=await sbLoadData(meta.id);setLoadingReport(false);
+    if(!data)return;
+    const report:ReportData={...meta,...data};
+    if(forCompare){setCompareReport(report);}
+    else{
+      setActiveReport(report);setCompareReport(null);setCompareMode(false);
+      const groups:Record<string,boolean>={};
+      data.ads.forEach(a=>{groups[a.group]=true;});setExpandedGroups(groups);
     }
   };
 
-  // ── Parse + Save new CSV ──
-  const handleFile = async (text: string, fileName: string) => {
-    const { headers, rows } = parseCSV(text);
-    const colMap  = detectColumns(headers);
-    const ads     = convertRows(rows, colMap);
-    const start   = ads.find((a) => a.startDate)?.startDate ?? "";
-    const end     = ads.find((a) => a.endDate)?.endDate     ?? "";
-    const period  = start && end ? `${start} – ${end}` : fileName.replace(".csv", "");
-
-    const missing = (["spend","impressions","messages","cpm","ctr"] as (keyof ColumnMap)[])
-      .filter((k) => colMap[k] === undefined)
-      .map((k) => ({ spend: "ยอดใช้จ่าย", impressions: "Impressions", messages: "Messages", cpm: "CPM", ctr: "CTR" }[k] ?? k));
+  const handleFile=async(text:string,fileName:string)=>{
+    const{headers,rows}=parseCSV(text);
+    const colMap=detectColumns(headers);const ads=convertRows(rows,colMap);
+    const start=ads.find(a=>a.startDate)?.startDate??"";
+    const end=ads.find(a=>a.endDate)?.endDate??"";
+    const period=start&&end?`${start} – ${end}`:fileName.replace(".csv","");
+    const missing=(["spend","impressions","messages","cpm","ctr"] as (keyof ColumnMap)[])
+      .filter(k=>colMap[k]===undefined)
+      .map(k=>({spend:"ยอดใช้จ่าย",impressions:"Impressions",messages:"Messages",cpm:"CPM",ctr:"CTR"}[k]??k));
     setMissingCols(missing);
-
     setSaving(true);
-    const id = await sbSaveReport({
-      period_label: period,
-      start_date:   start,
-      end_date:     end,
-      file_name:    fileName,
-      uploaded_by:  currentUser?.full_name ?? "unknown",
-      rows_json:    ads,
-      col_map:      colMap,
-    });
+    const id=await sbSaveReport({period_label:period,start_date:start,end_date:end,file_name:fileName,uploaded_by:currentUser?.full_name??"unknown",rows_json:ads,col_map:colMap});
     setSaving(false);
-
-    // Refresh list
-    const newList = await sbLoadReports();
-    setReports(newList);
-
-    // Auto-select new report
-    if (id) {
-      const meta = newList.find((r) => r.id === id);
-      if (meta) {
-        const report: ReportData = { ...meta, ads, colMap };
-        setActiveReport(report);
-        setCompareReport(null);
-        setCompareMode(false);
-        const groups: Record<string, boolean> = {};
-        ads.forEach((a) => { groups[a.group] = true; });
-        setExpandedGroups(groups);
+    const newList=await sbLoadReports();setReports(newList);
+    if(id){
+      const meta=newList.find(r=>r.id===id);
+      if(meta){
+        const report:ReportData={...meta,ads,colMap};
+        setActiveReport(report);setCompareReport(null);setCompareMode(false);
+        const groups:Record<string,boolean>={};ads.forEach(a=>{groups[a.group]=true;});setExpandedGroups(groups);
       }
     }
   };
 
-  // ── Delete a report ──
-  const handleDelete = async (id: string) => {
-    await sbDeleteReport(id);
-    const newList = await sbLoadReports();
-    setReports(newList);
-    if (activeReport?.id === id)  setActiveReport(null);
-    if (compareReport?.id === id) setCompareReport(null);
+  const handleDelete=async(id:string)=>{
+    await sbDeleteReport(id);const newList=await sbLoadReports();setReports(newList);
+    if(activeReport?.id===id)setActiveReport(null);
+    if(compareReport?.id===id)setCompareReport(null);
     setDeleteConfirm(null);
   };
 
-  const toggleGroup = (g: string) =>
-    setExpandedGroups((prev) => ({ ...prev, [g]: !prev[g] }));
+  const toggleGroup=(g:string)=>setExpandedGroups(prev=>({...prev,[g]:!prev[g]}));
 
-  // Filtered ads
-  const filteredAds = !activeReport ? [] :
-    filterStatus === "all" ? activeReport.ads :
-    activeReport.ads.filter((a) => a.status.toLowerCase() === filterStatus);
+  const ads=activeReport?.ads??[];
+  const cm=activeReport?.colMap??{};
+  const filteredAds=filterStatus==="all"?ads:ads.filter(a=>a.status.toLowerCase()===filterStatus);
+  const totalSpend=sumN(ads,"spend");
 
-  const groupEntries = Object.entries(
-    filteredAds.reduce<Record<string, AdRow[]>>((acc, ad) => {
-      if (!acc[ad.group]) acc[ad.group] = [];
-      acc[ad.group].push(ad);
-      return acc;
-    }, {})
-  ).sort(([, a], [, b]) => sumN(b, "spend") - sumN(a, "spend"));
+  // Build group entries + assign colors
+  const groupEntries=Object.entries(
+    filteredAds.reduce<Record<string,AdRow[]>>((acc,ad)=>{if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;},{})
+  ).sort(([,a],[,b])=>sumN(b,"spend")-sumN(a,"spend"));
 
-  const cm = activeReport?.colMap ?? {};
-  const ads = activeReport?.ads ?? [];
+  // Stable color map for all ads (not just filtered)
+  const groupColorMap:Record<string,string>=Object.keys(
+    ads.reduce<Record<string,boolean>>((acc,ad)=>{acc[ad.group]=true;return acc;},{})
+  ).reduce<Record<string,string>>((acc,name,i)=>{acc[name]=groupColor(i);return acc;},{});
 
-  return (
+  return(
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-5">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-violet-400" /> Meta Ads Report
+              <TrendingUp className="w-6 h-6 text-violet-400"/> Meta Ads Report
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {SUPABASE_ENABLED
-                ? "บันทึก report ลง Cloud — ทีม Marketing ทุกคนเห็นข้อมูลเดียวกัน"
-                : "บันทึก report ลง localStorage (Supabase ยังไม่เปิดใช้งาน)"}
+              {SUPABASE_ENABLED?"บันทึก report ลง Cloud — ทีม Marketing ทุกคนเห็นข้อมูลเดียวกัน":"บันทึก report ลง localStorage"}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {saving && <span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin" />กำลังบันทึก...</span>}
-            <UploadZone onFile={handleFile} compact />
+            {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
+            <UploadZone onFile={handleFile} compact/>
           </div>
         </div>
 
-        {/* ── Saved Reports List ── */}
+        {/* Saved Reports panel */}
         <div className="rounded-2xl border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <CloudUpload className="w-3.5 h-3.5" /> Saved Reports
-              {loadingList && <Loader2 className="w-3 h-3 animate-spin" />}
+              <CloudUpload className="w-3.5 h-3.5"/> Saved Reports
+              {loadingList&&<Loader2 className="w-3 h-3 animate-spin"/>}
             </span>
-            {compareMode && compareReport && (
-              <button onClick={() => { setCompareMode(false); setCompareReport(null); }}
+            {compareMode&&compareReport&&(
+              <button onClick={()=>{setCompareMode(false);setCompareReport(null);}}
                 className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted transition-colors">
-                <X className="w-3 h-3" /> ยกเลิกเปรียบเทียบ
+                <X className="w-3 h-3"/> ยกเลิกเปรียบเทียบ
               </button>
             )}
           </div>
-
-          {reports.length === 0 && !loadingList && (
+          {reports.length===0&&!loadingList&&(
             <p className="text-xs text-muted-foreground text-center py-4">ยังไม่มี report — กด "Upload Report" เพื่อเริ่มต้น</p>
           )}
-
           <div className="flex flex-wrap gap-2">
-            {reports.map((r) => {
-              const isActive  = activeReport?.id  === r.id;
-              const isCompare = compareReport?.id === r.id;
-              return (
+            {reports.map(r=>{
+              const isActive=activeReport?.id===r.id;
+              const isCompare=compareReport?.id===r.id;
+              return(
                 <div key={r.id} className="flex items-center gap-0.5 group">
-                  <button
-                    onClick={() => {
-                      if (compareMode && activeReport && activeReport.id !== r.id) {
-                        selectReport(r, true);
-                      } else {
-                        selectReport(r, false);
-                      }
-                    }}
-                    disabled={loadingReport}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
-                      isActive
-                        ? "bg-violet-600 border-violet-600 text-white"
-                        : isCompare
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <FileText className="w-3 h-3" />
+                  <button onClick={()=>{
+                    if(compareMode&&activeReport&&activeReport.id!==r.id)selectReport(r,true);
+                    else selectReport(r,false);
+                  }} disabled={loadingReport}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all border
+                      ${isActive?"bg-violet-600 border-violet-600 text-white":isCompare?"bg-blue-600 border-blue-600 text-white":"bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+                    <FileText className="w-3 h-3"/>
                     <span>{r.period_label}</span>
-                    {isCompare && <span className="text-[9px] bg-blue-400/20 px-1 rounded">เปรียบ</span>}
                   </button>
-                  {/* Delete button */}
-                  {deleteConfirm === r.id ? (
+                  {deleteConfirm===r.id?(
                     <div className="flex items-center gap-1 ml-1">
-                      <button onClick={() => handleDelete(r.id)}
-                        className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/30 transition-colors">ลบ</button>
-                      <button onClick={() => setDeleteConfirm(null)}
-                        className="text-[10px] bg-muted text-muted-foreground px-2 py-1 rounded-lg hover:bg-muted/70 transition-colors">ยกเลิก</button>
+                      <button onClick={()=>handleDelete(r.id)} className="text-[10px] bg-red-500/20 text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/30 transition-colors">ลบ</button>
+                      <button onClick={()=>setDeleteConfirm(null)} className="text-[10px] bg-muted text-muted-foreground px-2 py-1 rounded-lg transition-colors">ยกเลิก</button>
                     </div>
-                  ) : (
-                    <button onClick={() => setDeleteConfirm(r.id)}
+                  ):(
+                    <button onClick={()=>setDeleteConfirm(r.id)}
                       className="w-6 h-6 rounded-lg opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 hover:bg-red-400/10 flex items-center justify-center transition-all ml-0.5">
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3 h-3"/>
                     </button>
                   )}
                 </div>
               );
             })}
           </div>
-
-          {/* Compare toggle */}
-          {activeReport && reports.length >= 2 && (
+          {activeReport&&reports.length>=2&&(
             <div className="border-t border-border/40 pt-3">
-              <button
-                onClick={() => setCompareMode((v) => !v)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                  compareMode
-                    ? "bg-blue-600/20 text-blue-400 border border-blue-600/30"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border"
-                }`}
-              >
-                <GitCompare className="w-3.5 h-3.5" />
-                {compareMode ? "กำลังเลือก period เปรียบเทียบ — คลิก chip ด้านบน" : "เปรียบเทียบ 2 Period"}
+              <button onClick={()=>setCompareMode(v=>!v)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${compareMode?"bg-blue-600/20 text-blue-400 border border-blue-600/30":"bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border"}`}>
+                <GitCompare className="w-3.5 h-3.5"/>
+                {compareMode?"กำลังเลือก period เปรียบเทียบ — คลิก chip ด้านบน":"เปรียบเทียบ 2 Period"}
               </button>
             </div>
           )}
         </div>
 
-        {/* Loading indicator */}
-        {loadingReport && (
+        {loadingReport&&(
           <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
-            <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+            <Loader2 className="w-5 h-5 animate-spin text-violet-400"/>
             <span className="text-sm">กำลังโหลดข้อมูล...</span>
           </div>
         )}
 
-        {/* ── Empty state: no reports yet ── */}
-        {!loadingList && !loadingReport && reports.length === 0 && (
+        {!loadingList&&!loadingReport&&reports.length===0&&(
           <div className="space-y-4">
-            <UploadZone onFile={handleFile} />
+            <UploadZone onFile={handleFile}/>
             <div className="rounded-2xl border bg-muted/20 p-4 flex gap-3">
-              <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5"/>
               <div className="space-y-1">
                 <p className="text-sm font-medium">วิธี Export CSV จาก Meta Ads Manager</p>
                 <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
@@ -802,85 +740,82 @@ export default function AdsReport() {
           </div>
         )}
 
-        {/* ── Prompt to select a report ── */}
-        {!loadingList && !loadingReport && reports.length > 0 && !activeReport && (
+        {!loadingList&&!loadingReport&&reports.length>0&&!activeReport&&(
           <div className="rounded-2xl border border-dashed p-12 text-center text-muted-foreground space-y-2">
-            <FileText className="w-10 h-10 mx-auto text-muted-foreground/30" />
+            <FileText className="w-10 h-10 mx-auto text-muted-foreground/30"/>
             <p className="text-sm">เลือก report ด้านบนเพื่อดูข้อมูล หรืออัปโหลด CSV ใหม่</p>
           </div>
         )}
 
         {/* ── Active Report ── */}
-        {activeReport && !loadingReport && (
+        {activeReport&&!loadingReport&&(
           <>
-            {/* Compare Panel */}
-            {compareMode && compareReport && (
-              <ComparePanel a={activeReport} b={compareReport} />
-            )}
+            {compareMode&&compareReport&&<ComparePanel a={activeReport} b={compareReport}/>}
 
             {/* Period info */}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-sm text-muted-foreground">ช่วงเวลา: <b className="text-foreground">{activeReport.period_label}</b></span>
               <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{ads.length} โฆษณา</span>
               <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full">
-                {ads.filter((a) => a.status.toLowerCase() === "active").length} กำลังแสดง
+                {ads.filter(a=>a.status.toLowerCase()==="active").length} กำลังแสดง
               </span>
-              <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by ?? "—"}</span>
+              <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by??"—"}</span>
             </div>
 
-            {/* Missing columns warning */}
-            {missingCols.length > 0 && (
+            {missingCols.length>0&&(
               <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5"/>
                 <p className="text-xs text-amber-300">ไม่พบ Column: <b>{missingCols.join(", ")}</b> — ระบบแสดงเฉพาะข้อมูลที่มี</p>
               </div>
             )}
 
-            {/* KPI Cards */}
+            {/* ① KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { label: "ยอดใช้จ่าย (฿)", val: `฿${fmtB(sumN(ads,"spend"))}`,         cmpVal: compareReport ? `฿${fmtB(sumN(compareReport.ads,"spend"))}` : undefined,    icon: <DollarSign className="w-4 h-4 text-white" />,         acc: "bg-gradient-to-br from-violet-500 to-purple-600",  avail: cm.spend !== undefined,      hib: false },
-                { label: "Impressions",     val: fmtInt(sumN(ads,"impressions")),          cmpVal: compareReport ? fmtInt(sumN(compareReport.ads,"impressions")) : undefined,   icon: <Eye className="w-4 h-4 text-white" />,                acc: "bg-gradient-to-br from-blue-500 to-indigo-600",    avail: cm.impressions !== undefined, hib: true  },
-                { label: "Reach",           val: fmtInt(sumN(ads,"reach")),               cmpVal: compareReport ? fmtInt(sumN(compareReport.ads,"reach")) : undefined,         icon: <Users className="w-4 h-4 text-white" />,             acc: "bg-gradient-to-br from-cyan-500 to-blue-600",     avail: cm.reach !== undefined,       hib: true  },
-                { label: "Messages",        val: fmtInt(sumN(ads,"messages")),             cmpVal: compareReport ? fmtInt(sumN(compareReport.ads,"messages")) : undefined,      icon: <MessageCircle className="w-4 h-4 text-white" />,     acc: "bg-gradient-to-br from-emerald-500 to-teal-600",  avail: cm.messages !== undefined,    hib: true  },
-                { label: "CPM เฉลี่ย (฿)", val: `฿${fmtB(avgN(ads,"cpm"))}`,            cmpVal: compareReport ? `฿${fmtB(avgN(compareReport.ads,"cpm"))}` : undefined,       icon: <TrendingUp className="w-4 h-4 text-white" />,        acc: "bg-gradient-to-br from-orange-500 to-red-600",    avail: cm.cpm !== undefined,         hib: false },
-                { label: "CTR เฉลี่ย",     val: `${fmtN(avgN(ads,"ctr"),2)}%`,           cmpVal: compareReport ? `${fmtN(avgN(compareReport.ads,"ctr"),2)}%` : undefined,     icon: <MousePointerClick className="w-4 h-4 text-white" />, acc: "bg-gradient-to-br from-pink-500 to-fuchsia-600",  avail: cm.ctr !== undefined,         hib: true  },
-              ].map(({ label, val, cmpVal, icon, acc, avail, hib }) => (
-                <KPICard key={label} label={label} value={val}
-                  compareValue={compareMode && compareReport ? cmpVal : undefined}
-                  icon={icon} accent={acc} available={avail} higherIsBetter={hib} />
+                {label:"ยอดใช้จ่าย (฿)",num:sumN(ads,"spend"),prefix:"฿",decimals:2,cmp:compareReport?sumN(compareReport.ads,"spend"):undefined,icon:<DollarSign className="w-4 h-4"/>,color:"#7F77DD",avail:cm.spend!==undefined,hib:false},
+                {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-4 h-4"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
+                {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-4 h-4"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
+                {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-4 h-4"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
+                {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-4 h-4"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
+                {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-4 h-4"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
+              ].map(({label,num,prefix,suffix,decimals,cmp,icon,color,avail,hib})=>(
+                <KPICard key={label} label={label} numericValue={num} prefix={prefix} suffix={suffix??""} decimals={decimals}
+                  compareValue={compareMode&&compareReport?cmp:undefined}
+                  icon={icon} accentColor={color} available={avail} higherIsBetter={hib}/>
               ))}
             </div>
 
-            {/* Filter + expand/collapse */}
+            {/* ② Charts */}
+            <ChartSection ads={ads} colMap={cm} groupColorMap={groupColorMap}/>
+
+            {/* Filter */}
             <div className="flex items-center gap-2 flex-wrap">
-              {(["all","active","not_delivering","archived"] as const).map((s) => {
-                const labels = { all: `ทั้งหมด (${ads.length})`, active: `Active (${ads.filter((a)=>a.status.toLowerCase()==="active").length})`, not_delivering: `Paused (${ads.filter((a)=>a.status.toLowerCase()==="not_delivering").length})`, archived: `Archived (${ads.filter((a)=>a.status.toLowerCase()==="archived").length})` };
-                return (
-                  <button key={s} onClick={() => setFilterStatus(s)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filterStatus===s ? "bg-violet-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`}>
-                    {labels[s]}
-                  </button>
-                );
+              {(["all","active","not_delivering","archived"] as const).map(s=>{
+                const labels={all:`ทั้งหมด (${ads.length})`,active:`Active (${ads.filter(a=>a.status.toLowerCase()==="active").length})`,not_delivering:`Paused (${ads.filter(a=>a.status.toLowerCase()==="not_delivering").length})`,archived:`Archived (${ads.filter(a=>a.status.toLowerCase()==="archived").length})`};
+                return<button key={s} onClick={()=>setFilterStatus(s)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filterStatus===s?"bg-violet-600 text-white":"bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`}>
+                  {labels[s]}</button>;
               })}
-              <button onClick={() => setExpandedGroups(Object.fromEntries(groupEntries.map(([g]) => [g, true])))}
+              <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,true])))}
                 className="ml-auto px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ขยายทั้งหมด</button>
-              <button onClick={() => setExpandedGroups(Object.fromEntries(groupEntries.map(([g]) => [g, false])))}
+              <button onClick={()=>setExpandedGroups(Object.fromEntries(groupEntries.map(([g])=>[g,false])))}
                 className="px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">ย่อทั้งหมด</button>
             </div>
 
-            {/* Group Cards */}
+            {/* ③ Group Cards */}
             <div className="space-y-3">
-              {groupEntries.length === 0
-                ? <div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground text-sm">ไม่มีโฆษณาในสถานะนี้</div>
-                : groupEntries.map(([g, gAds]) => (
-                  <GroupCard key={g} groupName={g} ads={gAds} cm={cm} expanded={expandedGroups[g] ?? false} onToggle={() => toggleGroup(g)} />
+              {groupEntries.length===0
+                ?<div className="rounded-2xl border border-dashed p-10 text-center text-muted-foreground text-sm">ไม่มีโฆษณาในสถานะนี้</div>
+                :groupEntries.map(([g,gAds])=>(
+                  <GroupCard key={g} groupName={g} ads={gAds} cm={cm}
+                    expanded={expandedGroups[g]??false} onToggle={()=>toggleGroup(g)}
+                    color={groupColorMap[g]??groupColor(0)} totalSpend={totalSpend}/>
                 ))
               }
             </div>
 
-            {/* Insight Form */}
-            <InsightForm period={activeReport.period_label} />
+            {/* ④ Insight cards */}
+            <InsightForm period={activeReport.period_label}/>
           </>
         )}
       </div>
