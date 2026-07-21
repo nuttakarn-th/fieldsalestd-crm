@@ -205,7 +205,7 @@ const ROLE_LABEL: Partial<Record<AppRole, string>> = {
 };
 
 /* ── Main Page ── */
-export default function SalesTeam() {
+export default function SalesTeam({ embed = false }: { embed?: boolean }) {
   const openChat = useChatUI((s) => s.open);
   const users    = useAuth((s) => s.users);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
@@ -235,8 +235,8 @@ export default function SalesTeam() {
   const handleMention = (name: string) => { openChat(name as any); };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background">
-      <StandaloneHeader backTo="/" />
+    <div className={embed ? "" : "min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background"}>
+      {!embed && <StandaloneHeader backTo="/" />}
 
       <div className="px-4 sm:px-8 py-4 space-y-6 max-w-7xl mx-auto">
 

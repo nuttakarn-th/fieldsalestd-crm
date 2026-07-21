@@ -36,7 +36,7 @@ export const TEAM_RESOURCES_NAV = [
     title: "Standard Teams",
     desc:  "ดูสมาชิกทั้งหมดทุกแผนกในบริษัท",
     icon:  Building2,
-    to:    "/teams",
+    to:    "/team-resources/standard-teams",
     gradient: "from-pink-500 to-rose-600",
   },
   // Future: SOP, Brand Guidelines, Training Docs, etc.

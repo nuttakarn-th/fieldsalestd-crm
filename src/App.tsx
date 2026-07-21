@@ -178,9 +178,10 @@ const App = () => (
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
-            <Route path="workflow"   element={<MarketingWorkflow />} />
-            <Route path="org-chart" element={<MarketingOrgChart />} />
-            <Route path="team"       element={<MarketingTeam />} />
+            <Route path="workflow"        element={<MarketingWorkflow />} />
+            <Route path="org-chart"       element={<MarketingOrgChart />} />
+            <Route path="team"            element={<MarketingTeam />} />
+            <Route path="standard-teams"  element={<SalesTeam embed />} />
           </Route>
           <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
