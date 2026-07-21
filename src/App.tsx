@@ -86,6 +86,7 @@ import MyTasksPage from "./pages/MyTasksPage.tsx";
 import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
 import MarketingTeam from "./pages/MarketingTeam.tsx";
+import AdsReport from "./pages/AdsReport.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -175,6 +176,7 @@ const App = () => (
             <Route path="marketing-report" element={<MarketingReport />} />
             <Route path="dashboard" element={<MarketingDashboardPage />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
+            <Route path="ads-report"   element={<AdsReport />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>

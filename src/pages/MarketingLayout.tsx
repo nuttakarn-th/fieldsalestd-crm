@@ -74,6 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Reports",           icon: BarChart3,     to: "/marketing/marketing-report"        },
       { label: "Ads Dashboard",     icon: TrendingUp,    to: "/ads-dashboard"                      },
+      { label: "Ads Report",        icon: BarChart3,     to: "/marketing/ads-report"               },
     ],
   },
   {
