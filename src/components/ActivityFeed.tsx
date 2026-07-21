@@ -22,6 +22,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
 import { useActivityLog, eventCategory, type ActivityLog, type NotifCategory } from "@/store/activityLogStore";
+
+// ── isUnread utility (inline — ไม่เก็บใน store state) ─────────────────────────
+function makeIsUnread(lastReadAt: string) {
+  return (entry: ActivityLog) => new Date(entry.created_at) > new Date(lastReadAt);
+}
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { useCurrentUser, useActiveSalesTeamNames } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -228,16 +233,16 @@ function MutePanel({
   onToggle,
   visibleCats,
 }: {
-  mutedCategories: Set<NotifCategory>;
+  mutedCategories: Record<string, boolean>;
   onToggle: (cat: NotifCategory) => void;
-  visibleCats: Set<NotifCategory>;
+  visibleCats: NotifCategory[];
 }) {
   return (
     <div className="px-3 py-3 border-t border-border bg-muted/20 space-y-1">
       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">การแจ้งเตือน</p>
       <div className="grid grid-cols-2 gap-1">
-        {CAT_CONFIG.filter((c) => visibleCats.has(c.id)).map((c) => {
-          const muted = mutedCategories.has(c.id);
+        {CAT_CONFIG.filter((c) => visibleCats.includes(c.id)).map((c) => {
+          const muted = !!mutedCategories[c.id];
           return (
             <button
               key={c.id}
@@ -281,8 +286,10 @@ export function ActivityFeed() {
   const clearLogs       = useActivityLog((s) => s.clearLogs);
   const toggleMute      = useActivityLog((s) => s.toggleMute);
   const consumeToast    = useActivityLog((s) => s.consumeToast);
-  const isUnreadFn      = useActivityLog((s) => s.isUnread);
   const init            = useActivityLog((s) => s.init);
+
+  // isUnread computed inline จาก lastReadAt (plain string, reactive)
+  const isUnread = makeIsUnread(lastReadAt);
 
   // Auth
   const user           = useCurrentUser();
@@ -324,12 +331,12 @@ export function ActivityFeed() {
       });
     }
     // กรอง muted categories
-    filtered = filtered.filter((l) => !mutedCategories.has(eventCategory(l.event_type)));
+    filtered = filtered.filter((l) => !mutedCategories[eventCategory(l.event_type)]);
     return filtered;
   })();
 
   // Role-aware unread count (นับเฉพาะ events ที่ role นี้มองเห็น)
-  const unreadCount = visibleLogs.filter((l) => isUnreadFn(l)).length;
+  const unreadCount = visibleLogs.filter((l) => isUnread(l)).length;
 
   // Delete requests
   const pendingRequests = deleteRequests.filter((r) => {
@@ -343,8 +350,8 @@ export function ActivityFeed() {
   const totalBadge = unreadCount + (isAnyManager ? pendingRequests.length : 0);
 
   // Categories visible to this role (for mute panel)
-  const visibleCats = new Set<NotifCategory>(["tour", "lead", "customer", "seat", "system"]);
-  if (isMarketing || isAdmin) visibleCats.add("campaign");
+  const visibleCats: NotifCategory[] = ["tour", "lead", "customer", "seat", "system"];
+  if (isMarketing || isAdmin) visibleCats.push("campaign");
 
   // ── Init ──────────────────────────────────────────────────────────────────
   const getFeedOpen = useCallback(() => openRef.current, []);
@@ -548,7 +555,7 @@ export function ActivityFeed() {
                     <LogRow
                       key={log.id}
                       log={log}
-                      isUnread={isUnreadFn(log)}
+                      isUnread={isUnread(log)}
                       role={role}
                       onNavigate={(path) => { setOpen(false); navigate(path); }}
                     />

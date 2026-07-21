@@ -1,12 +1,12 @@
 /**
- * activityLogStore — Zustand store สำหรับ Universal Activity Log
+ * activityLogStore v2 — Zustand store สำหรับ Universal Activity Log
  *
  * v2 improvements:
  * - lastReadAt persisted to localStorage → badge ไม่ reset หลัง Refresh
  * - clearLogs() — ล้าง list ใน local (ไม่ลบ DB)
- * - mutedCategories persisted to localStorage — mute event category ได้
- * - isUnread() helper — compute per-entry unread state ใน component
- * - toastEntry — entry ล่าสุดสำหรับ real-time toast (popup ปิดอยู่)
+ * - mutedCategories เป็น plain Record<string,boolean> (serializable, ไม่ใช้ Set)
+ * - toastEntry — entry ล่าสุดสำหรับ real-time toast
+ * - init รับ getFeedOpen callback เพื่อ suppress toast ขณะ popup เปิดอยู่
  */
 
 import { create } from "zustand";
@@ -25,11 +25,15 @@ export interface ActivityLog extends ActivityEntry {
   event_type: ActivityEventType | string;
 }
 
-/** หมวด event ที่ผู้ใช้ mute ได้ */
 export type NotifCategory = "tour" | "lead" | "customer" | "campaign" | "seat" | "system";
 
 export function eventCategory(event_type: string): NotifCategory {
-  if (event_type.startsWith("tour_") || event_type.startsWith("period_") || event_type === "import_complete" || event_type === "period_nearly_full") return "tour";
+  if (
+    event_type.startsWith("tour_") ||
+    event_type.startsWith("period_") ||
+    event_type === "import_complete" ||
+    event_type === "period_nearly_full"
+  ) return "tour";
   if (event_type.startsWith("lead_"))     return "lead";
   if (event_type.startsWith("customer_")) return "customer";
   if (event_type.startsWith("campaign_")) return "campaign";
@@ -39,42 +43,40 @@ export function eventCategory(event_type: string): NotifCategory {
 
 interface ActivityLogState {
   logs:             ActivityLog[];
-  lastReadAt:       string;          // ISO — persisted to localStorage
-  mutedCategories:  Set<NotifCategory>; // persisted to localStorage
-  toastEntry:       ActivityLog | null; // entry ล่าสุดสำหรับ toast (cleared หลัง consumed)
+  lastReadAt:       string;                      // ISO — persisted to localStorage
+  mutedCategories:  Record<string, boolean>;     // plain object, serializable
+  toastEntry:       ActivityLog | null;
 
-  // Actions
-  addEntry:          (entry: ActivityLog, feedOpen?: boolean) => void;
-  markAllRead:       () => void;
-  clearLogs:         () => void;
-  toggleMute:        (cat: NotifCategory) => void;
-  consumeToast:      () => void;
-  isUnread:          (entry: ActivityLog) => boolean;
+  addEntry:    (entry: ActivityLog, feedOpen?: boolean) => void;
+  markAllRead: () => void;
+  clearLogs:   () => void;
+  toggleMute:  (cat: NotifCategory) => void;
+  consumeToast:() => void;
 
-  /** เรียกครั้งเดียวตอน mount — โหลด 100 รายการล่าสุดจาก Supabase + subscribe realtime */
   init: (getFeedOpen: () => boolean) => () => void;
 }
 
-const MAX_LOGS        = 100;
-const EPOCH           = new Date(0).toISOString();
-const LS_LAST_READ    = "crm_activity_lastReadAt";
-const LS_MUTED        = "crm_activity_mutedCategories";
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+const MAX_LOGS     = 100;
+const EPOCH        = new Date(0).toISOString();
+const LS_LAST_READ = "crm_activity_lastReadAt";
+const LS_MUTED     = "crm_activity_mutedCategories";
 
 function loadLastReadAt(): string {
   try { return localStorage.getItem(LS_LAST_READ) ?? EPOCH; } catch { return EPOCH; }
 }
 function saveLastReadAt(iso: string) {
-  try { localStorage.setItem(LS_LAST_READ, iso); } catch { /* ignore */ }
+  try { localStorage.setItem(LS_LAST_READ, iso); } catch { /* noop */ }
 }
-function loadMuted(): Set<NotifCategory> {
+function loadMuted(): Record<string, boolean> {
   try {
     const raw = localStorage.getItem(LS_MUTED);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as NotifCategory[]);
-  } catch { return new Set(); }
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  } catch { return {}; }
 }
-function saveMuted(s: Set<NotifCategory>) {
-  try { localStorage.setItem(LS_MUTED, JSON.stringify([...s])); } catch { /* ignore */ }
+function saveMuted(m: Record<string, boolean>) {
+  try { localStorage.setItem(LS_MUTED, JSON.stringify(m)); } catch { /* noop */ }
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -85,56 +87,52 @@ export const useActivityLog = create<ActivityLogState>()((set, get) => ({
   mutedCategories: loadMuted(),
   toastEntry:      null,
 
-  // ── isUnread helper ──────────────────────────────────────────────────────────
-  isUnread: (entry) => new Date(entry.created_at) > new Date(get().lastReadAt),
-
-  // ── addEntry: de-duplicate → prepend → optional toast ───────────────────────
+  // ── addEntry ──────────────────────────────────────────────────────────────────
   addEntry: (entry, feedOpen = false) => {
-    const { logs, lastReadAt, mutedCategories } = get();
-    if (logs.some((l) => l.id === entry.id)) return; // de-dup
+    const state = get();
+    if (state.logs.some((l) => l.id === entry.id)) return; // de-dup
 
-    const isNew = new Date(entry.created_at) > new Date(lastReadAt);
+    const isNew = new Date(entry.created_at) > new Date(state.lastReadAt);
     const cat   = eventCategory(entry.event_type);
-    const muted = mutedCategories.has(cat);
+    const muted = !!state.mutedCategories[cat];
 
     set({
-      logs:       [entry, ...logs].slice(0, MAX_LOGS),
-      // ถ้า feed กำลังเปิดอยู่ → ไม่ toast; ถ้า muted → ไม่ toast
-      toastEntry: (isNew && !feedOpen && !muted) ? entry : get().toastEntry,
+      logs:       [entry, ...state.logs].slice(0, MAX_LOGS),
+      toastEntry: (isNew && !feedOpen && !muted) ? entry : state.toastEntry,
     });
   },
 
-  // ── markAllRead ──────────────────────────────────────────────────────────────
+  // ── markAllRead ───────────────────────────────────────────────────────────────
   markAllRead: () => {
     const iso = new Date().toISOString();
     saveLastReadAt(iso);
     set({ lastReadAt: iso, toastEntry: null });
   },
 
-  // ── clearLogs — local only ───────────────────────────────────────────────────
+  // ── clearLogs — local only ────────────────────────────────────────────────────
   clearLogs: () => set({ logs: [], toastEntry: null }),
 
-  // ── toggleMute ───────────────────────────────────────────────────────────────
+  // ── toggleMute ────────────────────────────────────────────────────────────────
   toggleMute: (cat) => {
-    const next = new Set(get().mutedCategories);
-    if (next.has(cat)) next.delete(cat); else next.add(cat);
+    const current = get().mutedCategories;
+    const next = { ...current, [cat]: !current[cat] };
     saveMuted(next);
     set({ mutedCategories: next });
   },
 
-  // ── consumeToast ─────────────────────────────────────────────────────────────
+  // ── consumeToast ──────────────────────────────────────────────────────────────
   consumeToast: () => set({ toastEntry: null }),
 
-  // ── init: load history + subscribe ──────────────────────────────────────────
+  // ── init: load history + subscribe ───────────────────────────────────────────
   init: (getFeedOpen) => {
-    const { addEntry } = get();
+    const store = get();
 
-    // 1. Subscribe local bus (ทันทีเมื่อ logActivity() ถูกเรียก)
-    const unsubLocal = _subscribeLocalActivity((entry) =>
-      addEntry(entry as ActivityLog, getFeedOpen())
-    );
+    // 1. Subscribe local bus
+    const unsubLocal = _subscribeLocalActivity((entry) => {
+      get().addEntry(entry as ActivityLog, getFeedOpen());
+    });
 
-    // 2. Supabase: load 100 รายการล่าสุด (ไม่ trigger toast — เป็น history)
+    // 2. Load 100 รายการล่าสุดจาก Supabase (history → ไม่ toast)
     if (SUPABASE_ENABLED && supabase) {
       supabase
         .from("activity_log")
@@ -142,16 +140,15 @@ export const useActivityLog = create<ActivityLogState>()((set, get) => ({
         .order("created_at", { ascending: false })
         .limit(MAX_LOGS)
         .then(({ data, error }) => {
-          if (error) { console.error("[activityLog] loadRecent ล้มเหลว:", error); return; }
-          // reverse → forEach เพื่อให้ newest อยู่บนสุด หลัง prepend ทั้งหมด
+          if (error) { console.error("[activityLog] load ล้มเหลว:", error); return; }
+          // reverse เพื่อ prepend ในลำดับที่ถูกต้อง (newest on top)
           ;[...(data as ActivityLog[])].reverse().forEach((row) => {
-            // history load → ไม่ toast (feedOpen=true เป็น workaround)
-            get().addEntry(row, true);
+            get().addEntry(row, true); // feedOpen=true → suppress toast
           });
         });
     }
 
-    // 3. Supabase Realtime — รับ INSERT จาก user อื่นๆ
+    // 3. Supabase Realtime — รับ INSERT จาก user อื่น
     let unsubRealtime: (() => void) | null = null;
     if (SUPABASE_ENABLED && supabase) {
       const channel = supabase
@@ -159,13 +156,17 @@ export const useActivityLog = create<ActivityLogState>()((set, get) => ({
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "activity_log" },
-          (payload) => { addEntry(payload.new as ActivityLog, getFeedOpen()); },
+          (payload) => { get().addEntry(payload.new as ActivityLog, getFeedOpen()); },
         )
         .subscribe((status) => { console.info("[activityLog] realtime:", status); });
 
       unsubRealtime = () => supabase!.removeChannel(channel);
     }
 
-    return () => { unsubLocal(); unsubRealtime?.(); };
+    void store; // suppress unused warning
+    return () => {
+      unsubLocal();
+      unsubRealtime?.();
+    };
   },
 }));
