@@ -768,71 +768,91 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   ].filter(Boolean) as {name:string;label:string;sublabel:string;icon:React.ReactNode;color:string;val:string}[];
   if(stars.length===0)return null;
 
+  // Dark saturated gradient per card — self-contained dark mini-cards
+  const CARD_THEMES=[
+    {bg:"linear-gradient(145deg,#2c1800 0%,#180d00 55%,#0d0600 100%)",border:"rgba(239,159,39,0.5)"},
+    {bg:"linear-gradient(145deg,#002918 0%,#001208 55%,#000a05 100%)",border:"rgba(29,158,117,0.5)"},
+    {bg:"linear-gradient(145deg,#160b4a 0%,#0a051f 55%,#050210 100%)",border:"rgba(127,119,221,0.5)"},
+  ];
   const RANK_LABELS=["WINNER","TOP","BEST"];
 
   return(
     <div className="space-y-2">
       {/* Divider label */}
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,var(--border))"}}/>
-        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground/50">Top Performers</span>
-        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,var(--border),transparent)"}}/>
+        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.08))"}}/>
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 px-2">Top Performers</span>
+        <div className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(255,255,255,0.08),transparent)"}}/>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         {stars.map(({name,label,sublabel,icon,color,val},idx)=>{
           const isActive=activeGroupFilter===name;
+          const theme=CARD_THEMES[idx];
           return(
             <button key={label} onClick={()=>onGroupClick(name)}
-              className="relative overflow-hidden rounded-2xl text-left transition-all group cursor-pointer"
+              className="relative overflow-hidden rounded-2xl text-left transition-all duration-300 group cursor-pointer"
               style={{
-                background:`linear-gradient(145deg,${color}1A 0%,${color}06 60%,transparent 100%)`,
-                border:`1px solid ${isActive?color:color+"30"}`,
-                boxShadow:isActive?`0 0 0 2px ${color}40,0 8px 32px ${color}20`:`0 2px 8px ${color}10`,
-                transform:isActive?"scale(1.02)":"scale(1)",
+                background:theme.bg,
+                border:`1px solid ${isActive?color:theme.border}`,
+                boxShadow:isActive
+                  ?`0 0 0 2px ${color},0 0 60px ${color}50,0 20px 60px rgba(0,0,0,0.5)`
+                  :`0 0 40px ${color}20,0 8px 32px rgba(0,0,0,0.4)`,
+                transform:isActive?"scale(1.03) translateY(-2px)":"scale(1)",
               }}>
 
-              {/* Watermark rank number */}
-              <span className="absolute -bottom-3 -right-1 text-8xl font-black select-none pointer-events-none leading-none"
-                style={{color,opacity:0.055}}>{String(idx+1).padStart(2,"0")}</span>
+              {/* Ambient glow blob — sits behind hero number */}
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 w-36 h-16 rounded-full blur-3xl pointer-events-none transition-opacity duration-300"
+                style={{background:color,opacity:isActive?0.28:0.14}}/>
 
-              {/* Hover radial glow */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                style={{background:`radial-gradient(circle at 30% 0%,${color}18 0%,transparent 65%)`}}/>
+              {/* Hover: brighten from top */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"
+                style={{background:`radial-gradient(ellipse at 50% -10%,${color}28 0%,transparent 60%)`}}/>
+
+              {/* Watermark rank — behind all content */}
+              <span className="absolute -bottom-4 right-0 font-black select-none pointer-events-none leading-none"
+                style={{fontSize:"7.5rem",color:"rgba(255,255,255,0.035)",lineHeight:1}}>{String(idx+1).padStart(2,"0")}</span>
 
               {/* Top accent line */}
               <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl"
-                style={{background:`linear-gradient(90deg,${color},${color}40,transparent)`}}/>
+                style={{background:`linear-gradient(90deg,${color},${color}60,transparent)`}}/>
 
               {/* Content */}
-              <div className="relative z-10 p-5">
-                {/* Header row */}
+              <div className="relative z-10 px-5 pt-5 pb-5">
+
+                {/* Header: icon + rank badge */}
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
-                    style={{background:`${color}20`,color}}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+                    style={{background:`${color}25`,border:`1px solid ${color}40`,color}}>
                     {icon}
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full"
-                    style={{background:`${color}15`,color:`${color}dd`}}>
+                  <span className="text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1 rounded-full"
+                    style={{background:`${color}20`,color,border:`1px solid ${color}40`}}>
                     {RANK_LABELS[idx]}
                   </span>
                 </div>
 
-                {/* Metric value — hero number */}
-                <p className="text-2xl font-black tracking-tight leading-none mb-1.5" style={{color}}>
+                {/* HERO NUMBER */}
+                <p className="font-black leading-none tracking-tight mb-3 transition-transform duration-300 group-hover:scale-105 origin-left"
+                  style={{
+                    fontSize:"2.8rem",
+                    color:"#ffffff",
+                    textShadow:`0 0 25px ${color}EE, 0 0 60px ${color}90, 0 0 100px ${color}50`,
+                  }}>
                   {val}
                 </p>
 
-                {/* Label */}
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/70 leading-none mb-1">
-                  {label}
-                </p>
+                {/* Label with left accent bar */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-[3px] h-3 rounded-full shrink-0" style={{background:color}}/>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{color:`${color}cc`}}>
+                    {label}
+                  </p>
+                </div>
 
-                {/* Group name */}
-                <p className="text-xs font-semibold text-foreground truncate">{name}</p>
-
-                {/* Sublabel */}
-                <p className="text-[9px] text-muted-foreground/60 mt-0.5 truncate">{sublabel}</p>
+                {/* Group name + sublabel */}
+                <p className="text-sm font-bold text-white/90 truncate">{name}</p>
+                <p className="text-[10px] text-white/30 mt-0.5 truncate">{sublabel}</p>
               </div>
             </button>
           );
