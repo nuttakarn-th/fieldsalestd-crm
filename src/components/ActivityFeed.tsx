@@ -1,28 +1,36 @@
 /**
- * ActivityFeed.tsx — Bell icon + popover แสดง activity log สำหรับทุก Role
+ * ActivityFeed.tsx v2 — Bell icon + popover แสดง activity log
  *
- * - แสดงกิจกรรมทุก Role: Tour/Period, Lead, Customer, Campaign, Booking
- * - Sales Manager เห็น pending delete requests ของฝ่าย Sales
- * - OB Manager เห็น pending delete requests ของฝ่าย OB
- * - Admin เห็น pending delete requests ทั้งหมด
+ * Features v2:
+ * ✅ badge ไม่ reset หลัง Refresh (lastReadAt persist localStorage)
+ * ✅ Role-aware unread count (นับเฉพาะ events ที่ role นั้นมองเห็น)
+ * ✅ Unread highlight — แถวที่ยังไม่อ่านมีจุดฟ้า + bg สว่างกว่า
+ * ✅ Clickable rows — กดแถวแล้วไปหน้าที่เกี่ยวข้อง
+ * ✅ Group by day — วันนี้ / เมื่อวาน / สัปดาห์นี้ / เก่ากว่า
+ * ✅ Clear all — ล้าง list ใน local
+ * ✅ Mute filter — ปิด/เปิด แต่ละ category ได้
+ * ✅ Real-time toast — แสดง toast มุมขวาบนเมื่อมี entry ใหม่ขณะ popup ปิด
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Bell, X, Package, Users, Target, Megaphone, BookOpen, ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock } from "lucide-react";
-import { useActivityLog, type ActivityLog } from "@/store/activityLogStore";
+import {
+  Bell, X, Package, Users, Target, Megaphone, BookOpen,
+  ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock,
+  Settings2, Trash, ChevronDown, ChevronUp,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/sonner";
+import { useActivityLog, eventCategory, type ActivityLog, type NotifCategory } from "@/store/activityLogStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { useCurrentUser, useActiveSalesTeamNames } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-interface EventMeta {
-  icon:    React.ReactNode;
-  color:   string;
-  border:  string;
-  text:    string;
-}
+// ── Event meta ────────────────────────────────────────────────────────────────
+
+interface EventMeta { icon: React.ReactNode; color: string; border: string; text: string }
 
 function getEventMeta(event_type: string): EventMeta {
   if (event_type === "period_nearly_full") {
@@ -46,8 +54,39 @@ function getEventMeta(event_type: string): EventMeta {
   return { icon: <BookOpen className="w-3.5 h-3.5" />, color: "bg-muted/60", border: "border-border", text: "text-muted-foreground" };
 }
 
+// ── Navigate target ────────────────────────────────────────────────────────────
+/** คืน path ที่ควร navigate ไปเมื่อกดแถว activity */
+function getNavTarget(log: ActivityLog, role: string): string | null {
+  const isMarketing = role === "Marketing";
+  const base = (path: string) => isMarketing ? path.replace(/^\/app\//, "/marketing/") : path;
+
+  if (log.event_type.startsWith("tour_") || log.event_type.startsWith("period_") || log.event_type === "import_complete" || log.event_type === "period_nearly_full") {
+    return base("/app/all-service");
+  }
+  if (log.event_type.startsWith("lead_")) {
+    // ถ้า detail มี "OB" → pipeline OB, else pipeline sales
+    const dept = (log as any).department;
+    if (isMarketing) return dept === "OB" ? "/marketing/ob-leads" : "/marketing/sales-leads";
+    return "/app/pipeline";
+  }
+  if (log.event_type.startsWith("customer_")) {
+    if (isMarketing) return "/marketing/customers";
+    return "/app/customers";
+  }
+  if (log.event_type.startsWith("campaign_")) {
+    if (isMarketing) return "/marketing/campaigns";
+    return null;
+  }
+  if (log.event_type.startsWith("seat_")) {
+    return base("/app/all-service");
+  }
+  return null;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
 function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff  = Date.now() - new Date(iso).getTime();
   const mins  = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
   const days  = Math.floor(diff / 86_400_000);
@@ -62,29 +101,94 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short", hour12: false });
 }
 
+/** จัดกลุ่ม logs ตามวัน */
+function groupByDay(logs: ActivityLog[]) {
+  const today     = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo   = new Date(today.getTime() - 7 * 86400000);
+
+  const groups: { label: string; items: ActivityLog[] }[] = [
+    { label: "วันนี้",     items: [] },
+    { label: "เมื่อวาน",   items: [] },
+    { label: "สัปดาห์นี้", items: [] },
+    { label: "เก่ากว่า",  items: [] },
+  ];
+  for (const log of logs) {
+    const d = new Date(log.created_at); d.setHours(0,0,0,0);
+    if (d >= today)     groups[0].items.push(log);
+    else if (d >= yesterday) groups[1].items.push(log);
+    else if (d >= weekAgo)   groups[2].items.push(log);
+    else                     groups[3].items.push(log);
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
+
+// ── Category config (mute panel) ─────────────────────────────────────────────
+
+const CAT_CONFIG: { id: NotifCategory; label: string; icon: React.ReactNode; color: string }[] = [
+  { id: "tour",     label: "โปรแกรม/Period", icon: <Package className="w-3 h-3" />,    color: "text-violet-500" },
+  { id: "lead",     label: "Leads",           icon: <Target className="w-3 h-3" />,      color: "text-blue-500"   },
+  { id: "customer", label: "ลูกค้า",           icon: <Users className="w-3 h-3" />,       color: "text-emerald-500"},
+  { id: "campaign", label: "Campaigns",        icon: <Megaphone className="w-3 h-3" />,   color: "text-orange-500" },
+  { id: "seat",     label: "จองที่นั่ง",        icon: <ShoppingCart className="w-3 h-3" />,color: "text-amber-500"  },
+  { id: "system",   label: "ระบบ/Import",      icon: <BookOpen className="w-3 h-3" />,    color: "text-muted-foreground" },
+];
+
+// ── DeptBadge ─────────────────────────────────────────────────────────────────
+
 function DeptBadge({ dept }: { dept?: string }) {
   if (!dept || dept === "System" || dept === "Marketing") return null;
   return (
     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border leading-none ${
       dept === "OB"
-        ? "bg-purple-100 text-purple-700 border-purple-200"
-        : "bg-blue-100 text-blue-700 border-blue-200"
+        ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/40"
+        : "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40"
     }`}>
       {dept}
     </span>
   );
 }
 
-function LogRow({ log }: { log: ActivityLog }) {
-  const meta = getEventMeta(log.event_type);
+// ── LogRow ─────────────────────────────────────────────────────────────────────
+
+function LogRow({
+  log, isUnread, role, onNavigate,
+}: {
+  log: ActivityLog;
+  isUnread: boolean;
+  role: string;
+  onNavigate: (path: string) => void;
+}) {
+  const meta   = getEventMeta(log.event_type);
+  const target = getNavTarget(log, role);
+
   return (
-    <div className="flex gap-2.5 px-3 py-2.5 hover:bg-muted/40 transition-colors">
+    <div
+      onClick={() => target && onNavigate(target)}
+      className={`flex gap-2.5 px-3 py-2.5 transition-colors group relative ${
+        target ? "cursor-pointer" : ""
+      } ${
+        isUnread
+          ? "bg-blue-50/60 dark:bg-blue-500/5 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+          : "hover:bg-muted/40"
+      }`}
+    >
+      {/* Unread dot */}
+      {isUnread && (
+        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+      )}
+
+      {/* Icon */}
       <div className={`shrink-0 w-7 h-7 rounded-full border flex items-center justify-center mt-0.5 ${meta.color} ${meta.border} ${meta.text}`}>
         {meta.icon}
       </div>
+
+      {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-[12px] font-semibold text-foreground leading-snug truncate">{log.subject}</p>
+          <p className={`text-[12px] leading-snug truncate ${isUnread ? "font-bold text-foreground" : "font-semibold text-foreground"}`}>
+            {log.subject}
+          </p>
           <DeptBadge dept={(log as any).department} />
         </div>
         {log.detail && (
@@ -94,9 +198,16 @@ function LogRow({ log }: { log: ActivityLog }) {
           {log.actor}{log.role ? ` · ${log.role}` : ""}{" · "}{relativeTime(log.created_at)}
         </p>
       </div>
+
+      {/* Arrow hint on hover */}
+      {target && (
+        <span className="shrink-0 self-center text-muted-foreground/0 group-hover:text-muted-foreground/40 transition-colors text-xs">›</span>
+      )}
     </div>
   );
 }
+
+// ── EmptyState ────────────────────────────────────────────────────────────────
 
 function EmptyState() {
   return (
@@ -110,46 +221,96 @@ function EmptyState() {
   );
 }
 
+// ── MutePanel ─────────────────────────────────────────────────────────────────
+
+function MutePanel({
+  mutedCategories,
+  onToggle,
+  visibleCats,
+}: {
+  mutedCategories: Set<NotifCategory>;
+  onToggle: (cat: NotifCategory) => void;
+  visibleCats: Set<NotifCategory>;
+}) {
+  return (
+    <div className="px-3 py-3 border-t border-border bg-muted/20 space-y-1">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">การแจ้งเตือน</p>
+      <div className="grid grid-cols-2 gap-1">
+        {CAT_CONFIG.filter((c) => visibleCats.has(c.id)).map((c) => {
+          const muted = mutedCategories.has(c.id);
+          return (
+            <button
+              key={c.id}
+              onClick={() => onToggle(c.id)}
+              className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors text-left ${
+                muted
+                  ? "bg-muted/40 text-muted-foreground/50 line-through"
+                  : `bg-card border border-border hover:border-border/80 ${c.color}`
+              }`}
+            >
+              <span className={muted ? "opacity-30" : ""}>{c.icon}</span>
+              {c.label}
+              {muted && <span className="ml-auto text-[9px] font-bold text-muted-foreground/40">ปิด</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+
 export function ActivityFeed() {
-  const [open, setOpen]     = useState(false);
-  const btnRef              = useRef<HTMLButtonElement>(null);
-  const popRef              = useRef<HTMLDivElement>(null);
-  const [popPos, setPopPos] = useState({ top: 0, right: 0 });
-  // Marketing dept filter tab
-  const [deptTab, setDeptTab] = useState<"all" | "OB" | "Sales">("all");
+  const [open, setOpen]         = useState(false);
+  const [showMute, setShowMute] = useState(false);
+  const [deptTab, setDeptTab]   = useState<"all" | "OB" | "Sales">("all");
+  const btnRef                  = useRef<HTMLButtonElement>(null);
+  const popRef                  = useRef<HTMLDivElement>(null);
+  const [popPos, setPopPos]     = useState({ top: 0, right: 0 });
+  const openRef                 = useRef(false); // sync ref for store init callback
 
-  const logs        = useActivityLog((s) => s.logs);
-  const unreadCount = useActivityLog((s) => s.unreadCount);
-  const markAllRead = useActivityLog((s) => s.markAllRead);
-  const init        = useActivityLog((s) => s.init);
+  const navigate = useNavigate();
 
-  const user          = useCurrentUser();
+  // Store
+  const logs            = useActivityLog((s) => s.logs);
+  const lastReadAt      = useActivityLog((s) => s.lastReadAt);
+  const mutedCategories = useActivityLog((s) => s.mutedCategories);
+  const toastEntry      = useActivityLog((s) => s.toastEntry);
+  const markAllRead     = useActivityLog((s) => s.markAllRead);
+  const clearLogs       = useActivityLog((s) => s.clearLogs);
+  const toggleMute      = useActivityLog((s) => s.toggleMute);
+  const consumeToast    = useActivityLog((s) => s.consumeToast);
+  const isUnreadFn      = useActivityLog((s) => s.isUnread);
+  const init            = useActivityLog((s) => s.init);
+
+  // Auth
+  const user           = useCurrentUser();
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
   const { requests: deleteRequests, loadRequests, approveRequest, rejectRequest } = useDeleteRequests();
-  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager เท่านั้น (ไม่รวม OB)
+  const salesTeamNames = useActiveSalesTeamNames();
 
-  // Determine role-based visibility
-  const isAdmin        = user?.role === "Admin";
-  const isSalesManager = user?.role === "Sales Manager";
-  const isSalesRep     = user?.role === "Sales";
-  const isOBManager    = user?.role === "OB Manager";
-  const isMarketing    = user?.role === "Marketing";
-  const isAnyManager   = isAdmin || isSalesManager || isOBManager;
-  // ทีม Sales (rep + manager) — เห็นเฉพาะกิจกรรมของทีมตัวเอง + กิจกรรม Stock เท่านั้น
+  const role         = user?.role ?? "";
+  const isAdmin      = role === "Admin";
+  const isSalesManager = role === "Sales Manager";
+  const isSalesRep   = role === "Sales";
+  const isOBManager  = role === "OB Manager";
+  const isMarketing  = role === "Marketing";
+  const isAnyManager = isAdmin || isSalesManager || isOBManager;
   const isSalesTeamView = isSalesRep || isSalesManager;
 
-  // กรอง logs ตาม role:
-  // - campaign_ events → เห็นได้เฉพาะ Marketing + Admin เท่านั้น
-  // - Marketing: กรองเพิ่มตาม dept tab
-  // - ทีม Sales: เห็นเฉพาะกิจกรรมของทีม Sales เอง + กิจกรรม Stock (tour/period/seat) — ไม่เห็นของทีม OB
+  // ── Filter visible logs by role ────────────────────────────────────────────
   const visibleLogs = (() => {
     let filtered = logs;
+    // Non-marketing/admin ไม่เห็น campaign events
     if (!isMarketing && !isAdmin) {
       filtered = filtered.filter((l) => !l.event_type.startsWith("campaign_"));
     }
+    // Marketing dept tab
     if (isMarketing && deptTab !== "all") {
       filtered = filtered.filter((l) => (l as any).department === deptTab);
     }
+    // Sales team เห็นเฉพาะ stock events + events ของทีม
     if (isSalesTeamView) {
       const salesNameSet = new Set(salesTeamNames);
       filtered = filtered.filter((l) => {
@@ -157,15 +318,20 @@ export function ActivityFeed() {
           l.event_type.startsWith("tour_") ||
           l.event_type.startsWith("period_") ||
           l.event_type.startsWith("seat_") ||
-          l.event_type === "import_complete";
-        if (isStockEvent) return true;
-        return salesNameSet.has(l.actor);
+          l.event_type === "import_complete" ||
+          l.event_type === "period_nearly_full";
+        return isStockEvent || salesNameSet.has(l.actor);
       });
     }
+    // กรอง muted categories
+    filtered = filtered.filter((l) => !mutedCategories.has(eventCategory(l.event_type)));
     return filtered;
   })();
 
-  // Filter pending requests by department for each manager type
+  // Role-aware unread count (นับเฉพาะ events ที่ role นี้มองเห็น)
+  const unreadCount = visibleLogs.filter((l) => isUnreadFn(l)).length;
+
+  // Delete requests
   const pendingRequests = deleteRequests.filter((r) => {
     if (r.status !== "pending") return false;
     if (isAdmin) return true;
@@ -174,15 +340,25 @@ export function ActivityFeed() {
     return false;
   });
 
-  useEffect(() => { const cleanup = init(); return cleanup; }, [init]);
+  const totalBadge = unreadCount + (isAnyManager ? pendingRequests.length : 0);
+
+  // Categories visible to this role (for mute panel)
+  const visibleCats = new Set<NotifCategory>(["tour", "lead", "customer", "seat", "system"]);
+  if (isMarketing || isAdmin) visibleCats.add("campaign");
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  const getFeedOpen = useCallback(() => openRef.current, []);
+  useEffect(() => { const cleanup = init(getFeedOpen); return cleanup; }, [init, getFeedOpen]);
   useEffect(() => { if (isAnyManager) loadRequests(); }, [isAnyManager, loadRequests]);
 
+  // ── Popup position ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open || !btnRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
     setPopPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
   }, [open]);
 
+  // ── Click outside ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -195,18 +371,41 @@ export function ActivityFeed() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  function handleOpen() { setOpen((v) => !v); if (!open) markAllRead(); }
+  // ── Real-time toast ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!toastEntry) return;
+    const meta = getEventMeta(toastEntry.event_type);
+    const target = getNavTarget(toastEntry, role);
+    toast(toastEntry.subject, {
+      description: [toastEntry.detail, toastEntry.actor].filter(Boolean).join(" · "),
+      duration: 4000,
+      action: target
+        ? { label: "ดู", onClick: () => navigate(target) }
+        : undefined,
+    });
+    consumeToast();
+  }, [toastEntry, role, navigate, consumeToast]);
 
-  const totalBadge = unreadCount + (isAnyManager ? pendingRequests.length : 0);
+  // ── Open handler ──────────────────────────────────────────────────────────
+  function handleOpen() {
+    const next = !open;
+    openRef.current = next;
+    setOpen(next);
+    if (next) { markAllRead(); setShowMute(false); }
+  }
 
+  // ── Grouped logs ──────────────────────────────────────────────────────────
+  const groups = groupByDay(visibleLogs);
+
+  // ── Popover ───────────────────────────────────────────────────────────────
   const popover = open && createPortal(
     <div
       ref={popRef}
-      style={{ position: "fixed", top: popPos.top, right: popPos.right, width: 360, zIndex: 9999, maxHeight: 520 }}
+      style={{ position: "fixed", top: popPos.top, right: popPos.right, width: 380, zIndex: 9999, maxHeight: 560 }}
       className="flex flex-col rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
     >
-      {/* Header */}
-      <div className="border-b border-border">
+      {/* ── Header ── */}
+      <div className="border-b border-border shrink-0">
         <div className="flex items-center justify-between px-3 py-2.5">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-muted-foreground" />
@@ -215,13 +414,37 @@ export function ActivityFeed() {
               <span className="text-[10px] text-muted-foreground/60 font-medium">{visibleLogs.length} รายการ</span>
             )}
           </div>
-          <button
-            onClick={() => setOpen(false)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
-          >
-            <X className="w-3.5 h-3.5 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Mute toggle */}
+            <button
+              onClick={() => setShowMute((v) => !v)}
+              title="ตั้งค่าการแจ้งเตือน"
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                showMute ? "bg-muted text-foreground" : "hover:bg-muted/60 text-muted-foreground"
+              }`}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+            </button>
+            {/* Clear */}
+            {visibleLogs.length > 0 && (
+              <button
+                onClick={() => { if (window.confirm("ล้างรายการกิจกรรมทั้งหมด? (ข้อมูลใน database ยังคงอยู่)")) clearLogs(); }}
+                title="ล้างรายการ"
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {/* Close */}
+            <button
+              onClick={() => setOpen(false)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted/60 transition-colors"
+            >
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
+
         {/* Marketing dept filter tabs */}
         {isMarketing && (
           <div className="flex items-center gap-0.5 px-3 pb-2.5">
@@ -250,9 +473,19 @@ export function ActivityFeed() {
         )}
       </div>
 
-      <div className="overflow-y-auto flex-1" style={{ maxHeight: 460 }}>
+      {/* ── Mute panel (collapsible) ── */}
+      {showMute && (
+        <MutePanel
+          mutedCategories={mutedCategories}
+          onToggle={toggleMute}
+          visibleCats={visibleCats}
+        />
+      )}
 
-        {/* ── Pending Delete Requests (Manager เท่านั้น) ── */}
+      {/* ── Scrollable content ── */}
+      <div className="overflow-y-auto flex-1">
+
+        {/* Delete requests (Manager เท่านั้น) */}
         {isAnyManager && pendingRequests.length > 0 && (
           <div>
             <div className="px-3 py-2 bg-destructive/5 border-b border-destructive/10">
@@ -270,31 +503,21 @@ export function ActivityFeed() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[12px] font-semibold text-foreground">ขอลบ: {req.customer_name}</p>
-                      <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive px-1.5 h-4">
-                        รออนุมัติ
-                      </Badge>
+                      <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive px-1.5 h-4">รออนุมัติ</Badge>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      โดย <strong>{req.requested_by}</strong>
-                      {req.reason && ` · ${req.reason}`}
+                      โดย <strong>{req.requested_by}</strong>{req.reason && ` · ${req.reason}`}
                     </p>
                     <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1 mt-1">
                       <Clock className="w-3 h-3" />{fmtTime(req.created_at)}
                     </p>
                     <div className="flex gap-2 mt-2">
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs gap-1 bg-destructive hover:bg-destructive/90 text-white flex-1"
-                        onClick={() => approveRequest(req.id, user?.full_name ?? "Manager", deleteCustomer)}
-                      >
+                      <Button size="sm" className="h-7 text-xs gap-1 bg-destructive hover:bg-destructive/90 text-white flex-1"
+                        onClick={() => approveRequest(req.id, user?.full_name ?? "Manager", deleteCustomer)}>
                         <ShieldCheck className="w-3.5 h-3.5" /> อนุมัติลบ
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs gap-1 flex-1"
-                        onClick={() => rejectRequest(req.id, user?.full_name ?? "Manager")}
-                      >
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1"
+                        onClick={() => rejectRequest(req.id, user?.full_name ?? "Manager")}>
                         <ShieldX className="w-3.5 h-3.5" /> ปฏิเสธ
                       </Button>
                     </div>
@@ -305,22 +528,54 @@ export function ActivityFeed() {
           </div>
         )}
 
-        {/* ── Activity Log ── */}
+        {/* Activity log — grouped by day */}
         {visibleLogs.length === 0 && pendingRequests.length === 0 ? (
           <EmptyState />
-        ) : visibleLogs.length === 0 ? null : (
-          <div className="divide-y divide-border/50">
-            {visibleLogs.map((log) => <LogRow key={log.id} log={log} />)}
-          </div>
-        )}
-
-        {/* Empty state when no logs but there were pending requests shown above */}
-        {visibleLogs.length === 0 && pendingRequests.length > 0 && (
+        ) : visibleLogs.length === 0 ? (
           <div className="py-4 text-center">
             <p className="text-xs text-muted-foreground/60">ยังไม่มีกิจกรรมล่าสุด</p>
           </div>
+        ) : (
+          <div>
+            {groups.map((group) => (
+              <div key={group.label}>
+                {/* Day separator */}
+                <div className="sticky top-0 px-3 py-1.5 bg-muted/60 backdrop-blur-sm border-y border-border/40 z-10">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{group.label}</p>
+                </div>
+                <div className="divide-y divide-border/40">
+                  {group.items.map((log) => (
+                    <LogRow
+                      key={log.id}
+                      log={log}
+                      isUnread={isUnreadFn(log)}
+                      role={role}
+                      onNavigate={(path) => { setOpen(false); navigate(path); }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      {/* ── Footer ── */}
+      {visibleLogs.length > 0 && (
+        <div className="px-3 py-2 border-t border-border bg-muted/10 shrink-0 flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground/60">
+            {unreadCount > 0 ? `${unreadCount} รายการยังไม่ได้อ่าน` : "อ่านครบแล้ว ✓"}
+          </span>
+          <button
+            onClick={() => setShowMute((v) => !v)}
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Settings2 className="w-3 h-3" />
+            ตั้งค่า
+            {showMute ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+        </div>
+      )}
     </div>,
     document.body,
   );
@@ -333,7 +588,7 @@ export function ActivityFeed() {
         aria-label="กิจกรรมทั้งหมด"
         className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted/50 transition-colors"
       >
-        <Bell className="w-5 h-5 text-muted-foreground" />
+        <Bell className={`w-5 h-5 ${totalBadge > 0 ? "text-foreground" : "text-muted-foreground"}`} />
         {totalBadge > 0 && (
           <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 text-[9px] font-bold flex items-center justify-center text-white leading-none">
             {totalBadge > 99 ? "99+" : totalBadge}
