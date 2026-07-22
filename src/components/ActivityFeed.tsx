@@ -202,8 +202,7 @@ function LogRow({
         {(() => {
           const resolvedName = (log as any).program_name
             || (log.entity_type === "tour" && log.entity_id ? tourNameMap.get(log.entity_id) : undefined);
-          const resolvedCode = (log as any).tour_code
-            || (log.entity_type === "tour" && !(log as any).program_name ? log.entity_name : undefined);
+          const resolvedCode = (log as any).tour_code ?? undefined;
           return (
             <>
               {resolvedName && (
