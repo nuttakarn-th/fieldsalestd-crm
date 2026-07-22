@@ -18,6 +18,7 @@ import {
   Bell, X, Package, Users, Target, Megaphone, BookOpen,
   ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock,
   Settings2, Trash, ChevronDown, ChevronUp,
+  Eye, EyeOff, RefreshCw, CircleX, RotateCcw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
@@ -39,24 +40,44 @@ import { Badge } from "@/components/ui/badge";
 interface EventMeta { icon: React.ReactNode; color: string; border: string; text: string }
 
 function getEventMeta(event_type: string): EventMeta {
-  if (event_type === "period_nearly_full") {
+  // ── Positive (Green) — รายได้เข้า / เปิดตัว ─────────────────────────────────
+  if (event_type === "seat_booked")
+    return { icon: <ShoppingCart className="w-3.5 h-3.5" />, color: "bg-green-500/15", border: "border-green-500/30", text: "text-green-700 dark:text-green-400" };
+  if (event_type === "tour_published")
+    return { icon: <Eye className="w-3.5 h-3.5" />, color: "bg-green-500/15", border: "border-green-500/30", text: "text-green-700 dark:text-green-400" };
+
+  // ── Negative (Red) — ยกเลิก / ลบถาวร ────────────────────────────────────────
+  if (event_type === "period_cancelled")
+    return { icon: <CircleX className="w-3.5 h-3.5" />, color: "bg-red-500/15", border: "border-red-500/30", text: "text-red-600 dark:text-red-400" };
+  if (event_type === "tour_deleted")
+    return { icon: <Trash className="w-3.5 h-3.5" />, color: "bg-red-500/15", border: "border-red-500/30", text: "text-red-600 dark:text-red-400" };
+
+  // ── Neutral-negative (Amber) — คืนของ / ซ่อน ──────────────────────────────
+  if (event_type === "seat_released")
+    return { icon: <RotateCcw className="w-3.5 h-3.5" />, color: "bg-amber-500/15", border: "border-amber-500/30", text: "text-amber-700 dark:text-amber-400" };
+  if (event_type === "tour_unpublished")
+    return { icon: <EyeOff className="w-3.5 h-3.5" />, color: "bg-amber-500/15", border: "border-amber-500/30", text: "text-amber-700 dark:text-amber-400" };
+
+  // ── Recovery (Teal) — คืนสถานะ ──────────────────────────────────────────────
+  if (event_type === "period_restored")
+    return { icon: <RefreshCw className="w-3.5 h-3.5" />, color: "bg-teal-500/15", border: "border-teal-500/30", text: "text-teal-700 dark:text-teal-400" };
+
+  // ── Warning (Yellow) — ใกล้เต็ม ──────────────────────────────────────────────
+  if (event_type === "period_nearly_full")
     return { icon: <Zap className="w-3.5 h-3.5" />, color: "bg-yellow-500/20", border: "border-yellow-500/40", text: "text-yellow-600 dark:text-yellow-400" };
-  }
-  if (event_type.startsWith("tour_") || event_type.startsWith("period_") || event_type === "import_complete") {
+
+  // ── System/Neutral (Violet) — เพิ่มโปรแกรม, import ──────────────────────────
+  if (event_type === "tour_added" || event_type === "import_complete")
     return { icon: <Package className="w-3.5 h-3.5" />, color: "bg-violet-500/15", border: "border-violet-500/30", text: "text-violet-600 dark:text-violet-400" };
-  }
-  if (event_type.startsWith("lead_")) {
+
+  // ── Fallback กลุ่มอื่น ────────────────────────────────────────────────────────
+  if (event_type.startsWith("lead_"))
     return { icon: <Target className="w-3.5 h-3.5" />, color: "bg-blue-500/15", border: "border-blue-500/30", text: "text-blue-600 dark:text-blue-400" };
-  }
-  if (event_type.startsWith("customer_")) {
+  if (event_type.startsWith("customer_"))
     return { icon: <Users className="w-3.5 h-3.5" />, color: "bg-emerald-500/15", border: "border-emerald-500/30", text: "text-emerald-600 dark:text-emerald-400" };
-  }
-  if (event_type.startsWith("campaign_")) {
+  if (event_type.startsWith("campaign_"))
     return { icon: <Megaphone className="w-3.5 h-3.5" />, color: "bg-orange-500/15", border: "border-orange-500/30", text: "text-orange-600 dark:text-orange-400" };
-  }
-  if (event_type.startsWith("seat_")) {
-    return { icon: <ShoppingCart className="w-3.5 h-3.5" />, color: "bg-amber-500/15", border: "border-amber-500/30", text: "text-amber-600 dark:text-amber-400" };
-  }
+
   return { icon: <BookOpen className="w-3.5 h-3.5" />, color: "bg-muted/60", border: "border-border", text: "text-muted-foreground" };
 }
 
