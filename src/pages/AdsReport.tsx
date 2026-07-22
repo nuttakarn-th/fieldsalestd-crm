@@ -896,24 +896,29 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
       <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 items-center">
         {/* Gauge */}
         <div className="flex flex-col items-center">
-          <svg viewBox="0 0 200 126" className="w-full max-w-[210px]">
-            {/* Zone arcs (dim) */}
-            <path d={arc(0,40)}   fill="none" stroke="#EF444428" strokeWidth={sw} strokeLinecap="butt"/>
-            <path d={arc(40,70)}  fill="none" stroke="#EF9F2728" strokeWidth={sw} strokeLinecap="butt"/>
-            <path d={arc(70,100)} fill="none" stroke="#1D9E7528" strokeWidth={sw} strokeLinecap="butt"/>
-            {/* Zone ticks */}
-            <line x1={t40.x1} y1={t40.y1} x2={t40.x2} y2={t40.y2} stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
-            <line x1={t70.x1} y1={t70.y1} x2={t70.x2} y2={t70.y2} stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
-            {/* Progress arc */}
-            {score>0&&<path d={arc(0,Math.min(score,99.8))} fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round"/>}
-            {/* Zone labels */}
-            <text x="20"  y="124" fontSize="7.5" fill="#EF444460" fontWeight="700" textAnchor="middle">ต่ำ</text>
-            <text x="100" y="22"  fontSize="7.5" fill="rgba(255,255,255,0.2)" fontWeight="700" textAnchor="middle">ดี</text>
-            <text x="180" y="124" fontSize="7.5" fill="#1D9E7560" fontWeight="700" textAnchor="middle">สูง</text>
-            {/* Score number */}
-            <text x="100" y="103" fontSize="38" fontWeight="900" fill="white" textAnchor="middle">{anim}</text>
-            <text x="100" y="116" fontSize="9"  fontWeight="600" fill="rgba(255,255,255,0.3)" textAnchor="middle">/100</text>
-          </svg>
+          <div className="relative w-full max-w-[210px]">
+            <svg viewBox="0 0 200 126" className="w-full">
+              {/* Zone arcs (dim) */}
+              <path d={arc(0,40)}   fill="none" stroke="#EF44440F" strokeWidth={sw} strokeLinecap="butt"/>
+              <path d={arc(40,70)}  fill="none" stroke="#EF9F270F" strokeWidth={sw} strokeLinecap="butt"/>
+              <path d={arc(70,100)} fill="none" stroke="#1D9E750F" strokeWidth={sw} strokeLinecap="butt"/>
+              {/* Zone ticks */}
+              <line x1={t40.x1} y1={t40.y1} x2={t40.x2} y2={t40.y2} stroke="rgba(0,0,0,0.10)" strokeWidth="1.5"/>
+              <line x1={t70.x1} y1={t70.y1} x2={t70.x2} y2={t70.y2} stroke="rgba(0,0,0,0.10)" strokeWidth="1.5"/>
+              {/* Progress arc */}
+              {score>0&&<path d={arc(0,Math.min(score,99.8))} fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round" opacity="0.85"/>}
+              {/* Zone labels — use semi-opaque colored fills that work on both light/dark */}
+              <text x="20"  y="124" fontSize="7.5" fill="#EF4444" fillOpacity="0.55" fontWeight="700" textAnchor="middle">ต่ำ</text>
+              <text x="100" y="22"  fontSize="7.5" fill="#6B7280" fillOpacity="0.6"  fontWeight="700" textAnchor="middle">ดี</text>
+              <text x="180" y="124" fontSize="7.5" fill="#1D9E75" fillOpacity="0.55" fontWeight="700" textAnchor="middle">สูง</text>
+            </svg>
+            {/* Score number — HTML overlay so it respects light/dark theme */}
+            <div className="absolute inset-x-0 flex flex-col items-center pointer-events-none"
+              style={{top:"73%",transform:"translateY(-50%)"}}>
+              <span className="font-black leading-none tabular-nums text-foreground" style={{fontSize:"2.4rem"}}>{anim}</span>
+              <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">/100</span>
+            </div>
+          </div>
           <div className="text-center mt-2">
             <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold"
               style={{background:`${col}20`,color:col,border:`1px solid ${col}40`}}>
