@@ -833,6 +833,124 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   );
 }
 
+// ── Ad Health Score ───────────────────────────────────────────────────────────
+function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
+  const avgCTR     = colMap.ctr            !== undefined ? avgN(ads,"ctr")            : null;
+  const avgCPM     = colMap.cpm            !== undefined ? avgN(ads,"cpm")            : null;
+  const avgCostMsg = colMap.costPerMsg     !== undefined ? avgN(ads,"costPerMsg")     : null;
+  const totImp     = sumN(ads,"impressions");
+  const totEng     = colMap.pageEngagement !== undefined ? sumN(ads,"pageEngagement") : 0;
+
+  // Sub-scores 0–100
+  const ctrScore  = avgCTR     !== null ? Math.min(100,(avgCTR/2)*100)                           : null;
+  const cpmScore  = avgCPM     !== null ? Math.max(0,Math.min(100,(150-avgCPM)/150*100))         : null;
+  const msgScore  = avgCostMsg !== null ? Math.max(0,Math.min(100,(300-avgCostMsg)/300*100))     : null;
+  const engScore  = colMap.pageEngagement !== undefined && totImp > 0
+    ? Math.min(100,(totEng/totImp*1000)*10) : null;
+
+  type SI={label:string;value:string;score:number;weight:number;color:string;bench:string};
+  const subs:SI[]=[
+    {label:"CTR",           value:avgCTR!==null?`${avgCTR.toFixed(2)}%`            :"—",score:ctrScore ??-1,weight:30,color:"#D4537E",bench:"เป้า ≥ 2%"},
+    {label:"Cost per Msg",  value:avgCostMsg!==null?`฿${Math.round(avgCostMsg)}`   :"—",score:msgScore ??-1,weight:35,color:"#1D9E75",bench:"เป้า ≤ ฿150"},
+    {label:"CPM",           value:avgCPM!==null?`฿${Math.round(avgCPM)}`           :"—",score:cpmScore ??-1,weight:20,color:"#378ADD",bench:"เป้า ≤ ฿60"},
+    {label:"Engagement/1K", value:colMap.pageEngagement!==undefined&&totImp>0?(totEng/totImp*1000).toFixed(1):"—",score:engScore??-1,weight:15,color:"#EF9F27",bench:"เป้า ≥ 5"},
+  ].filter(x=>x.score>=0) as SI[];
+
+  if(subs.length<2)return null;
+
+  const totalW = subs.reduce((a,x)=>a+x.weight,0);
+  const score  = Math.round(subs.reduce((a,x)=>a+x.score*x.weight,0)/totalW);
+  const anim   = useCountUp(score,1400);
+
+  const col   = score>=70?"#1D9E75":score>=40?"#EF9F27":"#EF4444";
+  const lbl   = score>=70?"ประสิทธิภาพดี":score>=40?"พอใช้ได้":"ต้องปรับปรุง";
+  const desc  = score>=70?"โฆษณาทำงานได้ดี — ต่อยอดจากสิ่งที่ได้ผล":score>=40?"มีบางจุดที่ควรปรับ ดูรายละเอียดด้านขวา":"ประสิทธิภาพต่ำ — ตรวจสอบ metric ที่คะแนนต่ำ";
+
+  // Gauge SVG helpers
+  const cx=100,cy=108,r=82,sw=13;
+  function arc(s1:number,s2:number):string{
+    if(s1>=s2)return"";
+    const a1=Math.PI-(s1/100*Math.PI), a2=Math.PI-(s2/100*Math.PI);
+    const x1=(cx+r*Math.cos(a1)).toFixed(2), y1=(cy-r*Math.sin(a1)).toFixed(2);
+    const x2=(cx+r*Math.cos(a2)).toFixed(2), y2=(cy-r*Math.sin(a2)).toFixed(2);
+    return`M ${x1} ${y1} A ${r} ${r} 0 ${(s2-s1)>50?1:0} 1 ${x2} ${y2}`;
+  }
+  function tick(s:number){
+    const a=Math.PI-(s/100*Math.PI);
+    return{
+      x1:(cx+(r-sw/2-3)*Math.cos(a)).toFixed(2), y1:(cy-(r-sw/2-3)*Math.sin(a)).toFixed(2),
+      x2:(cx+(r+sw/2+3)*Math.cos(a)).toFixed(2), y2:(cy-(r+sw/2+3)*Math.sin(a)).toFixed(2),
+    };
+  }
+  const t40=tick(40), t70=tick(70);
+
+  return(
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      {/* Header */}
+      <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
+        <div className="w-1.5 h-4 rounded-full" style={{background:"linear-gradient(to bottom,#7F77DD,#378ADD)"}}/>
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Health Score</span>
+        <span className="ml-auto text-[10px] text-muted-foreground/40">ประเมินจาก {subs.length} ตัวชี้วัด</span>
+      </div>
+
+      <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 items-center">
+        {/* Gauge */}
+        <div className="flex flex-col items-center">
+          <svg viewBox="0 0 200 126" className="w-full max-w-[210px]">
+            {/* Zone arcs (dim) */}
+            <path d={arc(0,40)}   fill="none" stroke="#EF444428" strokeWidth={sw} strokeLinecap="butt"/>
+            <path d={arc(40,70)}  fill="none" stroke="#EF9F2728" strokeWidth={sw} strokeLinecap="butt"/>
+            <path d={arc(70,100)} fill="none" stroke="#1D9E7528" strokeWidth={sw} strokeLinecap="butt"/>
+            {/* Zone ticks */}
+            <line x1={t40.x1} y1={t40.y1} x2={t40.x2} y2={t40.y2} stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
+            <line x1={t70.x1} y1={t70.y1} x2={t70.x2} y2={t70.y2} stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
+            {/* Progress arc */}
+            {score>0&&<path d={arc(0,Math.min(score,99.8))} fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round"/>}
+            {/* Zone labels */}
+            <text x="20"  y="124" fontSize="7.5" fill="#EF444460" fontWeight="700" textAnchor="middle">ต่ำ</text>
+            <text x="100" y="22"  fontSize="7.5" fill="rgba(255,255,255,0.2)" fontWeight="700" textAnchor="middle">ดี</text>
+            <text x="180" y="124" fontSize="7.5" fill="#1D9E7560" fontWeight="700" textAnchor="middle">สูง</text>
+            {/* Score number */}
+            <text x="100" y="103" fontSize="38" fontWeight="900" fill="white" textAnchor="middle">{anim}</text>
+            <text x="100" y="116" fontSize="9"  fontWeight="600" fill="rgba(255,255,255,0.3)" textAnchor="middle">/100</text>
+          </svg>
+          <div className="text-center mt-2">
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold"
+              style={{background:`${col}20`,color:col,border:`1px solid ${col}40`}}>
+              {lbl}
+            </span>
+            <p className="text-[10px] text-muted-foreground mt-1.5 max-w-[180px] leading-relaxed">{desc}</p>
+          </div>
+        </div>
+
+        {/* Sub-scores */}
+        <div className="space-y-4">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">รายละเอียดคะแนน</p>
+          {subs.map(({label:l,value,score:s,weight,color,bench})=>(
+            <div key={l}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{background:color}}/>
+                  <span className="text-xs font-semibold text-foreground">{l}</span>
+                  <span className="text-[9px] text-muted-foreground/50">({weight}%)</span>
+                </div>
+                <div className="flex items-center gap-2 tabular-nums">
+                  <span className="text-[10px] text-muted-foreground">{value}</span>
+                  <span className="text-xs font-black w-9 text-right" style={{color}}>{Math.round(s)}<span className="text-[8px] opacity-50">pt</span></span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+                <div className="h-full rounded-full" style={{width:`${s}%`,background:color,transition:"width 1s ease-out"}}/>
+              </div>
+              <p className="text-[9px] text-muted-foreground/50 mt-0.5">{bench}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdsReport(){
   const currentUser=useCurrentUser();
@@ -1097,7 +1215,10 @@ export default function AdsReport(){
               ))}
             </div>
 
-            {/* ② Charts */}
+            {/* ② Ad Health Score */}
+            <AdHealthScore ads={ads} colMap={cm}/>
+
+            {/* ③ Charts */}
             <ChartSection ads={ads} colMap={cm} groupColorMap={groupColorMap}
               onGroupClick={g=>setActiveGroupFilter(prev=>prev===g?null:g)}
               activeGroupFilter={activeGroupFilter}/>
