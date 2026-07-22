@@ -12,7 +12,7 @@
  * ✅ Real-time toast — แสดง toast มุมขวาบนเมื่อมี entry ใหม่ขณะ popup ปิด
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Bell, X, Package, Users, Target, Megaphone, BookOpen,
@@ -30,6 +30,7 @@ function makeIsUnread(lastReadAt: string) {
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { useCurrentUser, useActiveSalesTeamNames } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
+import { useServices } from "@/store/serviceStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -157,12 +158,13 @@ function DeptBadge({ dept }: { dept?: string }) {
 // ── LogRow ─────────────────────────────────────────────────────────────────────
 
 function LogRow({
-  log, isUnread, role, onNavigate,
+  log, isUnread, role, onNavigate, tourNameMap,
 }: {
   log: ActivityLog;
   isUnread: boolean;
   role: string;
   onNavigate: (path: string) => void;
+  tourNameMap: Map<string, string>;
 }) {
   const meta   = getEventMeta(log.event_type);
   const target = getNavTarget(log, role);
@@ -196,16 +198,27 @@ function LogRow({
           </p>
           <DeptBadge dept={(log as any).department} />
         </div>
-        {(log as any).program_name && (
-          <p className="text-[12px] font-semibold text-violet-600 dark:text-violet-400 mt-0.5 leading-snug truncate">
-            {(log as any).program_name}
-          </p>
-        )}
-        {(log as any).tour_code && (
-          <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5 leading-none">
-            {(log as any).tour_code}
-          </p>
-        )}
+        {/* ชื่อโปรแกรม — ใช้ program_name (log ใหม่) หรือ lookup จาก store (log เก่า) */}
+        {(() => {
+          const resolvedName = (log as any).program_name
+            || (log.entity_type === "tour" && log.entity_id ? tourNameMap.get(log.entity_id) : undefined);
+          const resolvedCode = (log as any).tour_code
+            || (log.entity_type === "tour" && !(log as any).program_name ? log.entity_name : undefined);
+          return (
+            <>
+              {resolvedName && (
+                <p className="text-[12px] font-semibold text-violet-600 dark:text-violet-400 mt-0.5 leading-snug truncate">
+                  {resolvedName}
+                </p>
+              )}
+              {resolvedCode && (
+                <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5 leading-none">
+                  {resolvedCode}
+                </p>
+              )}
+            </>
+          );
+        })()}
         {log.detail && (
           <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 truncate">{log.detail}</p>
         )}
@@ -300,6 +313,13 @@ export function ActivityFeed() {
 
   // isUnread computed inline จาก lastReadAt (plain string, reactive)
   const isUnread = makeIsUnread(lastReadAt);
+
+  // Tour name lookup map — fallback สำหรับ log เก่าที่ไม่มี program_name
+  const tours = useServices((s) => s.tours);
+  const tourNameMap = useMemo(
+    () => new Map(tours.map((t) => [t.id, t.title || t.country || t.code])),
+    [tours]
+  );
 
   // Auth
   const user           = useCurrentUser();
@@ -567,6 +587,7 @@ export function ActivityFeed() {
                       log={log}
                       isUnread={isUnread(log)}
                       role={role}
+                      tourNameMap={tourNameMap}
                       onNavigate={(path) => { setOpen(false); navigate(path); }}
                     />
                   ))}
