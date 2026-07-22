@@ -843,7 +843,7 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
 
   // Sub-scores 0–100
   const ctrScore  = avgCTR     !== null ? Math.min(100,(avgCTR/2)*100)                           : null;
-  const cpmScore  = avgCPM     !== null ? Math.max(0,Math.min(100,(150-avgCPM)/150*100))         : null;
+  const cpmScore  = avgCPM     !== null ? Math.max(0,Math.min(100,(200-avgCPM)/200*100))         : null;
   const msgScore  = avgCostMsg !== null ? Math.max(0,Math.min(100,(300-avgCostMsg)/300*100))     : null;
   const engScore  = colMap.pageEngagement !== undefined && totImp > 0
     ? Math.min(100,(totEng/totImp*1000)*10) : null;
@@ -852,7 +852,7 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   const subs:SI[]=[
     {label:"CTR",           value:avgCTR!==null?`${avgCTR.toFixed(2)}%`            :"—",score:ctrScore ??-1,weight:30,color:"#D4537E",bench:"เป้า ≥ 2%"},
     {label:"Cost per Msg",  value:avgCostMsg!==null?`฿${Math.round(avgCostMsg)}`   :"—",score:msgScore ??-1,weight:35,color:"#1D9E75",bench:"เป้า ≤ ฿150"},
-    {label:"CPM",           value:avgCPM!==null?`฿${Math.round(avgCPM)}`           :"—",score:cpmScore ??-1,weight:20,color:"#378ADD",bench:"เป้า ≤ ฿60"},
+    {label:"CPM",           value:avgCPM!==null?`฿${Math.round(avgCPM)}`           :"—",score:cpmScore ??-1,weight:20,color:"#378ADD",bench:"เป้า ≤ ฿100"},
     {label:"Engagement/1K", value:colMap.pageEngagement!==undefined&&totImp>0?(totEng/totImp*1000).toFixed(1):"—",score:engScore??-1,weight:15,color:"#EF9F27",bench:"เป้า ≥ 5"},
   ].filter(x=>x.score>=0) as SI[];
 
@@ -873,7 +873,7 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
     const a1=Math.PI-(s1/100*Math.PI), a2=Math.PI-(s2/100*Math.PI);
     const x1=(cx+r*Math.cos(a1)).toFixed(2), y1=(cy-r*Math.sin(a1)).toFixed(2);
     const x2=(cx+r*Math.cos(a2)).toFixed(2), y2=(cy-r*Math.sin(a2)).toFixed(2);
-    return`M ${x1} ${y1} A ${r} ${r} 0 ${(s2-s1)>50?1:0} 1 ${x2} ${y2}`;
+    return`M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
   }
   function tick(s:number){
     const a=Math.PI-(s/100*Math.PI);
