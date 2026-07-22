@@ -228,7 +228,8 @@ export default function MarketingDashboardPage() {
   const allTargets = useCRM((s) => s.targets);
 
   const months     = useMemo(monthOptions, []);
-  const [month, setMonth] = useState(months[0].key);
+  const [month, setMonth]   = useState(months[0].key);
+  const [tab, setTab]       = useState<"team" | "insights">("team");
   const [insightPreset, setInsightPreset] = useState<RangePreset>("year");
   const [insightCustom, setInsightCustom] = useState<DateRange | undefined>();
   const insightRange = resolveRange(insightPreset, insightCustom);
@@ -376,293 +377,368 @@ export default function MarketingDashboardPage() {
     return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 8);
   }, [insightLeads]);
 
+  // Alert conditions (computed from insight data — uses all-time leads for always-on alerts)
+  const hasStaleAlert  = staleLeads.overdue > 0;
+  const unspecifiedLost = lostReasons.find((r) => r.reason === "ไม่ระบุสาเหตุ");
+  const hasLostAlert   = (unspecifiedLost?.count ?? 0) > 0;
+  const noDataThisMonth = combined.revenue === 0 && combined.leads === 0;
+
+  // ── Shared card class
+  const card = "bg-card rounded-2xl border border-border p-4 sm:p-5";
+
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-5xl">
+    <div className="p-4 sm:p-6 space-y-4 max-w-5xl">
 
-      {/* Page header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold">ภาพรวมการขาย (Team Dashboard)</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">รายงานระดับทีม — OB Team vs Sales Team</p>
+          <h1 className="text-xl font-bold">ภาพรวมการขาย</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Team Dashboard — OB Team vs Sales Team</p>
         </div>
-        <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="w-full sm:w-44 h-9 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((m) => (
-              <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Combined KPI row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          label="ยอดขายรวม (OB + Sales)"
-          value={formatTHB(combined.revenue)}
-          sub={combined.target > 0 ? `เป้า ${formatTHB(combined.target)}` : "ยังไม่มีเป้าหมาย"}
-          accent="text-foreground"
-        />
-        <StatCard label="Pax รวม" value={`${combined.pax} ท่าน`} sub="จาก Lead ที่จองแล้ว" />
-        <StatCard label="Lead รับเดือนนี้" value={`${combined.leads}`} sub="OB + Sales รวมกัน" />
-        <StatCard label="Win Rate รวม" value={`${combined.winRate}%`} sub="ทั้งองค์กร" />
-      </div>
-
-      {/* OB Team block */}
-      <TeamBlock
-        title="ทีม Outbound (OB)"
-        badge="OB Team"
-        members={obNames.length}
-        stats={obStats}
-        color="purple"
-      />
-
-      {/* Sales Team block */}
-      <TeamBlock
-        title="ทีม Sales"
-        badge="Sales Team"
-        members={salesReps.size}
-        stats={salesStats}
-        color="blue"
-      />
-
-      {/* ─── Marketing Insights ─── */}
-      <div className="pt-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <Activity className="w-5 h-5 text-violet-600" /> Marketing Insights
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">ที่มา Lead / Funnel / Forecast / โปรแกรม / Follow-up / สาเหตุยกเลิก — {insightRange.label}</p>
-          </div>
+        {/* Month picker shows only in Team tab */}
+        {tab === "team" && (
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger className="w-full sm:w-44 h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {/* Insight filter shows only in Insights tab */}
+        {tab === "insights" && (
           <DateRangeFilter value={insightPreset} custom={insightCustom} onChange={(p, c) => { setInsightPreset(p); setInsightCustom(c); }} />
-        </div>
+        )}
+      </div>
 
-        {/* Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-          {/* ① BU Type Attribution */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 text-sm"><Zap className="w-4 h-4 text-violet-600" /> ที่มา Lead — แยกตามประเภทบริการ</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Conversion Rate ต่อประเภทบริการ</p>
-            </div>
-            <div className="space-y-3 pt-1">
-              {buAttribution.map((b) => (
-                <div key={b.type}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{b.type}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{b.total} lead</span>
-                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ background: b.color + "20", color: b.color }}>
-                        ปิด {b.rate.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${Math.max(3, b.rate)}%`, background: b.color }} />
-                  </div>
-                  <div className="flex justify-between mt-0.5">
-                    <span className="text-[10px] text-muted-foreground">{b.won} ดีล</span>
-                    <span className="text-[10px] text-muted-foreground">{formatTHB(b.revenue)}</span>
-                  </div>
-                </div>
-              ))}
-              {buAttribution.every((b) => b.total === 0) && (
-                <p className="text-center text-muted-foreground text-sm py-4">ยังไม่มีข้อมูล</p>
-              )}
-            </div>
-          </div>
-
-          {/* ② Funnel Drop-off */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 text-sm"><Layers className="w-4 h-4 text-violet-600" /> Sales Funnel — Drop-off แต่ละขั้น</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Lead ที่ยังอยู่ใน pipeline ณ แต่ละ stage</p>
-            </div>
-            <div className="space-y-2 pt-1">
-              {funnelData.map((s, i) => {
-                const COLORS = ["#9ca3af","hsl(210 90% 55%)","hsl(var(--gold))","hsl(var(--accent))","hsl(var(--primary-glow))","#7c3aed"];
-                const prev = i > 0 ? funnelData[i - 1] : null;
-                const drop = prev && prev.count > 0 ? ((prev.count - s.count) / prev.count * 100) : 0;
-                return (
-                  <div key={s.key} className="flex items-center gap-2">
-                    <span className="w-24 text-right text-xs text-muted-foreground shrink-0">{s.label}</span>
-                    <div className="flex-1 h-5 rounded bg-muted overflow-hidden">
-                      <div className="h-full rounded" style={{ width: `${Math.max(2, s.pct)}%`, background: COLORS[i] }} />
-                    </div>
-                    <span className="w-10 text-right text-sm font-bold text-foreground shrink-0">{s.count}</span>
-                    <span className="w-12 text-right text-[10px] shrink-0">
-                      {drop > 0 ? <span className="text-rose-500">-{drop.toFixed(0)}%</span> : null}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-          {/* ③ Revenue Forecast */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 text-sm"><Target className="w-4 h-4 text-amber-500" /> Revenue Forecast</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Pipeline ที่เปิดอยู่ × % โอกาสปิดดีล • Win Rate: {(revForecast.historicalWinRate * 100).toFixed(0)}%</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-violet-500/10 p-3 text-center border border-violet-500/20">
-                <p className="text-[10px] text-muted-foreground font-semibold mb-1">Weighted</p>
-                <p className="text-lg font-black text-violet-600 leading-none">{formatTHB(Math.round(revForecast.weighted))}</p>
-              </div>
-              <div className="rounded-xl bg-muted/50 p-3 text-center">
-                <p className="text-[10px] text-muted-foreground font-semibold mb-1">Best Case</p>
-                <p className="text-lg font-black text-foreground leading-none">{formatTHB(revForecast.bestCase)}</p>
-              </div>
-            </div>
-            <div className="space-y-1.5 pt-1">
-              {revForecast.byStage.map((s) => (
-                <div key={s.stage} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 text-muted-foreground">{s.label}</span>
-                  <span className="w-8 text-center text-[10px] font-bold bg-muted rounded px-1">{(s.prob * 100).toFixed(0)}%</span>
-                  <span className="flex-1 text-foreground">{formatTHB(s.value)}</span>
-                  <span className="font-semibold text-violet-600">{formatTHB(Math.round(s.wVal))}</span>
-                  <span className="w-6 text-[10px] text-muted-foreground text-right">{s.count}</span>
-                </div>
-              ))}
-              {revForecast.byStage.length === 0 && (
-                <p className="text-center text-muted-foreground text-sm py-2">ไม่มี Lead ที่เปิดอยู่</p>
-              )}
-            </div>
-          </div>
-
-          {/* ④ Tour Program Performance */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 text-sm"><BarChart3 className="w-4 h-4 text-violet-600" /> Tour Program — Top โปรแกรม</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">อันดับโปรแกรมตามรายได้ + Conversion</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="text-muted-foreground border-b border-border/50">
-                    <th className="pb-2 text-left font-medium">โปรแกรม</th>
-                    <th className="pb-2 text-right font-medium">Lead</th>
-                    <th className="pb-2 text-right font-medium">Rate</th>
-                    <th className="pb-2 text-right font-medium">รายได้</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {programPerf.map((p, i) => {
-                    const rate = p.total > 0 ? (p.won / p.total) * 100 : 0;
-                    return (
-                      <tr key={p.program}>
-                        <td className="py-1.5 pr-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0 ${i === 0 ? "bg-amber-400 text-white" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
-                            <span className="truncate max-w-[100px]" title={p.program}>{p.program}</span>
-                          </div>
-                        </td>
-                        <td className="py-1.5 text-right text-muted-foreground">{p.total}</td>
-                        <td className="py-1.5 text-right">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${rate >= 50 ? "bg-violet-500/15 text-violet-600" : rate >= 30 ? "bg-amber-400/15 text-amber-600" : "bg-muted text-muted-foreground"}`}>
-                            {rate.toFixed(0)}%
-                          </span>
-                        </td>
-                        <td className="py-1.5 text-right font-semibold">{formatTHB(p.revenue)}</td>
-                      </tr>
-                    );
-                  })}
-                  {programPerf.length === 0 && (
-                    <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Row 3 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-          {/* ⑤ Stale / Overdue Follow-up */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div className="flex items-center gap-2">
+      {/* ── Alert bar ───────────────────────────────────────────────────────── */}
+      {(hasStaleAlert || hasLostAlert) && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          {hasStaleAlert && (
+            <button
+              onClick={() => setTab("insights")}
+              className="flex items-center gap-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-2.5 text-sm text-left hover:bg-rose-500/15 transition-colors flex-1"
+            >
               <Clock className="w-4 h-4 text-rose-500 shrink-0" />
-              <h3 className="font-semibold text-sm">Lead เลยกำหนด Follow-up</h3>
-              {staleLeads.overdue > 0 && (
-                <span className="ml-auto text-[11px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full">{staleLeads.overdue}</span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground -mt-1">เฉลี่ยเลยมา {staleLeads.avgDays} วัน จาก {staleLeads.active} active leads</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-xl bg-rose-500/10 p-3 text-center border border-rose-500/20">
-                <p className="text-xl font-black text-rose-500 leading-none">{staleLeads.overdue}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">ค้าง</p>
-              </div>
-              <div className="rounded-xl bg-muted/50 p-3 text-center">
-                <p className="text-xl font-black text-foreground leading-none">{staleLeads.active}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Active</p>
-              </div>
-              <div className="rounded-xl bg-muted/50 p-3 text-center">
-                <p className="text-xl font-black text-foreground leading-none">
-                  {staleLeads.active > 0 ? Math.round((staleLeads.overdue / staleLeads.active) * 100) : 0}%
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">% ค้าง</p>
-              </div>
-            </div>
-            <div className="space-y-2 pt-1">
-              {staleLeads.byRep.map((r) => (
-                <div key={r.rep} className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-700 flex items-center justify-center text-[10px] font-bold shrink-0">{r.rep[0]}</div>
-                  <span className="flex-1 text-sm">{r.rep}</span>
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  <span className="text-sm font-bold text-rose-500">{r.count}</span>
-                </div>
-              ))}
-              {staleLeads.byRep.length === 0 && (
-                <p className="text-center text-emerald-600 font-semibold text-sm py-2">✓ ทุกคน Follow-up ทัน!</p>
-              )}
-            </div>
-          </div>
+              <span className="flex-1">
+                <strong className="text-rose-500">{staleLeads.overdue} lead</strong>
+                <span className="text-muted-foreground"> เลยกำหนด follow-up (เฉลี่ย {staleLeads.avgDays} วัน)</span>
+              </span>
+              <span className="text-[11px] text-rose-500 font-semibold shrink-0">ดูรายละเอียด →</span>
+            </button>
+          )}
+          {hasLostAlert && (
+            <button
+              onClick={() => setTab("insights")}
+              className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 text-sm text-left hover:bg-amber-500/15 transition-colors flex-1"
+            >
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="flex-1">
+                <strong className="text-amber-500">{unspecifiedLost?.count} deal</strong>
+                <span className="text-muted-foreground"> ยกเลิกโดยไม่ระบุสาเหตุ — ข้อมูลไม่ครบ</span>
+              </span>
+              <span className="text-[11px] text-amber-500 font-semibold shrink-0">ดูรายละเอียด →</span>
+            </button>
+          )}
+        </div>
+      )}
 
-          {/* ⑥ Lost Reason Analysis */}
-          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
-            <div>
-              <h3 className="font-semibold flex items-center gap-2 text-sm"><AlertTriangle className="w-4 h-4 text-amber-500" /> Lost Reason — สาเหตุที่ยกเลิก</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">จาก {insightLeads.filter((l) => isLostStatus(l.status)).length} deal ที่ยกเลิกในช่วงนี้</p>
+      {/* ── Tabs ────────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit border border-border/50">
+        <button
+          onClick={() => setTab("team")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+            tab === "team" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Users2 className="w-4 h-4" /> ภาพรวมทีม
+        </button>
+        <button
+          onClick={() => setTab("insights")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+            tab === "insights" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Activity className="w-4 h-4" /> Marketing Insights
+          {hasStaleAlert && (
+            <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">{staleLeads.overdue}</span>
+          )}
+        </button>
+      </div>
+
+      {/* ═══════════════════ TAB 1: TEAM OVERVIEW ═══════════════════ */}
+      {tab === "team" && (
+        <div className="space-y-4">
+
+          {/* Combined KPI row */}
+          {noDataThisMonth ? (
+            <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+              <p className="text-3xl mb-2">📭</p>
+              <p className="font-semibold text-foreground">ยังไม่มีข้อมูลเดือนนี้</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                เดือน {months.find((m) => m.key === month)?.label} ยังไม่มียอดขายหรือ Lead ที่บันทึกไว้
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">ลองเลือกเดือนอื่น หรือรอข้อมูลใหม่ในช่วงนี้</p>
             </div>
-            {lostReasons.length > 0 ? (
-              <div className="space-y-2.5 pt-1">
-                {lostReasons.map((r, i) => {
-                  const maxCount = lostReasons[0].count;
-                  const pct = (r.count / maxCount) * 100;
-                  return (
-                    <div key={r.reason}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-foreground flex items-center gap-1">
-                          <span className="text-[10px] text-muted-foreground font-mono w-3">{i + 1}.</span>
-                          <span className="truncate max-w-[150px]" title={r.reason}>{r.reason}</span>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard
+                label="ยอดขายรวม (OB + Sales)"
+                value={formatTHB(combined.revenue)}
+                sub={combined.target > 0 ? `เป้า ${formatTHB(combined.target)}` : "ยังไม่มีเป้าหมาย"}
+                accent="text-foreground"
+              />
+              <StatCard label="Pax รวม" value={`${combined.pax} ท่าน`} sub="จาก Lead ที่จองแล้ว" />
+              <StatCard label="Lead รับเดือนนี้" value={`${combined.leads}`} sub="OB + Sales รวมกัน" />
+              <StatCard label="Win Rate รวม" value={`${combined.winRate}%`} sub="ทั้งองค์กร" />
+            </div>
+          )}
+
+          <TeamBlock title="ทีม Outbound (OB)" badge="OB Team" members={obNames.length} stats={obStats} color="purple" />
+          <TeamBlock title="ทีม Sales" badge="Sales Team" members={salesReps.size} stats={salesStats} color="blue" />
+        </div>
+      )}
+
+      {/* ═══════════════════ TAB 2: MARKETING INSIGHTS ═══════════════════ */}
+      {tab === "insights" && (
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">ข้อมูลทีมรวม (OB + Sales) • ช่วงเวลา: <strong>{insightRange.label}</strong></p>
+
+          {/* Row 1: Source + Funnel */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* ① BU Type Attribution */}
+            <div className={card}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-1"><Zap className="w-4 h-4 text-violet-600" /> ที่มา Lead — ประเภทบริการ</h3>
+              <p className="text-xs text-muted-foreground mb-4">Lead ทั้งหมด + Conversion Rate ต่อประเภท</p>
+              <div className="space-y-4">
+                {buAttribution.filter((b) => b.total > 0).map((b) => (
+                  <div key={b.type}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium">{b.type}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">{b.total} lead</span>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: b.color + "22", color: b.color }}>
+                          {b.rate.toFixed(0)}% ปิดได้
                         </span>
-                        <span className="text-xs font-bold ml-2 shrink-0">{r.count}</span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(4, b.rate)}%`, background: b.color }} />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[11px] text-muted-foreground">{b.won} ดีลที่ปิดสำเร็จ</span>
+                      <span className="text-[11px] font-medium text-foreground">{formatTHB(b.revenue)}</span>
+                    </div>
+                  </div>
+                ))}
+                {buAttribution.every((b) => b.total === 0) && (
+                  <p className="text-center text-muted-foreground text-sm py-6">ยังไม่มีข้อมูลในช่วงนี้</p>
+                )}
+              </div>
+            </div>
+
+            {/* ② Funnel Drop-off */}
+            <div className={card}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-1"><Layers className="w-4 h-4 text-violet-600" /> Sales Funnel — Drop-off แต่ละขั้น</h3>
+              <p className="text-xs text-muted-foreground mb-4">สัดส่วน Lead ที่ยังอยู่ใน pipeline ณ แต่ละ stage</p>
+              <div className="space-y-3">
+                {funnelData.map((s, i) => {
+                  const COLORS = ["#9ca3af", "#3b82f6", "#f59e0b", "#ec4899", "#a855f7", "#7c3aed"];
+                  const prev  = i > 0 ? funnelData[i - 1] : null;
+                  const drop  = prev && prev.count > 0 ? ((prev.count - s.count) / prev.count) * 100 : 0;
+                  return (
+                    <div key={s.key} className="flex items-center gap-3">
+                      <span className="w-28 text-right text-xs text-muted-foreground shrink-0">{s.label}</span>
+                      <div className="flex-1 h-6 rounded-lg bg-muted overflow-hidden">
+                        <div className="h-full rounded-lg transition-all duration-700"
+                          style={{ width: `${Math.max(3, s.pct)}%`, background: COLORS[i] }} />
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatTHB(r.revenue)}</p>
+                      <span className="w-8 text-right text-sm font-bold shrink-0">{s.count}</span>
+                      <span className="w-14 text-right text-[11px] shrink-0">
+                        {drop > 0 ? <span className="text-rose-500 font-medium">-{drop.toFixed(0)}%</span> : null}
+                      </span>
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <p className="text-center text-muted-foreground text-sm py-6">ยังไม่มี Lead ที่ยกเลิกในช่วงนี้</p>
-            )}
+            </div>
+          </div>
+
+          {/* Row 2: Forecast + Program */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* ③ Revenue Forecast */}
+            <div className={card}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-1"><Target className="w-4 h-4 text-amber-500" /> Revenue Forecast — ประมาณการรายได้</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Pipeline ที่เปิดอยู่ {revForecast.openCount} deals × % โอกาสปิดดีล
+                <span className="ml-2 text-violet-600 font-medium">Win Rate จริง: {(revForecast.historicalWinRate * 100).toFixed(0)}%</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-xl bg-violet-500/10 p-4 text-center border border-violet-500/20">
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mb-1.5">Weighted</p>
+                  <p className="text-2xl font-black text-violet-600 leading-none">{formatTHB(Math.round(revForecast.weighted))}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">ตาม % โอกาส</p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-4 text-center">
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide mb-1.5">Best Case</p>
+                  <p className="text-2xl font-black text-foreground leading-none">{formatTHB(revForecast.bestCase)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">ถ้าปิดได้ทั้งหมด</p>
+                </div>
+              </div>
+              <div className="space-y-2 border-t border-border/40 pt-3">
+                {revForecast.byStage.map((s) => (
+                  <div key={s.stage} className="flex items-center gap-2 text-sm">
+                    <span className="w-28 text-xs text-muted-foreground">{s.label}</span>
+                    <span className="w-9 text-center text-[10px] font-bold bg-muted rounded px-1 py-0.5">{(s.prob * 100).toFixed(0)}%</span>
+                    <span className="flex-1 text-xs">{formatTHB(s.value)}</span>
+                    <span className="text-xs font-semibold text-violet-600">{formatTHB(Math.round(s.wVal))}</span>
+                    <span className="w-6 text-[10px] text-muted-foreground text-right">{s.count}</span>
+                  </div>
+                ))}
+                {revForecast.byStage.length === 0 && (
+                  <p className="text-center text-muted-foreground text-sm py-3">ไม่มี Lead ที่เปิดอยู่</p>
+                )}
+              </div>
+            </div>
+
+            {/* ④ Tour Program Performance */}
+            <div className={card}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-1"><BarChart3 className="w-4 h-4 text-violet-600" /> Tour Program — Top โปรแกรม</h3>
+              <p className="text-xs text-muted-foreground mb-4">อันดับโปรแกรมที่สร้างรายได้สูงสุด + Conversion Rate</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-muted-foreground border-b border-border/50">
+                      <th className="pb-2 text-left font-medium">โปรแกรม</th>
+                      <th className="pb-2 text-right font-medium w-10">Lead</th>
+                      <th className="pb-2 text-right font-medium w-14">Rate</th>
+                      <th className="pb-2 text-right font-medium">รายได้</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {programPerf.map((p, i) => {
+                      const rate = p.total > 0 ? (p.won / p.total) * 100 : 0;
+                      return (
+                        <tr key={p.program} className="hover:bg-muted/20">
+                          <td className="py-2 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 ${
+                                i === 0 ? "bg-amber-400 text-white" : i === 1 ? "bg-zinc-400 text-white" : i === 2 ? "bg-orange-400 text-white" : "bg-muted text-muted-foreground"
+                              }`}>{i + 1}</span>
+                              <span className="break-words leading-tight" title={p.program}>{p.program}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 text-right text-muted-foreground">{p.total}</td>
+                          <td className="py-2 text-right">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              rate >= 50 ? "bg-violet-500/15 text-violet-600" : rate >= 30 ? "bg-amber-400/15 text-amber-600" : "bg-muted text-muted-foreground"
+                            }`}>{rate.toFixed(0)}%</span>
+                          </td>
+                          <td className="py-2 text-right font-semibold">{formatTHB(p.revenue)}</td>
+                        </tr>
+                      );
+                    })}
+                    {programPerf.length === 0 && (
+                      <tr><td colSpan={4} className="py-8 text-center text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Stale + Lost Reason */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* ⑤ Stale / Overdue Follow-up */}
+            <div className={`${card} ${hasStaleAlert ? "border-rose-400/40" : ""}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-4 h-4 text-rose-500 shrink-0" />
+                <h3 className="font-semibold text-sm">Lead เลยกำหนด Follow-up</h3>
+                {staleLeads.overdue > 0 && (
+                  <span className="ml-auto text-[11px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full">{staleLeads.overdue}</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                เฉลี่ยเลยมาแล้ว <strong>{staleLeads.avgDays} วัน</strong> จากทั้งหมด {staleLeads.active} active leads
+              </p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="rounded-xl bg-rose-500/10 p-3 text-center border border-rose-500/20">
+                  <p className="text-2xl font-black text-rose-500 leading-none">{staleLeads.overdue}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">lead ค้าง</p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3 text-center">
+                  <p className="text-2xl font-black text-foreground leading-none">{staleLeads.active}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Active ทั้งหมด</p>
+                </div>
+                <div className={`rounded-xl p-3 text-center ${staleLeads.active > 0 && staleLeads.overdue / staleLeads.active > 0.5 ? "bg-rose-500/10 border border-rose-500/20" : "bg-muted/50"}`}>
+                  <p className="text-2xl font-black text-foreground leading-none">
+                    {staleLeads.active > 0 ? Math.round((staleLeads.overdue / staleLeads.active) * 100) : 0}%
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">% ที่ค้าง</p>
+                </div>
+              </div>
+              <div className="space-y-2.5 border-t border-border/40 pt-3">
+                {staleLeads.byRep.map((r) => (
+                  <div key={r.rep} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-violet-500/20 text-violet-700 dark:text-violet-300 flex items-center justify-center text-[11px] font-bold shrink-0">{r.rep[0]}</div>
+                    <span className="flex-1 text-sm font-medium">{r.rep}</span>
+                    <div className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                      <span className="text-sm font-bold text-rose-500">{r.count}</span>
+                      <span className="text-xs text-muted-foreground">lead</span>
+                    </div>
+                  </div>
+                ))}
+                {staleLeads.byRep.length === 0 && (
+                  <p className="text-center text-emerald-600 dark:text-emerald-400 font-semibold text-sm py-3">✓ ทุกคน Follow-up ทัน!</p>
+                )}
+              </div>
+            </div>
+
+            {/* ⑥ Lost Reason Analysis */}
+            <div className={`${card} ${hasLostAlert ? "border-amber-400/40" : ""}`}>
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-1"><AlertTriangle className="w-4 h-4 text-amber-500" /> Lost Reason — สาเหตุที่ยกเลิก</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                จาก {insightLeads.filter((l) => isLostStatus(l.status)).length} deal ที่ยกเลิกในช่วงนี้
+                {hasLostAlert && <span className="ml-1.5 text-amber-500 font-medium">⚠ {unspecifiedLost?.count} deal ไม่ระบุสาเหตุ</span>}
+              </p>
+              {lostReasons.length > 0 ? (
+                <div className="space-y-3">
+                  {lostReasons.map((r, i) => {
+                    const maxCount = lostReasons[0].count;
+                    const pct = (r.count / maxCount) * 100;
+                    const isUnspecified = r.reason === "ไม่ระบุสาเหตุ";
+                    return (
+                      <div key={r.reason}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground font-mono w-3 shrink-0">{i + 1}.</span>
+                            <span className={isUnspecified ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>{r.reason}</span>
+                          </span>
+                          <span className="text-sm font-bold ml-3 shrink-0">{r.count} deal</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div className={`h-full rounded-full transition-all duration-700 ${isUnspecified ? "bg-amber-400" : "bg-violet-500"}`}
+                            style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">มูลค่า {formatTHB(r.revenue)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm py-8">ยังไม่มี Lead ที่ยกเลิกในช่วงนี้</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
     </div>
   );
