@@ -9,10 +9,12 @@
  */
 
 import { useMemo, useState } from "react";
-import { TrendingUp, Users2, Users, Target, ChevronDown, Award } from "lucide-react";
+import { TrendingUp, Users2, Users, Target, ChevronDown, Award, Activity, Layers, Zap, Clock, AlertTriangle, BarChart3 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useCRM, isClosedStatus, isLostStatus, formatTHB, type Lead } from "@/store/crmStore";
+import { useCRM, isClosedStatus, isLostStatus, formatTHB, type Lead, type BUType } from "@/store/crmStore";
 import { useActiveOBNames } from "@/store/authStore";
+import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
+import type { DateRange } from "react-day-picker";
 
 // ── Month helpers ─────────────────────────────────────────────────────────────
 
@@ -227,6 +229,9 @@ export default function MarketingDashboardPage() {
 
   const months     = useMemo(monthOptions, []);
   const [month, setMonth] = useState(months[0].key);
+  const [insightPreset, setInsightPreset] = useState<RangePreset>("year");
+  const [insightCustom, setInsightCustom] = useState<DateRange | undefined>();
+  const insightRange = resolveRange(insightPreset, insightCustom);
 
   const obSet = useMemo(() => new Set(obNames), [obNames]);
 
@@ -256,6 +261,120 @@ export default function MarketingDashboardPage() {
       : 0,
     target: obStats.target + salesStats.target,
   }), [obStats, salesStats]);
+
+  // ── Marketing Insights ───────────────────────────────────────────────────────
+
+  const insightLeads = useMemo(() => {
+    if (!insightRange.from || !insightRange.to) return allLeads;
+    return allLeads.filter((l) => inRange(l.closed_date ?? l.next_followup_date, insightRange));
+  }, [allLeads, insightRange]);
+
+  const wonLeadsAll = useMemo(() => allLeads.filter((l) => isClosedStatus(l.status)), [allLeads]);
+
+  // ① BU Type Attribution
+  const buAttribution = useMemo(() => {
+    const BU_TYPES: BUType[] = ["ทัวร์ต่างประเทศ", "ทัวร์ภายในประเทศ", "เช่ารถ ท่องเที่ยว", "จองตั๋วเครื่องบิน"];
+    const BU_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--gold))", "hsl(210 90% 55%)"];
+    return BU_TYPES.map((type, i) => {
+      const inType = insightLeads.filter((l) => l.bu_type === type);
+      const won = inType.filter((l) => isClosedStatus(l.status));
+      const revenue = won.reduce((s, l) => s + l.quoted_price, 0);
+      const rate = inType.length > 0 ? (won.length / inType.length) * 100 : 0;
+      return { type, total: inType.length, won: won.length, revenue, rate, color: BU_COLORS[i] };
+    }).sort((a, b) => b.total - a.total);
+  }, [insightLeads]);
+
+  // ② Funnel Drop-off
+  const funnelData = useMemo(() => {
+    const STAGES = [
+      { key: "ใหม่", label: "Lead ใหม่" },
+      { key: "ติดต่อแล้ว", label: "ติดต่อแล้ว" },
+      { key: "ตอบแล้ว", label: "ตอบกลับ" },
+      { key: "ส่ง Quote แล้ว", label: "ส่ง Quote" },
+      { key: "กำลังเจรจา", label: "กำลังเจรจา" },
+      { key: "จองแล้ว", label: "ปิดดีล ✓" },
+    ];
+    const STAGE_ORDER: Record<string, number> = {
+      "ใหม่": 0, "ติดต่อแล้ว": 1, "ตอบแล้ว": 2, "ส่ง Quote แล้ว": 3, "กำลังเจรจา": 4, "จองแล้ว": 5, "ยกเลิก": 99,
+    };
+    const totalLeads = insightLeads.length;
+    return STAGES.map((s, idx) => {
+      const count = insightLeads.filter((l) => {
+        if (isLostStatus(l.status)) return false;
+        return (STAGE_ORDER[l.status] ?? 0) >= idx;
+      }).length;
+      const pct = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
+      return { ...s, count, pct };
+    });
+  }, [insightLeads]);
+
+  // ③ Revenue Forecast
+  const revForecast = useMemo(() => {
+    const STAGE_PROB: Record<string, number> = {
+      "ใหม่": 0.05, "ติดต่อแล้ว": 0.10, "ตอบแล้ว": 0.20, "ส่ง Quote แล้ว": 0.40, "กำลังเจรจา": 0.70,
+    };
+    const STAGE_LABELS: Record<string, string> = {
+      "ใหม่": "Lead ใหม่", "ติดต่อแล้ว": "ติดต่อแล้ว", "ตอบแล้ว": "ตอบกลับ", "ส่ง Quote แล้ว": "ส่ง Quote", "กำลังเจรจา": "กำลังเจรจา",
+    };
+    const open = allLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status));
+    const lostCount = allLeads.filter((l) => isLostStatus(l.status)).length;
+    const wonCount = wonLeadsAll.length;
+    const historicalWinRate = (wonCount + lostCount) > 0 ? wonCount / (wonCount + lostCount) : 0.3;
+    let weighted = 0;
+    let bestCase = 0;
+    const byStage = Object.entries(STAGE_PROB).map(([stage, prob]) => {
+      const inStage = open.filter((l) => l.status === stage);
+      const value = inStage.reduce((s, l) => s + l.quoted_price, 0);
+      const wVal = value * prob;
+      weighted += wVal;
+      bestCase += value;
+      return { stage, label: STAGE_LABELS[stage], count: inStage.length, value, prob, wVal };
+    }).filter((s) => s.count > 0);
+    return { byStage, weighted, bestCase, historicalWinRate, openCount: open.length };
+  }, [allLeads, wonLeadsAll]);
+
+  // ④ Tour Program Performance
+  const programPerf = useMemo(() => {
+    const map = new Map<string, { program: string; total: number; won: number; revenue: number; pax: number }>();
+    insightLeads.forEach((l) => {
+      const key = l.program?.trim() || "ไม่ระบุโปรแกรม";
+      const p = map.get(key) ?? { program: key, total: 0, won: 0, revenue: 0, pax: 0 };
+      p.total++;
+      if (isClosedStatus(l.status)) { p.won++; p.revenue += l.quoted_price; p.pax += l.pax_count; }
+      map.set(key, p);
+    });
+    return [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  }, [insightLeads]);
+
+  // ⑤ Stale / Overdue Follow-up
+  const staleLeads = useMemo(() => {
+    const now = new Date();
+    const active = allLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status));
+    const overdue = active.filter((l) => {
+      if (!l.next_followup_date) return true;
+      return new Date(l.next_followup_date) < now;
+    });
+    const repMap = new Map<string, number>();
+    overdue.forEach((l) => repMap.set(l.assigned_to, (repMap.get(l.assigned_to) ?? 0) + 1));
+    const byRep = [...repMap.entries()].map(([rep, count]) => ({ rep, count })).sort((a, b) => b.count - a.count);
+    const daysArr = overdue.filter((l) => l.next_followup_date)
+      .map((l) => Math.floor((now.getTime() - new Date(l.next_followup_date!).getTime()) / (1000 * 60 * 60 * 24)));
+    const avgDays = daysArr.length > 0 ? Math.round(daysArr.reduce((a, b) => a + b, 0) / daysArr.length) : 0;
+    return { overdue: overdue.length, active: active.length, byRep, avgDays };
+  }, [allLeads]);
+
+  // ⑥ Lost Reason Analysis
+  const lostReasons = useMemo(() => {
+    const map = new Map<string, { reason: string; count: number; revenue: number }>();
+    insightLeads.filter((l) => isLostStatus(l.status)).forEach((l) => {
+      const key = l.lost_reason?.trim() || "ไม่ระบุสาเหตุ";
+      const r = map.get(key) ?? { reason: key, count: 0, revenue: 0 };
+      r.count++;
+      r.revenue += l.quoted_price;
+      map.set(key, r);
+    });
+    return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 8);
+  }, [insightLeads]);
 
   return (
     <div className="p-4 sm:p-6 space-y-5 max-w-5xl">
@@ -308,6 +427,243 @@ export default function MarketingDashboardPage() {
         stats={salesStats}
         color="blue"
       />
+
+      {/* ─── Marketing Insights ─── */}
+      <div className="pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Activity className="w-5 h-5 text-violet-600" /> Marketing Insights
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">ที่มา Lead / Funnel / Forecast / โปรแกรม / Follow-up / สาเหตุยกเลิก — {insightRange.label}</p>
+          </div>
+          <DateRangeFilter value={insightPreset} custom={insightCustom} onChange={(p, c) => { setInsightPreset(p); setInsightCustom(c); }} />
+        </div>
+
+        {/* Row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+          {/* ① BU Type Attribution */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-sm"><Zap className="w-4 h-4 text-violet-600" /> ที่มา Lead — แยกตามประเภทบริการ</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Conversion Rate ต่อประเภทบริการ</p>
+            </div>
+            <div className="space-y-3 pt-1">
+              {buAttribution.map((b) => (
+                <div key={b.type}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{b.type}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{b.total} lead</span>
+                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ background: b.color + "20", color: b.color }}>
+                        ปิด {b.rate.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(3, b.rate)}%`, background: b.color }} />
+                  </div>
+                  <div className="flex justify-between mt-0.5">
+                    <span className="text-[10px] text-muted-foreground">{b.won} ดีล</span>
+                    <span className="text-[10px] text-muted-foreground">{formatTHB(b.revenue)}</span>
+                  </div>
+                </div>
+              ))}
+              {buAttribution.every((b) => b.total === 0) && (
+                <p className="text-center text-muted-foreground text-sm py-4">ยังไม่มีข้อมูล</p>
+              )}
+            </div>
+          </div>
+
+          {/* ② Funnel Drop-off */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-sm"><Layers className="w-4 h-4 text-violet-600" /> Sales Funnel — Drop-off แต่ละขั้น</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Lead ที่ยังอยู่ใน pipeline ณ แต่ละ stage</p>
+            </div>
+            <div className="space-y-2 pt-1">
+              {funnelData.map((s, i) => {
+                const COLORS = ["#9ca3af","hsl(210 90% 55%)","hsl(var(--gold))","hsl(var(--accent))","hsl(var(--primary-glow))","#7c3aed"];
+                const prev = i > 0 ? funnelData[i - 1] : null;
+                const drop = prev && prev.count > 0 ? ((prev.count - s.count) / prev.count * 100) : 0;
+                return (
+                  <div key={s.key} className="flex items-center gap-2">
+                    <span className="w-24 text-right text-xs text-muted-foreground shrink-0">{s.label}</span>
+                    <div className="flex-1 h-5 rounded bg-muted overflow-hidden">
+                      <div className="h-full rounded" style={{ width: `${Math.max(2, s.pct)}%`, background: COLORS[i] }} />
+                    </div>
+                    <span className="w-10 text-right text-sm font-bold text-foreground shrink-0">{s.count}</span>
+                    <span className="w-12 text-right text-[10px] shrink-0">
+                      {drop > 0 ? <span className="text-rose-500">-{drop.toFixed(0)}%</span> : null}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+          {/* ③ Revenue Forecast */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-sm"><Target className="w-4 h-4 text-amber-500" /> Revenue Forecast</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Pipeline ที่เปิดอยู่ × % โอกาสปิดดีล • Win Rate: {(revForecast.historicalWinRate * 100).toFixed(0)}%</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-violet-500/10 p-3 text-center border border-violet-500/20">
+                <p className="text-[10px] text-muted-foreground font-semibold mb-1">Weighted</p>
+                <p className="text-lg font-black text-violet-600 leading-none">{formatTHB(Math.round(revForecast.weighted))}</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <p className="text-[10px] text-muted-foreground font-semibold mb-1">Best Case</p>
+                <p className="text-lg font-black text-foreground leading-none">{formatTHB(revForecast.bestCase)}</p>
+              </div>
+            </div>
+            <div className="space-y-1.5 pt-1">
+              {revForecast.byStage.map((s) => (
+                <div key={s.stage} className="flex items-center gap-2 text-xs">
+                  <span className="w-28 text-muted-foreground">{s.label}</span>
+                  <span className="w-8 text-center text-[10px] font-bold bg-muted rounded px-1">{(s.prob * 100).toFixed(0)}%</span>
+                  <span className="flex-1 text-foreground">{formatTHB(s.value)}</span>
+                  <span className="font-semibold text-violet-600">{formatTHB(Math.round(s.wVal))}</span>
+                  <span className="w-6 text-[10px] text-muted-foreground text-right">{s.count}</span>
+                </div>
+              ))}
+              {revForecast.byStage.length === 0 && (
+                <p className="text-center text-muted-foreground text-sm py-2">ไม่มี Lead ที่เปิดอยู่</p>
+              )}
+            </div>
+          </div>
+
+          {/* ④ Tour Program Performance */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-sm"><BarChart3 className="w-4 h-4 text-violet-600" /> Tour Program — Top โปรแกรม</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">อันดับโปรแกรมตามรายได้ + Conversion</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground border-b border-border/50">
+                    <th className="pb-2 text-left font-medium">โปรแกรม</th>
+                    <th className="pb-2 text-right font-medium">Lead</th>
+                    <th className="pb-2 text-right font-medium">Rate</th>
+                    <th className="pb-2 text-right font-medium">รายได้</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40">
+                  {programPerf.map((p, i) => {
+                    const rate = p.total > 0 ? (p.won / p.total) * 100 : 0;
+                    return (
+                      <tr key={p.program}>
+                        <td className="py-1.5 pr-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold shrink-0 ${i === 0 ? "bg-amber-400 text-white" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
+                            <span className="truncate max-w-[100px]" title={p.program}>{p.program}</span>
+                          </div>
+                        </td>
+                        <td className="py-1.5 text-right text-muted-foreground">{p.total}</td>
+                        <td className="py-1.5 text-right">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${rate >= 50 ? "bg-violet-500/15 text-violet-600" : rate >= 30 ? "bg-amber-400/15 text-amber-600" : "bg-muted text-muted-foreground"}`}>
+                            {rate.toFixed(0)}%
+                          </span>
+                        </td>
+                        <td className="py-1.5 text-right font-semibold">{formatTHB(p.revenue)}</td>
+                      </tr>
+                    );
+                  })}
+                  {programPerf.length === 0 && (
+                    <tr><td colSpan={4} className="py-6 text-center text-muted-foreground">ยังไม่มีข้อมูล</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+          {/* ⑤ Stale / Overdue Follow-up */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-rose-500 shrink-0" />
+              <h3 className="font-semibold text-sm">Lead เลยกำหนด Follow-up</h3>
+              {staleLeads.overdue > 0 && (
+                <span className="ml-auto text-[11px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full">{staleLeads.overdue}</span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground -mt-1">เฉลี่ยเลยมา {staleLeads.avgDays} วัน จาก {staleLeads.active} active leads</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-rose-500/10 p-3 text-center border border-rose-500/20">
+                <p className="text-xl font-black text-rose-500 leading-none">{staleLeads.overdue}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">ค้าง</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <p className="text-xl font-black text-foreground leading-none">{staleLeads.active}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Active</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <p className="text-xl font-black text-foreground leading-none">
+                  {staleLeads.active > 0 ? Math.round((staleLeads.overdue / staleLeads.active) * 100) : 0}%
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">% ค้าง</p>
+              </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              {staleLeads.byRep.map((r) => (
+                <div key={r.rep} className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-700 flex items-center justify-center text-[10px] font-bold shrink-0">{r.rep[0]}</div>
+                  <span className="flex-1 text-sm">{r.rep}</span>
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span className="text-sm font-bold text-rose-500">{r.count}</span>
+                </div>
+              ))}
+              {staleLeads.byRep.length === 0 && (
+                <p className="text-center text-emerald-600 font-semibold text-sm py-2">✓ ทุกคน Follow-up ทัน!</p>
+              )}
+            </div>
+          </div>
+
+          {/* ⑥ Lost Reason Analysis */}
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 space-y-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-sm"><AlertTriangle className="w-4 h-4 text-amber-500" /> Lost Reason — สาเหตุที่ยกเลิก</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">จาก {insightLeads.filter((l) => isLostStatus(l.status)).length} deal ที่ยกเลิกในช่วงนี้</p>
+            </div>
+            {lostReasons.length > 0 ? (
+              <div className="space-y-2.5 pt-1">
+                {lostReasons.map((r, i) => {
+                  const maxCount = lostReasons[0].count;
+                  const pct = (r.count / maxCount) * 100;
+                  return (
+                    <div key={r.reason}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-foreground flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground font-mono w-3">{i + 1}.</span>
+                          <span className="truncate max-w-[150px]" title={r.reason}>{r.reason}</span>
+                        </span>
+                        <span className="text-xs font-bold ml-2 shrink-0">{r.count}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatTHB(r.revenue)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground text-sm py-6">ยังไม่มี Lead ที่ยกเลิกในช่วงนี้</p>
+            )}
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
