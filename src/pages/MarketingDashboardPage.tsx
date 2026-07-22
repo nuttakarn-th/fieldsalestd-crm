@@ -419,7 +419,7 @@ export default function MarketingDashboardPage() {
         <div className="flex flex-col sm:flex-row gap-2">
           {hasStaleAlert && (
             <button
-              onClick={() => setTab("insights")}
+              onClick={() => { setTab("insights"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               className="flex items-center gap-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-2.5 text-sm text-left hover:bg-rose-500/15 transition-colors flex-1"
             >
               <Clock className="w-4 h-4 text-rose-500 shrink-0" />
@@ -432,7 +432,7 @@ export default function MarketingDashboardPage() {
           )}
           {hasLostAlert && (
             <button
-              onClick={() => setTab("insights")}
+              onClick={() => { setTab("insights"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 text-sm text-left hover:bg-amber-500/15 transition-colors flex-1"
             >
               <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
@@ -457,7 +457,7 @@ export default function MarketingDashboardPage() {
           <Users2 className="w-4 h-4" /> ภาพรวมทีม
         </button>
         <button
-          onClick={() => setTab("insights")}
+          onClick={() => { setTab("insights"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
             tab === "insights" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
           }`}
