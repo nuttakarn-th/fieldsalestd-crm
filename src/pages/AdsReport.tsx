@@ -843,16 +843,16 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
 
   // Sub-scores 0–100
   const ctrScore  = avgCTR     !== null ? Math.min(100,(avgCTR/2)*100)                           : null;
-  const cpmScore  = avgCPM     !== null ? Math.max(0,Math.min(100,(200-avgCPM)/200*100))         : null;
-  const msgScore  = avgCostMsg !== null ? Math.max(0,Math.min(100,(300-avgCostMsg)/300*100))     : null;
+  const cpmScore  = avgCPM     !== null ? Math.max(0,Math.min(100,(150-avgCPM)/150*100))         : null;
+  const msgScore  = avgCostMsg !== null ? Math.max(0,Math.min(100,(200-avgCostMsg)/200*100))     : null;
   const engScore  = colMap.pageEngagement !== undefined && totImp > 0
     ? Math.min(100,(totEng/totImp*1000)*10) : null;
 
   type SI={label:string;value:string;score:number;weight:number;color:string;bench:string};
   const subs:SI[]=[
     {label:"CTR",           value:avgCTR!==null?`${avgCTR.toFixed(2)}%`            :"—",score:ctrScore ??-1,weight:30,color:"#D4537E",bench:"เป้า ≥ 2%"},
-    {label:"Cost per Msg",  value:avgCostMsg!==null?`฿${Math.round(avgCostMsg)}`   :"—",score:msgScore ??-1,weight:35,color:"#1D9E75",bench:"เป้า ≤ ฿150"},
-    {label:"CPM",           value:avgCPM!==null?`฿${Math.round(avgCPM)}`           :"—",score:cpmScore ??-1,weight:20,color:"#378ADD",bench:"เป้า ≤ ฿100"},
+    {label:"Cost per Msg",  value:avgCostMsg!==null?`฿${Math.round(avgCostMsg)}`   :"—",score:msgScore ??-1,weight:35,color:"#1D9E75",bench:"เป้า ≤ ฿100"},
+    {label:"CPM",           value:avgCPM!==null?`฿${Math.round(avgCPM)}`           :"—",score:cpmScore ??-1,weight:20,color:"#378ADD",bench:"เป้า ≤ ฿60"},
     {label:"Engagement/1K", value:colMap.pageEngagement!==undefined&&totImp>0?(totEng/totImp*1000).toFixed(1):"—",score:engScore??-1,weight:15,color:"#EF9F27",bench:"เป้า ≥ 5"},
   ].filter(x=>x.score>=0) as SI[];
 
