@@ -196,6 +196,16 @@ function LogRow({
           </p>
           <DeptBadge dept={(log as any).department} />
         </div>
+        {(log as any).program_name && (
+          <p className="text-[12px] font-semibold text-violet-600 dark:text-violet-400 mt-0.5 leading-snug truncate">
+            {(log as any).program_name}
+          </p>
+        )}
+        {(log as any).tour_code && (
+          <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5 leading-none">
+            {(log as any).tour_code}
+          </p>
+        )}
         {log.detail && (
           <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 truncate">{log.detail}</p>
         )}

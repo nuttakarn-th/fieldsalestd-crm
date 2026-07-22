@@ -51,7 +51,9 @@ export interface ActivityEntry {
   detail?:      string;       // รายละเอียดเพิ่มเติม
   entity_type?: string;       // 'tour' | 'customer' | 'lead' | 'campaign' | 'booking'
   entity_id?:   string;
-  entity_name?: string;       // tour code, ชื่อลูกค้า, ชื่อ campaign, ...
+  entity_name?: string;       // ชื่อที่แสดงผล (tour ใช้ชื่อโปรแกรม, ลูกค้าใช้ชื่อ, campaign ใช้ชื่อ)
+  program_name?: string;      // ชื่อโปรแกรมทัวร์ที่อ่านได้ เช่น "เกาหลีใต้ 5D4N" หรือ tour.title
+  tour_code?: string;         // รหัสทัวร์ เช่น "HQO-CKG04-PN" — เก็บแยกสำหรับ reference
   meta?:        Record<string, unknown>;
 }
 
