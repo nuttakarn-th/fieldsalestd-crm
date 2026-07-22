@@ -199,24 +199,23 @@ function KPICard({label,numericValue,prefix="",suffix="",decimals=0,compareValue
     ?`${prefix}${animated.toLocaleString("th-TH",{minimumFractionDigits:decimals,maximumFractionDigits:decimals})}${suffix}`
     :"ไม่มีข้อมูล";
   return(
-    <div className={`rounded-2xl border bg-card flex flex-col overflow-hidden shadow-sm ${!available?"opacity-40":""}`}>
-      <div className="px-5 pt-5 pb-4 flex flex-col gap-3 flex-1">
+    <div className={`rounded-2xl border bg-card flex flex-col overflow-hidden shadow-sm h-full ${!available?"opacity-40":""}`}>
+      <div className="px-3.5 pt-3.5 pb-2.5 sm:px-5 sm:pt-5 sm:pb-4 flex flex-col gap-2 sm:gap-3 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-xs text-muted-foreground font-medium leading-tight pt-0.5">{label}</span>
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{background:accentColor+"22"}}>
-            <span style={{color:accentColor}}>{icon}</span>
+          <span className="text-[11px] sm:text-xs text-muted-foreground font-medium leading-tight pt-0.5">{label}</span>
+          <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0" style={{background:accentColor+"22"}}>
+            <span style={{color:accentColor,display:"flex"}}>{icon}</span>
           </div>
         </div>
         <div>
-          <p className="text-3xl font-bold tracking-tight text-foreground">{display}</p>
+          <p className="text-xl sm:text-3xl font-bold tracking-tight text-foreground leading-none">{display}</p>
           {compareValue!==undefined&&compareValue!==null&&numericValue!==null&&(
-            <div className="mt-1.5">
+            <div className="mt-1">
               <DeltaBadge a={numericValue} b={compareValue} higherIsBetter={higherIsBetter}/>
             </div>
           )}
         </div>
       </div>
-      {/* Accent bar */}
       <div className="h-1 w-full" style={{background:accentColor}}/>
     </div>
   );
@@ -779,7 +778,7 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
         <div className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(255,255,255,0.08),transparent)"}}/>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 xs:grid-cols-3 gap-3" style={{gridTemplateColumns:"repeat(3,minmax(0,1fr))"}}
         {stars.map(({name,label,sublabel,icon,color,val},idx)=>{
           const isActive=activeGroupFilter===name;
           return(
@@ -1059,7 +1058,7 @@ export default function AdsReport(){
   return(
     <div className="min-h-screen bg-background" style={{backgroundImage:"radial-gradient(ellipse at 30% -10%,rgba(127,119,221,0.08) 0%,transparent 55%)"}}>
       <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.slide-up{animation:slideUp 0.35s ease-out both}`}</style>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
 
         {/* Header — hero card */}
         <div className="rounded-2xl border bg-card overflow-hidden shadow-sm">
@@ -1204,20 +1203,24 @@ export default function AdsReport(){
               </div>
             )}
 
-            {/* ① KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {[
-                {label:"ยอดใช้จ่าย (฿)",num:sumN(ads,"spend"),prefix:"฿",decimals:2,cmp:compareReport?sumN(compareReport.ads,"spend"):undefined,icon:<DollarSign className="w-5 h-5"/>,color:"#7F77DD",avail:cm.spend!==undefined,hib:false},
-                {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-5 h-5"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
-                {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-5 h-5"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
-                {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-5 h-5"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
-                {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-5 h-5"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
-                {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-5 h-5"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
-              ].map(({label,num,prefix,suffix,decimals,cmp,icon,color,avail,hib})=>(
-                <KPICard key={label} label={label} numericValue={num} prefix={prefix} suffix={suffix??""} decimals={decimals}
-                  compareValue={compareMode&&compareReport?cmp:undefined}
-                  icon={icon} accentColor={color} available={avail} higherIsBetter={hib}/>
-              ))}
+            {/* ① KPI Cards — horizontal scroll on mobile, grid on desktop */}
+            <div className="-mx-4 sm:mx-0">
+              <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto px-4 sm:px-0 pb-1 sm:pb-0 snap-x snap-mandatory sm:overflow-visible scroll-smooth">
+                {[
+                  {label:"ยอดใช้จ่าย (฿)",num:sumN(ads,"spend"),prefix:"฿",decimals:2,cmp:compareReport?sumN(compareReport.ads,"spend"):undefined,icon:<DollarSign className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#7F77DD",avail:cm.spend!==undefined,hib:false},
+                  {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
+                  {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
+                  {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
+                  {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
+                  {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
+                ].map(({label,num,prefix,suffix,decimals,cmp,icon,color,avail,hib})=>(
+                  <div key={label} className="min-w-[140px] sm:min-w-0 snap-start shrink-0 sm:shrink">
+                    <KPICard label={label} numericValue={num} prefix={prefix} suffix={suffix??""} decimals={decimals}
+                      compareValue={compareMode&&compareReport?cmp:undefined}
+                      icon={icon} accentColor={color} available={avail} higherIsBetter={hib}/>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ② Ad Health Score */}
