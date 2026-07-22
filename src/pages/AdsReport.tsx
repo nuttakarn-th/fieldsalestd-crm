@@ -778,7 +778,7 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
         <div className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(255,255,255,0.08),transparent)"}}/>
       </div>
 
-      <div className="grid grid-cols-1 xs:grid-cols-3 gap-3" style={{gridTemplateColumns:"repeat(3,minmax(0,1fr))"}}
+      <div className="grid grid-cols-1 xs:grid-cols-3 gap-3" style={{gridTemplateColumns:"repeat(3,minmax(0,1fr))"}}>
         {stars.map(({name,label,sublabel,icon,color,val},idx)=>{
           const isActive=activeGroupFilter===name;
           return(
