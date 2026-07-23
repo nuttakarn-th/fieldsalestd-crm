@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PieChart, Pie, Cell, Tooltip as RechartTooltip,
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, LabelList, ResponsiveContainer,
 } from "recharts";
 import {
   Upload, FileText, X, ChevronDown, ChevronRight, ChevronLeft,
@@ -305,19 +305,18 @@ function ChartSection({ads,colMap,groupColorMap,onGroupClick,activeGroupFilter}:
         <div className="rounded-2xl border bg-card p-4">
           <p className="text-sm font-semibold mb-3">Messages by group</p>
           <ResponsiveContainer width="100%" height={msgData.length*36+8}>
-            <BarChart data={msgData} layout="vertical" margin={{left:0,right:24,top:0,bottom:0}}>
+            <BarChart data={msgData} layout="vertical" margin={{left:0,right:52,top:0,bottom:0}}>
               <XAxis type="number" hide/>
-              <YAxis type="category" dataKey="name" width={90} tick={{fontSize:11,fill:"var(--muted-foreground)"}} axisLine={false} tickLine={false}/>
-              <RechartTooltip
-                contentStyle={{background:"var(--background)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}
-                formatter={(v:number,[,,entry]:[unknown,unknown,{payload:{full:string}}])=>[v,entry?.payload?.full??""]}
-              />
+              <YAxis type="category" dataKey="name" width={90} tick={{fontSize:11,fill:"var(--foreground)"}} axisLine={false} tickLine={false}/>
               <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={18}
                 onClick={(data)=>onGroupClick((data as {full:string}).full)} style={{cursor:"pointer"}}>
                 {msgData.map((entry,i)=>(
                   <Cell key={entry.name} fill={groupColorMap[entry.full]??groupColor(i)}
                     opacity={activeGroupFilter&&activeGroupFilter!==entry.full?0.3:1}/>
                 ))}
+                <LabelList dataKey="value" position="right"
+                  style={{fontSize:11,fontWeight:700,fill:"var(--foreground)"}}
+                  formatter={(v:number)=>fmtInt(v)}/>
               </Bar>
             </BarChart>
           </ResponsiveContainer>
