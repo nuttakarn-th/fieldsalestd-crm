@@ -239,6 +239,16 @@ function KPICard({label,numericValue,prefix="",suffix="",decimals=0,compareValue
 const CHART_LIMIT=6;
 
 function ChartSection({ads,colMap,groupColorMap,onGroupClick,activeGroupFilter}:{ads:AdRow[];colMap:ColumnMap;groupColorMap:Record<string,string>;onGroupClick:(g:string)=>void;activeGroupFilter:string|null}){
+  // Dark mode — detect class on <html> so recharts SVG fills get real hex colors
+  const [isDark,setIsDark]=useState(()=>document.documentElement.classList.contains("dark"));
+  useEffect(()=>{
+    const obs=new MutationObserver(()=>setIsDark(document.documentElement.classList.contains("dark")));
+    obs.observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
+    return()=>obs.disconnect();
+  },[]);
+  const chartFg=isDark?"#e5e7eb":"#111827";
+  const chartMuted=isDark?"#9ca3af":"#6b7280";
+
   // Donut — spend by group
   const spendData=Object.entries(
     ads.reduce<Record<string,number>>((acc,ad)=>{
@@ -307,7 +317,7 @@ function ChartSection({ads,colMap,groupColorMap,onGroupClick,activeGroupFilter}:
           <ResponsiveContainer width="100%" height={msgData.length*36+8}>
             <BarChart data={msgData} layout="vertical" margin={{left:0,right:52,top:0,bottom:0}}>
               <XAxis type="number" hide/>
-              <YAxis type="category" dataKey="name" width={90} tick={{fontSize:11,fill:"var(--foreground)"}} axisLine={false} tickLine={false}/>
+              <YAxis type="category" dataKey="name" width={90} tick={{fontSize:11,fill:chartFg}} axisLine={false} tickLine={false}/>
               <Bar dataKey="value" radius={[0,4,4,0]} maxBarSize={18}
                 onClick={(data)=>onGroupClick((data as {full:string}).full)} style={{cursor:"pointer"}}>
                 {msgData.map((entry,i)=>(
@@ -315,7 +325,7 @@ function ChartSection({ads,colMap,groupColorMap,onGroupClick,activeGroupFilter}:
                     opacity={activeGroupFilter&&activeGroupFilter!==entry.full?0.3:1}/>
                 ))}
                 <LabelList dataKey="value" position="right"
-                  style={{fontSize:11,fontWeight:700,fill:"var(--foreground)"}}
+                  style={{fontSize:11,fontWeight:700,fill:chartFg}}
                   formatter={(v:number)=>fmtInt(v)}/>
               </Bar>
             </BarChart>
