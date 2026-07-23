@@ -974,6 +974,29 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   );
 }
 
+// ── Presentation Mode — module-level stable references ───────────────────────
+// IMPORTANT: A and SH MUST be defined here (module scope), NOT inside PresentationMode.
+// Defining components inside a render function causes React to see them as NEW component
+// types on every re-render (which happens 60fps during count-up animations), triggering
+// full unmount→remount of every wrapped element and causing severe visual jitter.
+const PM_ACC="#7F77DD";
+const PM_T1="#ffffff";
+const PM_T3="rgba(255,255,255,0.32)";
+const PM_CB="rgba(255,255,255,0.055)";
+const PM_BR="rgba(255,255,255,0.09)";
+
+const PA=({d=0,children}:{d?:number;children:React.ReactNode})=>(
+  <div style={{animation:`psFadeUp 0.5s ease-out ${d}ms both`}}>{children}</div>
+);
+
+const PSH=({title,sub}:{title:string;sub?:string})=>(
+  <PA><div style={{marginBottom:"1.25rem",flexShrink:0,textAlign:"center"}}>
+    <div style={{width:32,height:2,background:PM_ACC,borderRadius:1,margin:"0 auto 14px"}}/>
+    <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:PM_T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>{title}</h2>
+    {sub&&<p style={{fontSize:13,color:PM_T3,margin:"8px 0 0"}}>{sub}</p>}
+  </div></PA>
+);
+
 // ── Presentation Mode v2 (10/10 redesign) ─────────────────────────────────────
 
 /** Count-up animation hook — restarts whenever `dep` changes. `startDelay` lets you wait for a slide-in animation to finish first. */
@@ -1080,28 +1103,16 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   // Format helpers local to PM
   const fmtSpend=(cents:number)=>(cents/100).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
 
-  // ── Design tokens ─────────────────────────────────────────────────────────────
-  const ACC="#7F77DD";
-  const T1="#ffffff";
-  const T3="rgba(255,255,255,0.32)";
-  const CB="rgba(255,255,255,0.055)";
-  const BR="rgba(255,255,255,0.09)";
-  // Padding: 56px top/bottom, 72px left/right — never touch edges
+  // ── Design tokens (aliases for module-level constants) ───────────────────────
+  const ACC=PM_ACC;
+  const T1=PM_T1;
+  const T3=PM_T3;
+  const CB=PM_CB;
+  const BR=PM_BR;
   const PAD="56px 72px";
-
-  // ── Animation wrapper: fades up with configurable delay ──────────────────────
-  const A=({d=0,children}:{d?:number;children:React.ReactNode})=>(
-    <div style={{animation:`psFadeUp 0.5s ease-out ${d}ms both`}}>{children}</div>
-  );
-
-  // ── Slide header ─────────────────────────────────────────────────────────────
-  const SH=({title,sub,ac=ACC}:{title:string;sub?:string;ac?:string})=>(
-    <A><div style={{marginBottom:"1.25rem",flexShrink:0,textAlign:"center"}}>
-      <div style={{width:32,height:2,background:ac,borderRadius:1,margin:"0 auto 14px"}}/>
-      <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>{title}</h2>
-      {sub&&<p style={{fontSize:13,color:T3,margin:"8px 0 0"}}>{sub}</p>}
-    </div></A>
-  );
+  // A and SH are module-level (PA / PSH) — aliased here for readability
+  const A=PA;
+  const SH=PSH;
 
   // ── Render slides ─────────────────────────────────────────────────────────────
   const renderSlide=()=>{
@@ -1191,8 +1202,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                     return<>
                       <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={sw} strokeLinecap="round"/>
                       <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke={healthColor}
-                        strokeWidth={sw} strokeLinecap="round" strokeDasharray={da}
-                        style={{transition:"stroke-dasharray 1.5s ease-out"}}/>
+                        strokeWidth={sw} strokeLinecap="round" strokeDasharray={da}/>
                       <text x={cx} y={cy-24} textAnchor="middle" fill={T1} fontSize="72" fontWeight="800" fontFamily="system-ui,sans-serif">{animScore}</text>
                       <text x={cx} y={cy+4} textAnchor="middle" fill={T3} fontSize="15" fontFamily="system-ui,sans-serif">/100</text>
                     </>;
