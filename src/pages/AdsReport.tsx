@@ -1077,10 +1077,10 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
   // ── Slide header ─────────────────────────────────────────────────────────────
   const SH=({title,sub,ac=ACC}:{title:string;sub?:string;ac?:string})=>(
-    <A><div style={{marginBottom:"1.75rem",flexShrink:0}}>
-      <div style={{width:24,height:2,background:ac,borderRadius:1,marginBottom:10}}/>
-      <h2 style={{fontSize:"clamp(1.6rem,2.5vw,2.1rem)",fontWeight:700,color:T1,lineHeight:1,margin:0}}>{title}</h2>
-      {sub&&<p style={{fontSize:13,color:T3,margin:"5px 0 0"}}>{sub}</p>}
+    <A><div style={{marginBottom:"2rem",flexShrink:0,textAlign:"center"}}>
+      <div style={{width:32,height:2,background:ac,borderRadius:1,marginBottom:16,margin:"0 auto 16px"}}/>
+      <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>{title}</h2>
+      {sub&&<p style={{fontSize:14,color:T3,margin:"10px 0 0",letterSpacing:"0.04em"}}>{sub}</p>}
     </div></A>
   );
 
@@ -1102,7 +1102,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
           {/* Center hero */}
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:20}}>
             <A d={80}><p style={{fontSize:"clamp(1.1rem,2.2vw,2rem)",fontWeight:700,letterSpacing:"0.4em",color:T3,textTransform:"uppercase",margin:0}}>Meta Ads Report</p></A>
-            <A d={170}><h1 style={{fontSize:"clamp(5rem,12vw,14rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.03em",margin:0}}>{report.period_label}</h1></A>
+            <A d={170}><h1 style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.period_label}</h1></A>
             <A d={250}><div style={{width:52,height:1.5,background:`linear-gradient(90deg,transparent,${ACC},transparent)`}}/></A>
             {cm.spend!==undefined&&<A d={340}><div style={{textAlign:"center"}}>
               <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
@@ -1265,10 +1265,10 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       case 5:return(
         <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <div style={{marginBottom:"1.75rem",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:24,flexShrink:0}}>
-            <A><div>
-              <div style={{width:24,height:2,background:"#EF4444",borderRadius:1,marginBottom:10}}/>
-              <h2 style={{fontSize:"clamp(1.6rem,2.5vw,2.1rem)",fontWeight:700,color:T1,lineHeight:1,margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
-              <p style={{fontSize:13,color:T3,margin:"5px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
+            <A><div style={{textAlign:"center"}}>
+              <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,marginBottom:16,margin:"0 auto 16px"}}/>
+              <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
+              <p style={{fontSize:14,color:T3,margin:"10px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
             </div></A>
             {inefficient.length>0&&<A d={60}><div style={{display:"flex",gap:12,flexShrink:0}}>
               <div style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
