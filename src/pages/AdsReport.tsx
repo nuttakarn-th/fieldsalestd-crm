@@ -764,6 +764,34 @@ function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JS
 function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
 function lsRenameReport(id:string,name:string){lsSaveList(lsLoadList().map(r=>r.id===id?{...r,report_name:name}:r));}
 
+// ── Campaign images — cross-device via Supabase ────────────────────────────────
+const CAMP_LS=(n:string)=>`camp-img::${n}`;
+function lsLoadCampImgs():Record<string,string>{
+  const out:Record<string,string>={};
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith("camp-img::"))out[k.slice(10)]=localStorage.getItem(k)??"";}
+  return out;
+}
+function lsSaveCampImg(n:string,b64:string){localStorage.setItem(CAMP_LS(n),b64);}
+function lsRemoveCampImg(n:string){localStorage.removeItem(CAMP_LS(n));}
+async function sbLoadCampImgs():Promise<Record<string,string>>{
+  if(!supabase)return lsLoadCampImgs();
+  const{data,error}=await supabase.from("campaign_images").select("group_name,image_b64");
+  if(error)return lsLoadCampImgs();
+  const out:Record<string,string>={};
+  (data??[]).forEach((r:{group_name:string;image_b64:string})=>{out[r.group_name]=r.image_b64;});
+  return out;
+}
+async function sbSaveCampImg(n:string,b64:string):Promise<void>{
+  lsSaveCampImg(n,b64); // local cache ก่อนเสมอ
+  if(!supabase)return;
+  await supabase.from("campaign_images").upsert({group_name:n,image_b64:b64,updated_at:new Date().toISOString()},{onConflict:"group_name"});
+}
+async function sbRemoveCampImg(n:string):Promise<void>{
+  lsRemoveCampImg(n);
+  if(!supabase)return;
+  await supabase.from("campaign_images").delete().eq("group_name",n);
+}
+
 // ── Top Performers — Premium Editorial Cards ──────────────────────────────────
 function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
   ads:AdRow[];groupColorMap:Record<string,string>;onGroupClick:(g:string)=>void;activeGroupFilter:string|null;
@@ -1036,11 +1064,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const prev=useCallback(()=>setSlide(s=>Math.max(s-1,0)),[]);
 
   // ── Campaign images (localStorage, keyed by group name) ──────────────────────
-  const[campImgs,setCampImgs]=useState<Record<string,string>>(()=>{
-    const out:Record<string,string>={};
-    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith("camp-img::"))out[k.slice(10)]=localStorage.getItem(k)??"";}
-    return out;
-  });
+  const[campImgs,setCampImgs]=useState<Record<string,string>>(lsLoadCampImgs); // local cache เป็น initial
   const campImgInput=useRef<HTMLInputElement>(null);
   const uploadingFor=useRef<string>("");
   const openImgPicker=(name:string)=>{uploadingFor.current=name;campImgInput.current?.click();};
@@ -1050,16 +1074,23 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
     reader.onload=ev=>{
       const b64=ev.target?.result as string;
       const name=uploadingFor.current;
-      localStorage.setItem(`camp-img::${name}`,b64);
       setCampImgs(prev=>({...prev,[name]:b64}));
+      sbSaveCampImg(name,b64); // sync to Supabase (async, non-blocking)
     };
     reader.readAsDataURL(file);
     e.target.value="";
   };
   const removeCampImg=(name:string)=>{
-    localStorage.removeItem(`camp-img::${name}`);
     setCampImgs(prev=>{const n={...prev};delete n[name];return n;});
+    sbRemoveCampImg(name);
   };
+
+  // โหลดภาพจาก Supabase เมื่อ Present Mode เปิด
+  useEffect(()=>{
+    sbLoadCampImgs().then(imgs=>{
+      if(Object.keys(imgs).length>0)setCampImgs(imgs);
+    });
+  },[]);
 
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{
@@ -1317,7 +1348,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                     onClick={()=>{if(!img)openImgPicker(star.name);}}>
                     {img?(
                       <>
-                        <img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",borderRadius:12}}/>
+                        <img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"contain",objectPosition:"center top",display:"block",borderRadius:12}}/>
                         <button onClick={e=>{e.stopPropagation();removeCampImg(star.name);}}
                           style={{position:"absolute",top:6,right:6,width:24,height:24,borderRadius:99,background:"rgba(0,0,0,0.55)",border:"none",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,lineHeight:1}}>×</button>
                         <button onClick={e=>{e.stopPropagation();openImgPicker(star.name);}}
