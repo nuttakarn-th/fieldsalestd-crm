@@ -15,11 +15,11 @@ import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer,
 } from "recharts";
 import {
-  Upload, FileText, X, ChevronDown, ChevronRight,
+  Upload, FileText, X, ChevronDown, ChevronRight, ChevronLeft,
   TrendingUp, Eye, Users, MessageCircle, DollarSign,
   MousePointerClick, AlertTriangle, Info, Plus, Trash2,
   GitCompare, Loader2, CloudUpload, Trophy, Wrench, Rocket,
-  Save, CheckCircle2, Search, SlidersHorizontal, Zap,
+  Save, CheckCircle2, Search, SlidersHorizontal, Zap, Monitor,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
@@ -955,6 +955,421 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   );
 }
 
+// ── Presentation Mode (8 slides fullscreen) ───────────────────────────────────
+function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
+  report:ReportData;ads:AdRow[];cm:ColumnMap;groupColorMap:Record<string,string>;onClose:()=>void;
+}){
+  const[slide,setSlide]=useState(0);
+  const TOTAL=8;
+  const next=()=>setSlide(s=>Math.min(s+1,TOTAL-1));
+  const prev=()=>setSlide(s=>Math.max(s-1,0));
+
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{
+      if(e.key==="ArrowRight"||e.key==="ArrowDown")next();
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp")prev();
+      if(e.key==="Escape")onClose();
+    };
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const totalSpend=sumN(ads,"spend");
+  const totalImpr=sumN(ads,"impressions");
+  const totalReach=sumN(ads,"reach");
+  const totalMsgs=sumN(ads,"messages");
+  const avgCPM=avgN(ads,"cpm");
+  const avgCTR=avgN(ads,"ctr");
+  const avgCostMsg=cm.costPerMsg!==undefined?avgN(ads,"costPerMsg"):null;
+  const totEng=cm.pageEngagement!==undefined?sumN(ads,"pageEngagement"):0;
+
+  const ctrScore=avgCTR!==null?Math.min(100,(avgCTR/2)*100):null;
+  const cpmScore=avgCPM!==null?Math.max(0,Math.min(100,(150-avgCPM)/150*100)):null;
+  const msgScore=avgCostMsg!==null?Math.max(0,Math.min(100,(200-avgCostMsg)/200*100)):null;
+  const engScore=cm.pageEngagement!==undefined&&totalImpr>0?Math.min(100,(totEng/totalImpr*1000)*10):null;
+  const psubs=[
+    ctrScore!==null&&{label:"CTR",score:ctrScore,weight:30,color:"#D4537E",value:`${avgCTR!.toFixed(2)}%`},
+    msgScore!==null&&{label:"Cost/Msg",score:msgScore,weight:35,color:"#1D9E75",value:`฿${Math.round(avgCostMsg!)}`},
+    cpmScore!==null&&{label:"CPM",score:cpmScore,weight:20,color:"#378ADD",value:`฿${Math.round(avgCPM!)}`},
+    engScore!==null&&{label:"Eng/1K",score:engScore,weight:15,color:"#EF9F27",value:(totEng/totalImpr*1000).toFixed(1)},
+  ].filter(Boolean) as {label:string;score:number;weight:number;color:string;value:string}[];
+  const totalW=psubs.reduce((a,x)=>a+x.weight,0);
+  const healthScore=psubs.length>=2?Math.round(psubs.reduce((a,x)=>a+x.score*x.weight,0)/totalW):null;
+  const healthColor=healthScore===null?"#7F77DD":healthScore>=70?"#1D9E75":healthScore>=40?"#EF9F27":"#EF4444";
+  const healthLabel=healthScore===null?"—":healthScore>=70?"ประสิทธิภาพดี":healthScore>=40?"พอใช้ได้":"ต้องปรับปรุง";
+
+  const groups=Object.entries(
+    ads.reduce<Record<string,AdRow[]>>((acc,ad)=>{if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;},{})
+  ).sort(([,a],[,b])=>sumN(b,"spend")-sumN(a,"spend"));
+
+  const topCTRG=[...groups].filter(([,a])=>avgN(a,"ctr")!==null).sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0];
+  const topMsgG=[...groups].filter(([,a])=>sumN(a,"messages")>0).sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0];
+  const topCPMG=[...groups].filter(([,a])=>avgN(a,"cpm")!==null).sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0];
+
+  const inefficient=ads.map(ad=>{
+    const issues:string[]=[];
+    if(cm.ctr!==undefined&&ad.ctr!==null&&ad.ctr<2)issues.push(`CTR ${ad.ctr.toFixed(2)}% ต่ำ`);
+    if(cm.cpm!==undefined&&ad.cpm!==null&&ad.cpm>100)issues.push(`CPM ฿${Math.round(ad.cpm)} สูง`);
+    if(cm.costPerMsg!==undefined&&ad.costPerMsg!==null&&ad.costPerMsg>100)issues.push(`Cost/Msg ฿${Math.round(ad.costPerMsg)} สูง`);
+    const engR=cm.pageEngagement!==undefined&&ad.impressions&&ad.impressions>0?(ad.pageEngagement??0)/ad.impressions*1000:null;
+    if(engR!==null&&engR<5)issues.push(`Eng/1K ${engR.toFixed(1)} ต่ำ`);
+    return{ad,issues};
+  }).filter(x=>x.issues.length>=1).sort((a,b)=>b.issues.length-a.issues.length).slice(0,5);
+
+  const insightKey=`ads-insight::${report.period_label}`;
+  const insights=(()=>{try{return JSON.parse(localStorage.getItem(insightKey)??"{}") as Record<string,string>;}catch{return{};}})();
+
+  const spendByGroup=groups.slice(0,6).map(([name,gAds])=>({name,value:sumN(gAds,"spend")}));
+  const totalSD=spendByGroup.reduce((s,x)=>s+x.value,0);
+
+  // ── Slide layout helper ─────────────────────────────────────────────────────
+  const ACCENT="#7F77DD";
+  const SlideWrap=({children,title,subtitle}:{children:React.ReactNode;title?:string;subtitle?:string})=>(
+    <div className="absolute inset-0 flex flex-col p-12 overflow-hidden">
+      {title&&(
+        <div className="mb-8 shrink-0">
+          <div className="w-10 h-1 rounded-full mb-4" style={{background:ACCENT}}/>
+          <h2 className="text-3xl font-black text-white tracking-tight">{title}</h2>
+          {subtitle&&<p className="text-sm mt-1" style={{color:"rgba(255,255,255,0.4)"}}>{subtitle}</p>}
+        </div>
+      )}
+      <div className="flex-1 min-h-0">{children}</div>
+    </div>
+  );
+
+  // ── Slides ──────────────────────────────────────────────────────────────────
+  const renderSlide=()=>{
+    switch(slide){
+      // ① Cover
+      case 0:return(
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="absolute inset-0" style={{background:`radial-gradient(ellipse at 50% 40%,${ACCENT}22 0%,transparent 65%)`}}/>
+          <div className="relative z-10 space-y-5">
+            <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center" style={{background:`${ACCENT}20`,border:`1px solid ${ACCENT}40`}}>
+              <TrendingUp className="w-10 h-10" style={{color:ACCENT}}/>
+            </div>
+            <p className="text-sm font-bold uppercase tracking-[0.4em]" style={{color:"rgba(255,255,255,0.35)"}}>Meta Ads Report</p>
+            <h1 className="text-6xl font-black text-white tracking-tight leading-none">{report.period_label}</h1>
+            {cm.spend!==undefined&&(
+              <div className="pt-2">
+                <p className="text-xs uppercase tracking-widest" style={{color:"rgba(255,255,255,0.3)"}}>ยอดใช้จ่ายรวม</p>
+                <p className="text-5xl font-black mt-1" style={{color:ACCENT}}>฿{fmtB(totalSpend)}</p>
+              </div>
+            )}
+            <p className="text-xs mt-4" style={{color:"rgba(255,255,255,0.25)"}}>{report.uploaded_by??""} · {ads.length} โฆษณา</p>
+          </div>
+        </div>
+      );
+      // ② KPIs
+      case 1:return(
+        <SlideWrap title="ภาพรวม KPIs" subtitle={report.period_label}>
+          <div className="grid grid-cols-3 gap-4 h-full">
+            {[
+              {label:"ยอดใช้จ่าย",val:cm.spend!==undefined?`฿${fmtB(totalSpend)}`:"—",color:"#7F77DD"},
+              {label:"Impressions",val:cm.impressions!==undefined?fmtInt(totalImpr):"—",color:"#378ADD"},
+              {label:"Reach",val:cm.reach!==undefined?fmtInt(totalReach):"—",color:"#1D9E75"},
+              {label:"Messages",val:cm.messages!==undefined?fmtInt(totalMsgs):"—",color:"#5DCAA5"},
+              {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27"},
+              {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E"},
+            ].map(({label,val,color})=>(
+              <div key={label} className="rounded-2xl border p-6 flex flex-col justify-between" style={{background:`${color}12`,borderColor:`${color}20`}}>
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.4)"}}>{label}</p>
+                <p className="text-4xl font-black text-white mt-2 tabular-nums">{val}</p>
+                <div className="h-1 w-8 rounded-full mt-4" style={{background:color}}/>
+              </div>
+            ))}
+          </div>
+        </SlideWrap>
+      );
+      // ③ Health Score
+      case 2:return(
+        <SlideWrap title="Ad Health Score" subtitle="ประเมินจากตัวชี้วัดหลัก">
+          {healthScore!==null?(
+            <div className="flex gap-12 h-full items-center">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="w-44 h-44 rounded-full flex flex-col items-center justify-center border-8"
+                  style={{borderColor:healthColor,background:`${healthColor}18`}}>
+                  <span className="text-6xl font-black text-white">{healthScore}</span>
+                  <span className="text-xs font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>/100</span>
+                </div>
+                <span className="mt-5 px-5 py-2 rounded-full text-sm font-bold"
+                  style={{background:`${healthColor}25`,color:healthColor}}>{healthLabel}</span>
+              </div>
+              <div className="flex-1 space-y-5">
+                {psubs.map(({label,score,weight,color,value})=>(
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{background:color}}/>
+                        <span className="text-sm font-semibold text-white">{label}</span>
+                        <span className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>({weight}%)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm" style={{color:"rgba(255,255,255,0.45)"}}>{value}</span>
+                        <span className="text-lg font-black" style={{color}}>{Math.round(score)}</span>
+                      </div>
+                    </div>
+                    <div className="h-2.5 rounded-full" style={{background:"rgba(255,255,255,0.08)"}}>
+                      <div className="h-full rounded-full" style={{width:`${score}%`,background:color}}/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ):(
+            <p className="text-center mt-20" style={{color:"rgba(255,255,255,0.3)"}}>ไม่มีข้อมูลเพียงพอ</p>
+          )}
+        </SlideWrap>
+      );
+      // ④ Spend by Group
+      case 3:return(
+        <SlideWrap title="สัดส่วนงบโฆษณา" subtitle="Spend by Group">
+          <div className="flex gap-12 items-center h-full">
+            <div className="flex-1 space-y-4">
+              {spendByGroup.map(({name,value},i)=>{
+                const pct=totalSD>0?(value/totalSD)*100:0;
+                const color=groupColorMap[name]??groupColor(i);
+                return(
+                  <div key={name}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-sm" style={{background:color}}/>
+                        <span className="text-sm font-medium text-white truncate max-w-[260px]">{name}</span>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="text-sm tabular-nums" style={{color:"rgba(255,255,255,0.4)"}}>฿{fmtB(value)}</span>
+                        <span className="text-base font-black text-white w-10 text-right tabular-nums">{pct.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.08)"}}>
+                      <div className="h-full rounded-full" style={{width:`${pct}%`,background:color}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Donut SVG */}
+            <div className="w-52 h-52 shrink-0 relative">
+              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                {(()=>{
+                  let offset=0;const circ=2*Math.PI*38;
+                  return spendByGroup.map(({name,value},i)=>{
+                    const pct=totalSD>0?value/totalSD:0;
+                    const dash=pct*circ;
+                    const el=<circle key={name} cx="50" cy="50" r="38" fill="none"
+                      stroke={groupColorMap[name]??groupColor(i)} strokeWidth="11"
+                      strokeDasharray={`${dash} ${circ}`} strokeDashoffset={-offset}/>;
+                    offset+=dash;return el;
+                  });
+                })()}
+              </svg>
+            </div>
+          </div>
+        </SlideWrap>
+      );
+      // ⑤ Top Performers
+      case 4:return(
+        <SlideWrap title="Top Performers" subtitle="กลุ่มโฆษณาที่ทำได้ดีที่สุด">
+          <div className="grid grid-cols-3 gap-5 h-full">
+            {[
+              topCTRG&&{name:topCTRG[0],label:"CTR สูงสุด",icon:<MousePointerClick className="w-6 h-6"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTRG[1],"ctr"),2)}%`,rank:"01"},
+              topMsgG&&{name:topMsgG[0],label:"Messages มากสุด",icon:<MessageCircle className="w-6 h-6"/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsgG[1],"messages"))}`,rank:"02"},
+              topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap className="w-6 h-6"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPMG[1],"cpm"))}`,rank:"03"},
+            ].filter(Boolean).map(star=>{
+              if(!star)return null;
+              return(
+                <div key={star.label} className="relative rounded-2xl overflow-hidden flex flex-col justify-between p-7"
+                  style={{background:star.color,boxShadow:`0 8px 32px ${star.color}60`}}>
+                  <span className="absolute -bottom-2 -right-1 font-black select-none pointer-events-none leading-none"
+                    style={{fontSize:"7rem",color:"rgba(0,0,0,0.12)"}}>{star.rank}</span>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{background:"rgba(0,0,0,0.2)",color:"rgba(255,255,255,0.9)"}}>
+                    {star.icon}
+                  </div>
+                  <div>
+                    <p className="text-5xl font-black text-white leading-none mb-2">{star.val}</p>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{color:"rgba(255,255,255,0.6)"}}>{star.label}</p>
+                    <p className="text-sm font-semibold text-white truncate">{star.name}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </SlideWrap>
+      );
+      // ⑥ Inefficient Ads
+      case 5:return(
+        <SlideWrap title="โฆษณาที่ต้องปรับปรุง" subtitle="CTR < 2% · CPM > ฿100 · Cost/Msg > ฿100 · Eng/1K < 5">
+          {inefficient.length===0?(
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center space-y-3">
+                <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{background:"#1D9E7520"}}>
+                  <CheckCircle2 className="w-8 h-8" style={{color:"#1D9E75"}}/>
+                </div>
+                <p style={{color:"rgba(255,255,255,0.5)"}}>โฆษณาทุกตัวอยู่ในเกณฑ์ที่ดี</p>
+              </div>
+            </div>
+          ):(
+            <div className="flex flex-col gap-3 h-full overflow-hidden">
+              {/* Summary */}
+              <div className="flex gap-3 shrink-0">
+                <div className="rounded-xl px-5 py-3" style={{background:"#EF44441A",border:"1px solid #EF444430"}}>
+                  <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>โฆษณาต่ำกว่าเกณฑ์</p>
+                  <p className="text-2xl font-black" style={{color:"#EF4444"}}>{inefficient.length} รายการ</p>
+                </div>
+                {cm.spend!==undefined&&(
+                  <div className="rounded-xl px-5 py-3" style={{background:"#EF9F271A",border:"1px solid #EF9F2730"}}>
+                    <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>งบที่ใช้กับโฆษณาเหล่านี้</p>
+                    <p className="text-2xl font-black" style={{color:"#EF9F27"}}>฿{fmtB(inefficient.reduce((s,x)=>s+(x.ad.spend??0),0))}</p>
+                  </div>
+                )}
+              </div>
+              {/* Rows */}
+              <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                {inefficient.map(({ad,issues})=>{
+                  const rec=issues.length>=2
+                    ?{label:"⏸ หยุดชั่วคราว",color:"#EF4444"}
+                    :issues.some(i=>i.includes("CPM")||i.includes("Cost/Msg"))
+                      ?{label:"🔧 ปรับ Audience",color:"#EF9F27"}
+                      :{label:"👁 จับตาดู",color:"#378ADD"};
+                  return(
+                    <div key={ad.name} className="flex items-center gap-4 rounded-xl px-5 py-4"
+                      style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{ad.name}</p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          {issues.map(issue=>(
+                            <span key={issue} className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                              style={{background:"#EF44441A",color:"#F87171",border:"0.5px solid #EF444440"}}>{issue}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0"
+                        style={{background:`${rec.color}20`,color:rec.color}}>{rec.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </SlideWrap>
+      );
+      // ⑦ Group Performance Table
+      case 6:return(
+        <SlideWrap title="ผลรายกลุ่มโฆษณา" subtitle={`Top ${Math.min(5,groups.length)} กลุ่ม · เรียงตาม Spend`}>
+          <div className="rounded-xl overflow-hidden" style={{border:"1px solid rgba(255,255,255,0.1)"}}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{background:"rgba(127,119,221,0.18)"}}>
+                  <th className="py-3 px-5 text-left text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>กลุ่ม</th>
+                  {cm.spend!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Spend</th>}
+                  {cm.impressions!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Impr.</th>}
+                  {cm.messages!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Msg</th>}
+                  {cm.cpm!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>CPM</th>}
+                  {cm.ctr!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>CTR</th>}
+                  {cm.costPerMsg!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Cost/Msg</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {groups.slice(0,5).map(([name,gAds],i)=>{
+                  const color=groupColorMap[name]??groupColor(i);
+                  const gSpend=sumN(gAds,"spend");
+                  const spendPct=totalSpend>0?(gSpend/totalSpend*100).toFixed(0):"0";
+                  return(
+                    <tr key={name} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-sm shrink-0" style={{background:color}}/>
+                          <span className="font-medium text-white truncate max-w-[220px]">{name}</span>
+                          <span className="text-[10px] ml-1" style={{color:"rgba(255,255,255,0.25)"}}>{spendPct}%</span>
+                        </div>
+                      </td>
+                      {cm.spend!==undefined&&<td className="py-3.5 px-4 text-right font-semibold text-white tabular-nums">฿{fmtB(gSpend)}</td>}
+                      {cm.impressions!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtInt(sumN(gAds,"impressions"))}</td>}
+                      {cm.messages!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtInt(sumN(gAds,"messages"))}</td>}
+                      {cm.cpm!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>฿{fmtB(avgN(gAds,"cpm"))}</td>}
+                      {cm.ctr!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtN(avgN(gAds,"ctr"),2)}%</td>}
+                      {cm.costPerMsg!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>฿{fmtB(avgN(gAds,"costPerMsg"))}</td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </SlideWrap>
+      );
+      // ⑧ Insights
+      case 7:return(
+        <SlideWrap title="Insights" subtitle={report.period_label}>
+          <div className="grid grid-cols-3 gap-5 h-full">
+            {([
+              {key:"win",label:"Win",sub:"สิ่งที่ทำได้ดี",color:"#1D9E75",icon:<Trophy className="w-6 h-6"/>},
+              {key:"fix",label:"Fix",sub:"สิ่งที่ต้องแก้",color:"#EF9F27",icon:<Wrench className="w-6 h-6"/>},
+              {key:"plan",label:"Plan",sub:"แผนถัดไป",color:"#7F77DD",icon:<Rocket className="w-6 h-6"/>},
+            ] as const).map(({key,label,sub,color,icon})=>(
+              <div key={key} className="rounded-2xl p-7 flex flex-col gap-4"
+                style={{background:`${color}15`,borderTop:`3px solid ${color}`,border:`1px solid ${color}30`,borderTopWidth:3}}>
+                <div className="flex items-center gap-3" style={{color}}>
+                  {icon}
+                  <div>
+                    <p className="text-lg font-black text-white">{label}</p>
+                    <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>{sub}</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed flex-1" style={{color:"rgba(255,255,255,0.65)"}}>
+                  {insights[key]||<span style={{color:"rgba(255,255,255,0.2)",fontStyle:"italic"}}>ยังไม่ได้บันทึก</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        </SlideWrap>
+      );
+      default:return null;
+    }
+  };
+
+  const SLIDE_NAMES=["Cover","KPIs","Health","Spend","Top","แย่","Groups","Insights"];
+
+  return(
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(10,8,18,0.98)"}}>
+      <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at 20% 20%,rgba(127,119,221,0.07) 0%,transparent 55%)"}}/>
+      {/* Slide area */}
+      <div className="flex-1 relative overflow-hidden">
+        {renderSlide()}
+      </div>
+      {/* Bottom nav */}
+      <div className="shrink-0 flex items-center gap-4 px-8 py-4" style={{background:"rgba(0,0,0,0.5)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+        <button onClick={prev} disabled={slide===0}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-20"
+          style={{background:slide===0?"transparent":"rgba(127,119,221,0.2)"}}>
+          <ChevronLeft className="w-5 h-5 text-white"/>
+        </button>
+        <div className="flex items-center gap-2 flex-1 justify-center">
+          {SLIDE_NAMES.map((name,i)=>(
+            <button key={i} onClick={()=>setSlide(i)} className="flex flex-col items-center gap-1">
+              <div className="h-1 rounded-full transition-all duration-200"
+                style={{width:slide===i?28:8,background:slide===i?ACCENT:"rgba(255,255,255,0.18)"}}/>
+              {slide===i&&<span className="text-[9px] font-medium" style={{color:"rgba(255,255,255,0.4)"}}>{name}</span>}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs tabular-nums font-mono w-14 text-center" style={{color:"rgba(255,255,255,0.25)"}}>{slide+1} / {TOTAL}</span>
+        <button onClick={next} disabled={slide===TOTAL-1}
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-20"
+          style={{background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)"}}>
+          <ChevronRight className="w-5 h-5 text-white"/>
+        </button>
+        <button onClick={onClose}
+          className="ml-4 w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10">
+          <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.5)"}}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdsReport(){
   const currentUser=useCurrentUser();
@@ -972,6 +1387,7 @@ export default function AdsReport(){
   const[expandedGroups,setExpandedGroups]=useState<Record<string,boolean>>({});
   const[deleteConfirm,setDeleteConfirm]=useState<string|null>(null);
   const[missingCols,setMissingCols]=useState<string[]>([]);
+  const[presentMode,setPresentMode]=useState(false);
 
   useEffect(()=>{
     setLoadingList(true);
@@ -1056,6 +1472,14 @@ export default function AdsReport(){
   ).reduce<Record<string,string>>((acc,name,i)=>{acc[name]=groupColor(i);return acc;},{});
 
   return(
+    <>
+    {presentMode&&activeReport&&(
+      <PresentationMode
+        report={activeReport} ads={ads} cm={cm}
+        groupColorMap={groupColorMap}
+        onClose={()=>setPresentMode(false)}
+      />
+    )}
     <div className="min-h-screen bg-background" style={{backgroundImage:"radial-gradient(ellipse at 30% -10%,rgba(127,119,221,0.08) 0%,transparent 55%)"}}>
       <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.slide-up{animation:slideUp 0.35s ease-out both}`}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
@@ -1079,6 +1503,12 @@ export default function AdsReport(){
               </div>
               <div className="flex items-center gap-3">
                 {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
+                {activeReport&&(
+                  <button onClick={()=>setPresentMode(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-white/25">
+                    <Monitor className="w-4 h-4"/>Present
+                  </button>
+                )}
                 <UploadZone onFile={handleFile} compact/>
               </div>
             </div>
@@ -1203,6 +1633,7 @@ export default function AdsReport(){
               </div>
             )}
 
+
             {/* ① KPI Cards — horizontal scroll on mobile, grid on desktop */}
             <div className="-mx-4 sm:mx-0">
               <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto px-4 sm:px-0 pb-1 sm:pb-0 snap-x snap-mandatory sm:overflow-visible scroll-smooth">
@@ -1307,5 +1738,6 @@ export default function AdsReport(){
         )}
       </div>
     </div>
+    </>
   );
 }
