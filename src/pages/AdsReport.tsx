@@ -416,7 +416,7 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend,compareA
         className="py-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider text-right cursor-pointer select-none hover:text-foreground hover:bg-muted/60 transition-colors whitespace-nowrap">
         <span className="inline-flex items-center justify-end gap-0.5">
           {label}
-          <span className={`text-[9px] ${isActive?"text-violet-400":"text-muted-foreground/30"}`}>
+          <span className={`text-[9px] ${isActive?"text-violet-400":"text-muted-foreground/55"}`}>
             {isActive?(colSort!.dir==='asc'?'↑':'↓'):'↕'}
           </span>
         </span>
@@ -452,7 +452,7 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend,compareA
             </div>
           )}
           <div className="flex gap-3 mt-1.5 flex-wrap items-center">
-            {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">Spend <b className="text-foreground">฿{fmtB(gSpend)}</b> <span className="text-[10px] opacity-60">({spendPct.toFixed(0)}%)</span></span>}
+            {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">Spend <b className="text-foreground">฿{fmtB(gSpend)}</b> <span className="text-[10px] opacity-80">({spendPct.toFixed(0)}%)</span></span>}
             {cm.impressions!==undefined&&<span className="text-xs text-muted-foreground">Impr. <b className="text-foreground">{fmtInt(gImpr)}</b></span>}
             {cm.reach!==undefined&&<span className="text-xs text-muted-foreground">Reach <b className="text-foreground">{fmtInt(gReach)}</b></span>}
             {cm.messages!==undefined&&<span className="text-xs text-muted-foreground">Msg <b className="text-foreground">{fmtInt(gMsgs)}</b></span>}
@@ -821,7 +821,7 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
       {/* Divider label */}
       <div className="flex items-center gap-3">
         <div className="h-px flex-1" style={{background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.08))"}}/>
-        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 px-2">Top Performers</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/65 px-2">Top Performers</span>
         <div className="h-px flex-1" style={{background:"linear-gradient(90deg,rgba(255,255,255,0.08),transparent)"}}/>
       </div>
 
@@ -936,7 +936,7 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
       <div className="px-5 py-3 border-b border-border/40 flex items-center gap-2">
         <div className="w-1.5 h-4 rounded-full" style={{background:"linear-gradient(to bottom,#7F77DD,#378ADD)"}}/>
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Health Score</span>
-        <span className="ml-auto text-[10px] text-muted-foreground/40">ประเมินจาก {subs.length} ตัวชี้วัด</span>
+        <span className="ml-auto text-[10px] text-muted-foreground/70">ประเมินจาก {subs.length} ตัวชี้วัด</span>
       </div>
 
       <div className="px-6 py-5 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 items-center">
@@ -954,9 +954,9 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
               {/* Progress arc */}
               {score>0&&<path d={arc(0,Math.min(score,99.8))} fill="none" stroke={col} strokeWidth={sw} strokeLinecap="round" opacity="0.85"/>}
               {/* Zone labels — use semi-opaque colored fills that work on both light/dark */}
-              <text x="20"  y="124" fontSize="7.5" fill="#EF4444" fillOpacity="0.55" fontWeight="700" textAnchor="middle">ต่ำ</text>
-              <text x="100" y="22"  fontSize="7.5" fill="#6B7280" fillOpacity="0.6"  fontWeight="700" textAnchor="middle">ดี</text>
-              <text x="180" y="124" fontSize="7.5" fill="#1D9E75" fillOpacity="0.55" fontWeight="700" textAnchor="middle">สูง</text>
+              <text x="20"  y="124" fontSize="7.5" fill="#EF4444" fillOpacity="0.80" fontWeight="700" textAnchor="middle">ต่ำ</text>
+              <text x="100" y="22"  fontSize="7.5" fill="#6B7280" fillOpacity="0.80" fontWeight="700" textAnchor="middle">ดี</text>
+              <text x="180" y="124" fontSize="7.5" fill="#1D9E75" fillOpacity="0.80" fontWeight="700" textAnchor="middle">สูง</text>
             </svg>
             {/* Score number — HTML overlay so it respects light/dark theme */}
             <div className="absolute inset-x-0 flex flex-col items-center pointer-events-none"
@@ -983,17 +983,17 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full shrink-0" style={{background:color}}/>
                   <span className="text-xs font-semibold text-foreground">{l}</span>
-                  <span className="text-[9px] text-muted-foreground/50">({weight}%)</span>
+                  <span className="text-[9px] text-muted-foreground/75">({weight}%)</span>
                 </div>
                 <div className="flex items-center gap-2 tabular-nums">
                   <span className="text-[10px] text-muted-foreground">{value}</span>
-                  <span className="text-xs font-black w-9 text-right" style={{color}}>{Math.round(s)}<span className="text-[8px] opacity-50">คะแนน</span></span>
+                  <span className="text-xs font-black w-9 text-right" style={{color}}>{Math.round(s)}<span className="text-[8px] opacity-75">คะแนน</span></span>
                 </div>
               </div>
-              <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+              <div className="h-2 rounded-full bg-muted/70 overflow-hidden">
                 <div className="h-full rounded-full" style={{width:`${s}%`,background:color,transition:"width 1s ease-out"}}/>
               </div>
-              <p className="text-[9px] text-muted-foreground/50 mt-0.5">{bench}</p>
+              <p className="text-[9px] text-muted-foreground/70 mt-0.5">{bench}</p>
             </div>
           ))}
         </div>
