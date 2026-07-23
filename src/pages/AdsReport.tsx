@@ -955,14 +955,43 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   );
 }
 
-// ── Presentation Mode (8 slides fullscreen) ───────────────────────────────────
+// ── Presentation Mode v2 (10/10 redesign) ─────────────────────────────────────
+
+/** Count-up animation hook — restarts whenever `dep` changes */
+function usePCount(target:number,dep:number,dur=1100):number{
+  const[v,setV]=useState(0);
+  useEffect(()=>{
+    setV(0);if(!target)return;
+    let r:number;const t0=performance.now();
+    const tick=(n:number)=>{const p=Math.min((n-t0)/dur,1);setV(Math.round(target*(1-Math.pow(1-p,3))));if(p<1)r=requestAnimationFrame(tick);};
+    const id=setTimeout(()=>{r=requestAnimationFrame(tick);},80);
+    return()=>{clearTimeout(id);cancelAnimationFrame(r);};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[target,dep]);
+  return v;
+}
+
+/** Animated horizontal fill bar — grows from 0 to pct% on mount */
+function AnimBar({pct,color,delay=0}:{pct:number;color:string;delay?:number}){
+  const ref=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    if(!ref.current)return;
+    ref.current.style.width="0%";
+    const id=setTimeout(()=>{
+      if(ref.current){ref.current.style.transition="width 0.9s cubic-bezier(0.4,0,0.2,1)";ref.current.style.width=`${pct}%`;}
+    },delay+80);
+    return()=>clearTimeout(id);
+  },[pct,delay]);
+  return<div ref={ref} style={{width:0,height:"100%",background:color,borderRadius:"0 4px 4px 0"}}/>;
+}
+
 function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   report:ReportData;ads:AdRow[];cm:ColumnMap;groupColorMap:Record<string,string>;onClose:()=>void;
 }){
   const[slide,setSlide]=useState(0);
   const TOTAL=8;
-  const next=()=>setSlide(s=>Math.min(s+1,TOTAL-1));
-  const prev=()=>setSlide(s=>Math.max(s-1,0));
+  const next=useCallback(()=>setSlide(s=>Math.min(s+1,TOTAL-1)),[]);
+  const prev=useCallback(()=>setSlide(s=>Math.max(s-1,0)),[]);
 
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{
@@ -972,10 +1001,9 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
     };
     window.addEventListener("keydown",h);
     return()=>window.removeEventListener("keydown",h);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+  },[next,prev,onClose]);
 
-  // ── Derived data ────────────────────────────────────────────────────────────
+  // ── Derived data ─────────────────────────────────────────────────────────────
   const totalSpend=sumN(ads,"spend");
   const totalImpr=sumN(ads,"impressions");
   const totalReach=sumN(ads,"reach");
@@ -990,25 +1018,25 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const msgScore=avgCostMsg!==null?Math.max(0,Math.min(100,(200-avgCostMsg)/200*100)):null;
   const engScore=cm.pageEngagement!==undefined&&totalImpr>0?Math.min(100,(totEng/totalImpr*1000)*10):null;
   const psubs=[
-    ctrScore!==null&&{label:"CTR",score:ctrScore,weight:30,color:"#D4537E",value:`${avgCTR!.toFixed(2)}%`},
-    msgScore!==null&&{label:"Cost/Msg",score:msgScore,weight:35,color:"#1D9E75",value:`฿${Math.round(avgCostMsg!)}`},
-    cpmScore!==null&&{label:"CPM",score:cpmScore,weight:20,color:"#378ADD",value:`฿${Math.round(avgCPM!)}`},
-    engScore!==null&&{label:"Eng/1K",score:engScore,weight:15,color:"#EF9F27",value:(totEng/totalImpr*1000).toFixed(1)},
-  ].filter(Boolean) as {label:string;score:number;weight:number;color:string;value:string}[];
+    ctrScore!==null&&{label:"CTR",score:ctrScore,weight:30,color:"#D4537E",value:`${avgCTR!.toFixed(2)}%`,bench:"เป้า ≥ 2%"},
+    msgScore!==null&&{label:"Cost/Msg",score:msgScore,weight:35,color:"#1D9E75",value:`฿${Math.round(avgCostMsg!)}`,bench:"เป้า ≤ ฿100"},
+    cpmScore!==null&&{label:"CPM",score:cpmScore,weight:20,color:"#378ADD",value:`฿${Math.round(avgCPM!)}`,bench:"เป้า ≤ ฿60"},
+    engScore!==null&&{label:"Eng/1K",score:engScore,weight:15,color:"#EF9F27",value:(totEng/totalImpr*1000).toFixed(1),bench:"เป้า ≥ 5"},
+  ].filter(Boolean) as {label:string;score:number;weight:number;color:string;value:string;bench:string}[];
   const totalW=psubs.reduce((a,x)=>a+x.weight,0);
   const healthScore=psubs.length>=2?Math.round(psubs.reduce((a,x)=>a+x.score*x.weight,0)/totalW):null;
   const healthColor=healthScore===null?"#7F77DD":healthScore>=70?"#1D9E75":healthScore>=40?"#EF9F27":"#EF4444";
   const healthLabel=healthScore===null?"—":healthScore>=70?"ประสิทธิภาพดี":healthScore>=40?"พอใช้ได้":"ต้องปรับปรุง";
 
-  const groups=Object.entries(
+  const groups=useMemo(()=>Object.entries(
     ads.reduce<Record<string,AdRow[]>>((acc,ad)=>{if(!acc[ad.group])acc[ad.group]=[];acc[ad.group].push(ad);return acc;},{})
-  ).sort(([,a],[,b])=>sumN(b,"spend")-sumN(a,"spend"));
+  ).sort(([,a],[,b])=>sumN(b,"spend")-sumN(a,"spend")),[ads]);
 
-  const topCTRG=[...groups].filter(([,a])=>avgN(a,"ctr")!==null).sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0];
-  const topMsgG=[...groups].filter(([,a])=>sumN(a,"messages")>0).sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0];
-  const topCPMG=[...groups].filter(([,a])=>avgN(a,"cpm")!==null).sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0];
+  const topCTRG=useMemo(()=>[...groups].filter(([,a])=>avgN(a,"ctr")!==null).sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0],[groups]);
+  const topMsgG=useMemo(()=>[...groups].filter(([,a])=>sumN(a,"messages")>0).sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0],[groups]);
+  const topCPMG=useMemo(()=>[...groups].filter(([,a])=>avgN(a,"cpm")!==null).sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0],[groups]);
 
-  const inefficient=ads.map(ad=>{
+  const inefficient=useMemo(()=>ads.map(ad=>{
     const issues:string[]=[];
     if(cm.ctr!==undefined&&ad.ctr!==null&&ad.ctr<2)issues.push(`CTR ${ad.ctr.toFixed(2)}% ต่ำ`);
     if(cm.cpm!==undefined&&ad.cpm!==null&&ad.cpm>100)issues.push(`CPM ฿${Math.round(ad.cpm)} สูง`);
@@ -1016,316 +1044,353 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
     const engR=cm.pageEngagement!==undefined&&ad.impressions&&ad.impressions>0?(ad.pageEngagement??0)/ad.impressions*1000:null;
     if(engR!==null&&engR<5)issues.push(`Eng/1K ${engR.toFixed(1)} ต่ำ`);
     return{ad,issues};
-  }).filter(x=>x.issues.length>=1).sort((a,b)=>b.issues.length-a.issues.length).slice(0,5);
+  }).filter(x=>x.issues.length>=1).sort((a,b)=>b.issues.length-a.issues.length).slice(0,5),[ads,cm]);
 
   const insightKey=`ads-insight::${report.period_label}`;
   const insights=(()=>{try{return JSON.parse(localStorage.getItem(insightKey)??"{}") as Record<string,string>;}catch{return{};}})();
+  const maxGroupSpend=groups.length>0?Math.max(...groups.slice(0,6).map(([,a])=>sumN(a,"spend"))):1;
 
-  const spendByGroup=groups.slice(0,6).map(([name,gAds])=>({name,value:sumN(gAds,"spend")}));
-  const totalSD=spendByGroup.reduce((s,x)=>s+x.value,0);
+  // ── Count-up hooks (only for the active slide) ───────────────────────────────
+  // Slide 0+1 share spend; multiply by 100 so cents animate smoothly
+  const animSpendCents=usePCount(slide<=1?Math.round(totalSpend*100):0,slide);
+  const animImpr=usePCount(slide===1?Math.round(totalImpr):0,slide);
+  const animReach=usePCount(slide===1?Math.round(totalReach):0,slide);
+  const animMsgs=usePCount(slide===1?Math.round(totalMsgs):0,slide);
+  const animScore=usePCount(slide===2&&healthScore!==null?healthScore:0,slide,1500);
 
-  // ── Slide layout helper ─────────────────────────────────────────────────────
-  const ACCENT="#7F77DD";
-  const SlideWrap=({children,title,subtitle}:{children:React.ReactNode;title?:string;subtitle?:string})=>(
-    <div className="absolute inset-0 flex flex-col p-12 overflow-hidden">
-      {title&&(
-        <div className="mb-8 shrink-0">
-          <div className="w-10 h-1 rounded-full mb-4" style={{background:ACCENT}}/>
-          <h2 className="text-3xl font-black text-white tracking-tight">{title}</h2>
-          {subtitle&&<p className="text-sm mt-1" style={{color:"rgba(255,255,255,0.4)"}}>{subtitle}</p>}
-        </div>
-      )}
-      <div className="flex-1 min-h-0">{children}</div>
-    </div>
+  // Format helpers local to PM
+  const fmtSpend=(cents:number)=>(cents/100).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  // ── Design tokens ─────────────────────────────────────────────────────────────
+  const ACC="#7F77DD";
+  const T1="#ffffff";
+  const T3="rgba(255,255,255,0.32)";
+  const CB="rgba(255,255,255,0.055)";
+  const BR="rgba(255,255,255,0.09)";
+  // Padding: 56px top/bottom, 72px left/right — never touch edges
+  const PAD="56px 72px";
+
+  // ── Animation wrapper: fades up with configurable delay ──────────────────────
+  const A=({d=0,children}:{d?:number;children:React.ReactNode})=>(
+    <div style={{animation:`psFadeUp 0.5s ease-out ${d}ms both`}}>{children}</div>
   );
 
-  // ── Slides ──────────────────────────────────────────────────────────────────
+  // ── Slide header ─────────────────────────────────────────────────────────────
+  const SH=({title,sub,ac=ACC}:{title:string;sub?:string;ac?:string})=>(
+    <A><div style={{marginBottom:"1.75rem",flexShrink:0}}>
+      <div style={{width:24,height:2,background:ac,borderRadius:1,marginBottom:10}}/>
+      <h2 style={{fontSize:"clamp(1.6rem,2.5vw,2.1rem)",fontWeight:700,color:T1,lineHeight:1,margin:0}}>{title}</h2>
+      {sub&&<p style={{fontSize:13,color:T3,margin:"5px 0 0"}}>{sub}</p>}
+    </div></A>
+  );
+
+  // ── Render slides ─────────────────────────────────────────────────────────────
   const renderSlide=()=>{
     switch(slide){
-      // ① Cover
+
+      // ① Cover ─────────────────────────────────────────────────────────────────
       case 0:return(
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <div className="absolute inset-0" style={{background:`radial-gradient(ellipse at 50% 40%,${ACCENT}22 0%,transparent 65%)`}}/>
-          <div className="relative z-10 space-y-5">
-            <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center" style={{background:`${ACCENT}20`,border:`1px solid ${ACCENT}40`}}>
-              <TrendingUp className="w-10 h-10" style={{color:ACCENT}}/>
+        <div key={0} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          {/* Brand mark */}
+          <A><div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:22,height:22,borderRadius:6,background:`${ACC}28`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <TrendingUp size={11} style={{color:ACC}}/>
             </div>
-            <p className="text-sm font-bold uppercase tracking-[0.4em]" style={{color:"rgba(255,255,255,0.35)"}}>Meta Ads Report</p>
-            <h1 className="text-6xl font-black text-white tracking-tight leading-none">{report.period_label}</h1>
-            {cm.spend!==undefined&&(
-              <div className="pt-2">
-                <p className="text-xs uppercase tracking-widest" style={{color:"rgba(255,255,255,0.3)"}}>ยอดใช้จ่ายรวม</p>
-                <p className="text-5xl font-black mt-1" style={{color:ACCENT}}>฿{fmtB(totalSpend)}</p>
-              </div>
-            )}
-            <p className="text-xs mt-4" style={{color:"rgba(255,255,255,0.25)"}}>{report.uploaded_by??""} · {ads.length} โฆษณา</p>
+            <span style={{fontSize:11,fontWeight:600,letterSpacing:"0.18em",color:T3,textTransform:"uppercase"}}>Standard Tour CRM</span>
+          </div></A>
+
+          {/* Center hero */}
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:20}}>
+            <A d={80}><p style={{fontSize:11,fontWeight:700,letterSpacing:"0.4em",color:T3,textTransform:"uppercase",margin:0}}>Meta Ads Report</p></A>
+            <A d={170}><h1 style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.period_label}</h1></A>
+            <A d={250}><div style={{width:52,height:1.5,background:`linear-gradient(90deg,transparent,${ACC},transparent)`}}/></A>
+            {cm.spend!==undefined&&<A d={340}><div style={{textAlign:"center"}}>
+              <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
+              <p style={{fontSize:"clamp(3rem,7vw,5.5rem)",fontWeight:800,color:ACC,lineHeight:1,letterSpacing:"-0.025em",margin:0}}>
+                ฿{fmtSpend(animSpendCents)}
+              </p>
+            </div></A>}
+          </div>
+
+          {/* Footer */}
+          <A d={480}><div style={{display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:T3}}>{report.uploaded_by??""}</span>
+            <span style={{fontSize:12,color:T3}}>{ads.length} โฆษณา · {ads.filter(a=>a.status.toLowerCase()==="active").length} active</span>
+          </div></A>
+        </div>
+      );
+
+      // ② KPIs ──────────────────────────────────────────────────────────────────
+      case 1:return(
+        <div key={1} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="ภาพรวม KPIs" sub={report.period_label}/>
+          <div style={{flex:1,display:"flex",gap:20,minHeight:0}}>
+            {/* Hero — Spend */}
+            <A d={80}><div style={{display:"flex",flexDirection:"column",justifyContent:"center",padding:"32px 36px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:232,flexShrink:0,height:"100%"}}>
+              <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
+              <p style={{fontSize:"clamp(2.2rem,4.5vw,3.8rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.025em",margin:0}}>
+                ฿{fmtSpend(animSpendCents)}
+              </p>
+              <div style={{width:28,height:2,background:ACC,borderRadius:1,marginTop:18}}/>
+            </div></A>
+            {/* 5 KPI cards */}
+            <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"1fr 1fr",gap:12,minHeight:0}}>
+              {[
+                {label:"Impressions",val:cm.impressions!==undefined?animImpr.toLocaleString("th-TH"):"—",color:"#378ADD",av:cm.impressions!==undefined},
+                {label:"Reach",val:cm.reach!==undefined?animReach.toLocaleString("th-TH"):"—",color:"#1D9E75",av:cm.reach!==undefined},
+                {label:"Messages",val:cm.messages!==undefined?animMsgs.toLocaleString("th-TH"):"—",color:"#5DCAA5",av:cm.messages!==undefined},
+                {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27",av:cm.cpm!==undefined},
+                {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined},
+              ].map(({label,val,color,av},i)=>(
+                <A key={label} d={130+i*55}><div style={{padding:"20px 22px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.35,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.1em",margin:0}}>{label}</p>
+                  <p style={{fontSize:"clamp(1.4rem,3vw,2.4rem)",fontWeight:700,color:T1,lineHeight:1,letterSpacing:"-0.02em",margin:"6px 0 0"}}>{val}</p>
+                  <div style={{height:2,background:color,borderRadius:1,width:22,marginTop:10}}/>
+                </div></A>
+              ))}
+            </div>
           </div>
         </div>
       );
-      // ② KPIs
-      case 1:return(
-        <SlideWrap title="ภาพรวม KPIs" subtitle={report.period_label}>
-          <div className="grid grid-cols-3 gap-4 h-full">
-            {[
-              {label:"ยอดใช้จ่าย",val:cm.spend!==undefined?`฿${fmtB(totalSpend)}`:"—",color:"#7F77DD"},
-              {label:"Impressions",val:cm.impressions!==undefined?fmtInt(totalImpr):"—",color:"#378ADD"},
-              {label:"Reach",val:cm.reach!==undefined?fmtInt(totalReach):"—",color:"#1D9E75"},
-              {label:"Messages",val:cm.messages!==undefined?fmtInt(totalMsgs):"—",color:"#5DCAA5"},
-              {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27"},
-              {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E"},
-            ].map(({label,val,color})=>(
-              <div key={label} className="rounded-2xl border p-6 flex flex-col justify-between" style={{background:`${color}12`,borderColor:`${color}20`}}>
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.4)"}}>{label}</p>
-                <p className="text-4xl font-black text-white mt-2 tabular-nums">{val}</p>
-                <div className="h-1 w-8 rounded-full mt-4" style={{background:color}}/>
-              </div>
-            ))}
-          </div>
-        </SlideWrap>
-      );
-      // ③ Health Score
+
+      // ③ Health Score ───────────────────────────────────────────────────────────
       case 2:return(
-        <SlideWrap title="Ad Health Score" subtitle="ประเมินจากตัวชี้วัดหลัก">
+        <div key={2} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="Ad Health Score" sub={`ประเมินจาก ${psubs.length} ตัวชี้วัดหลัก`}/>
           {healthScore!==null?(
-            <div className="flex gap-12 h-full items-center">
-              <div className="flex flex-col items-center shrink-0">
-                <div className="w-44 h-44 rounded-full flex flex-col items-center justify-center border-8"
-                  style={{borderColor:healthColor,background:`${healthColor}18`}}>
-                  <span className="text-6xl font-black text-white">{healthScore}</span>
-                  <span className="text-xs font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>/100</span>
-                </div>
-                <span className="mt-5 px-5 py-2 rounded-full text-sm font-bold"
-                  style={{background:`${healthColor}25`,color:healthColor}}>{healthLabel}</span>
-              </div>
-              <div className="flex-1 space-y-5">
-                {psubs.map(({label,score,weight,color,value})=>(
-                  <div key={label}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{background:color}}/>
-                        <span className="text-sm font-semibold text-white">{label}</span>
-                        <span className="text-xs" style={{color:"rgba(255,255,255,0.3)"}}>({weight}%)</span>
+            <div style={{flex:1,display:"flex",gap:72,alignItems:"center",minHeight:0}}>
+              {/* Arc gauge */}
+              <A d={80}><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:18,flexShrink:0}}>
+                <svg width="280" height="172" viewBox="0 0 280 172">
+                  {(()=>{
+                    const cx=140,cy=158,r=120,sw=18;
+                    const half=Math.PI*r;
+                    const da=`${(animScore/100)*half} ${half}`;
+                    return<>
+                      <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={sw} strokeLinecap="round"/>
+                      <path d={`M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`} fill="none" stroke={healthColor}
+                        strokeWidth={sw} strokeLinecap="round" strokeDasharray={da}
+                        style={{transition:"stroke-dasharray 1.5s ease-out"}}/>
+                      <text x={cx} y={cy-24} textAnchor="middle" fill={T1} fontSize="72" fontWeight="800" fontFamily="system-ui,sans-serif">{animScore}</text>
+                      <text x={cx} y={cy+4} textAnchor="middle" fill={T3} fontSize="15" fontFamily="system-ui,sans-serif">/100</text>
+                    </>;
+                  })()}
+                </svg>
+                <span style={{fontSize:15,fontWeight:700,padding:"8px 24px",borderRadius:99,background:`${healthColor}20`,color:healthColor,border:`1px solid ${healthColor}35`}}>{healthLabel}</span>
+              </div></A>
+              {/* Sub-scores */}
+              <div style={{flex:1,display:"flex",flexDirection:"column",gap:24}}>
+                {psubs.map(({label,score,weight,color,value,bench},i)=>(
+                  <A key={label} d={150+i*80}><div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:10,height:10,borderRadius:3,background:color}}/>
+                        <span style={{fontSize:15,fontWeight:600,color:T1}}>{label}</span>
+                        <span style={{fontSize:12,color:T3}}>({weight}%)</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm" style={{color:"rgba(255,255,255,0.45)"}}>{value}</span>
-                        <span className="text-lg font-black" style={{color}}>{Math.round(score)}</span>
+                      <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                        <span style={{fontSize:14,color:"rgba(255,255,255,0.5)"}}>{value}</span>
+                        <span style={{fontSize:24,fontWeight:800,color,minWidth:36,textAlign:"right"}}>{Math.round(score)}</span>
                       </div>
                     </div>
-                    <div className="h-2.5 rounded-full" style={{background:"rgba(255,255,255,0.08)"}}>
-                      <div className="h-full rounded-full" style={{width:`${score}%`,background:color}}/>
+                    <div style={{height:10,borderRadius:5,background:"rgba(255,255,255,0.07)",overflow:"hidden"}}>
+                      <AnimBar pct={score} color={color} delay={200+i*80}/>
                     </div>
-                  </div>
+                    <p style={{fontSize:10,color:T3,margin:"4px 0 0"}}>{bench}</p>
+                  </div></A>
                 ))}
               </div>
             </div>
-          ):(
-            <p className="text-center mt-20" style={{color:"rgba(255,255,255,0.3)"}}>ไม่มีข้อมูลเพียงพอ</p>
-          )}
-        </SlideWrap>
+          ):<p style={{color:T3}}>ไม่มีข้อมูลเพียงพอ</p>}
+        </div>
       );
-      // ④ Spend by Group
+
+      // ④ Spend by Group ────────────────────────────────────────────────────────
       case 3:return(
-        <SlideWrap title="สัดส่วนงบโฆษณา" subtitle="Spend by Group">
-          <div className="flex gap-12 items-center h-full">
-            <div className="flex-1 space-y-4">
-              {spendByGroup.map(({name,value},i)=>{
-                const pct=totalSD>0?(value/totalSD)*100:0;
-                const color=groupColorMap[name]??groupColor(i);
-                return(
-                  <div key={name}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-sm" style={{background:color}}/>
-                        <span className="text-sm font-medium text-white truncate max-w-[260px]">{name}</span>
-                      </div>
-                      <div className="flex items-center gap-4 shrink-0">
-                        <span className="text-sm tabular-nums" style={{color:"rgba(255,255,255,0.4)"}}>฿{fmtB(value)}</span>
-                        <span className="text-base font-black text-white w-10 text-right tabular-nums">{pct.toFixed(0)}%</span>
-                      </div>
-                    </div>
-                    <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.08)"}}>
-                      <div className="h-full rounded-full" style={{width:`${pct}%`,background:color}}/>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Donut SVG */}
-            <div className="w-52 h-52 shrink-0 relative">
-              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                {(()=>{
-                  let offset=0;const circ=2*Math.PI*38;
-                  return spendByGroup.map(({name,value},i)=>{
-                    const pct=totalSD>0?value/totalSD:0;
-                    const dash=pct*circ;
-                    const el=<circle key={name} cx="50" cy="50" r="38" fill="none"
-                      stroke={groupColorMap[name]??groupColor(i)} strokeWidth="11"
-                      strokeDasharray={`${dash} ${circ}`} strokeDashoffset={-offset}/>;
-                    offset+=dash;return el;
-                  });
-                })()}
-              </svg>
-            </div>
-          </div>
-        </SlideWrap>
-      );
-      // ⑤ Top Performers
-      case 4:return(
-        <SlideWrap title="Top Performers" subtitle="กลุ่มโฆษณาที่ทำได้ดีที่สุด">
-          <div className="grid grid-cols-3 gap-5 h-full">
-            {[
-              topCTRG&&{name:topCTRG[0],label:"CTR สูงสุด",icon:<MousePointerClick className="w-6 h-6"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTRG[1],"ctr"),2)}%`,rank:"01"},
-              topMsgG&&{name:topMsgG[0],label:"Messages มากสุด",icon:<MessageCircle className="w-6 h-6"/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsgG[1],"messages"))}`,rank:"02"},
-              topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap className="w-6 h-6"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPMG[1],"cpm"))}`,rank:"03"},
-            ].filter(Boolean).map(star=>{
-              if(!star)return null;
+        <div key={3} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="สัดส่วนงบโฆษณา" sub={`Spend by Group · รวม ฿${fmtB(totalSpend)}`}/>
+          <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:20}}>
+            {groups.slice(0,6).map(([name,gAds],i)=>{
+              const gs=sumN(gAds,"spend");
+              const pct=maxGroupSpend>0?(gs/maxGroupSpend)*100:0;
+              const spPct=totalSpend>0?((gs/totalSpend)*100).toFixed(0):"0";
+              const col=groupColorMap[name]??groupColor(i);
               return(
-                <div key={star.label} className="relative rounded-2xl overflow-hidden flex flex-col justify-between p-7"
-                  style={{background:star.color,boxShadow:`0 8px 32px ${star.color}60`}}>
-                  <span className="absolute -bottom-2 -right-1 font-black select-none pointer-events-none leading-none"
-                    style={{fontSize:"7rem",color:"rgba(0,0,0,0.12)"}}>{star.rank}</span>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center"
-                    style={{background:"rgba(0,0,0,0.2)",color:"rgba(255,255,255,0.9)"}}>
-                    {star.icon}
+                <A key={name} d={80+i*65}><div style={{display:"flex",alignItems:"center",gap:18}}>
+                  <div style={{width:200,flexShrink:0}}>
+                    <p style={{fontSize:14,fontWeight:500,color:T1,margin:"0 0 3px",lineHeight:1.2}}>{name}</p>
+                    <p style={{fontSize:11,color:T3,margin:0}}>{spPct}% · ฿{fmtB(gs)}</p>
                   </div>
-                  <div>
-                    <p className="text-5xl font-black text-white leading-none mb-2">{star.val}</p>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{color:"rgba(255,255,255,0.6)"}}>{star.label}</p>
-                    <p className="text-sm font-semibold text-white truncate">{star.name}</p>
+                  <div style={{flex:1,height:30,borderRadius:4,background:"rgba(255,255,255,0.06)",overflow:"hidden"}}>
+                    <AnimBar pct={pct} color={col} delay={120+i*65}/>
                   </div>
-                </div>
+                  <p style={{fontSize:20,fontWeight:700,color:T1,minWidth:48,textAlign:"right"}}>{spPct}%</p>
+                </div></A>
               );
             })}
           </div>
-        </SlideWrap>
+        </div>
       );
-      // ⑥ Inefficient Ads
+
+      // ⑤ Top Performers ────────────────────────────────────────────────────────
+      case 4:return(
+        <div key={4} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="Top Performers" sub="กลุ่มโฆษณาที่ทำได้ดีที่สุด"/>
+          <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,minHeight:0}}>
+            {[
+              topCTRG&&{name:topCTRG[0],label:"CTR สูงสุด",icon:<MousePointerClick size={28}/>,color:"#EF9F27",val:`${fmtN(avgN(topCTRG[1],"ctr"),2)}%`,rank:"01"},
+              topMsgG&&{name:topMsgG[0],label:"Messages มากสุด",icon:<MessageCircle size={28}/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsgG[1],"messages"))}`,rank:"02"},
+              topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap size={28}/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPMG[1],"cpm"))}`,rank:"03"},
+            ].filter(Boolean).map((star,i)=>{
+              if(!star)return null;
+              return(
+                <A key={star.label} d={80+i*110}><div style={{position:"relative",borderRadius:20,overflow:"hidden",background:star.color,boxShadow:`0 12px 52px ${star.color}55`,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between",padding:"32px 32px 28px"}}>
+                  <span style={{position:"absolute",bottom:-8,right:0,fontSize:"9rem",fontWeight:900,color:"rgba(0,0,0,0.12)",lineHeight:1,userSelect:"none"}}>{star.rank}</span>
+                  <div style={{width:52,height:52,borderRadius:14,background:"rgba(0,0,0,0.22)",display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.95)"}}>
+                    {star.icon}
+                  </div>
+                  <div style={{position:"relative",zIndex:1}}>
+                    <p style={{fontSize:"clamp(2.5rem,4.5vw,4rem)",fontWeight:800,color:"#fff",lineHeight:1,letterSpacing:"-0.025em",margin:"0 0 8px"}}>{star.val}</p>
+                    <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 4px"}}>{star.label}</p>
+                    <p style={{fontSize:15,fontWeight:600,color:"#fff",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{star.name}</p>
+                  </div>
+                </div></A>
+              );
+            })}
+          </div>
+        </div>
+      );
+
+      // ⑥ Inefficient Ads ───────────────────────────────────────────────────────
       case 5:return(
-        <SlideWrap title="โฆษณาที่ต้องปรับปรุง" subtitle="CTR < 2% · CPM > ฿100 · Cost/Msg > ฿100 · Eng/1K < 5">
+        <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <div style={{marginBottom:"1.75rem",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:24,flexShrink:0}}>
+            <A><div>
+              <div style={{width:24,height:2,background:"#EF4444",borderRadius:1,marginBottom:10}}/>
+              <h2 style={{fontSize:"clamp(1.6rem,2.5vw,2.1rem)",fontWeight:700,color:T1,lineHeight:1,margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
+              <p style={{fontSize:13,color:T3,margin:"5px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
+            </div></A>
+            {inefficient.length>0&&<A d={60}><div style={{display:"flex",gap:12,flexShrink:0}}>
+              <div style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
+                <p style={{fontSize:11,color:"rgba(248,113,113,0.65)",margin:"0 0 4px"}}>รายการ</p>
+                <p style={{fontSize:32,fontWeight:700,color:"#F87171",lineHeight:1,margin:0}}>{inefficient.length}</p>
+              </div>
+              {cm.spend!==undefined&&<div style={{background:"rgba(239,159,39,0.12)",border:"1px solid rgba(239,159,39,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
+                <p style={{fontSize:11,color:"rgba(239,159,39,0.65)",margin:"0 0 4px"}}>งบที่ใช้</p>
+                <p style={{fontSize:32,fontWeight:700,color:"#EF9F27",lineHeight:1,margin:0}}>฿{fmtB(inefficient.reduce((s,x)=>s+(x.ad.spend??0),0))}</p>
+              </div>}
+            </div></A>}
+          </div>
           {inefficient.length===0?(
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-3">
-                <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{background:"#1D9E7520"}}>
-                  <CheckCircle2 className="w-8 h-8" style={{color:"#1D9E75"}}/>
-                </div>
-                <p style={{color:"rgba(255,255,255,0.5)"}}>โฆษณาทุกตัวอยู่ในเกณฑ์ที่ดี</p>
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{textAlign:"center"}}>
+                <CheckCircle2 size={56} style={{color:"#1D9E75",margin:"0 auto 12px"}}/>
+                <p style={{fontSize:18,fontWeight:600,color:T1}}>โฆษณาทุกตัวอยู่ในเกณฑ์ที่ดี</p>
               </div>
             </div>
           ):(
-            <div className="flex flex-col gap-3 h-full overflow-hidden">
-              {/* Summary */}
-              <div className="flex gap-3 shrink-0">
-                <div className="rounded-xl px-5 py-3" style={{background:"#EF44441A",border:"1px solid #EF444430"}}>
-                  <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>โฆษณาต่ำกว่าเกณฑ์</p>
-                  <p className="text-2xl font-black" style={{color:"#EF4444"}}>{inefficient.length} รายการ</p>
-                </div>
-                {cm.spend!==undefined&&(
-                  <div className="rounded-xl px-5 py-3" style={{background:"#EF9F271A",border:"1px solid #EF9F2730"}}>
-                    <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>งบที่ใช้กับโฆษณาเหล่านี้</p>
-                    <p className="text-2xl font-black" style={{color:"#EF9F27"}}>฿{fmtB(inefficient.reduce((s,x)=>s+(x.ad.spend??0),0))}</p>
-                  </div>
-                )}
-              </div>
-              {/* Rows */}
-              <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
-                {inefficient.map(({ad,issues})=>{
-                  const rec=issues.length>=2
-                    ?{label:"⏸ หยุดชั่วคราว",color:"#EF4444"}
-                    :issues.some(i=>i.includes("CPM")||i.includes("Cost/Msg"))
-                      ?{label:"🔧 ปรับ Audience",color:"#EF9F27"}
-                      :{label:"👁 จับตาดู",color:"#378ADD"};
-                  return(
-                    <div key={ad.name} className="flex items-center gap-4 rounded-xl px-5 py-4"
-                      style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{ad.name}</p>
-                        <div className="flex gap-2 mt-2 flex-wrap">
-                          {issues.map(issue=>(
-                            <span key={issue} className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                              style={{background:"#EF44441A",color:"#F87171",border:"0.5px solid #EF444440"}}>{issue}</span>
-                          ))}
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0"
-                        style={{background:`${rec.color}20`,color:rec.color}}>{rec.label}</span>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:12,overflow:"hidden"}}>
+              {inefficient.map(({ad,issues},i)=>{
+                const crit=issues.length>=2;
+                const rec=crit?{label:"⏸ หยุดชั่วคราว",color:"#EF4444"}
+                  :issues.some(s=>s.includes("CPM")||s.includes("Cost/Msg"))?{label:"🔧 ปรับ Audience",color:"#EF9F27"}
+                  :{label:"👁 จับตาดู",color:"#378ADD"};
+                return<A key={ad.name} d={80+i*70}><div style={{background:crit?"rgba(239,68,68,0.08)":"rgba(255,255,255,0.04)",border:`1px solid ${crit?"rgba(239,68,68,0.22)":"rgba(255,255,255,0.08)"}`,borderLeft:`3px solid ${rec.color}`,borderRadius:"0 14px 14px 0",padding:"16px 24px",display:"flex",alignItems:"center",gap:18}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:15,fontWeight:600,color:T1,margin:"0 0 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ad.name}</p>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {issues.map(iss=><span key={iss} style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:5,background:"rgba(239,68,68,0.15)",color:"#F87171",border:"0.5px solid rgba(239,68,68,0.3)"}}>{iss}</span>)}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                  <span style={{fontSize:13,fontWeight:600,padding:"8px 16px",borderRadius:9,background:`${rec.color}1A`,color:rec.color,border:`1px solid ${rec.color}30`,whiteSpace:"nowrap",flexShrink:0}}>{rec.label}</span>
+                </div></A>;
+              })}
             </div>
           )}
-        </SlideWrap>
+        </div>
       );
-      // ⑦ Group Performance Table
+
+      // ⑦ Group Performance — animated bar chart (not table) ─────────────────────
       case 6:return(
-        <SlideWrap title="ผลรายกลุ่มโฆษณา" subtitle={`Top ${Math.min(5,groups.length)} กลุ่ม · เรียงตาม Spend`}>
-          <div className="rounded-xl overflow-hidden" style={{border:"1px solid rgba(255,255,255,0.1)"}}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{background:"rgba(127,119,221,0.18)"}}>
-                  <th className="py-3 px-5 text-left text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>กลุ่ม</th>
-                  {cm.spend!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Spend</th>}
-                  {cm.impressions!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Impr.</th>}
-                  {cm.messages!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Msg</th>}
-                  {cm.cpm!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>CPM</th>}
-                  {cm.ctr!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>CTR</th>}
-                  {cm.costPerMsg!==undefined&&<th className="py-3 px-4 text-right text-xs font-bold uppercase tracking-wider" style={{color:"rgba(255,255,255,0.45)"}}>Cost/Msg</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {groups.slice(0,5).map(([name,gAds],i)=>{
-                  const color=groupColorMap[name]??groupColor(i);
-                  const gSpend=sumN(gAds,"spend");
-                  const spendPct=totalSpend>0?(gSpend/totalSpend*100).toFixed(0):"0";
-                  return(
-                    <tr key={name} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-sm shrink-0" style={{background:color}}/>
-                          <span className="font-medium text-white truncate max-w-[220px]">{name}</span>
-                          <span className="text-[10px] ml-1" style={{color:"rgba(255,255,255,0.25)"}}>{spendPct}%</span>
-                        </div>
-                      </td>
-                      {cm.spend!==undefined&&<td className="py-3.5 px-4 text-right font-semibold text-white tabular-nums">฿{fmtB(gSpend)}</td>}
-                      {cm.impressions!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtInt(sumN(gAds,"impressions"))}</td>}
-                      {cm.messages!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtInt(sumN(gAds,"messages"))}</td>}
-                      {cm.cpm!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>฿{fmtB(avgN(gAds,"cpm"))}</td>}
-                      {cm.ctr!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>{fmtN(avgN(gAds,"ctr"),2)}%</td>}
-                      {cm.costPerMsg!==undefined&&<td className="py-3.5 px-4 text-right tabular-nums" style={{color:"rgba(255,255,255,0.55)"}}>฿{fmtB(avgN(gAds,"costPerMsg"))}</td>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div key={6} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="ผลรายกลุ่มโฆษณา" sub={`Top ${Math.min(5,groups.length)} กลุ่ม`}/>
+          <div style={{flex:1,display:"flex",gap:24,minHeight:0}}>
+            {/* Bar chart — main visual */}
+            <div style={{flex:2,display:"flex",flexDirection:"column",justifyContent:"center",gap:20}}>
+              {groups.slice(0,5).map(([name,gAds],i)=>{
+                const gs=sumN(gAds,"spend");
+                const pct=maxGroupSpend>0?(gs/maxGroupSpend)*100:0;
+                const col=groupColorMap[name]??groupColor(i);
+                return<A key={name} d={80+i*70}><div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:9}}>
+                      <div style={{width:8,height:8,borderRadius:2,background:col,flexShrink:0}}/>
+                      <span style={{fontSize:14,fontWeight:500,color:T1}}>{name}</span>
+                    </div>
+                    <span style={{fontSize:14,fontWeight:700,color:T1}}>฿{fmtB(gs)}</span>
+                  </div>
+                  <div style={{height:24,borderRadius:4,background:"rgba(255,255,255,0.06)",overflow:"hidden"}}>
+                    <AnimBar pct={pct} color={col} delay={140+i*70}/>
+                  </div>
+                </div></A>;
+              })}
+            </div>
+            {/* Stats panel */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:12,justifyContent:"center"}}>
+              {groups.slice(0,5).map(([name,gAds],i)=>{
+                const col=groupColorMap[name]??groupColor(i);
+                return<A key={name} d={120+i*70}><div style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",borderRadius:12,background:"rgba(255,255,255,0.05)",border:`0.5px solid ${BR}`}}>
+                  <div style={{width:6,height:6,borderRadius:2,background:col,flexShrink:0}}/>
+                  {cm.messages!==undefined&&<div style={{flex:1,textAlign:"center"}}>
+                    <p style={{fontSize:10,color:T3,margin:"0 0 2px"}}>Msg</p>
+                    <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>{fmtInt(sumN(gAds,"messages"))}</p>
+                  </div>}
+                  {cm.ctr!==undefined&&<div style={{flex:1,textAlign:"center"}}>
+                    <p style={{fontSize:10,color:T3,margin:"0 0 2px"}}>CTR</p>
+                    <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>{fmtN(avgN(gAds,"ctr"),2)}%</p>
+                  </div>}
+                  {cm.costPerMsg!==undefined&&<div style={{flex:1,textAlign:"center"}}>
+                    <p style={{fontSize:10,color:T3,margin:"0 0 2px"}}>Cost/Msg</p>
+                    <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>฿{fmtB(avgN(gAds,"costPerMsg"))}</p>
+                  </div>}
+                </div></A>;
+              })}
+            </div>
           </div>
-        </SlideWrap>
+        </div>
       );
-      // ⑧ Insights
+
+      // ⑧ Insights ──────────────────────────────────────────────────────────────
       case 7:return(
-        <SlideWrap title="Insights" subtitle={report.period_label}>
-          <div className="grid grid-cols-3 gap-5 h-full">
+        <div key={7} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+          <SH title="Insights" sub={report.period_label}/>
+          <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,minHeight:0}}>
             {([
-              {key:"win",label:"Win",sub:"สิ่งที่ทำได้ดี",color:"#1D9E75",icon:<Trophy className="w-6 h-6"/>},
-              {key:"fix",label:"Fix",sub:"สิ่งที่ต้องแก้",color:"#EF9F27",icon:<Wrench className="w-6 h-6"/>},
-              {key:"plan",label:"Plan",sub:"แผนถัดไป",color:"#7F77DD",icon:<Rocket className="w-6 h-6"/>},
-            ] as const).map(({key,label,sub,color,icon})=>(
-              <div key={key} className="rounded-2xl p-7 flex flex-col gap-4"
-                style={{background:`${color}15`,borderTop:`3px solid ${color}`,border:`1px solid ${color}30`,borderTopWidth:3}}>
-                <div className="flex items-center gap-3" style={{color}}>
+              {k:"win",label:"Win",sub:"สิ่งที่ทำได้ดี",color:"#1D9E75",icon:<Trophy size={26}/>},
+              {k:"fix",label:"Fix",sub:"สิ่งที่ต้องแก้",color:"#EF9F27",icon:<Wrench size={26}/>},
+              {k:"plan",label:"Plan",sub:"แผนถัดไป",color:"#7F77DD",icon:<Rocket size={26}/>},
+            ] as const).map(({k,label,sub,color,icon},i)=>{
+              const txt=insights[k]||"";
+              return<A key={k} d={80+i*100}><div style={{height:"100%",borderRadius:16,padding:"28px",display:"flex",flexDirection:"column",gap:16,background:`${color}12`,border:`1px solid ${color}22`,borderTop:`3px solid ${color}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,color}}>
                   {icon}
                   <div>
-                    <p className="text-lg font-black text-white">{label}</p>
-                    <p className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>{sub}</p>
+                    <p style={{fontSize:18,fontWeight:700,color:T1,margin:0,lineHeight:1}}>{label}</p>
+                    <p style={{fontSize:12,color:T3,margin:"3px 0 0"}}>{sub}</p>
                   </div>
                 </div>
-                <p className="text-sm leading-relaxed flex-1" style={{color:"rgba(255,255,255,0.65)"}}>
-                  {insights[key]||<span style={{color:"rgba(255,255,255,0.2)",fontStyle:"italic"}}>ยังไม่ได้บันทึก</span>}
-                </p>
-              </div>
-            ))}
+                <div style={{flex:1,overflow:"hidden"}}>
+                  {txt
+                    ?<p style={{fontSize:15,lineHeight:1.75,color:"rgba(255,255,255,0.72)",margin:0}}>{txt}</p>
+                    :<p style={{fontSize:14,color:T3,fontStyle:"italic",margin:0}}>กรอก Insight จากหน้า Dashboard เพื่อแสดงที่นี่</p>
+                  }
+                </div>
+              </div></A>;
+            })}
           </div>
-        </SlideWrap>
+        </div>
       );
+
       default:return null;
     }
   };
@@ -1333,42 +1398,39 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const SLIDE_NAMES=["Cover","KPIs","Health","Spend","Top","แย่","Groups","Insights"];
 
   return(
-    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(10,8,18,0.98)"}}>
-      <div className="absolute inset-0 pointer-events-none" style={{background:"radial-gradient(ellipse at 20% 20%,rgba(127,119,221,0.07) 0%,transparent 55%)"}}/>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(9,8,14,0.98)"}}>
+      <style>{`@keyframes psFadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      {/* Subtle dot grid overlay */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle,rgba(127,119,221,0.06) 1px,transparent 1px)",backgroundSize:"52px 52px",pointerEvents:"none"}}/>
       {/* Slide area */}
-      <div className="flex-1 relative overflow-hidden">
-        {renderSlide()}
-      </div>
-      {/* Bottom nav */}
-      <div className="shrink-0 flex items-center gap-4 px-8 py-4" style={{background:"rgba(0,0,0,0.5)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+      <div style={{flex:1,position:"relative",overflow:"hidden"}}>{renderSlide()}</div>
+      {/* Navigation bar */}
+      <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:12,padding:"14px 40px",background:"rgba(0,0,0,0.58)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
         <button onClick={prev} disabled={slide===0}
-          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-20"
-          style={{background:slide===0?"transparent":"rgba(127,119,221,0.2)"}}>
+          style={{width:36,height:36,borderRadius:10,background:slide===0?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===0?0.22:1,flexShrink:0}}>
           <ChevronLeft className="w-5 h-5 text-white"/>
         </button>
-        <div className="flex items-center gap-2 flex-1 justify-center">
-          {SLIDE_NAMES.map((name,i)=>(
-            <button key={i} onClick={()=>setSlide(i)} className="flex flex-col items-center gap-1">
-              <div className="h-1 rounded-full transition-all duration-200"
-                style={{width:slide===i?28:8,background:slide===i?ACCENT:"rgba(255,255,255,0.18)"}}/>
-              {slide===i&&<span className="text-[9px] font-medium" style={{color:"rgba(255,255,255,0.4)"}}>{name}</span>}
+        <div style={{flex:1,display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8}}>
+          {SLIDE_NAMES.map((nm,i)=>(
+            <button key={i} onClick={()=>setSlide(i)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",padding:"4px 2px"}}>
+              <span style={{fontSize:9,color:"rgba(255,255,255,0.35)",visibility:slide===i?"visible":"hidden",whiteSpace:"nowrap",fontFamily:"inherit"}}>{nm}</span>
+              <div style={{height:3,borderRadius:2,transition:"all 0.25s ease",width:slide===i?28:8,background:slide===i?ACC:"rgba(255,255,255,0.2)"}}/>
             </button>
           ))}
         </div>
-        <span className="text-xs tabular-nums font-mono w-14 text-center" style={{color:"rgba(255,255,255,0.25)"}}>{slide+1} / {TOTAL}</span>
+        <span style={{fontSize:11,color:"rgba(255,255,255,0.22)",fontFamily:"monospace",minWidth:36,textAlign:"center",flexShrink:0}}>{slide+1}/{TOTAL}</span>
         <button onClick={next} disabled={slide===TOTAL-1}
-          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-20"
-          style={{background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)"}}>
+          style={{width:36,height:36,borderRadius:10,background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===TOTAL-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===TOTAL-1?0.22:1,flexShrink:0}}>
           <ChevronRight className="w-5 h-5 text-white"/>
         </button>
-        <button onClick={onClose}
-          className="ml-4 w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10">
-          <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.5)"}}/>
+        <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.45,marginLeft:6,flexShrink:0}}>
+          <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.6)"}}/>
         </button>
       </div>
     </div>
   );
 }
+
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdsReport(){
