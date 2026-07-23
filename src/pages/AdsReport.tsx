@@ -940,7 +940,7 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
                 </div>
                 <div className="flex items-center gap-2 tabular-nums">
                   <span className="text-[10px] text-muted-foreground">{value}</span>
-                  <span className="text-xs font-black w-9 text-right" style={{color}}>{Math.round(s)}<span className="text-[8px] opacity-50">pt</span></span>
+                  <span className="text-xs font-black w-9 text-right" style={{color}}>{Math.round(s)}<span className="text-[8px] opacity-50">คะแนน</span></span>
                 </div>
               </div>
               <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
