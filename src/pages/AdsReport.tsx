@@ -1377,23 +1377,23 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       // ⑥ Inefficient Ads ───────────────────────────────────────────────────────
       case 5:return(
         <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
-          <div style={{marginBottom:"1.75rem",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:24,flexShrink:0}}>
-            <A><div style={{textAlign:"center"}}>
-              <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,margin:"0 auto 14px"}}/>
-              <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
-              <p style={{fontSize:13,color:T3,margin:"8px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
-            </div></A>
-            {inefficient.length>0&&<A d={60}><div style={{display:"flex",gap:12,flexShrink:0}}>
-              <div style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
-                <p style={{fontSize:11,color:"rgba(248,113,113,0.65)",margin:"0 0 4px"}}>รายการ</p>
-                <p style={{fontSize:32,fontWeight:700,color:"#F87171",lineHeight:1,margin:0}}>{inefficient.length}</p>
-              </div>
-              {cm.spend!==undefined&&<div style={{background:"rgba(239,159,39,0.12)",border:"1px solid rgba(239,159,39,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
-                <p style={{fontSize:11,color:"rgba(239,159,39,0.65)",margin:"0 0 4px"}}>งบที่ใช้</p>
-                <p style={{fontSize:32,fontWeight:700,color:"#EF9F27",lineHeight:1,margin:0}}>฿{fmtB(inefficient.reduce((s,x)=>s+(x.ad.spend??0),0))}</p>
-              </div>}
-            </div></A>}
-          </div>
+          {/* Header — centered เหมือน slide อื่น */}
+          <A><div style={{flexShrink:0,textAlign:"center",marginBottom:"1.25rem"}}>
+            <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,margin:"0 auto 14px"}}/>
+            <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
+            <p style={{fontSize:13,color:T3,margin:"8px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
+          </div></A>
+          {/* Stat pills — centered row under title */}
+          {inefficient.length>0&&<A d={60}><div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:"1.25rem",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 18px",borderRadius:99,background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)"}}>
+              <span style={{fontSize:11,fontWeight:600,color:"rgba(248,113,113,0.7)"}}>รายการ</span>
+              <span style={{fontSize:20,fontWeight:800,color:"#F87171",lineHeight:1}}>{inefficient.length}</span>
+            </div>
+            {cm.spend!==undefined&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 18px",borderRadius:99,background:"rgba(239,159,39,0.12)",border:"1px solid rgba(239,159,39,0.25)"}}>
+              <span style={{fontSize:11,fontWeight:600,color:"rgba(239,159,39,0.7)"}}>งบที่ใช้</span>
+              <span style={{fontSize:20,fontWeight:800,color:"#EF9F27",lineHeight:1}}>฿{fmtB(inefficient.reduce((s,x)=>s+(x.ad.spend??0),0))}</span>
+            </div>}
+          </div></A>}
           {inefficient.length===0?(
             <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
               <div style={{textAlign:"center"}}>
@@ -1402,7 +1402,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
               </div>
             </div>
           ):(
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:12,overflow:"hidden"}}>
               {inefficient.map(({ad,issues},i)=>{
                 const crit=issues.length>=2;
                 const hasCostIssue=issues.some(s=>s.includes("CPM")||s.includes("Cost/Msg"));
@@ -1415,38 +1415,40 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                 return(
                   <div key={ad.name} style={{
                     animation:`psFadeUp 0.4s ease-out ${90+i*55}ms both`,
-                    position:"relative",display:"flex",alignItems:"center",gap:18,
-                    padding:"15px 22px 15px 26px",borderRadius:14,overflow:"hidden",
+                    position:"relative",display:"grid",
+                    gridTemplateColumns:"56px 1fr auto auto",
+                    alignItems:"center",gap:"0 22px",
+                    padding:"18px 24px 18px 22px",borderRadius:16,overflow:"hidden",
                     background:crit
-                      ?`linear-gradient(100deg,rgba(239,68,68,0.11) 0%,rgba(239,68,68,0.04) 55%,transparent 100%)`
+                      ?`linear-gradient(110deg,rgba(239,68,68,0.13) 0%,rgba(239,68,68,0.05) 50%,rgba(0,0,0,0) 100%)`
                       :hasCostIssue
-                      ?`linear-gradient(100deg,rgba(239,159,39,0.08) 0%,rgba(239,159,39,0.02) 55%,transparent 100%)`
-                      :`rgba(255,255,255,0.04)`,
-                    border:`1px solid ${crit?"rgba(239,68,68,0.22)":hasCostIssue?"rgba(239,159,39,0.18)":"rgba(255,255,255,0.07)"}`,
+                      ?`linear-gradient(110deg,rgba(239,159,39,0.1) 0%,rgba(239,159,39,0.03) 50%,rgba(0,0,0,0) 100%)`
+                      :`linear-gradient(110deg,rgba(55,138,221,0.07) 0%,rgba(0,0,0,0) 60%)`,
+                    border:`1px solid ${crit?"rgba(239,68,68,0.25)":hasCostIssue?"rgba(239,159,39,0.2)":"rgba(55,138,221,0.15)"}`,
                   }}>
-                    {/* Left accent bar */}
-                    <div style={{position:"absolute",left:0,top:0,bottom:0,width:4,background:RC,borderRadius:"14px 0 0 14px"}}/>
-                    {/* Number badge */}
-                    <div style={{width:38,height:38,borderRadius:10,background:`${RC}1E`,border:`1px solid ${RC}40`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:16,color:RC,flexShrink:0,letterSpacing:"-0.02em"}}>
+                    {/* Left accent strip */}
+                    <div style={{position:"absolute",left:0,top:0,bottom:0,width:4,background:`linear-gradient(180deg,${RC} 0%,${RC}80 100%)`,borderRadius:"16px 0 0 16px"}}/>
+                    {/* Rank */}
+                    <div style={{width:44,height:44,borderRadius:12,background:`${RC}20`,border:`1.5px solid ${RC}50`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:17,color:RC,marginLeft:6,flexShrink:0}}>
                       {String(i+1).padStart(2,"0")}
                     </div>
-                    {/* Name + issues */}
-                    <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:15,fontWeight:700,color:T1,margin:"0 0 7px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ad.name}</p>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {/* Name + issue chips */}
+                    <div style={{minWidth:0}}>
+                      <p style={{fontSize:16,fontWeight:700,color:T1,margin:"0 0 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ad.name}</p>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                         {issues.map(iss=>(
-                          <span key={iss} style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:5,background:`${RC}18`,color:RC,border:`0.5px solid ${RC}45`,letterSpacing:"0.02em"}}>{iss}</span>
+                          <span key={iss} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:6,background:`${RC}1C`,color:RC,border:`1px solid ${RC}40`}}>{iss}</span>
                         ))}
                       </div>
                     </div>
                     {/* Spend */}
-                    {ad.spend!=null&&<div style={{textAlign:"right",flexShrink:0}}>
-                      <p style={{fontSize:10,fontWeight:600,color:T3,margin:"0 0 3px",letterSpacing:"0.08em",textTransform:"uppercase"}}>Spend</p>
-                      <p style={{fontSize:17,fontWeight:700,color:"#EF9F27",margin:0,letterSpacing:"-0.02em"}}>฿{fmtB(ad.spend)}</p>
+                    {ad.spend!=null&&<div style={{textAlign:"right",flexShrink:0,paddingRight:4}}>
+                      <p style={{fontSize:10,fontWeight:600,letterSpacing:"0.1em",textTransform:"uppercase",color:T3,margin:"0 0 4px"}}>Spend</p>
+                      <p style={{fontSize:20,fontWeight:800,color:"#EF9F27",margin:0,letterSpacing:"-0.03em"}}>฿{fmtB(ad.spend)}</p>
                     </div>}
-                    {/* Action pill */}
-                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:9,background:`${RC}18`,border:`1px solid ${RC}35`,whiteSpace:"nowrap",flexShrink:0}}>
-                      <span style={{fontSize:13}}>{rec.icon}</span>
+                    {/* Action */}
+                    <div style={{display:"flex",alignItems:"center",gap:7,padding:"11px 20px",borderRadius:12,background:`${RC}1C`,border:`1px solid ${RC}40`,whiteSpace:"nowrap",flexShrink:0}}>
+                      <span style={{fontSize:15}}>{rec.icon}</span>
                       <span style={{fontSize:12,fontWeight:700,color:RC}}>{rec.label}</span>
                     </div>
                   </div>
