@@ -1402,21 +1402,55 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
               </div>
             </div>
           ):(
-            <div style={{flex:1,display:"flex",flexDirection:"column",gap:12,overflow:"hidden"}}>
+            <div style={{flex:1,display:"flex",flexDirection:"column",gap:10,overflow:"hidden"}}>
               {inefficient.map(({ad,issues},i)=>{
                 const crit=issues.length>=2;
-                const rec=crit?{label:"⏸ หยุดชั่วคราว",color:"#EF4444"}
-                  :issues.some(s=>s.includes("CPM")||s.includes("Cost/Msg"))?{label:"🔧 ปรับ Audience",color:"#EF9F27"}
-                  :{label:"👁 จับตาดู",color:"#378ADD"};
-                return<A key={ad.name} d={80+i*70}><div style={{background:crit?"rgba(239,68,68,0.08)":"rgba(255,255,255,0.04)",border:`1px solid ${crit?"rgba(239,68,68,0.22)":"rgba(255,255,255,0.08)"}`,borderLeft:`3px solid ${rec.color}`,borderRadius:"0 14px 14px 0",padding:"16px 24px",display:"flex",alignItems:"center",gap:18}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <p style={{fontSize:15,fontWeight:600,color:T1,margin:"0 0 8px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ad.name}</p>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {issues.map(iss=><span key={iss} style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:5,background:"rgba(239,68,68,0.15)",color:"#F87171",border:"0.5px solid rgba(239,68,68,0.3)"}}>{iss}</span>)}
+                const hasCostIssue=issues.some(s=>s.includes("CPM")||s.includes("Cost/Msg"));
+                const rec=crit
+                  ?{label:"หยุดชั่วคราว",color:"#EF4444",icon:"⏸"}
+                  :hasCostIssue
+                  ?{label:"ปรับ Audience",color:"#EF9F27",icon:"🔧"}
+                  :{label:"จับตาดู",color:"#378ADD",icon:"👁"};
+                const RC=rec.color;
+                return(
+                  <div key={ad.name} style={{
+                    animation:`psFadeUp 0.4s ease-out ${90+i*55}ms both`,
+                    position:"relative",display:"flex",alignItems:"center",gap:18,
+                    padding:"15px 22px 15px 26px",borderRadius:14,overflow:"hidden",
+                    background:crit
+                      ?`linear-gradient(100deg,rgba(239,68,68,0.11) 0%,rgba(239,68,68,0.04) 55%,transparent 100%)`
+                      :hasCostIssue
+                      ?`linear-gradient(100deg,rgba(239,159,39,0.08) 0%,rgba(239,159,39,0.02) 55%,transparent 100%)`
+                      :`rgba(255,255,255,0.04)`,
+                    border:`1px solid ${crit?"rgba(239,68,68,0.22)":hasCostIssue?"rgba(239,159,39,0.18)":"rgba(255,255,255,0.07)"}`,
+                  }}>
+                    {/* Left accent bar */}
+                    <div style={{position:"absolute",left:0,top:0,bottom:0,width:4,background:RC,borderRadius:"14px 0 0 14px"}}/>
+                    {/* Number badge */}
+                    <div style={{width:38,height:38,borderRadius:10,background:`${RC}1E`,border:`1px solid ${RC}40`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:16,color:RC,flexShrink:0,letterSpacing:"-0.02em"}}>
+                      {String(i+1).padStart(2,"0")}
+                    </div>
+                    {/* Name + issues */}
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{fontSize:15,fontWeight:700,color:T1,margin:"0 0 7px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ad.name}</p>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {issues.map(iss=>(
+                          <span key={iss} style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:5,background:`${RC}18`,color:RC,border:`0.5px solid ${RC}45`,letterSpacing:"0.02em"}}>{iss}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Spend */}
+                    {ad.spend!=null&&<div style={{textAlign:"right",flexShrink:0}}>
+                      <p style={{fontSize:10,fontWeight:600,color:T3,margin:"0 0 3px",letterSpacing:"0.08em",textTransform:"uppercase"}}>Spend</p>
+                      <p style={{fontSize:17,fontWeight:700,color:"#EF9F27",margin:0,letterSpacing:"-0.02em"}}>฿{fmtB(ad.spend)}</p>
+                    </div>}
+                    {/* Action pill */}
+                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",borderRadius:9,background:`${RC}18`,border:`1px solid ${RC}35`,whiteSpace:"nowrap",flexShrink:0}}>
+                      <span style={{fontSize:13}}>{rec.icon}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:RC}}>{rec.label}</span>
                     </div>
                   </div>
-                  <span style={{fontSize:13,fontWeight:600,padding:"8px 16px",borderRadius:9,background:`${rec.color}1A`,color:rec.color,border:`1px solid ${rec.color}30`,whiteSpace:"nowrap",flexShrink:0}}>{rec.label}</span>
-                </div></A>;
+                );
               })}
             </div>
           )}
