@@ -1035,6 +1035,32 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const next=useCallback(()=>setSlide(s=>Math.min(s+1,TOTAL-1)),[]);
   const prev=useCallback(()=>setSlide(s=>Math.max(s-1,0)),[]);
 
+  // ── Campaign images (localStorage, keyed by group name) ──────────────────────
+  const[campImgs,setCampImgs]=useState<Record<string,string>>(()=>{
+    const out:Record<string,string>={};
+    for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith("camp-img::"))out[k.slice(10)]=localStorage.getItem(k)??"";}
+    return out;
+  });
+  const campImgInput=useRef<HTMLInputElement>(null);
+  const uploadingFor=useRef<string>("");
+  const openImgPicker=(name:string)=>{uploadingFor.current=name;campImgInput.current?.click();};
+  const handleCampImg=(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const b64=ev.target?.result as string;
+      const name=uploadingFor.current;
+      localStorage.setItem(`camp-img::${name}`,b64);
+      setCampImgs(prev=>({...prev,[name]:b64}));
+    };
+    reader.readAsDataURL(file);
+    e.target.value="";
+  };
+  const removeCampImg=(name:string)=>{
+    localStorage.removeItem(`camp-img::${name}`);
+    setCampImgs(prev=>{const n={...prev};delete n[name];return n;});
+  };
+
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{
       if(e.key==="ArrowRight"||e.key==="ArrowDown")next();
@@ -1275,16 +1301,40 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
               topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap size={28}/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPMG[1],"cpm"))}`,rank:"03"},
             ].filter(Boolean).map((star,i)=>{
               if(!star)return null;
+              const img=campImgs[star.name];
               return(
-                <A key={star.label} d={80+i*110}><div style={{position:"relative",borderRadius:20,overflow:"hidden",background:star.color,boxShadow:`0 12px 52px ${star.color}55`,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between",padding:"32px 32px 28px"}}>
-                  <span style={{position:"absolute",bottom:-8,right:0,fontSize:"9rem",fontWeight:900,color:"rgba(0,0,0,0.12)",lineHeight:1,userSelect:"none"}}>{star.rank}</span>
-                  <div style={{width:52,height:52,borderRadius:14,background:"rgba(0,0,0,0.22)",display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.95)"}}>
-                    {star.icon}
+                <A key={star.label} d={80+i*110}><div style={{position:"relative",borderRadius:20,overflow:"hidden",background:star.color,boxShadow:`0 12px 52px ${star.color}55`,height:"100%",display:"flex",flexDirection:"column",padding:"28px 28px 24px",gap:14}}>
+                  {/* rank watermark */}
+                  <span style={{position:"absolute",bottom:-8,right:0,fontSize:"9rem",fontWeight:900,color:"rgba(0,0,0,0.12)",lineHeight:1,userSelect:"none",zIndex:0}}>{star.rank}</span>
+                  {/* top row: icon */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",zIndex:1,flexShrink:0}}>
+                    <div style={{width:48,height:48,borderRadius:12,background:"rgba(0,0,0,0.22)",display:"flex",alignItems:"center",justifyContent:"center",color:"rgba(255,255,255,0.95)"}}>
+                      {star.icon}
+                    </div>
                   </div>
-                  <div style={{position:"relative",zIndex:1}}>
-                    <p style={{fontSize:"clamp(2.5rem,4.5vw,4rem)",fontWeight:800,color:"#fff",lineHeight:1,letterSpacing:"-0.025em",margin:"0 0 8px"}}>{star.val}</p>
-                    <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 4px"}}>{star.label}</p>
-                    <p style={{fontSize:15,fontWeight:600,color:"#fff",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{star.name}</p>
+                  {/* image zone — click to upload, click × to remove */}
+                  <div style={{flex:1,borderRadius:12,overflow:"hidden",position:"relative",cursor:"pointer",zIndex:1,minHeight:0}}
+                    onClick={()=>{if(!img)openImgPicker(star.name);}}>
+                    {img?(
+                      <>
+                        <img src={img} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",borderRadius:12}}/>
+                        <button onClick={e=>{e.stopPropagation();removeCampImg(star.name);}}
+                          style={{position:"absolute",top:6,right:6,width:24,height:24,borderRadius:99,background:"rgba(0,0,0,0.55)",border:"none",color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,lineHeight:1}}>×</button>
+                        <button onClick={e=>{e.stopPropagation();openImgPicker(star.name);}}
+                          style={{position:"absolute",bottom:6,right:6,fontSize:10,fontWeight:600,padding:"3px 8px",borderRadius:99,background:"rgba(0,0,0,0.45)",border:"none",color:"rgba(255,255,255,0.8)",cursor:"pointer"}}>เปลี่ยนภาพ</button>
+                      </>
+                    ):(
+                      <div style={{width:"100%",height:"100%",background:"rgba(0,0,0,0.18)",borderRadius:12,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:8,border:"2px dashed rgba(255,255,255,0.3)"}}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                        <span style={{fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.7)"}}>อัปโหลดภาพ</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* bottom: metric + label + name */}
+                  <div style={{position:"relative",zIndex:1,flexShrink:0}}>
+                    <p style={{fontSize:"clamp(2rem,3.5vw,3rem)",fontWeight:800,color:"#fff",lineHeight:1,letterSpacing:"-0.025em",margin:"0 0 6px"}}>{star.val}</p>
+                    <p style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 3px"}}>{star.label}</p>
+                    <p style={{fontSize:14,fontWeight:600,color:"#fff",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{star.name}</p>
                   </div>
                 </div></A>
               );
@@ -1459,6 +1509,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
           <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.6)"}}/>
         </button>
       </div>
+      {/* Hidden file input for campaign image upload */}
+      <input ref={campImgInput} type="file" accept="image/*" style={{display:"none"}} onChange={handleCampImg}/>
     </div>
   );
 }
