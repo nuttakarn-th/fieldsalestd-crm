@@ -1145,12 +1145,12 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
           <SH title="ภาพรวม KPIs" sub={report.period_label}/>
           <div style={{flex:1,display:"flex",gap:20,minHeight:0}}>
             {/* Hero — Spend */}
-            <A d={80}><div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"32px 28px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:200,flexShrink:0,height:"100%",gap:10}}>
-              <p style={{fontSize:12,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.14em",margin:0}}>ยอดใช้จ่ายรวม</p>
-              <p style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.03em",margin:0}}>
+            <A d={80}><div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"32px 28px",borderRadius:18,background:`linear-gradient(145deg,${ACC}22 0%,${ACC}08 100%)`,border:`1px solid ${ACC}50`,minWidth:200,flexShrink:0,height:"100%",gap:12}}>
+              <p style={{fontSize:12,fontWeight:700,color:`${ACC}cc`,textTransform:"uppercase",letterSpacing:"0.14em",margin:0}}>ยอดใช้จ่ายรวม</p>
+              <p style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:ACC,lineHeight:1,letterSpacing:"-0.03em",margin:0,textShadow:`0 0 50px ${ACC}70`}}>
                 ฿{fmtSpend(animSpendCents)}
               </p>
-              <div style={{width:28,height:2,background:ACC,borderRadius:1}}/>
+              <div style={{width:36,height:3,background:ACC,borderRadius:2,opacity:0.7}}/>
             </div></A>
             {/* 6 KPI cards — 3×2 grid, no empty slot */}
             <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"1fr 1fr",gap:12,minHeight:0}}>
@@ -1162,10 +1162,10 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                 {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined},
                 {label:"Cost/Msg",val:cm.costPerMsg!==undefined?`฿${fmtB(avgCostMsg)}`:"—",color:"#A78BFA",av:cm.costPerMsg!==undefined},
               ].map(({label,val,color,av},i)=>(
-                <A key={label} d={120+i*45}><div style={{padding:"16px 20px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.3,height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:8}}>
-                  <p style={{fontSize:12,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:0}}>{label}</p>
-                  <p style={{fontSize:"clamp(2.2rem,4.5vw,4rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.03em",margin:0}}>{val}</p>
-                  <div style={{height:2,background:color,borderRadius:1,width:28}}/>
+                <A key={label} d={120+i*45}><div style={{padding:"16px 20px",borderRadius:14,background:`linear-gradient(145deg,${color}18 0%,${color}08 100%)`,border:`1px solid ${color}40`,opacity:av?1:0.25,height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:10}}>
+                  <p style={{fontSize:11,fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:"0.15em",margin:0}}>{label}</p>
+                  <p style={{fontSize:"clamp(2.2rem,4.5vw,4rem)",fontWeight:800,color,lineHeight:1,letterSpacing:"-0.03em",margin:0,textShadow:`0 0 40px ${color}60`}}>{val}</p>
+                  <div style={{height:3,background:color,borderRadius:2,width:36,opacity:0.7}}/>
                 </div></A>
               ))}
             </div>
