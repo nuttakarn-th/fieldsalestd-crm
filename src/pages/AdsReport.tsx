@@ -1101,8 +1101,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
           {/* Center hero */}
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:20}}>
-            <A d={80}><p style={{fontSize:11,fontWeight:700,letterSpacing:"0.4em",color:T3,textTransform:"uppercase",margin:0}}>Meta Ads Report</p></A>
-            <A d={170}><h1 style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.period_label}</h1></A>
+            <A d={80}><p style={{fontSize:"clamp(1.1rem,2.2vw,2rem)",fontWeight:700,letterSpacing:"0.4em",color:T3,textTransform:"uppercase",margin:0}}>Meta Ads Report</p></A>
+            <A d={170}><h1 style={{fontSize:"clamp(5rem,12vw,14rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.03em",margin:0}}>{report.period_label}</h1></A>
             <A d={250}><div style={{width:52,height:1.5,background:`linear-gradient(90deg,transparent,${ACC},transparent)`}}/></A>
             {cm.spend!==undefined&&<A d={340}><div style={{textAlign:"center"}}>
               <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
