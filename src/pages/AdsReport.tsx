@@ -1151,21 +1151,23 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                 ฿{fmtSpend(animSpendCents)}
               </p>
               <div style={{width:36,height:3,background:ACC,borderRadius:2,opacity:0.7}}/>
+              <p style={{fontSize:11,color:"rgba(255,255,255,0.45)",lineHeight:1.4,margin:0,maxWidth:160}}>งบโฆษณาที่ใช้ไปทั้งหมดในช่วงนี้</p>
             </div></A>
             {/* 6 KPI cards — 3×2 grid, no empty slot */}
             <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"1fr 1fr",gap:12,minHeight:0}}>
               {[
-                {label:"Impressions",val:cm.impressions!==undefined?animImpr.toLocaleString("th-TH"):"—",color:"#378ADD",av:cm.impressions!==undefined},
-                {label:"Reach",val:cm.reach!==undefined?animReach.toLocaleString("th-TH"):"—",color:"#1D9E75",av:cm.reach!==undefined},
-                {label:"Messages",val:cm.messages!==undefined?animMsgs.toLocaleString("th-TH"):"—",color:"#5DCAA5",av:cm.messages!==undefined},
-                {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27",av:cm.cpm!==undefined},
-                {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined},
-                {label:"Cost/Msg",val:cm.costPerMsg!==undefined?`฿${fmtB(avgCostMsg)}`:"—",color:"#A78BFA",av:cm.costPerMsg!==undefined},
-              ].map(({label,val,color,av},i)=>(
-                <A key={label} d={120+i*45}><div style={{padding:"16px 20px",borderRadius:14,background:`linear-gradient(145deg,${color}18 0%,${color}08 100%)`,border:`1px solid ${color}40`,opacity:av?1:0.25,height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:10}}>
+                {label:"Impressions",val:cm.impressions!==undefined?animImpr.toLocaleString("th-TH"):"—",color:"#378ADD",av:cm.impressions!==undefined,desc:"จำนวนครั้งที่โฆษณาถูกแสดงผล"},
+                {label:"Reach",val:cm.reach!==undefined?animReach.toLocaleString("th-TH"):"—",color:"#1D9E75",av:cm.reach!==undefined,desc:"จำนวนคนที่เห็นโฆษณา (ไม่ซ้ำ)"},
+                {label:"Messages",val:cm.messages!==undefined?animMsgs.toLocaleString("th-TH"):"—",color:"#5DCAA5",av:cm.messages!==undefined,desc:"ข้อความที่ได้รับจากโฆษณา"},
+                {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27",av:cm.cpm!==undefined,desc:"ต้นทุนต่อการแสดงผล 1,000 ครั้ง"},
+                {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined,desc:"อัตราคลิกต่อการแสดงผลทั้งหมด"},
+                {label:"Cost/Msg",val:cm.costPerMsg!==undefined?`฿${fmtB(avgCostMsg)}`:"—",color:"#A78BFA",av:cm.costPerMsg!==undefined,desc:"ต้นทุนเฉลี่ยต่อข้อความที่ได้รับ"},
+              ].map(({label,val,color,av,desc},i)=>(
+                <A key={label} d={120+i*45}><div style={{padding:"16px 20px",borderRadius:14,background:`linear-gradient(145deg,${color}18 0%,${color}08 100%)`,border:`1px solid ${color}40`,opacity:av?1:0.25,height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:8}}>
                   <p style={{fontSize:11,fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:"0.15em",margin:0}}>{label}</p>
                   <p style={{fontSize:"clamp(2.2rem,4.5vw,4rem)",fontWeight:800,color,lineHeight:1,letterSpacing:"-0.03em",margin:0,textShadow:`0 0 40px ${color}60`}}>{val}</p>
                   <div style={{height:3,background:color,borderRadius:2,width:36,opacity:0.7}}/>
+                  <p style={{fontSize:10.5,color:"rgba(255,255,255,0.45)",lineHeight:1.4,margin:0}}>{desc}</p>
                 </div></A>
               ))}
             </div>
