@@ -1120,12 +1120,12 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
           {/* Center hero */}
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:20}}>
-            <A d={80}><p style={{fontSize:"clamp(0.75rem,1.4vw,1rem)",fontWeight:600,letterSpacing:"0.3em",color:T3,textTransform:"uppercase",margin:0}}>{report.period_label}</p></A>
-            <A d={170}><h1 style={{fontSize:"clamp(2.5rem,5.5vw,5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.report_name||"Meta Ads Report"}</h1></A>
+            <A d={80}><p style={{fontSize:"clamp(0.7rem,1.2vw,0.9rem)",fontWeight:600,letterSpacing:"0.35em",color:T3,textTransform:"uppercase",margin:0}}>{report.period_label}</p></A>
+            <A d={170}><h1 style={{fontSize:"clamp(4rem,9vw,8.5rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.03em",margin:0}}>{report.report_name||"Meta Ads Report"}</h1></A>
             <A d={250}><div style={{width:52,height:1.5,background:`linear-gradient(90deg,transparent,${ACC},transparent)`}}/></A>
             {cm.spend!==undefined&&<A d={340}><div style={{textAlign:"center"}}>
-              <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
-              <p style={{fontSize:"clamp(3rem,7vw,5.5rem)",fontWeight:800,color:ACC,lineHeight:1,letterSpacing:"-0.025em",margin:0}}>
+              <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 8px"}}>ยอดใช้จ่ายรวม</p>
+              <p style={{fontSize:"clamp(2rem,4vw,3.5rem)",fontWeight:700,color:ACC,lineHeight:1,letterSpacing:"-0.02em",margin:0}}>
                 ฿{fmtSpend(animSpendCents)}
               </p>
             </div></A>}
@@ -1145,12 +1145,12 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
           <SH title="ภาพรวม KPIs" sub={report.period_label}/>
           <div style={{flex:1,display:"flex",gap:20,minHeight:0}}>
             {/* Hero — Spend */}
-            <A d={80}><div style={{display:"flex",flexDirection:"column",justifyContent:"center",padding:"32px 36px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:220,flexShrink:0,height:"100%"}}>
-              <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 12px"}}>ยอดใช้จ่ายรวม</p>
+            <A d={80}><div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"32px 28px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:200,flexShrink:0,height:"100%",gap:10}}>
+              <p style={{fontSize:12,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.14em",margin:0}}>ยอดใช้จ่ายรวม</p>
               <p style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.03em",margin:0}}>
                 ฿{fmtSpend(animSpendCents)}
               </p>
-              <div style={{width:28,height:2,background:ACC,borderRadius:1,marginTop:20}}/>
+              <div style={{width:28,height:2,background:ACC,borderRadius:1}}/>
             </div></A>
             {/* 6 KPI cards — 3×2 grid, no empty slot */}
             <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"1fr 1fr",gap:12,minHeight:0}}>
@@ -1162,10 +1162,10 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                 {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined},
                 {label:"Cost/Msg",val:cm.costPerMsg!==undefined?`฿${fmtB(avgCostMsg)}`:"—",color:"#A78BFA",av:cm.costPerMsg!==undefined},
               ].map(({label,val,color,av},i)=>(
-                <A key={label} d={120+i*45}><div style={{padding:"18px 22px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.3,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                  <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.1em",margin:0}}>{label}</p>
-                  <p style={{fontSize:"clamp(2rem,4vw,3.5rem)",fontWeight:700,color:T1,lineHeight:1,letterSpacing:"-0.025em",margin:"6px 0 0"}}>{val}</p>
-                  <div style={{height:2,background:color,borderRadius:1,width:22,marginTop:8}}/>
+                <A key={label} d={120+i*45}><div style={{padding:"16px 20px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.3,height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:8}}>
+                  <p style={{fontSize:12,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:0}}>{label}</p>
+                  <p style={{fontSize:"clamp(2.2rem,4.5vw,4rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.03em",margin:0}}>{val}</p>
+                  <div style={{height:2,background:color,borderRadius:1,width:28}}/>
                 </div></A>
               ))}
             </div>
