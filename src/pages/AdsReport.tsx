@@ -1294,7 +1294,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       case 4:return(
         <div key={4} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="Top Performers" sub="กลุ่มโฆษณาที่ทำได้ดีที่สุด"/>
-          <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,minHeight:0}}>
+          <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridAutoRows:"1fr",gap:20,minHeight:0,overflow:"hidden"}}>
             {[
               topCTRG&&{name:topCTRG[0],label:"CTR สูงสุด",icon:<MousePointerClick size={28}/>,color:"#EF9F27",val:`${fmtN(avgN(topCTRG[1],"ctr"),2)}%`,rank:"01"},
               topMsgG&&{name:topMsgG[0],label:"Messages มากสุด",icon:<MessageCircle size={28}/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsgG[1],"messages"))}`,rank:"02"},
@@ -1303,7 +1303,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
               if(!star)return null;
               const img=campImgs[star.name];
               return(
-                <A key={star.label} d={80+i*110}><div style={{position:"relative",borderRadius:20,overflow:"hidden",background:star.color,boxShadow:`0 12px 52px ${star.color}55`,height:"100%",display:"flex",flexDirection:"column",padding:"28px 28px 24px",gap:14}}>
+                <div key={star.label} style={{animation:`psFadeUp 0.5s ease-out ${80+i*110}ms both`,position:"relative",borderRadius:20,overflow:"hidden",background:star.color,boxShadow:`0 12px 52px ${star.color}55`,display:"flex",flexDirection:"column",padding:"28px 28px 24px",gap:14,minHeight:0}}>
                   {/* rank watermark */}
                   <span style={{position:"absolute",bottom:-8,right:0,fontSize:"9rem",fontWeight:900,color:"rgba(0,0,0,0.12)",lineHeight:1,userSelect:"none",zIndex:0}}>{star.rank}</span>
                   {/* top row: icon */}
@@ -1336,7 +1336,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                     <p style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 3px"}}>{star.label}</p>
                     <p style={{fontSize:14,fontWeight:600,color:"#fff",margin:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{star.name}</p>
                   </div>
-                </div></A>
+                </div>
               );
             })}
           </div>
