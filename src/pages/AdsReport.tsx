@@ -45,8 +45,22 @@ interface AdRow {
 }
 interface ReportMeta {
   id:string;period_label:string;file_name:string;uploaded_at:string;uploaded_by:string|null;
+  report_name?:string; // ชื่อรายงานที่ user ตั้ง (optional)
 }
 interface ReportData extends ReportMeta { ads:AdRow[]; colMap:ColumnMap; }
+
+/** Auto-generate report title from date range: weekly or monthly */
+function autoReportTitle(start:string,end:string):string{
+  const parseDMY=(s:string)=>{const[d,m,y]=s.split("/").map(Number);return d&&m&&y?new Date(y,m-1,d):null;};
+  const s=parseDMY(start);const e=parseDMY(end);
+  if(!s||!e)return"Meta Ads Report";
+  const days=Math.round((e.getTime()-s.getTime())/86400000)+1;
+  const thMS=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  const thML=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  if(days<=7){const w=Math.ceil(s.getDate()/7);return`สัปดาห์ที่ ${w} ${thMS[s.getMonth()]} ${s.getFullYear()}`;}
+  if(days<=35)return`${thML[s.getMonth()]} ${s.getFullYear()}`;
+  return"Meta Ads Report";
+}
 
 // ── CSV Parser (RFC 4180) ─────────────────────────────────────────────────────
 function parseCSVLine(line:string):string[] {
@@ -717,7 +731,7 @@ async function sbLoadReports():Promise<ReportMeta[]>{
   if(error)return lsLoadList();
   return(data??[]) as ReportMeta[];
 }
-async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap}):Promise<string|null>{
+async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;report_name?:string}):Promise<string|null>{
   if(!supabase)return lsSaveReport(p);
   const{data,error}=await supabase.from("ads_reports").insert({...p}).select("id").single();
   if(error)return lsSaveReport(p);
@@ -737,9 +751,9 @@ async function sbDeleteReport(id:string):Promise<void>{
 const LS_LIST="ads-report-list-v2";const lsKey=(id:string)=>`ads-report-data-v2::${id}`;
 function lsLoadList():ReportMeta[]{try{return JSON.parse(localStorage.getItem(LS_LIST)??"[]");}catch{return[];}}
 function lsSaveList(list:ReportMeta[]){localStorage.setItem(LS_LIST,JSON.stringify(list));}
-function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;start_date:string;end_date:string}):string{
+function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;start_date:string;end_date:string;report_name?:string}):string{
   const id=`local-${Date.now()}`;const list=lsLoadList();
-  const meta:ReportMeta={id,period_label:p.period_label,file_name:p.file_name,uploaded_at:new Date().toISOString(),uploaded_by:p.uploaded_by};
+  const meta:ReportMeta={id,period_label:p.period_label,file_name:p.file_name,uploaded_at:new Date().toISOString(),uploaded_by:p.uploaded_by,report_name:p.report_name};
   lsSaveList([meta,...list]);localStorage.setItem(lsKey(id),JSON.stringify({ads:p.rows_json,colMap:p.col_map}));return id;
 }
 function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JSON.parse(localStorage.getItem(lsKey(id))??"null");}catch{return null;}}
@@ -1101,8 +1115,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
           {/* Center hero */}
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",gap:20}}>
-            <A d={80}><p style={{fontSize:"clamp(1.1rem,2.2vw,2rem)",fontWeight:700,letterSpacing:"0.4em",color:T3,textTransform:"uppercase",margin:0}}>Meta Ads Report</p></A>
-            <A d={170}><h1 style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.period_label}</h1></A>
+            <A d={80}><p style={{fontSize:"clamp(0.75rem,1.4vw,1rem)",fontWeight:600,letterSpacing:"0.3em",color:T3,textTransform:"uppercase",margin:0}}>{report.period_label}</p></A>
+            <A d={170}><h1 style={{fontSize:"clamp(2.5rem,5.5vw,5rem)",fontWeight:800,color:T1,lineHeight:1.02,letterSpacing:"-0.025em",margin:0}}>{report.report_name||"Meta Ads Report"}</h1></A>
             <A d={250}><div style={{width:52,height:1.5,background:`linear-gradient(90deg,transparent,${ACC},transparent)`}}/></A>
             {cm.spend!==undefined&&<A d={340}><div style={{textAlign:"center"}}>
               <p style={{fontSize:11,color:T3,letterSpacing:"0.15em",textTransform:"uppercase",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
@@ -1451,6 +1465,8 @@ export default function AdsReport(){
   const[deleteConfirm,setDeleteConfirm]=useState<string|null>(null);
   const[missingCols,setMissingCols]=useState<string[]>([]);
   const[presentMode,setPresentMode]=useState(false);
+  const[pendingParsed,setPendingParsed]=useState<{ads:AdRow[];colMap:ColumnMap;start:string;end:string;period:string;fileName:string;autoTitle:string}|null>(null);
+  const[reportTitleInput,setReportTitleInput]=useState("");
 
   useEffect(()=>{
     setLoadingList(true);
@@ -1479,9 +1495,19 @@ export default function AdsReport(){
       .filter(k=>colMap[k]===undefined)
       .map(k=>({spend:"ยอดใช้จ่าย",impressions:"Impressions",messages:"Messages",cpm:"CPM",ctr:"CTR"}[k]??k));
     setMissingCols(missing);
+    const at=autoReportTitle(start,end);
+    setReportTitleInput(at);
+    setPendingParsed({ads,colMap,start,end,period,fileName,autoTitle:at});
+  };
+
+  const confirmSave=async()=>{
+    if(!pendingParsed)return;
+    const{ads,colMap,start,end,period,fileName}=pendingParsed;
+    const rName=reportTitleInput.trim()||pendingParsed.autoTitle;
     setSaving(true);
-    const id=await sbSaveReport({period_label:period,start_date:start,end_date:end,file_name:fileName,uploaded_by:currentUser?.full_name??"unknown",rows_json:ads,col_map:colMap});
+    const id=await sbSaveReport({period_label:period,start_date:start,end_date:end,file_name:fileName,uploaded_by:currentUser?.full_name??"unknown",rows_json:ads,col_map:colMap,report_name:rName});
     setSaving(false);
+    setPendingParsed(null);
     const newList=await sbLoadReports();setReports(newList);
     if(id){
       const meta=newList.find(r=>r.id===id);
@@ -1801,6 +1827,37 @@ export default function AdsReport(){
         )}
       </div>
     </div>
+
+    {/* ── Name Dialog — shown after CSV parse, before save ─────────────────── */}
+    {pendingParsed&&(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)"}}>
+        <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 space-y-4">
+          <div>
+            <h2 className="text-base font-bold tracking-tight">ตั้งชื่อรายงาน</h2>
+            <p className="text-xs text-muted-foreground mt-1">{pendingParsed.period}</p>
+          </div>
+          <input
+            autoFocus
+            value={reportTitleInput}
+            onChange={e=>setReportTitleInput(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter")confirmSave();if(e.key==="Escape")setPendingParsed(null);}}
+            placeholder={pendingParsed.autoTitle}
+            className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm font-medium placeholder:text-muted-foreground/50 outline-none focus:border-violet-500 transition-colors"
+          />
+          <p className="text-[11px] text-muted-foreground">ระบบตั้งให้อัตโนมัติ — แก้ได้ หรือกด <b>บันทึก</b> เลย</p>
+          <div className="flex gap-2 pt-1">
+            <button onClick={()=>setPendingParsed(null)}
+              className="flex-1 py-2 rounded-xl text-sm font-semibold bg-muted text-muted-foreground hover:bg-muted/70 transition-colors">
+              ยกเลิก
+            </button>
+            <button onClick={confirmSave} disabled={saving}
+              className="flex-1 py-2 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+              {saving?<><Loader2 className="w-3.5 h-3.5 animate-spin"/>บันทึก...</>:"บันทึก"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
