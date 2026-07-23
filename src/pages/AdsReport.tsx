@@ -957,14 +957,14 @@ function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
 
 // ── Presentation Mode v2 (10/10 redesign) ─────────────────────────────────────
 
-/** Count-up animation hook — restarts whenever `dep` changes */
-function usePCount(target:number,dep:number,dur=1100):number{
+/** Count-up animation hook — restarts whenever `dep` changes. `startDelay` lets you wait for a slide-in animation to finish first. */
+function usePCount(target:number,dep:number,dur=1100,startDelay=80):number{
   const[v,setV]=useState(0);
   useEffect(()=>{
     setV(0);if(!target)return;
     let r:number;const t0=performance.now();
     const tick=(n:number)=>{const p=Math.min((n-t0)/dur,1);setV(Math.round(target*(1-Math.pow(1-p,3))));if(p<1)r=requestAnimationFrame(tick);};
-    const id=setTimeout(()=>{r=requestAnimationFrame(tick);},80);
+    const id=setTimeout(()=>{r=requestAnimationFrame(tick);},startDelay);
     return()=>{clearTimeout(id);cancelAnimationFrame(r);};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[target,dep]);
@@ -1056,7 +1056,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const animImpr=usePCount(slide===1?Math.round(totalImpr):0,slide);
   const animReach=usePCount(slide===1?Math.round(totalReach):0,slide);
   const animMsgs=usePCount(slide===1?Math.round(totalMsgs):0,slide);
-  const animScore=usePCount(slide===2&&healthScore!==null?healthScore:0,slide,1500);
+  const animScore=usePCount(slide===2&&healthScore!==null?healthScore:0,slide,1400,620);
 
   // Format helpers local to PM
   const fmtSpend=(cents:number)=>(cents/100).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
