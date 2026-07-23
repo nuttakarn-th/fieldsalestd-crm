@@ -1077,10 +1077,10 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
   // ── Slide header ─────────────────────────────────────────────────────────────
   const SH=({title,sub,ac=ACC}:{title:string;sub?:string;ac?:string})=>(
-    <A><div style={{marginBottom:"2rem",flexShrink:0,textAlign:"center"}}>
-      <div style={{width:32,height:2,background:ac,borderRadius:1,marginBottom:16,margin:"0 auto 16px"}}/>
+    <A><div style={{marginBottom:"1.25rem",flexShrink:0,textAlign:"center"}}>
+      <div style={{width:32,height:2,background:ac,borderRadius:1,margin:"0 auto 14px"}}/>
       <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>{title}</h2>
-      {sub&&<p style={{fontSize:14,color:T3,margin:"10px 0 0",letterSpacing:"0.04em"}}>{sub}</p>}
+      {sub&&<p style={{fontSize:13,color:T3,margin:"8px 0 0"}}>{sub}</p>}
     </div></A>
   );
 
@@ -1126,14 +1126,14 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
           <SH title="ภาพรวม KPIs" sub={report.period_label}/>
           <div style={{flex:1,display:"flex",gap:20,minHeight:0}}>
             {/* Hero — Spend */}
-            <A d={80}><div style={{display:"flex",flexDirection:"column",justifyContent:"center",padding:"32px 36px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:232,flexShrink:0,height:"100%"}}>
-              <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 10px"}}>ยอดใช้จ่ายรวม</p>
-              <p style={{fontSize:"clamp(2.2rem,4.5vw,3.8rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.025em",margin:0}}>
+            <A d={80}><div style={{display:"flex",flexDirection:"column",justifyContent:"center",padding:"32px 36px",borderRadius:18,background:CB,border:`0.5px solid ${BR}`,borderLeft:`3px solid ${ACC}`,minWidth:220,flexShrink:0,height:"100%"}}>
+              <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.12em",margin:"0 0 12px"}}>ยอดใช้จ่ายรวม</p>
+              <p style={{fontSize:"clamp(3rem,6vw,5.5rem)",fontWeight:800,color:T1,lineHeight:1,letterSpacing:"-0.03em",margin:0}}>
                 ฿{fmtSpend(animSpendCents)}
               </p>
-              <div style={{width:28,height:2,background:ACC,borderRadius:1,marginTop:18}}/>
+              <div style={{width:28,height:2,background:ACC,borderRadius:1,marginTop:20}}/>
             </div></A>
-            {/* 5 KPI cards */}
+            {/* 6 KPI cards — 3×2 grid, no empty slot */}
             <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridTemplateRows:"1fr 1fr",gap:12,minHeight:0}}>
               {[
                 {label:"Impressions",val:cm.impressions!==undefined?animImpr.toLocaleString("th-TH"):"—",color:"#378ADD",av:cm.impressions!==undefined},
@@ -1141,11 +1141,12 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                 {label:"Messages",val:cm.messages!==undefined?animMsgs.toLocaleString("th-TH"):"—",color:"#5DCAA5",av:cm.messages!==undefined},
                 {label:"CPM เฉลี่ย",val:cm.cpm!==undefined?`฿${fmtB(avgCPM)}`:"—",color:"#EF9F27",av:cm.cpm!==undefined},
                 {label:"CTR เฉลี่ย",val:cm.ctr!==undefined?`${fmtN(avgCTR,2)}%`:"—",color:"#D4537E",av:cm.ctr!==undefined},
+                {label:"Cost/Msg",val:cm.costPerMsg!==undefined?`฿${fmtB(avgCostMsg)}`:"—",color:"#A78BFA",av:cm.costPerMsg!==undefined},
               ].map(({label,val,color,av},i)=>(
-                <A key={label} d={130+i*55}><div style={{padding:"20px 22px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.35,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <A key={label} d={120+i*45}><div style={{padding:"18px 22px",borderRadius:14,background:CB,border:`0.5px solid ${BR}`,opacity:av?1:0.3,height:"100%",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
                   <p style={{fontSize:11,fontWeight:600,color:T3,textTransform:"uppercase",letterSpacing:"0.1em",margin:0}}>{label}</p>
-                  <p style={{fontSize:"clamp(1.4rem,3vw,2.4rem)",fontWeight:700,color:T1,lineHeight:1,letterSpacing:"-0.02em",margin:"6px 0 0"}}>{val}</p>
-                  <div style={{height:2,background:color,borderRadius:1,width:22,marginTop:10}}/>
+                  <p style={{fontSize:"clamp(2rem,4vw,3.5rem)",fontWeight:700,color:T1,lineHeight:1,letterSpacing:"-0.025em",margin:"6px 0 0"}}>{val}</p>
+                  <div style={{height:2,background:color,borderRadius:1,width:22,marginTop:8}}/>
                 </div></A>
               ))}
             </div>
@@ -1266,9 +1267,9 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
         <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <div style={{marginBottom:"1.75rem",display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:24,flexShrink:0}}>
             <A><div style={{textAlign:"center"}}>
-              <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,marginBottom:16,margin:"0 auto 16px"}}/>
+              <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,margin:"0 auto 14px"}}/>
               <h2 style={{fontSize:"clamp(3.5rem,7vw,7rem)",fontWeight:800,color:T1,lineHeight:0.95,letterSpacing:"-0.025em",margin:0}}>โฆษณาที่ต้องปรับปรุง</h2>
-              <p style={{fontSize:14,color:T3,margin:"10px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
+              <p style={{fontSize:13,color:T3,margin:"8px 0 0"}}>CTR &lt; 2% · CPM &gt; ฿100 · Cost/Msg &gt; ฿100 · Eng/1K &lt; 5</p>
             </div></A>
             {inefficient.length>0&&<A d={60}><div style={{display:"flex",gap:12,flexShrink:0}}>
               <div style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:14,padding:"14px 22px",textAlign:"center"}}>
