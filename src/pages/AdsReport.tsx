@@ -1505,7 +1505,7 @@ export default function AdsReport(){
                 {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
                 {activeReport&&(
                   <button onClick={()=>setPresentMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-white/10 hover:bg-white/15 text-white border border-white/15 hover:border-white/25">
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-violet-600 hover:bg-violet-500 text-white border border-violet-500">
                     <Monitor className="w-4 h-4"/>Present
                   </button>
                 )}
