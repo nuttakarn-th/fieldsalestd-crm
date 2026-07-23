@@ -160,6 +160,8 @@ export interface RoutePlan {
 }
 
 export const SALES_REPS: SalesRep[] = ["เฟิร์ส", "โดนัท", "ปาม"];
+// OB Co-ordinator seed reps — ตรงกับ full_name ใน authStore SEED_USERS (std-009)
+export const OB_SEED_REPS: SalesRep[] = ["แอน"];
 
 export interface SalesRepInfo {
   name: SalesRep;
@@ -410,7 +412,94 @@ function generate(): { customers: Customer[]; leads: Lead[] } {
   return { customers, leads };
 }
 
-const seeded = generate();
+// ── OB Seed Leads ─────────────────────────────────────────────────────────────
+// สร้าง leads สำหรับ OB team แยกต่างหาก เพราะ SALES_REPS ไม่มีชื่อ OB Co-ordinator
+function generateOBLeads(customers: Customer[]): Lead[] {
+  if (customers.length === 0) return [];
+  const leads: Lead[] = [];
+  const now = new Date();
+  let idx = 0;
+
+  // 6 เดือนย้อนหลัง — "จองแล้ว" leads เพื่อให้ปิดดีลสำหรับ Dashboard + Charts
+  for (let m = 5; m >= 0; m--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    OB_SEED_REPS.forEach((rep) => {
+      const numDeals = Math.floor(Math.random() * 3) + 2; // 2-4 ดีล/เดือน
+      for (let k = 0; k < numDeals; k++) {
+        const cid = customers[Math.floor(Math.random() * customers.length)].customer_id;
+        const pax = Math.floor(Math.random() * 12) + 5;
+        const isIntl = Math.random() > 0.25; // OB = ส่วนใหญ่ต่างประเทศ
+        const ppx = isIntl
+          ? Math.floor(Math.random() * 15_000) + 18_000
+          : Math.floor(Math.random() * 6_000) + 5_500;
+        const closedDay = Math.floor(Math.random() * 26) + 1;
+        const closed = new Date(d.getFullYear(), d.getMonth(), closedDay).toISOString().split("T")[0];
+        leads.push({
+          lead_id: `OBLSEED-${String(++idx).padStart(3, "0")}`,
+          customer_id: cid,
+          assigned_to: rep,
+          bu_type: isIntl ? "ทัวร์ต่างประเทศ" : "ทัวร์ภายในประเทศ",
+          lead_category: rand(LEAD_CATEGORIES),
+          scope: isIntl ? "International" : "Domestic",
+          program: rand(INT_PROGRAMS.slice(0, -1)),
+          pax_count: pax,
+          travel_month: MONTHS[d.getMonth()],
+          tour_type: rand(TOUR_TYPES),
+          budget_range: rand(BUDGETS),
+          urgency: "Warm",
+          next_followup_date: null,
+          status: "จองแล้ว",
+          quoted_price: pax * ppx,
+          closed_date: closed,
+          lost_reason: null,
+        });
+      }
+    });
+  }
+
+  // Active pipeline — ใหม่ / ตอบแล้ว / กำลังเจรจา (สำหรับ Funnel + Follow-up วันนี้)
+  const ACTIVE: LeadStatus[] = ["ใหม่", "ตอบแล้ว", "กำลังเจรจา"];
+  OB_SEED_REPS.forEach((rep) => {
+    for (let k = 0; k < 6; k++) {
+      const cid = customers[Math.floor(Math.random() * customers.length)].customer_id;
+      const pax = Math.floor(Math.random() * 10) + 3;
+      const isIntl = Math.random() > 0.3;
+      const ppx = isIntl
+        ? Math.floor(Math.random() * 15_000) + 18_000
+        : Math.floor(Math.random() * 6_000) + 5_500;
+      const status = ACTIVE[Math.floor(Math.random() * ACTIVE.length)];
+      const fu = new Date();
+      fu.setDate(fu.getDate() + Math.floor(Math.random() * 7));
+      leads.push({
+        lead_id: `OBLSEED-${String(++idx).padStart(3, "0")}`,
+        customer_id: cid,
+        assigned_to: rep,
+        bu_type: isIntl ? "ทัวร์ต่างประเทศ" : "ทัวร์ภายในประเทศ",
+        lead_category: rand(LEAD_CATEGORIES),
+        scope: isIntl ? "International" : "Domestic",
+        program: rand(INT_PROGRAMS.slice(0, -1)),
+        pax_count: pax,
+        travel_month: MONTHS[now.getMonth()],
+        tour_type: rand(TOUR_TYPES),
+        budget_range: rand(BUDGETS),
+        urgency: rand(["Hot", "Warm", "Cold"] as Urgency[]),
+        next_followup_date: fu.toISOString().split("T")[0],
+        status,
+        quoted_price: status !== "ใหม่" ? pax * ppx : 0,
+        closed_date: null,
+        lost_reason: null,
+      });
+    }
+  });
+
+  return leads;
+}
+
+const seeded = (() => {
+  const base = generate();
+  base.leads.push(...generateOBLeads(base.customers));
+  return base;
+})();
 
 function seedRoutes(customers: Customer[]): RoutePlan[] {
   const routes: RoutePlan[] = [];
@@ -475,6 +564,31 @@ function defaultTargets(): MonthlyTarget[] {
         domestic_pax: 40,
         international_sales: 800_000,
         international_pax: 30,
+        incentive_sales: 0,
+        incentive_pax: 0,
+      });
+    });
+    // OB team target — shared pool (rep = "OB Team" + individual OB Co-ords)
+    out.push({
+      month, rep: "OB Team",
+      total_sales: 4_000_000,
+      total_pax: 200,
+      domestic_sales: 800_000,
+      domestic_pax: 60,
+      international_sales: 3_200_000,
+      international_pax: 140,
+      incentive_sales: 0,
+      incentive_pax: 0,
+    });
+    OB_SEED_REPS.forEach((rep) => {
+      out.push({
+        month, rep,
+        total_sales: 2_000_000,
+        total_pax: 100,
+        domestic_sales: 400_000,
+        domestic_pax: 30,
+        international_sales: 1_600_000,
+        international_pax: 70,
         incentive_sales: 0,
         incentive_pax: 0,
       });
@@ -1835,6 +1949,45 @@ export const useCRM = create<CRMState>()(
     {
       // v2: เปลี่ยน name → ล้าง localStorage เก่าที่มี seeded data / base64 ปนอยู่
       // ข้อมูลจริงทั้งหมดโหลดจาก Supabase ทันทีที่ app mount
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Inject OB seed leads ถ้ายังไม่มี — รองรับ existing localStorage installs
+        const hasObLeads = state.leads.some((l) => (OB_SEED_REPS as string[]).includes(l.assigned_to));
+        if (!hasObLeads) {
+          const obLeads = generateOBLeads(state.customers);
+          if (obLeads.length > 0) state.leads = [...state.leads, ...obLeads];
+        }
+        // Inject OB targets ถ้ายังไม่มี "OB Team" target
+        const now2 = new Date();
+        const thisM = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,"0")}`;
+        const hasObTarget = state.targets.some((t) => t.rep === "OB Team" && t.month === thisM);
+        if (!hasObTarget) {
+          for (let m = -2; m <= 3; m++) {
+            const d2 = new Date(now2.getFullYear(), now2.getMonth() + m, 1);
+            const month = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,"0")}`;
+            if (!state.targets.some((t) => t.rep === "OB Team" && t.month === month)) {
+              state.targets.push({
+                month, rep: "OB Team",
+                total_sales: 4_000_000, total_pax: 200,
+                domestic_sales: 800_000, domestic_pax: 60,
+                international_sales: 3_200_000, international_pax: 140,
+                incentive_sales: 0, incentive_pax: 0,
+              });
+            }
+            OB_SEED_REPS.forEach((rep) => {
+              if (!state.targets.some((t) => t.rep === rep && t.month === month)) {
+                state.targets.push({
+                  month, rep,
+                  total_sales: 2_000_000, total_pax: 100,
+                  domestic_sales: 400_000, domestic_pax: 30,
+                  international_sales: 1_600_000, international_pax: 70,
+                  incentive_sales: 0, incentive_pax: 0,
+                });
+              }
+            });
+          }
+        }
+      },
       name: "std-crm-store-v3",
       storage: createJSONStorage(() => {
         // Wrapper รอบ localStorage ที่จัดการ QuotaExceededError ได้

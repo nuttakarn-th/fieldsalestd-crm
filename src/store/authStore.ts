@@ -84,6 +84,7 @@ const SEED_USERS: AppUser[] = [
   { user_id: "seed-006", full_name: "บีม", username: "cosales1", password: "co123", plain_password: "co123", role: "Co-Ordinator", email: "", tel: "", created_at: new Date(6).toISOString() },
   { user_id: "std-007", full_name: "ยา", username: "acstd", password: "ac123", plain_password: "ac123", role: "Accounting", email: "", tel: "", created_at: new Date(7).toISOString() },
   { user_id: "std-008", full_name: "OB Manager", username: "obmgr", password: "ob123", plain_password: "ob123", role: "OB Manager", email: "", tel: "", created_at: new Date(8).toISOString() },
+  { user_id: "std-009", full_name: "แอน", username: "obco01", password: "ob456", plain_password: "ob456", role: "OB Co-ordinator", email: "", tel: "", created_at: new Date(9).toISOString() },
 ];
 
 function nextUserId(users: AppUser[]): string {
