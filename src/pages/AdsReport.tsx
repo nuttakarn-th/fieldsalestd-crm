@@ -19,7 +19,7 @@ import {
   TrendingUp, Eye, Users, MessageCircle, DollarSign,
   MousePointerClick, AlertTriangle, Info, Plus, Trash2,
   GitCompare, Loader2, CloudUpload, Trophy, Wrench, Rocket,
-  Save, CheckCircle2, Search, SlidersHorizontal, Zap, Monitor,
+  Save, CheckCircle2, Search, SlidersHorizontal, Zap, Monitor, Pencil,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
@@ -727,7 +727,7 @@ function UploadZone({onFile,compact=false}:{onFile:(text:string,name:string)=>vo
 // ── Supabase / localStorage helpers ──────────────────────────────────────────
 async function sbLoadReports():Promise<ReportMeta[]>{
   if(!supabase)return lsLoadList();
-  const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by").order("uploaded_at",{ascending:false});
+  const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name").order("uploaded_at",{ascending:false});
   if(error)return lsLoadList();
   return(data??[]) as ReportMeta[];
 }
@@ -747,6 +747,10 @@ async function sbDeleteReport(id:string):Promise<void>{
   if(!supabase){lsDeleteReport(id);return;}
   await supabase.from("ads_reports").delete().eq("id",id);
 }
+async function sbRenameReport(id:string,name:string):Promise<void>{
+  if(!supabase){lsRenameReport(id,name);return;}
+  await supabase.from("ads_reports").update({report_name:name}).eq("id",id);
+}
 
 const LS_LIST="ads-report-list-v2";const lsKey=(id:string)=>`ads-report-data-v2::${id}`;
 function lsLoadList():ReportMeta[]{try{return JSON.parse(localStorage.getItem(LS_LIST)??"[]");}catch{return[];}}
@@ -758,6 +762,7 @@ function lsSaveReport(p:{period_label:string;file_name:string;uploaded_by:string
 }
 function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JSON.parse(localStorage.getItem(lsKey(id))??"null");}catch{return null;}}
 function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
+function lsRenameReport(id:string,name:string){lsSaveList(lsLoadList().map(r=>r.id===id?{...r,report_name:name}:r));}
 
 // ── Top Performers — Premium Editorial Cards ──────────────────────────────────
 function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
@@ -1467,6 +1472,8 @@ export default function AdsReport(){
   const[presentMode,setPresentMode]=useState(false);
   const[pendingParsed,setPendingParsed]=useState<{ads:AdRow[];colMap:ColumnMap;start:string;end:string;period:string;fileName:string;autoTitle:string}|null>(null);
   const[reportTitleInput,setReportTitleInput]=useState("");
+  const[renameMode,setRenameMode]=useState(false);
+  const[renameInput,setRenameInput]=useState("");
 
   useEffect(()=>{
     setLoadingList(true);
@@ -1517,6 +1524,15 @@ export default function AdsReport(){
         const groups:Record<string,boolean>={};ads.forEach(a=>{groups[a.group]=true;});setExpandedGroups(groups);
       }
     }
+  };
+
+  const handleRename=async()=>{
+    if(!activeReport)return;
+    const name=renameInput.trim();if(!name)return;
+    await sbRenameReport(activeReport.id,name);
+    setActiveReport({...activeReport,report_name:name});
+    setReports(prev=>prev.map(r=>r.id===activeReport.id?{...r,report_name:name}:r));
+    setRenameMode(false);
   };
 
   const handleDelete=async(id:string)=>{
@@ -1603,18 +1619,39 @@ export default function AdsReport(){
             </div>
             {activeReport&&(
               <div className="mt-4 pt-4 border-t border-border/40 flex items-center gap-3 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{background:"rgba(127,119,221,0.15)",color:"#a5a1ee",border:"1px solid rgba(127,119,221,0.25)"}}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"/>
-                  {activeReport.period_label}
-                </span>
-                {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">ยอดรวม <b className="text-foreground">฿{fmtB(totalSpend)}</b></span>}
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"/>
-                  {ads.filter(a=>a.status.toLowerCase()==="active").length} active
-                </span>
-                <span className="text-xs bg-muted px-2.5 py-1 rounded-full text-muted-foreground">{ads.length} โฆษณา</span>
-                <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by??"—"}</span>
+                {renameMode?(
+                  <form onSubmit={e=>{e.preventDefault();handleRename();}} className="flex items-center gap-2 flex-1">
+                    <input autoFocus value={renameInput} onChange={e=>setRenameInput(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Escape"){setRenameMode(false);}}}
+                      className="rounded-xl border border-violet-500 bg-muted px-3 py-1.5 text-sm font-medium outline-none flex-1 max-w-xs"
+                      placeholder={activeReport.report_name||"ชื่อรายงาน"}/>
+                    <button type="submit" className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-600 text-white hover:bg-violet-500 transition-colors">บันทึก</button>
+                    <button type="button" onClick={()=>setRenameMode(false)} className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted text-muted-foreground hover:bg-muted/70 transition-colors">ยกเลิก</button>
+                  </form>
+                ):(
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{background:"rgba(127,119,221,0.15)",color:"#a5a1ee",border:"1px solid rgba(127,119,221,0.25)"}}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"/>
+                      {activeReport.period_label}
+                    </span>
+                    {activeReport.report_name&&(
+                      <span className="text-xs font-semibold text-foreground/80">{activeReport.report_name}</span>
+                    )}
+                    <button onClick={()=>{setRenameInput(activeReport.report_name||"");setRenameMode(true);}}
+                      title="เปลี่ยนชื่อรายงาน"
+                      className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <Pencil className="w-3.5 h-3.5"/>
+                    </button>
+                    {cm.spend!==undefined&&<span className="text-xs text-muted-foreground">ยอดรวม <b className="text-foreground">฿{fmtB(totalSpend)}</b></span>}
+                    <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"/>
+                      {ads.filter(a=>a.status.toLowerCase()==="active").length} active
+                    </span>
+                    <span className="text-xs bg-muted px-2.5 py-1 rounded-full text-muted-foreground">{ads.length} โฆษณา</span>
+                    <span className="text-xs text-muted-foreground ml-auto">โดย {activeReport.uploaded_by??"—"}</span>
+                  </>
+                )}
               </div>
             )}
           </div>
