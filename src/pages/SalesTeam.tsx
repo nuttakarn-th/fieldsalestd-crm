@@ -12,12 +12,12 @@ import { toast } from "sonner";
 const COMPANY_NAME = "บริษัท สแตนดาร์ดทัวร์ จำกัด";
 
 /* ── Team groupings ── */
-const SALES_ROLES: AppRole[] = ["Sales Manager", "Sales"];
-const OB_ROLES:    AppRole[] = ["OB Manager", "OB Co-ordinator"];
+const SALES_ROLES:  AppRole[] = ["Sales Manager", "Sales"];
+const OB_ROLES:     AppRole[] = ["OB Manager", "OB Co-ordinator"];
+const HIDDEN_ROLES: AppRole[] = ["Admin"]; // ไม่แสดงในหน้า Teams
 
 /* ── Role display order (within each group) ── */
 const ROLE_ORDER: AppRole[] = [
-  "Admin",
   "Sales Manager",
   "Sales",
   "OB Manager",
@@ -115,7 +115,7 @@ function NamecardModal({ u, onClose }: NamecardModalProps) {
   );
 }
 
-/* ── Member Card ── */
+/* ── Compact Member Card (horizontal scroll) ── */
 interface MemberCardProps {
   u: AppUser;
   onOpenCard: (u: AppUser) => void;
@@ -124,101 +124,88 @@ interface MemberCardProps {
 
 function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
   return (
-    <div className="bg-card border rounded-2xl overflow-hidden shadow-soft hover:shadow-elegant hover:-translate-y-1 transition-all duration-300 group flex flex-col">
-      {/* Photo — click to open namecard */}
+    <div className="flex-none w-[96px] bg-card border border-border rounded-xl p-2.5 flex flex-col items-center gap-2">
+      {/* Avatar — tap to open namecard */}
       <button
-        className="aspect-square w-full overflow-hidden bg-muted shrink-0 cursor-pointer relative"
+        className="w-14 h-14 rounded-full overflow-hidden bg-muted border border-border shrink-0 relative group"
         onClick={() => onOpenCard(u)}
         title="ดูนามบัตร"
       >
         <img
           src={u.avatar_url || "/Blank-Display.png"}
           alt={u.full_name}
-          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover object-top"
           onError={(e) => { (e.target as HTMLImageElement).src = "/Blank-Display.png"; }}
         />
-        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <span className="text-white text-[10px] font-semibold bg-black/40 px-2 py-1 rounded-full">ดูนามบัตร</span>
-        </div>
       </button>
 
-      {/* Info */}
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <div className="text-center">
-          <h3 className="font-bold text-sm leading-tight truncate">{u.full_name}</h3>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
-            {u.department || u.role}
-          </p>
-        </div>
+      {/* Name */}
+      <p className="text-[11px] font-semibold text-center leading-tight w-full truncate px-0.5">
+        {u.full_name}
+      </p>
 
-        <div className="border-t border-border/50" />
+      {/* Role badge */}
+      <span className="text-[9px] text-muted-foreground bg-muted/60 border border-border/60 rounded px-1.5 py-0.5 leading-tight text-center w-full truncate">
+        {u.department || u.role}
+      </span>
 
-        {/* Contact icon buttons */}
-        <div className="flex items-center justify-center gap-2">
-          {u.tel ? (
-            <a href={`tel:${u.tel}`} className="w-8 h-8 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors" title={u.tel}>
-              <Phone className="w-3.5 h-3.5" />
-            </a>
-          ) : (
-            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
-              <Phone className="w-3.5 h-3.5" />
-            </span>
-          )}
-
-          {u.email ? (
-            <a href={`mailto:${u.email}`} className="w-8 h-8 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center hover:bg-violet-500 hover:text-white transition-colors" title={u.email}>
-              <Mail className="w-3.5 h-3.5" />
-            </a>
-          ) : (
-            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
-              <Mail className="w-3.5 h-3.5" />
-            </span>
-          )}
-
-          {u.line_qr_url ? (
-            <button onClick={() => onOpenCard(u)} className="w-8 h-8 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-colors" title="LINE QR">
-              <LineIcon className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <span className="w-8 h-8 rounded-full bg-muted/40 text-muted-foreground/30 flex items-center justify-center cursor-not-allowed">
-              <LineIcon className="w-3.5 h-3.5" />
-            </span>
-          )}
-
-          <button
-            onClick={() => onMention(u.full_name)}
-            className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
-            title={`แชทกับ ${u.full_name}`}
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      {/* Contact icons */}
+      <div className="flex items-center gap-1 mt-0.5">
+        {u.tel ? (
+          <a href={`tel:${u.tel}`} className="w-6 h-6 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center hover:bg-pink-500 hover:text-white transition-colors" title={u.tel}>
+            <Phone className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="w-6 h-6 rounded-full bg-muted/30 text-muted-foreground/25 flex items-center justify-center">
+            <Phone className="w-3 h-3" />
+          </span>
+        )}
+        {u.email ? (
+          <a href={`mailto:${u.email}`} className="w-6 h-6 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center hover:bg-violet-500 hover:text-white transition-colors" title={u.email}>
+            <Mail className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="w-6 h-6 rounded-full bg-muted/30 text-muted-foreground/25 flex items-center justify-center">
+            <Mail className="w-3 h-3" />
+          </span>
+        )}
+        <button
+          onClick={() => onMention(u.full_name)}
+          className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
+          title={`แชทกับ ${u.full_name}`}
+        >
+          <MessageCircle className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );
 }
 
-/* ── Team Section Component ── */
+/* ── Team Section Component (horizontal scroll) ── */
 interface TeamSectionProps {
   title: string;
   subtitle: string;
-  accentClass: string;    // gradient text class
-  borderClass: string;    // left border colour
+  barColor: string;   // inline style color for left bar
   members: AppUser[];
   onOpenCard: (u: AppUser) => void;
   onMention: (name: string) => void;
 }
 
-function TeamSection({ title, subtitle, accentClass, borderClass, members, onOpenCard, onMention }: TeamSectionProps) {
+function TeamSection({ title, subtitle, barColor, members, onOpenCard, onMention }: TeamSectionProps) {
   if (members.length === 0) return null;
   return (
-    <div className="space-y-4">
+    <div>
       {/* Section header */}
-      <div className={`pl-4 border-l-4 ${borderClass}`}>
-        <h2 className={`text-xl font-black tracking-tight ${accentClass}`}>{title}</h2>
-        <p className="text-xs text-muted-foreground">{subtitle} · {members.length} คน</p>
+      <div className="flex items-center gap-3 px-4 sm:px-8 mb-3">
+        <div className="w-[3px] h-8 rounded-full shrink-0" style={{ background: barColor }} />
+        <div>
+          <h2 className="text-[15px] font-semibold leading-tight">{title}</h2>
+          <p className="text-[11px] text-muted-foreground">{subtitle} · {members.length} คน</p>
+        </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+
+      {/* Horizontal scroll row */}
+      <div className="flex gap-2.5 px-4 sm:px-8 pb-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
         {members.map((u) => (
           <MemberCard key={u.user_id} u={u} onOpenCard={onOpenCard} onMention={onMention} />
         ))}
@@ -230,10 +217,14 @@ function TeamSection({ title, subtitle, accentClass, borderClass, members, onOpe
 /* ── Main Page ── */
 export default function SalesTeam({ embed = false }: { embed?: boolean }) {
   const openChat = useChatUI((s) => s.open);
-  const users    = useAuth((s) => s.users);
+  const allUsers  = useAuth((s) => s.users);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
 
-  // Sort within each role group by name
+  // กรอง Admin ออก + sort ตาม role order แล้วชื่อ
+  const users = useMemo(() =>
+    allUsers.filter((u) => !(HIDDEN_ROLES as string[]).includes(u.role)),
+  [allUsers]);
+
   const sorted = useMemo(() => [...users].sort((a, b) => {
     const ri = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
     if (ri !== 0) return ri;
@@ -252,17 +243,17 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
     <div className={embed ? "" : "min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background"}>
       {!embed && <StandaloneHeader backTo="/" />}
 
-      <div className="px-4 sm:px-8 py-4 space-y-10 max-w-7xl mx-auto">
+      <div className="py-4 space-y-6 max-w-7xl mx-auto">
 
         {/* Page Header */}
-        <div className="text-center space-y-2 pb-2">
+        <div className="text-center space-y-1 px-4 sm:px-8">
           <h1 className="text-4xl sm:text-5xl tracking-tight" style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900 }}>
             Standard{" "}
             <span className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 bg-clip-text text-transparent">
               Teams
             </span>
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg">บริการด้วยจิต ดูแลด้วยใจ</p>
+          <p className="text-muted-foreground text-sm sm:text-base">บริการด้วยจิต ดูแลด้วยใจ</p>
           <p className="text-xs text-muted-foreground/60">ทีมงานทั้งหมด {users.length} คน</p>
         </div>
 
@@ -270,8 +261,7 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
         <TeamSection
           title="ทีม Sales"
           subtitle="Sales Manager · Sales"
-          accentClass="bg-gradient-to-r from-pink-500 to-fuchsia-500 bg-clip-text text-transparent"
-          borderClass="border-fuchsia-500"
+          barColor="#a855f7"
           members={salesMembers}
           onOpenCard={setSelectedUser}
           onMention={handleMention}
@@ -281,20 +271,18 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
         <TeamSection
           title="ทีม OB"
           subtitle="OB Manager · OB Co-ordinator"
-          accentClass="bg-gradient-to-r from-violet-500 to-indigo-500 bg-clip-text text-transparent"
-          borderClass="border-violet-500"
+          barColor="#6366f1"
           members={obMembers}
           onOpenCard={setSelectedUser}
           onMention={handleMention}
         />
 
-        {/* ── Other (Admin / Marketing / etc.) ── */}
+        {/* ── Support (Marketing / Accounting / etc.) ── */}
         {otherMembers.length > 0 && (
           <TeamSection
             title="ฝ่ายสนับสนุน"
-            subtitle="Admin · Marketing · Co-Ordinator · Accounting"
-            accentClass="text-foreground"
-            borderClass="border-muted-foreground/40"
+            subtitle="Marketing · Co-Ordinator · Accounting"
+            barColor="var(--border-stronger, #888)"
             members={otherMembers}
             onOpenCard={setSelectedUser}
             onMention={handleMention}
@@ -302,8 +290,8 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
         )}
 
         {users.length === 0 && (
-          <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground">
-            ยังไม่มีพนักงานในระบบ — Admin เพิ่มได้ที่หน้า User Management
+          <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground mx-4">
+            ยังไม่มีพนักงานในระบบ
           </div>
         )}
 
