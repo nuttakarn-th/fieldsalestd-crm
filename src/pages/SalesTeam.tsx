@@ -281,12 +281,12 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
           onMention={handleMention}
         />
 
-        {/* ── Support (Marketing / Accounting / etc.) ── */}
+        {/* ── Marketing Team ── */}
         {otherMembers.length > 0 && (
           <TeamSection
-            title="ฝ่ายสนับสนุน"
+            title="ทีม Marketing"
             subtitle="Marketing · Co-Ordinator · Accounting"
-            barColor="var(--border-stronger, #888)"
+            barColor="#ec4899"
             members={otherMembers}
             onOpenCard={setSelectedUser}
             onMention={handleMention}
