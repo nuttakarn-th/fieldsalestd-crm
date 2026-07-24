@@ -960,8 +960,35 @@ export const useCRM = create<CRMState>()(
         }
       }
 
-      if (!leads.error && leads.data)         criticalUpdates.leads     = leads.data     as Lead[];
-      if (!targets.error && targets.data)     criticalUpdates.targets   = targets.data   as MonthlyTarget[];
+      if (!leads.error && leads.data) {
+        const sbLeads = leads.data as Lead[];
+        // Preserve OB seed leads ถ้า Supabase ไม่มี OB leads จริง (demo/staging env)
+        // ป้องกัน flash: localStorage มี seed → Supabase load ทับ → หายวับ
+        const sbHasObLeads = sbLeads.some((l) => (OB_SEED_REPS as string[]).includes(l.assigned_to));
+        if (sbHasObLeads) {
+          criticalUpdates.leads = sbLeads;
+        } else {
+          const localObLeads = get().leads.filter(
+            (l) => (OB_SEED_REPS as string[]).includes(l.assigned_to) && l.lead_id.startsWith("OBLSEED-")
+          );
+          criticalUpdates.leads = [...sbLeads, ...localObLeads];
+        }
+      }
+      if (!targets.error && targets.data) {
+        const sbTargets = targets.data as MonthlyTarget[];
+        // Preserve OB Team targets ถ้า Supabase ไม่มี
+        const sbHasObTargets = sbTargets.some(
+          (t) => t.rep === "OB Team" || (OB_SEED_REPS as string[]).includes(t.rep)
+        );
+        if (sbHasObTargets) {
+          criticalUpdates.targets = sbTargets;
+        } else {
+          const localObTargets = get().targets.filter(
+            (t) => t.rep === "OB Team" || (OB_SEED_REPS as string[]).includes(t.rep)
+          );
+          criticalUpdates.targets = [...sbTargets, ...localObTargets];
+        }
+      }
       // Sales Manager: กรอง OB Co-ordinator data ออก (app-level double-layer — RLS กรองที่ DB แล้ว)
       if (isManager && obUserNames.size > 0) {
         if (criticalUpdates.customers) {
