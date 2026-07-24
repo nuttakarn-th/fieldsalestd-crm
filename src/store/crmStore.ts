@@ -875,6 +875,14 @@ export const useCRM = create<CRMState>()(
       return;
     }
     (set as any)({ _lastLoadedAt: now });
+    // ── Snapshot OB seed leads SYNCHRONOUSLY (ก่อน await ใดๆ) ─────────────
+    // onRehydrateStorage ทำ setState(state, true) → replace store ทั้งหมด →
+    // _lastLoadedAt หาย → guard reset → loadAll ยิงซ้ำ
+    // ในรอบแรก (before rehydrate) get().leads = [] → ต้องจับ snapshot ตอนนี้
+    // ถ้า snapshot ว่าง → fallback generate ใหม่หลัง await ด้วย customers จาก Supabase
+    const _obLeadSnapshot = get().leads.filter(
+      (l) => (OB_SEED_REPS as string[]).includes(l.assigned_to) && l.lead_id.startsWith("OBLSEED-")
+    );
     // ────────────────────────────────────────────────────────────────────────
     try {
       // ── กำหนด window วันที่สำหรับ route (30 วันล่าสุด) ──────────────────
@@ -962,16 +970,25 @@ export const useCRM = create<CRMState>()(
 
       if (!leads.error && leads.data) {
         const sbLeads = leads.data as Lead[];
-        // Preserve OB seed leads ถ้า Supabase ไม่มี OB leads จริง (demo/staging env)
-        // ป้องกัน flash: localStorage มี seed → Supabase load ทับ → หายวับ
         const sbHasObLeads = sbLeads.some((l) => (OB_SEED_REPS as string[]).includes(l.assigned_to));
         if (sbHasObLeads) {
+          // Supabase มี OB leads จริง → ใช้ Supabase เป็น source of truth
           criticalUpdates.leads = sbLeads;
         } else {
-          const localObLeads = get().leads.filter(
-            (l) => (OB_SEED_REPS as string[]).includes(l.assigned_to) && l.lead_id.startsWith("OBLSEED-")
-          );
-          criticalUpdates.leads = [...sbLeads, ...localObLeads];
+          // Supabase ไม่มี OB leads (demo env) → preserve seed leads
+          // ลำดับ fallback: 1) pre-await snapshot, 2) post-await get(), 3) generate fresh
+          let obToAdd = _obLeadSnapshot;
+          if (obToAdd.length === 0) {
+            obToAdd = get().leads.filter(
+              (l) => (OB_SEED_REPS as string[]).includes(l.assigned_to) && l.lead_id.startsWith("OBLSEED-")
+            );
+          }
+          if (obToAdd.length === 0) {
+            // Nuclear fallback: generate fresh จาก customers ที่เพิ่งโหลดจาก Supabase
+            const custSrc = ((criticalUpdates.customers ?? customers.data ?? get().customers) as Customer[]);
+            obToAdd = generateOBLeads(custSrc.length > 0 ? custSrc : get().customers);
+          }
+          criticalUpdates.leads = [...sbLeads, ...obToAdd];
         }
       }
       if (!targets.error && targets.data) {
