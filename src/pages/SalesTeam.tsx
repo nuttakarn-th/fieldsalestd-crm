@@ -11,11 +11,16 @@ import { toast } from "sonner";
 
 const COMPANY_NAME = "บริษัท สแตนดาร์ดทัวร์ จำกัด";
 
-/* ── Role display order ── */
+/* ── Team groupings ── */
+const SALES_ROLES: AppRole[] = ["Sales Manager", "Sales"];
+const OB_ROLES:    AppRole[] = ["OB Manager", "OB Co-ordinator"];
+
+/* ── Role display order (within each group) ── */
 const ROLE_ORDER: AppRole[] = [
   "Admin",
   "Sales Manager",
   "Sales",
+  "OB Manager",
   "OB Co-ordinator",
   "Marketing",
   "Co-Ordinator",
@@ -193,44 +198,53 @@ function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
   );
 }
 
-/* ── Role display labels (Thai) ─────────────────────────────────────────── */
-const ROLE_LABEL: Partial<Record<AppRole, string>> = {
-  "Admin":           "Admin",
-  "Sales Manager":   "Sales Manager",
-  "Sales":           "Sales",
-  "OB Co-ordinator": "OB Co-ordinator",
-  "Marketing":       "Marketing",
-  "Co-Ordinator":    "Co-Ordinator",
-  "Accounting":      "Accounting",
-};
+/* ── Team Section Component ── */
+interface TeamSectionProps {
+  title: string;
+  subtitle: string;
+  accentClass: string;    // gradient text class
+  borderClass: string;    // left border colour
+  members: AppUser[];
+  onOpenCard: (u: AppUser) => void;
+  onMention: (name: string) => void;
+}
+
+function TeamSection({ title, subtitle, accentClass, borderClass, members, onOpenCard, onMention }: TeamSectionProps) {
+  if (members.length === 0) return null;
+  return (
+    <div className="space-y-4">
+      {/* Section header */}
+      <div className={`pl-4 border-l-4 ${borderClass}`}>
+        <h2 className={`text-xl font-black tracking-tight ${accentClass}`}>{title}</h2>
+        <p className="text-xs text-muted-foreground">{subtitle} · {members.length} คน</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+        {members.map((u) => (
+          <MemberCard key={u.user_id} u={u} onOpenCard={onOpenCard} onMention={onMention} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ── Main Page ── */
 export default function SalesTeam({ embed = false }: { embed?: boolean }) {
   const openChat = useChatUI((s) => s.open);
   const users    = useAuth((s) => s.users);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
-  const [filterRole,   setFilterRole]   = useState<AppRole | "all">("all");
 
-  // All users sorted by role order then name
-  const sortedMembers = useMemo(() => {
-    return [...users].sort((a, b) => {
-      const ri = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
-      if (ri !== 0) return ri;
-      return a.full_name.localeCompare(b.full_name, "th");
-    });
-  }, [users]);
+  // Sort within each role group by name
+  const sorted = useMemo(() => [...users].sort((a, b) => {
+    const ri = ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role);
+    if (ri !== 0) return ri;
+    return a.full_name.localeCompare(b.full_name, "th");
+  }), [users]);
 
-  // Unique roles present in user list (in role order)
-  const availableRoles = useMemo<AppRole[]>(() => {
-    const roleSet = new Set(users.map((u) => u.role));
-    return ROLE_ORDER.filter((r) => roleSet.has(r));
-  }, [users]);
-
-  // Filtered subset
-  const visibleMembers = useMemo(() => {
-    if (filterRole === "all") return sortedMembers;
-    return sortedMembers.filter((u) => u.role === filterRole);
-  }, [sortedMembers, filterRole]);
+  const salesMembers = useMemo(() => sorted.filter((u) => (SALES_ROLES as string[]).includes(u.role)), [sorted]);
+  const obMembers    = useMemo(() => sorted.filter((u) => (OB_ROLES    as string[]).includes(u.role)), [sorted]);
+  const otherMembers = useMemo(() => sorted.filter((u) =>
+    !(SALES_ROLES as string[]).includes(u.role) && !(OB_ROLES as string[]).includes(u.role)
+  ), [sorted]);
 
   const handleMention = (name: string) => { openChat(name as any); };
 
@@ -238,9 +252,9 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
     <div className={embed ? "" : "min-h-screen bg-gradient-to-br from-background via-secondary/30 to-background"}>
       {!embed && <StandaloneHeader backTo="/" />}
 
-      <div className="px-4 sm:px-8 py-4 space-y-6 max-w-7xl mx-auto">
+      <div className="px-4 sm:px-8 py-4 space-y-10 max-w-7xl mx-auto">
 
-        {/* Header */}
+        {/* Page Header */}
         <div className="text-center space-y-2 pb-2">
           <h1 className="text-4xl sm:text-5xl tracking-tight" style={{ fontFamily: "'Inter', 'Kanit', sans-serif", fontWeight: 900 }}>
             Standard{" "}
@@ -249,62 +263,47 @@ export default function SalesTeam({ embed = false }: { embed?: boolean }) {
             </span>
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg">บริการด้วยจิต ดูแลด้วยใจ</p>
-          <p className="text-xs text-muted-foreground/60">
-            {filterRole === "all"
-              ? `ทีมงานทั้งหมด ${users.length} คน`
-              : `${ROLE_LABEL[filterRole] ?? filterRole} ${visibleMembers.length} คน จากทั้งหมด ${users.length} คน`
-            }
-          </p>
+          <p className="text-xs text-muted-foreground/60">ทีมงานทั้งหมด {users.length} คน</p>
         </div>
 
-        {/* ── Filter pills ── */}
-        {availableRoles.length > 1 && (
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {/* All */}
-            <button
-              onClick={() => setFilterRole("all")}
-              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                filterRole === "all"
-                  ? "bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 text-white shadow-sm scale-105"
-                  : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/70"
-              }`}
-            >
-              ทั้งหมด ({users.length})
-            </button>
+        {/* ── Sales Team ── */}
+        <TeamSection
+          title="ทีม Sales"
+          subtitle="Sales Manager · Sales"
+          accentClass="bg-gradient-to-r from-pink-500 to-fuchsia-500 bg-clip-text text-transparent"
+          borderClass="border-fuchsia-500"
+          members={salesMembers}
+          onOpenCard={setSelectedUser}
+          onMention={handleMention}
+        />
 
-            {availableRoles.map((role) => {
-              const count = sortedMembers.filter((u) => u.role === role).length;
-              const isActive = filterRole === role;
-              return (
-                <button
-                  key={role}
-                  onClick={() => setFilterRole(role === filterRole ? "all" : role)}
-                  className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
-                    isActive
-                      ? "bg-gradient-to-r from-pink-500 via-fuchsia-500 to-violet-500 text-white shadow-sm scale-105"
-                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                  }`}
-                >
-                  {ROLE_LABEL[role] ?? role} ({count})
-                </button>
-              );
-            })}
-          </div>
+        {/* ── OB Team ── */}
+        <TeamSection
+          title="ทีม OB"
+          subtitle="OB Manager · OB Co-ordinator"
+          accentClass="bg-gradient-to-r from-violet-500 to-indigo-500 bg-clip-text text-transparent"
+          borderClass="border-violet-500"
+          members={obMembers}
+          onOpenCard={setSelectedUser}
+          onMention={handleMention}
+        />
+
+        {/* ── Other (Admin / Marketing / etc.) ── */}
+        {otherMembers.length > 0 && (
+          <TeamSection
+            title="ฝ่ายสนับสนุน"
+            subtitle="Admin · Marketing · Co-Ordinator · Accounting"
+            accentClass="text-foreground"
+            borderClass="border-muted-foreground/40"
+            members={otherMembers}
+            onOpenCard={setSelectedUser}
+            onMention={handleMention}
+          />
         )}
 
-        {/* ── Grid ── */}
-        {visibleMembers.length === 0 ? (
+        {users.length === 0 && (
           <div className="rounded-xl border border-dashed p-14 text-center text-muted-foreground">
             ยังไม่มีพนักงานในระบบ — Admin เพิ่มได้ที่หน้า User Management
-          </div>
-        ) : (
-          <div
-            key={filterRole}   /* remount on filter change → stagger animation replays */
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4"
-          >
-            {visibleMembers.map((u) => (
-              <MemberCard key={u.user_id} u={u} onOpenCard={setSelectedUser} onMention={handleMention} />
-            ))}
           </div>
         )}
 
