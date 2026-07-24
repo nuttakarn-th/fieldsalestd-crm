@@ -124,10 +124,11 @@ interface MemberCardProps {
 
 function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
   return (
-    <div className="flex-none w-[96px] bg-card border border-border rounded-xl p-2.5 flex flex-col items-center gap-2">
+    // mobile: 96px fixed (horizontal scroll) | desktop: 120px, shrink ok
+    <div className="flex-none w-[96px] sm:w-[120px] bg-card border border-border rounded-xl p-2.5 sm:p-3 flex flex-col items-center gap-2">
       {/* Avatar — tap to open namecard */}
       <button
-        className="w-14 h-14 rounded-full overflow-hidden bg-muted border border-border shrink-0 relative group"
+        className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-muted border border-border shrink-0"
         onClick={() => onOpenCard(u)}
         title="ดูนามบัตร"
       >
@@ -140,12 +141,12 @@ function MemberCard({ u, onOpenCard, onMention }: MemberCardProps) {
       </button>
 
       {/* Name */}
-      <p className="text-[11px] font-semibold text-center leading-tight w-full truncate px-0.5">
+      <p className="text-[11px] sm:text-[12px] font-semibold text-center leading-tight w-full truncate px-0.5">
         {u.full_name}
       </p>
 
       {/* Role badge */}
-      <span className="text-[9px] text-muted-foreground bg-muted/60 border border-border/60 rounded px-1.5 py-0.5 leading-tight text-center w-full truncate">
+      <span className="text-[9px] sm:text-[10px] text-muted-foreground bg-muted/60 border border-border/60 rounded px-1.5 py-0.5 leading-tight text-center w-full truncate">
         {u.department || u.role}
       </span>
 
@@ -204,8 +205,11 @@ function TeamSection({ title, subtitle, barColor, members, onOpenCard, onMention
         </div>
       </div>
 
-      {/* Horizontal scroll row */}
-      <div className="flex gap-2.5 px-4 sm:px-8 pb-1 overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
+      {/* mobile: horizontal scroll | desktop: wrap into rows */}
+      <div
+        className="flex gap-2.5 px-4 sm:px-8 pb-1 overflow-x-auto sm:overflow-visible sm:flex-wrap scrollbar-hide"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
         {members.map((u) => (
           <MemberCard key={u.user_id} u={u} onOpenCard={onOpenCard} onMention={onMention} />
         ))}
