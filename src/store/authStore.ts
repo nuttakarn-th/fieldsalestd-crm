@@ -349,7 +349,13 @@ export const useAuth = create<AuthState>()(
             });
             // eslint-disable-next-line no-console
             console.info(`[supabase] โหลด users ${users.length} ราย จาก DB`);
-            set({ users });
+            // Preserve seed OB Co-ordinator users ถ้า Supabase ไม่มี (demo/staging)
+            // ป้องกัน: loadUsersFromSupabase ทับ "แอน" → obSet ว่าง → OBDashboard = 0
+            const sbHasObCoord = users.some((u) => u.role === "OB Co-ordinator");
+            const finalUsers = sbHasObCoord
+              ? users
+              : [...users, ...SEED_USERS.filter((u) => u.role === "OB Co-ordinator")];
+            set({ users: finalUsers });
           } else {
             // DB ว่าง → migrate localStorage seed users → DB
             // eslint-disable-next-line no-console
