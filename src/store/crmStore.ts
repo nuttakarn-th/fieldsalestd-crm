@@ -931,37 +931,43 @@ export const useCRM = create<CRMState>()(
       let leadsFiltered = leadsQ;
       let routesFiltered = routesQ;
 
+      // ── Query Sales names จาก DB ─────────────────────────────────────────
+      // ดึงก่อน branch เพื่อ reuse สำหรับทั้ง OB exclusion + Sales Manager inclusion
+      // ไม่พึ่ง authStore.users (อาจเป็น seed/stale) — query DB โดยตรงเสมอ
+      const { data: salesUsersData } = await supabase
+        .from("app_users")
+        .select("full_name")
+        .in("role", ["Sales", "Sales Manager"]);
+
+      const salesNames = (salesUsersData ?? [])
+        .map((u: any) => u.full_name as string)
+        .filter(Boolean);
+
       if (isOBRole) {
-        // OB Co-ordinator + OB Manager: EXCLUSION filter — กรอง Sales ออก ที่เหลือคือ OB
-        // ใช้ exclusion (ไม่ใช่ inclusion) เพราะ OB member อาจมี role หลายแบบ
-        // แต่ Sales team ชัดเจนกว่า → query Sales names แล้วกรองออก
-        const { data: salesUsersData } = await supabase
-          .from("app_users")
-          .select("full_name")
-          .in("role", ["Sales", "Sales Manager"]);
-
-        const salesNames = (salesUsersData ?? [])
-          .map((u: any) => u.full_name as string)
-          .filter(Boolean);
-
+        // OB Co-ordinator + OB Manager: NOT IN Sales → เห็นเฉพาะ OB
+        // ใช้ .not("col", "in", list) — Supabase JS standard API
+        // ⚠️ ไม่ใส่ "" รอบชื่อ: Supabase JS encode quotes → %22 ใน URL
+        //    ทำให้ PostgREST parse ผิด filter ไม่ทำงาน (bug เดิมใช้ `"${n}"`)
         if (salesNames.length > 0) {
-          // PostgREST not.in filter — กรอง created_by ที่เป็น Sales ออก
-          const salesFilter = `(${salesNames.map((n) => `"${n}"`).join(",")})`;
-          custFiltered  = custQ.filter("created_by", "not.in", salesFilter);
-          leadsFiltered = leadsQ.filter("assigned_to", "not.in", salesFilter);
-        } else {
-          // Fallback: ไม่รู้ Sales names → โหลดทั้งหมด (UI filter จัดการ)
-          custFiltered  = custQ;
-          leadsFiltered = leadsQ;
+          custFiltered  = custQ.not("created_by", "in", `(${salesNames.join(",")})`);
+          leadsFiltered = leadsQ.not("assigned_to", "in", `(${salesNames.join(",")})`);
         }
+        // ถ้า salesNames ว่าง → custQ/leadsQ ทั้งหมด (UI filter เป็น safety net)
         routesFiltered = routesQ;
+      } else if (isManager) {
+        // Sales Manager: IN Sales names → เห็นเฉพาะ Sales customers (ไม่เห็น OB)
+        // .in(column, array) — Supabase JS จัดการ PostgREST format อัตโนมัติ
+        if (salesNames.length > 0) {
+          custFiltered  = custQ.in("created_by", salesNames);
+          leadsFiltered = leadsQ.in("assigned_to", salesNames);
+        }
       } else if (isSalesOnly) {
         // Sales: เห็นเฉพาะของตัวเอง
         custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
         leadsFiltered = leadsQ.eq("assigned_to", currentUser?.full_name ?? "");
         routesFiltered = routesQ.eq("rep", currentUser?.full_name ?? "");
       }
-      // Manager / Admin / Marketing → custQ ไม่กรอง = เห็นทั้งหมด
+      // Admin / Marketing → custQ ไม่กรอง = เห็นทั้งหมด
 
       // ── โหลด 2 รอบ: critical data ก่อน → secondary ตาม ────────────────────
       // รอบ 1 (critical): customers + leads + targets → Dashboard แสดงเลยทันที

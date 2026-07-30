@@ -74,6 +74,25 @@ export function DataRealtimeSync() {
             // INSERT: immediate — ผู้ใช้อื่นต้องเห็นลูกค้าใหม่ทันที
             const newCust = payload.new as Customer;
             if (!state.customers.some((c) => c.customer_id === newCust.customer_id)) {
+              // ── Dept filter: กรอง customer ของ dept อื่นออก ──────────────
+              // อ่าน authStore โดยตรง (ไม่ใช้ closure) เพื่อได้ข้อมูลล่าสุดเสมอ
+              const auth = useAuth.getState();
+              const selfUser = auth.users.find((u) => u.user_id === auth.currentUserId);
+              const selfRole = selfUser?.role;
+              const selfName = selfUser?.full_name;
+              const salesSet = new Set(
+                auth.users
+                  .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+                  .map((u) => u.full_name)
+              );
+              const isSalesCust = salesSet.size > 0 && salesSet.has(newCust.created_by);
+              // OB ไม่รับ Sales customer ผ่าน Realtime
+              if ((selfRole === "OB Co-ordinator" || selfRole === "OB Manager") && isSalesCust) return;
+              // Sales Manager ไม่รับ OB customer ผ่าน Realtime
+              if (selfRole === "Sales Manager" && salesSet.size > 0 && !isSalesCust) return;
+              // Sales ไม่รับ customer ของคนอื่น
+              if (selfRole === "Sales" && newCust.created_by !== selfName) return;
+
               useCRM.setState({ customers: [newCust, ...state.customers] });
             }
           } else if (payload.eventType === "UPDATE") {
@@ -105,6 +124,21 @@ export function DataRealtimeSync() {
           if (payload.eventType === "INSERT") {
             const newLead = payload.new as Lead;
             if (!state.leads.some((l) => l.lead_id === newLead.lead_id)) {
+              // ── Dept filter ─────────────────────────────────────────────
+              const auth = useAuth.getState();
+              const selfUser = auth.users.find((u) => u.user_id === auth.currentUserId);
+              const selfRole = selfUser?.role;
+              const selfName = selfUser?.full_name;
+              const salesSet = new Set(
+                auth.users
+                  .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+                  .map((u) => u.full_name)
+              );
+              const isSalesLead = salesSet.size > 0 && salesSet.has(newLead.assigned_to);
+              if ((selfRole === "OB Co-ordinator" || selfRole === "OB Manager") && isSalesLead) return;
+              if (selfRole === "Sales Manager" && salesSet.size > 0 && !isSalesLead) return;
+              if (selfRole === "Sales" && newLead.assigned_to !== selfName) return;
+
               useCRM.setState({ leads: [newLead, ...state.leads] });
             }
           } else if (payload.eventType === "UPDATE") {
