@@ -167,18 +167,30 @@ export default function Customers() {
     // Guard: ถ้า currentRep = null/undefined (Supabase ยังโหลดชื่อไม่เสร็จ)
     // ให้ treat เป็น "All" เพื่อป้องกัน obSet.add(null) ที่ทำให้ filter คืน 0 records
     const effectiveRep = currentRep || "All";
+
+    // ── OB Co-ordinator ──────────────────────────────────────────────────────
+    // ใช้ exclusion filter (กรอง Sales ออก) แทน inclusion (ต้องรู้ชื่อ OB ทุกคน)
+    // เหตุผล: obNames อาจไม่ครบถ้า Supabase users ยังโหลดไม่เสร็จ
+    if (user?.role === "OB Co-ordinator") {
+      const salesSet = new Set<string>(SALES_REPS);
+      return customers.filter((c) => {
+        const owner = c.transferred_to ?? c.created_by;
+        // แสดงถ้า owner ไม่ใช่ Sales (= เป็น OB หรือ ระบบ)
+        return !salesSet.has(owner as SalesRep);
+      });
+    }
+
+    // ── OB Manager (effectiveRep === "All") ──────────────────────────────────
+    if (isOBManager) {
+      // OB Manager: เห็นเฉพาะลูกค้าที่ OB Co-ordinator สร้าง ไม่เห็นข้อมูล Sales
+      const salesSet = new Set<string>(SALES_REPS);
+      return customers.filter((c) => {
+        const owner = c.transferred_to ?? c.created_by;
+        return !salesSet.has(owner as SalesRep);
+      });
+    }
+
     if (effectiveRep !== "All") {
-      if (isOBRole) {
-        // OB Co-ordinator: เห็นของตัวเอง + OB pool ทั้งแผนก
-        // obSet รวมชื่อตัวเองเสมอ (กันกรณี obNames ยังโหลดไม่ครบ)
-        const obSet = new Set(obNames);
-        obSet.add(effectiveRep);
-        return customers.filter((c) =>
-          obSet.has(c.created_by) ||
-          (c.transferred_to != null && obSet.has(c.transferred_to)) ||
-          (c.transferred_from != null && obSet.has(c.transferred_from)),
-        );
-      }
       // Sales — เห็นเฉพาะของตัวเอง
       return customers.filter((c) =>
         c.created_by === effectiveRep ||
@@ -186,17 +198,11 @@ export default function Customers() {
         c.transferred_to === effectiveRep,
       );
     }
-    // effectiveRep === "All"
+    // effectiveRep === "All" (Sales Manager / Admin / Marketing)
     if (isOBRole) {
-      // OB Manager: เห็นเฉพาะลูกค้าที่ OB Co-ordinator สร้าง ไม่เห็นข้อมูล Sales
-      // ถ้า obNames ยังโหลดไม่เสร็จ → รอก่อน (แสดง [] ชั่วคราว ดีกว่า leak ข้อมูล Sales)
-      if (obNames.length === 0) return [];
-      const obSet = new Set(obNames);
-      return customers.filter((c) =>
-        obSet.has(c.created_by) ||
-        (c.transferred_to != null && obSet.has(c.transferred_to)) ||
-        (c.transferred_from != null && obSet.has(c.transferred_from)),
-      );
+      // fallback safety (ไม่ควรถึงตรงนี้แล้ว แต่เผื่อ)
+      const salesSet = new Set<string>(SALES_REPS);
+      return customers.filter((c) => !salesSet.has((c.transferred_to ?? c.created_by) as SalesRep));
     }
     // Admin, Sales Manager, Marketing → เห็นทั้งหมด แต่ Marketing แยก dept ได้
     if (isMarketing && deptFilter !== "all") {

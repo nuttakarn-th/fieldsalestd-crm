@@ -930,23 +930,12 @@ export const useCRM = create<CRMState>()(
       let routesFiltered = routesQ;
 
       if (isOBCoord) {
-        // OB Co-ordinator: ดึงข้อมูล OB Pool ทั้งทีม (ไม่ใช่แค่ตัวเอง)
-        const obList = [...obUserNames];
-        if (obList.length > 0) {
-          // built OR filter: created_by.eq."A",created_by.eq."B",...,transferred_to.eq."A",...
-          const orParts = [
-            ...obList.map((n) => `created_by.eq.${JSON.stringify(n)}`),
-            ...obList.map((n) => `transferred_to.eq.${JSON.stringify(n)}`),
-          ].join(",");
-          custFiltered  = custQ.or(orParts);
-          leadsFiltered = leadsQ.in("assigned_to", obList);
-          routesFiltered = routesQ.in("rep", obList);
-        } else {
-          // Fallback (users ยังโหลดไม่เสร็จ): ดึงเฉพาะของตัวเอง ก่อน
-          custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
-          leadsFiltered = leadsQ.eq("assigned_to", currentUser?.full_name ?? "");
-          routesFiltered = routesQ.eq("rep", currentUser?.full_name ?? "");
-        }
+        // OB Co-ordinator: โหลดข้อมูลทั้งหมด (ไม่กรองที่ Supabase)
+        // เหตุผล: กรองด้วย obNames อาจพลาด OB member ที่ยังไม่อยู่ใน users list
+        // UI (Customers.tsx) จะกรองออก Sales data เองอีกชั้น
+        custFiltered   = custQ;   // load all → UI filters
+        leadsFiltered  = leadsQ;  // load all → UI filters
+        routesFiltered = routesQ; // load all → UI filters
       } else if (isSalesOnly) {
         // Sales: เห็นเฉพาะของตัวเอง
         custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
