@@ -896,8 +896,10 @@ export const useCRM = create<CRMState>()(
       // Sales เห็นแค่ข้อมูลตัวเอง | Manager/Admin เห็นทั้งทีม
       const authState = useAuth.getState();
       const currentUser = authState.users.find((u) => u.user_id === authState.currentUserId);
-      const isSalesOnly = currentUser?.role === "Sales"; // OB Co-ordinator แยก logic ต่างหาก
+      const isSalesOnly = currentUser?.role === "Sales";
       const isOBCoord  = currentUser?.role === "OB Co-ordinator";
+      const isOBManager = currentUser?.role === "OB Manager";
+      const isOBRole   = isOBCoord || isOBManager;
       const isManager  = currentUser?.role === "Sales Manager";
       // OB Co-ordinator full_names — ใช้ block Manager ไม่ให้เห็น OB data (app-level double-layer)
       const obUserNames = new Set(
@@ -929,13 +931,29 @@ export const useCRM = create<CRMState>()(
       let leadsFiltered = leadsQ;
       let routesFiltered = routesQ;
 
-      if (isOBCoord) {
-        // OB Co-ordinator: โหลดข้อมูลทั้งหมด (ไม่กรองที่ Supabase)
-        // เหตุผล: กรองด้วย obNames อาจพลาด OB member ที่ยังไม่อยู่ใน users list
-        // UI (Customers.tsx) จะกรองออก Sales data เองอีกชั้น
-        custFiltered   = custQ;   // load all → UI filters
-        leadsFiltered  = leadsQ;  // load all → UI filters
-        routesFiltered = routesQ; // load all → UI filters
+      if (isOBRole) {
+        // OB Co-ordinator + OB Manager: กรองที่ Supabase โดย query app_users โดยตรง
+        // ไม่พึ่ง authState.users (อาจเป็น SEED_USERS หรือยังโหลดไม่เสร็จ)
+        const { data: obUsersData } = await supabase
+          .from("app_users")
+          .select("full_name")
+          .in("role", ["OB Co-ordinator", "OB Manager"]);
+
+        const obMemberNames = (obUsersData ?? [])
+          .map((u: any) => u.full_name as string)
+          .filter(Boolean);
+
+        if (obMemberNames.length > 0) {
+          // customers: เห็นเฉพาะที่ OB team สร้าง
+          custFiltered  = custQ.in("created_by", obMemberNames);
+          // leads: เห็นเฉพาะที่ assigned ให้ OB team
+          leadsFiltered = leadsQ.in("assigned_to", obMemberNames);
+        } else {
+          // Fallback ถ้า query users ล้มเหลว → โหลดทั้งหมด (UI filter จะจัดการ)
+          custFiltered  = custQ;
+          leadsFiltered = leadsQ;
+        }
+        routesFiltered = routesQ;
       } else if (isSalesOnly) {
         // Sales: เห็นเฉพาะของตัวเอง
         custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
