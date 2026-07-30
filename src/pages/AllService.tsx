@@ -1674,7 +1674,7 @@ ${catBlocks}
                   : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
               >
                 {expandAll ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                {expandAll ? "ยุบทั้งหมด" : "펼치기 ทั้งหมด"}
+                {expandAll ? "ยุบทั้งหมด" : "เปิดทั้งหมด"}
               </button>
             </div>
           </div>
