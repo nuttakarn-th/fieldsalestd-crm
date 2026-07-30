@@ -117,8 +117,8 @@ export default function Pipeline() {
 
     if (isOBRole) {
       // OB Co-ordinator + OB Manager: เห็น leads ของทีม OB ทั้งหมด
-      // ใช้ exclusion filter — กรอง Sales ออก ที่เหลือคือ OB leads
-      // ไม่ขึ้นอยู่กับ obNames ว่าครบหรือไม่ → ทุกคนใน OB เห็นของกันหมด
+      // Guard: ถ้า salesTeamNames ยังว่าง (users ยังโหลดไม่เสร็จ) → คืน [] ป้องกัน data leak
+      if (salesTeamNames.length === 0) return [];
       const salesSet = new Set(salesTeamNames);
       base = leads.filter((l) => !salesSet.has(l.assigned_to));
     } else if (user?.role === "Sales Manager") {

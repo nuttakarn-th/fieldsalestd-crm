@@ -170,24 +170,24 @@ export default function Customers() {
     const effectiveRep = currentRep || "All";
 
     // ── OB Co-ordinator ──────────────────────────────────────────────────────
-    // ใช้ exclusion filter (กรอง Sales ออก) แทน inclusion (ต้องรู้ชื่อ OB ทุกคน)
-    // เหตุผล: obNames อาจไม่ครบถ้า Supabase users ยังโหลดไม่เสร็จ
+    // ใช้ exclusion filter (กรอง Sales ออก) โดยใช้ salesTeamNames ที่อยู่ใน dep array
+    // Guard: ถ้า salesTeamNames ยังว่าง (users ยังโหลดไม่เสร็จ) → คืน [] เพื่อป้องกัน data leak
     if (user?.role === "OB Co-ordinator") {
-      const salesSet = new Set<string>(SALES_REPS);
+      if (salesTeamNames.length === 0) return []; // รอ users โหลดก่อน
+      const salesSet = new Set<string>(salesTeamNames);
       return customers.filter((c) => {
         const owner = c.transferred_to ?? c.created_by;
-        // แสดงถ้า owner ไม่ใช่ Sales (= เป็น OB หรือ ระบบ)
-        return !salesSet.has(owner as SalesRep);
+        return !salesSet.has(owner as string);
       });
     }
 
-    // ── OB Manager (effectiveRep === "All") ──────────────────────────────────
+    // ── OB Manager ───────────────────────────────────────────────────────────
     if (isOBManager) {
-      // OB Manager: เห็นเฉพาะลูกค้าที่ OB Co-ordinator สร้าง ไม่เห็นข้อมูล Sales
-      const salesSet = new Set<string>(SALES_REPS);
+      if (salesTeamNames.length === 0) return []; // รอ users โหลดก่อน
+      const salesSet = new Set<string>(salesTeamNames);
       return customers.filter((c) => {
         const owner = c.transferred_to ?? c.created_by;
-        return !salesSet.has(owner as SalesRep);
+        return !salesSet.has(owner as string);
       });
     }
 
@@ -212,8 +212,9 @@ export default function Customers() {
     // effectiveRep === "All" (Admin / Marketing)
     if (isOBRole) {
       // fallback safety (ไม่ควรถึงตรงนี้แล้ว แต่เผื่อ)
-      const salesSet = new Set<string>(SALES_REPS);
-      return customers.filter((c) => !salesSet.has((c.transferred_to ?? c.created_by) as SalesRep));
+      if (salesTeamNames.length === 0) return [];
+      const salesSet = new Set<string>(salesTeamNames);
+      return customers.filter((c) => !salesSet.has((c.transferred_to ?? c.created_by) as string));
     }
     // Admin, Sales Manager, Marketing → เห็นทั้งหมด แต่ Marketing แยก dept ได้
     if (isMarketing && deptFilter !== "all") {
