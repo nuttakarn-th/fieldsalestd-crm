@@ -896,7 +896,8 @@ export const useCRM = create<CRMState>()(
       // Sales เห็นแค่ข้อมูลตัวเอง | Manager/Admin เห็นทั้งทีม
       const authState = useAuth.getState();
       const currentUser = authState.users.find((u) => u.user_id === authState.currentUserId);
-      const isSalesOnly = currentUser?.role === "Sales" || currentUser?.role === "OB Co-ordinator";
+      const isSalesOnly = currentUser?.role === "Sales"; // OB Co-ordinator แยก logic ต่างหาก
+      const isOBCoord  = currentUser?.role === "OB Co-ordinator";
       const isManager  = currentUser?.role === "Sales Manager";
       // OB Co-ordinator full_names — ใช้ block Manager ไม่ให้เห็น OB data (app-level double-layer)
       const obUserNames = new Set(
@@ -923,10 +924,36 @@ export const useCRM = create<CRMState>()(
         .order("date", { ascending: false })
         .limit(60);
 
-      // Sales: กรองเฉพาะข้อมูลของตัวเอง
-      const custFiltered  = isSalesOnly ? custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`) : custQ;
-      const leadsFiltered = isSalesOnly ? leadsQ.eq("assigned_to", currentUser?.full_name ?? "") : leadsQ;
-      const routesFiltered = isSalesOnly ? routesQ.eq("rep", currentUser?.full_name ?? "") : routesQ;
+      // ── Supabase-level filter ────────────────────────────────────────────
+      let custFiltered  = custQ;
+      let leadsFiltered = leadsQ;
+      let routesFiltered = routesQ;
+
+      if (isOBCoord) {
+        // OB Co-ordinator: ดึงข้อมูล OB Pool ทั้งทีม (ไม่ใช่แค่ตัวเอง)
+        const obList = [...obUserNames];
+        if (obList.length > 0) {
+          // built OR filter: created_by.eq."A",created_by.eq."B",...,transferred_to.eq."A",...
+          const orParts = [
+            ...obList.map((n) => `created_by.eq.${JSON.stringify(n)}`),
+            ...obList.map((n) => `transferred_to.eq.${JSON.stringify(n)}`),
+          ].join(",");
+          custFiltered  = custQ.or(orParts);
+          leadsFiltered = leadsQ.in("assigned_to", obList);
+          routesFiltered = routesQ.in("rep", obList);
+        } else {
+          // Fallback (users ยังโหลดไม่เสร็จ): ดึงเฉพาะของตัวเอง ก่อน
+          custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
+          leadsFiltered = leadsQ.eq("assigned_to", currentUser?.full_name ?? "");
+          routesFiltered = routesQ.eq("rep", currentUser?.full_name ?? "");
+        }
+      } else if (isSalesOnly) {
+        // Sales: เห็นเฉพาะของตัวเอง
+        custFiltered  = custQ.or(`created_by.eq.${repFilter},transferred_to.eq.${repFilter}`);
+        leadsFiltered = leadsQ.eq("assigned_to", currentUser?.full_name ?? "");
+        routesFiltered = routesQ.eq("rep", currentUser?.full_name ?? "");
+      }
+      // Manager / Admin / Marketing → custQ ไม่กรอง = เห็นทั้งหมด
 
       // ── โหลด 2 รอบ: critical data ก่อน → secondary ตาม ────────────────────
       // รอบ 1 (critical): customers + leads + targets → Dashboard แสดงเลยทันที
