@@ -121,11 +121,15 @@ export default function Pipeline() {
       // ไม่ขึ้นอยู่กับ obNames ว่าครบหรือไม่ → ทุกคนใน OB เห็นของกันหมด
       const salesSet = new Set(salesTeamNames);
       base = leads.filter((l) => !salesSet.has(l.assigned_to));
+    } else if (user?.role === "Sales Manager") {
+      // Sales Manager เห็นเฉพาะ leads ของทีม Sales ทั้งหมด — ห้ามเห็น OB
+      const salesSet = new Set(salesTeamNames);
+      base = leads.filter((l) => salesSet.has(l.assigned_to));
     } else if (effectiveRep !== "All") {
       // Sales — เห็นเฉพาะของตัวเอง
       base = leads.filter((l) => l.assigned_to === effectiveRep);
     } else {
-      // Admin, Sales Manager → เห็นทั้งหมด
+      // Admin → เห็นทั้งหมด
       base = leads;
     }
     // กรอง leads ที่ customer ถูกลบออกไปแล้ว

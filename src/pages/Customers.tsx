@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
-import { useCurrentUser, useActiveSalesNames, useActiveOBNames } from "@/store/authStore";
+import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -108,7 +108,8 @@ export default function Customers() {
     () => new Set(deleteRequests.filter((r) => r.status === "pending").map((r) => r.customer_id)),
     [deleteRequests],
   );
-  const SALES_REPS = useActiveSalesNames() as SalesRep[];
+  const SALES_REPS     = useActiveSalesNames() as SalesRep[];
+  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager (สำหรับ inclusion filter)
   const obNames = useActiveOBNames();
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
@@ -198,7 +199,17 @@ export default function Customers() {
         c.transferred_to === effectiveRep,
       );
     }
-    // effectiveRep === "All" (Sales Manager / Admin / Marketing)
+
+    // Sales Manager — เห็นทุก customer ของทีม Sales เท่านั้น ห้ามเห็น OB
+    if (isSalesManager) {
+      const salesSet = new Set<string>(salesTeamNames);
+      return customers.filter((c) => {
+        const owner = c.transferred_to ?? c.created_by;
+        return salesSet.has(owner as string);
+      });
+    }
+
+    // effectiveRep === "All" (Admin / Marketing)
     if (isOBRole) {
       // fallback safety (ไม่ควรถึงตรงนี้แล้ว แต่เผื่อ)
       const salesSet = new Set<string>(SALES_REPS);
@@ -221,7 +232,7 @@ export default function Customers() {
       );
     }
     return customers;
-  }, [customers, currentRep, isOBRole, obNames, isMarketing, deptFilter, obSet]);
+  }, [customers, currentRep, isOBRole, isSalesManager, obNames, salesTeamNames, isMarketing, deptFilter, obSet]);
 
   const filtered = useMemo(() => {
     const s = debouncedQ.trim().toLowerCase();
