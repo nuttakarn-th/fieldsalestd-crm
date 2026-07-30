@@ -405,6 +405,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   // ── expanded programs ──
   const [expanded, setExpanded]   = useState<Set<string>>(new Set());
+  const [expandAll, setExpandAll] = useState(false);
+  const [hotPopover, setHotPopover] = useState(false);
   const toggleExpand = (id: string) =>
     setExpanded((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
@@ -1663,6 +1665,17 @@ ${catBlocks}
                   <SelectItem value="added">เพิ่มเข้าล่าสุด</SelectItem>
                 </SelectContent>
               </Select>
+              {/* Expand All toggle */}
+              <button
+                onClick={() => setExpandAll((v) => !v)}
+                className="h-7 px-2.5 rounded-md border text-[11px] font-medium transition-colors shrink-0 flex items-center gap-1"
+                style={expandAll
+                  ? { background: "#7C3AED", borderColor: "#7C3AED", color: "#fff" }
+                  : { borderColor: "hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
+              >
+                {expandAll ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                {expandAll ? "ยุบทั้งหมด" : "펼치기 ทั้งหมด"}
+              </button>
             </div>
           </div>
         </div>
@@ -1769,6 +1782,28 @@ ${catBlocks}
           { label: "Dom",  color: "#F59E0B", seats: stats.domSeats,  booked: stats.domBooked  },
           { label: "Inc",  color: "#7C3AED", seats: stats.incSeats,  booked: stats.incBooked  },
         ].filter((c) => c.seats > 0);
+
+        // ✈️ Hot periods — period ที่มียอดจอง ≥ 10 ที่นั่ง
+        type HotItem = { tourTitle: string; tourCode: string; periodLabel: string; booked: number; total: number };
+        const hotItems: HotItem[] = [];
+        allActiveTours.forEach((t) => {
+          (t.periods ?? []).filter((p) => !p.cancelled && !p.archived).forEach((p) => {
+            const booked = Math.max(0, (p.total_seats ?? 0) - (p.quota ?? 0));
+            if (booked >= 10) {
+              hotItems.push({
+                tourTitle: t.title ?? t.city ?? t.code ?? "—",
+                tourCode: t.code ?? "",
+                periodLabel: p.departure_date
+                  ? new Date(p.departure_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
+                  : `Period ${p.period_id?.slice(-4) ?? ""}`,
+                booked,
+                total: p.total_seats ?? 0,
+              });
+            }
+          });
+        });
+        hotItems.sort((a, b) => b.booked - a.booked);
+
         return (
           <div className="hidden sm:block border-b border-border bg-card">
             {/* ══ ROW 1: Seat stats + toggles + Dashboard ══ */}
@@ -1923,6 +1958,45 @@ ${catBlocks}
                     })}
                   </div>
                 )}
+
+                {/* ✈️ Hot badge — period ที่จอง ≥ 10 ที่นั่ง */}
+                {hotItems.length > 0 && (
+                  <div className="px-3 py-1.5 shrink-0 relative">
+                    <Popover open={hotPopover} onOpenChange={setHotPopover}>
+                      <PopoverTrigger asChild>
+                        <button
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white shadow-sm transition-all hover:scale-105 active:scale-95"
+                          style={{ background: "linear-gradient(135deg, #7C3AED, #6D28D9)" }}
+                        >
+                          <Plane className="w-3 h-3" />
+                          <span>{hotItems.length}</span>
+                          <span className="font-medium opacity-90">ที่นั่งจอง &gt;10</span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-0 shadow-xl" sideOffset={6}>
+                        <div className="px-3 py-2.5 border-b border-border flex items-center gap-2">
+                          <Plane className="w-3.5 h-3.5 text-violet-500" />
+                          <span className="text-[12px] font-bold text-foreground">Period ยอดจอง ≥ 10 ที่นั่ง</span>
+                          <span className="ml-auto text-[11px] font-semibold text-violet-600 bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 rounded-full">{hotItems.length}</span>
+                        </div>
+                        <div className="max-h-[320px] overflow-y-auto divide-y divide-border/50">
+                          {hotItems.map((item, i) => (
+                            <div key={i} className="px-3 py-2 flex items-start gap-2 hover:bg-muted/40 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-semibold text-foreground truncate">{item.tourTitle}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{item.tourCode} · {item.periodLabel}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <span className="text-[13px] font-bold text-violet-600">{item.booked}</span>
+                                <span className="text-[10px] text-muted-foreground">/{item.total}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1959,7 +2033,7 @@ ${catBlocks}
             <div className="space-y-2 px-4 sm:px-6 mt-3">
               {items.map((t) => {
                 const hasPeriods = (t.periods?.length ?? 0) > 0;
-                const isExpanded = expanded.has(t.id);
+                const isExpanded = expandAll || expanded.has(t.id);
                 const activePeriods = (t.periods ?? []).filter((p) => !p.cancelled);
                 // ── Period-level filter (matches tour-level logic but applied per period) ──
                 const visiblePeriods = (t.periods ?? []).filter((p) => {
