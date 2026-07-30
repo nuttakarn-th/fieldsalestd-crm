@@ -932,24 +932,25 @@ export const useCRM = create<CRMState>()(
       let routesFiltered = routesQ;
 
       if (isOBRole) {
-        // OB Co-ordinator + OB Manager: กรองที่ Supabase โดย query app_users โดยตรง
-        // ไม่พึ่ง authState.users (อาจเป็น SEED_USERS หรือยังโหลดไม่เสร็จ)
-        const { data: obUsersData } = await supabase
+        // OB Co-ordinator + OB Manager: EXCLUSION filter — กรอง Sales ออก ที่เหลือคือ OB
+        // ใช้ exclusion (ไม่ใช่ inclusion) เพราะ OB member อาจมี role หลายแบบ
+        // แต่ Sales team ชัดเจนกว่า → query Sales names แล้วกรองออก
+        const { data: salesUsersData } = await supabase
           .from("app_users")
           .select("full_name")
-          .in("role", ["OB Co-ordinator", "OB Manager"]);
+          .in("role", ["Sales", "Sales Manager"]);
 
-        const obMemberNames = (obUsersData ?? [])
+        const salesNames = (salesUsersData ?? [])
           .map((u: any) => u.full_name as string)
           .filter(Boolean);
 
-        if (obMemberNames.length > 0) {
-          // customers: เห็นเฉพาะที่ OB team สร้าง
-          custFiltered  = custQ.in("created_by", obMemberNames);
-          // leads: เห็นเฉพาะที่ assigned ให้ OB team
-          leadsFiltered = leadsQ.in("assigned_to", obMemberNames);
+        if (salesNames.length > 0) {
+          // PostgREST not.in filter — กรอง created_by ที่เป็น Sales ออก
+          const salesFilter = `(${salesNames.map((n) => `"${n}"`).join(",")})`;
+          custFiltered  = custQ.filter("created_by", "not.in", salesFilter);
+          leadsFiltered = leadsQ.filter("assigned_to", "not.in", salesFilter);
         } else {
-          // Fallback ถ้า query users ล้มเหลว → โหลดทั้งหมด (UI filter จะจัดการ)
+          // Fallback: ไม่รู้ Sales names → โหลดทั้งหมด (UI filter จัดการ)
           custFiltered  = custQ;
           leadsFiltered = leadsQ;
         }

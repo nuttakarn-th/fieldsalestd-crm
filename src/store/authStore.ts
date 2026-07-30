@@ -355,7 +355,49 @@ export const useAuth = create<AuthState>()(
             const finalUsers = sbHasObCoord
               ? users
               : [...users, ...SEED_USERS.filter((u) => u.role === "OB Co-ordinator")];
+
+            // ── CAPTURE stale currentUser ก่อน set (ใช้เปรียบเทียบหลัง sync) ────
+            // ต้อง capture ก่อน set({ users }) เพราะหลัง set แล้ว get().users = finalUsers
+            const currentUserId = get().currentUserId;
+            const cachedSelf = currentUserId
+              ? get().users.find((u) => u.user_id === currentUserId)
+              : undefined;
+
             set({ users: finalUsers });
+
+            // ── AUTO-SYNC currentUser จาก DB ───────────────────────────────────
+            // แก้ปัญหา: user เปลี่ยนชื่อ/role ใน DB แต่ localStorage ยังเก็บข้อมูลเก่า
+            // (เช่น "Tukta" → "Aranyanee Chuayklom") → ระบบ sync อัตโนมัติ ไม่ต้อง clear cache
+            //
+            // useCurrentUser() derive จาก: s.users.find(u => u.user_id === s.currentUserId)
+            // → set({ users: finalUsers }) ข้างบนทำให้ useCurrentUser() คืนชื่อใหม่ทันที
+            // → ทุก component ที่ใช้ useCurrentUser() จะ re-render ด้วย full_name ใหม่
+            // → ครั้งต่อไปที่ user บันทึก lead/customer → ใช้ full_name ใหม่จาก DB เสมอ
+            if (currentUserId) {
+              const freshSelf = finalUsers.find((u) => u.user_id === currentUserId);
+              if (!freshSelf) {
+                // user ถูกลบออกจาก DB → force logout อัตโนมัติ ป้องกัน ghost session
+                // eslint-disable-next-line no-console
+                console.warn(`[auth] currentUser "${currentUserId}" ไม่มีใน DB → force logout`);
+                setSupabaseAuthToken(null);
+                set({ currentUserId: null, jwtToken: null, jwtExpiresAt: null });
+              } else {
+                if (cachedSelf?.full_name && freshSelf.full_name !== cachedSelf.full_name) {
+                  // eslint-disable-next-line no-console
+                  console.info(`[auth] auto-sync name: "${cachedSelf.full_name}" → "${freshSelf.full_name}" (sync จาก DB — ไม่ต้อง clear cache)`);
+                  // ไม่ต้อง set เพิ่ม — set({ users: finalUsers }) ข้างบนจัดการแล้ว
+                }
+                if (cachedSelf?.role && freshSelf.role !== cachedSelf.role) {
+                  // role เปลี่ยน (เช่น Sales → OB Co-ordinator) → re-load CRM data ด้วย filter ใหม่
+                  // eslint-disable-next-line no-console
+                  console.info(`[auth] auto-sync role: "${cachedSelf.role}" → "${freshSelf.role}" → reload CRM data`);
+                  // dynamic import ป้องกัน circular dependency authStore ↔ crmStore
+                  import("@/store/crmStore").then(({ useCRM }) => {
+                    useCRM.getState().loadAllFromSupabase();
+                  });
+                }
+              }
+            }
           } else {
             // DB ว่าง → migrate localStorage seed users → DB
             // eslint-disable-next-line no-console
