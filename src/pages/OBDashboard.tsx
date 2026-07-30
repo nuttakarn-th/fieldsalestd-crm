@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, isClosedStatus, isLostStatus } from "@/store/crmStore";
-import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
+import { useCurrentUser, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -142,7 +142,8 @@ function FunnelBar({ label, count, total, color }: { label: string; count: numbe
 
 export default function OBDashboard() {
   const user     = useCurrentUser();
-  const obNames  = useActiveOBNames();
+  const obNames        = useActiveOBNames();
+  const salesTeamNames = useActiveSalesTeamNames();
   const allLeads = useCRM((s) => s.leads);
   const targets  = useCRM((s) => s.targets);
 
@@ -150,12 +151,14 @@ export default function OBDashboard() {
   const thisMonth = currentMonthKey();
   const lastMonth = prevMonthKey();
 
-  const obSet = useMemo(() => new Set(obNames), [obNames]);
+  const obSet    = useMemo(() => new Set(obNames), [obNames]);
+  const salesSet = useMemo(() => new Set(salesTeamNames), [salesTeamNames]);
 
-  // ── OB Pool: leads where assigned_to is an OB Co-ordinator ──────────────────
+  // ── OB Pool: leads ที่ไม่ใช่ของ Sales team (exclusion filter)
+  // ใช้ exclusion แทน inclusion เพื่อรองรับ OB member ทุกคนโดยไม่ต้องรู้ชื่อล่วงหน้า
   const obLeads = useMemo(
-    () => allLeads.filter((l) => obSet.has(l.assigned_to)),
-    [allLeads, obSet],
+    () => allLeads.filter((l) => !salesSet.has(l.assigned_to)),
+    [allLeads, salesSet],
   );
 
   const activeLeads = useMemo(

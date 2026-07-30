@@ -23,7 +23,7 @@ import {
   isLostStatus, isClosedStatus,
   type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
-import { useCurrentUser, useActiveOBNames } from "@/store/authStore";
+import { useCurrentUser, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -51,7 +51,8 @@ export default function Pipeline() {
   const user = useCurrentUser();
   const isOB = user?.role === "OB Co-ordinator";
   const isOBRole = user?.role === "OB Co-ordinator" || user?.role === "OB Manager";
-  const obNames = useActiveOBNames();
+  const obNames = useActiveOBNames(); // รวม OB Co-ordinator + OB Manager
+  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager เท่านั้น (สำหรับ exclusion filter)
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const tours = useServices((s) => s.tours);
@@ -113,32 +114,23 @@ export default function Pipeline() {
     let base: typeof leads;
     // Guard: ถ้า currentRep = null (Supabase ยังโหลดชื่อไม่เสร็จ) → treat เป็น "All"
     const effectiveRep = currentRep || "All";
-    if (effectiveRep !== "All") {
-      if (isOBRole) {
-        // OB Co-ordinator: เห็น leads ของตัวเอง + OB pool
-        const obSet = new Set(obNames);
-        obSet.add(effectiveRep); // รวมตัวเองเสมอ
-        base = leads.filter((l) => obSet.has(l.assigned_to));
-      } else {
-        // Sales — เห็นเฉพาะของตัวเอง
-        base = leads.filter((l) => l.assigned_to === effectiveRep);
-      }
-    } else if (isOBRole) {
-      // OB Manager: เห็นเฉพาะ leads ของ OB Co-ordinator ไม่เห็น Sales leads
-      // ถ้า obNames ยังโหลดไม่เสร็จ → รอก่อน (แสดง [] ชั่วคราว)
-      if (obNames.length === 0) {
-        base = [];
-      } else {
-        const obSet = new Set(obNames);
-        base = leads.filter((l) => obSet.has(l.assigned_to));
-      }
+
+    if (isOBRole) {
+      // OB Co-ordinator + OB Manager: เห็น leads ของทีม OB ทั้งหมด
+      // ใช้ exclusion filter — กรอง Sales ออก ที่เหลือคือ OB leads
+      // ไม่ขึ้นอยู่กับ obNames ว่าครบหรือไม่ → ทุกคนใน OB เห็นของกันหมด
+      const salesSet = new Set(salesTeamNames);
+      base = leads.filter((l) => !salesSet.has(l.assigned_to));
+    } else if (effectiveRep !== "All") {
+      // Sales — เห็นเฉพาะของตัวเอง
+      base = leads.filter((l) => l.assigned_to === effectiveRep);
     } else {
       // Admin, Sales Manager → เห็นทั้งหมด
       base = leads;
     }
     // กรอง leads ที่ customer ถูกลบออกไปแล้ว
     return base.filter((l) => customerIds.has(l.customer_id));
-  }, [leads, customers, currentRep, isOBRole, obNames]);
+  }, [leads, customers, currentRep, isOBRole, salesTeamNames]);
 
   const grouped = useMemo(() => {
     const map: Partial<Record<LeadStatus, Lead[]>> = {};

@@ -492,11 +492,13 @@ export function useActiveSalesOnly(): string[] {
     .map((u) => u.full_name);
 }
 
-/** Returns full_names of all active OB Co-ordinators — for OB shared-pool filter */
+/** Returns full_names of all active OB team (OB Co-ordinator + OB Manager) — for OB shared-pool filter
+ *  รวมทั้ง 2 role เพื่อให้ทุกคนในทีม OB เห็น leads/customers ของกันและกัน
+ *  ไม่ว่าจะตั้งชื่อใดก็ตาม ใช้ role เป็น identifier */
 export function useActiveOBNames(): string[] {
   const users = useAuth((s) => s.users);
   return users
-    .filter((u) => u.role === "OB Co-ordinator")
+    .filter((u) => u.role === "OB Co-ordinator" || u.role === "OB Manager")
     .map((u) => u.full_name);
 }
 
