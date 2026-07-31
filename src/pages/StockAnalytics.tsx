@@ -7,7 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, Cell, PieChart, Pie,
 } from "recharts";
-import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2, Bell } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
 import type { TourPeriod, TourItem } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -157,10 +157,39 @@ function KpiCard({ icon: Icon, label, curVal, prevVal, format, color }:
 // ── PIE COLORS ────────────────────────────────────────────────────────────────
 const PIE_COLORS = ["#7C3AED", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#EF4444", "#14B8A6"];
 
-// ── At-Risk Banner (ใน StockAnalytics page) ───────────────────────────────────
+// ── At-Risk Cards (ใน StockAnalytics page) ────────────────────────────────────
+function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
+  const isCrit = p.level === "critical";
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
+  return (
+    <div className="px-4 py-3 hover:bg-muted/20 transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${isCrit ? "bg-red-500" : "bg-amber-400"}`}>
+              {isCrit ? `🚨 ≤${p.daysLeft}d` : `⚠ ${p.daysLeft}d`}
+            </span>
+            <span className="text-[9px] text-muted-foreground">fill rate</span>
+          </div>
+          <p className="text-xs font-bold text-foreground truncate">{p.tourCode}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{p.tourCity} · {p.country}</p>
+          <p className="text-[10px] text-muted-foreground">เดินทาง {fmtDate(p.startDate)}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className={`text-lg font-bold leading-none ${isCrit ? "text-red-500" : "text-amber-500"}`}>{p.fillRate}%</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">ว่าง {p.quota}/{p.totalSeats}</p>
+          <div className="mt-1.5 w-16 h-1 rounded-full bg-muted overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${p.fillRate}%`, background: isCrit ? "#EF4444" : "#F59E0B" }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AtRiskBanner() {
   const atRisk = useAtRiskPeriods();
-  const [collapsed, setCollapsed] = useState(true);
   if (atRisk.length === 0) return null;
 
   const critical = atRisk.filter((p) => p.level === "critical");
@@ -168,82 +197,47 @@ function AtRiskBanner() {
   const hasCrit  = critical.length > 0;
 
   return (
-    <div className={`rounded-2xl border-2 overflow-hidden transition-all ${hasCrit ? "border-red-200 bg-red-50 dark:border-red-500/40 dark:bg-red-950/40" : "border-amber-200 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40"}`}>
-      {/* Header row */}
-      <button
-        type="button"
-        onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:opacity-80 transition-opacity"
-      >
-        <Bell className={`w-4 h-4 shrink-0 ${hasCrit ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`} />
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-bold ${hasCrit ? "text-red-700 dark:text-red-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {hasCrit ? `🚨 ${critical.length} Period ต้องโปรโมทด่วน` : `⚠ ${warning.length} Period เฝ้าระวัง`}
-            {hasCrit && warning.length > 0 && (
-              <span className="ml-2 text-xs font-normal text-amber-600 dark:text-amber-400">+ ⚠ {warning.length} อยู่ในเฝ้าระวัง</span>
-            )}
-          </p>
-          <p className={`text-xs ${hasCrit ? "text-red-500 dark:text-red-400/80" : "text-amber-500 dark:text-amber-400/80"}`}>
-            fill rate &lt; 40% ใกล้วันเดินทาง — คลิกเพื่อดูรายละเอียด
-          </p>
-        </div>
-        <span className={`text-xs font-semibold shrink-0 ${hasCrit ? "text-red-400 dark:text-red-400/70" : "text-amber-400 dark:text-amber-400/70"}`}>
-          {collapsed ? "▸ ขยาย" : "▾ ย่อ"}
-        </span>
-      </button>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      {/* Collapsible period list */}
-      {!collapsed && (
-        <div className="border-t border-current/10">
-          {/* Critical */}
-          {critical.length > 0 && (
-            <div>
-              <div className="px-4 py-1.5 bg-red-100 dark:bg-red-500/20 text-[10px] font-bold uppercase text-red-600 dark:text-red-300 tracking-wider">
-                🚨 ด่วนมาก — เหลือ ≤ 7 วัน ({critical.length} period)
-              </div>
-              <div className="divide-y divide-red-100 dark:divide-red-900/40">
-                {critical.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
-              </div>
+      {/* ── ด่วนมาก card ── */}
+      {hasCrit && (
+        <div className="bg-card rounded-2xl border border-red-200 dark:border-red-500/40 shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-red-100 dark:border-red-500/30 bg-red-50 dark:bg-red-950/40 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <p className="text-sm font-bold text-red-700 dark:text-red-300">ด่วนมาก</p>
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white bg-red-500">{critical.length}</span>
             </div>
-          )}
-          {/* Warning */}
-          {warning.length > 0 && (
-            <div>
-              <div className="px-4 py-1.5 bg-amber-100 dark:bg-amber-500/20 text-[10px] font-bold uppercase text-amber-600 dark:text-amber-300 tracking-wider">
-                ⚠ เฝ้าระวัง — เหลือ 8–30 วัน ({warning.length} period)
-              </div>
-              <div className="divide-y divide-amber-100 dark:divide-amber-900/40">
-                {warning.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
-              </div>
-            </div>
-          )}
+            <p className="text-[10px] text-red-500/80">fill &lt;40% · เหลือ ≤7 วัน</p>
+          </div>
+          {/* List */}
+          <div className="divide-y divide-border/50 max-h-72 overflow-y-auto">
+            {critical.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
+          </div>
         </div>
       )}
-    </div>
-  );
-}
 
-function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
-  const isCrit = p.level === "critical";
-  const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
-  return (
-    <div className="px-4 py-2.5 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-      <span className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${isCrit ? "bg-red-500" : "bg-amber-400"}`}>
-        {p.daysLeft}d
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-foreground truncate">{p.tourCode} · {p.tourCity}</p>
-        <p className="text-[10px] text-muted-foreground">{p.country} · เดินทาง {fmtDate(p.startDate)}</p>
-      </div>
-      <div className="shrink-0 text-right">
-        <p className={`text-sm font-bold ${isCrit ? "text-red-500 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}`}>{p.fillRate}%</p>
-        <p className="text-[10px] text-muted-foreground">ว่าง {p.quota} ที่</p>
-      </div>
-      {/* mini fill bar */}
-      <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden shrink-0">
-        <div className="h-full rounded-full" style={{ width: `${p.fillRate}%`, background: isCrit ? "#EF4444" : "#F59E0B" }} />
-      </div>
+      {/* ── เฝ้าระวัง card ── */}
+      {warning.length > 0 && (
+        <div className="bg-card rounded-2xl border border-amber-200 dark:border-amber-500/40 shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-amber-100 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-amber-500" />
+              <p className="text-sm font-bold text-amber-700 dark:text-amber-300">เฝ้าระวัง</p>
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white bg-amber-500">{warning.length}</span>
+            </div>
+            <p className="text-[10px] text-amber-500/80">fill &lt;40% · เหลือ 8–30 วัน</p>
+          </div>
+          {/* List */}
+          <div className="divide-y divide-border/50 max-h-72 overflow-y-auto">
+            {warning.map((p) => <AtRiskRow key={p.periodId} p={p} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ถ้ามีแค่อย่างใดอย่างหนึ่ง → ขยาย full width */}
     </div>
   );
 }
