@@ -1625,7 +1625,10 @@ ${catBlocks}
           </div>
           {/* Row 2: Chips strip (price + divider + tags) scrollable | Sort pinned right */}
           <div className="flex items-center gap-0 min-w-0 overflow-hidden">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div
+              className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              onWheel={(e) => { if (e.deltaY === 0) return; e.preventDefault(); e.currentTarget.scrollLeft += e.deltaY; }}
+            >
               {/* Price chips */}
               <span className="text-[10px] text-muted-foreground/50 font-medium shrink-0">฿</span>
               {PRICE_PRESETS.map(({ key, label }) => (
