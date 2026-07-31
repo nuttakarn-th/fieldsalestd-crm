@@ -5,7 +5,7 @@ import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { useCRM, formatTHB, tierBadge, SOURCES, isClosedStatus, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
 import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames, useAllSalesTeamNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,6 +94,7 @@ export default function Customers() {
   const location = useLocation();
   const user = useCurrentUser();
   const customers = useCRM((s) => s.customers);
+  const leads     = useCRM((s) => s.leads);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
@@ -108,6 +109,21 @@ export default function Customers() {
     () => new Set(deleteRequests.filter((r) => r.status === "pending").map((r) => r.customer_id)),
     [deleteRequests],
   );
+
+  // ── Compute won spend + trips live จาก leads store ───────────────────────
+  // เพื่อให้ตัวเลขใน list ตรงกับ CustomerDetail เสมอ (รวม seed leads ด้วย)
+  // แทนการใช้ c.total_spend / c.total_trips ที่อาจ stale ใน DB
+  const { wonSpendMap, wonTripsMap } = useMemo(() => {
+    const spendMap = new Map<string, number>();
+    const tripsMap = new Map<string, number>();
+    for (const l of leads) {
+      if (!isClosedStatus(l.status)) continue;
+      const val = l.closed_price || l.quoted_price || 0;
+      spendMap.set(l.customer_id, (spendMap.get(l.customer_id) ?? 0) + val);
+      tripsMap.set(l.customer_id, (tripsMap.get(l.customer_id) ?? 0) + 1);
+    }
+    return { wonSpendMap: spendMap, wonTripsMap: tripsMap };
+  }, [leads]);
   const SALES_REPS     = useActiveSalesNames() as SalesRep[];
   const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
   const obNames = useActiveOBNames();
@@ -275,9 +291,9 @@ export default function Customers() {
         case "oldest":
           return (new Date(a.created_at ?? 0).getTime()) - (new Date(b.created_at ?? 0).getTime());
         case "spend_desc":
-          return b.total_spend - a.total_spend;
+          return (wonSpendMap.get(b.customer_id) ?? 0) - (wonSpendMap.get(a.customer_id) ?? 0);
         case "spend_asc":
-          return a.total_spend - b.total_spend;
+          return (wonSpendMap.get(a.customer_id) ?? 0) - (wonSpendMap.get(b.customer_id) ?? 0);
         case "name":
           return a.full_name.localeCompare(b.full_name, "th");
       }
@@ -621,7 +637,7 @@ export default function Customers() {
                   {c.created_by}
                 </span>
                 {c.source && <span className="text-[10px] text-muted-foreground">{c.source}</span>}
-                {c.total_spend > 0 && <span className="text-[10px] font-semibold text-primary ml-auto">฿{formatTHB(c.total_spend)}</span>}
+                {(wonSpendMap.get(c.customer_id) ?? 0) > 0 && <span className="text-[10px] font-semibold text-primary ml-auto">฿{formatTHB(wonSpendMap.get(c.customer_id) ?? 0)}</span>}
               </div>
             </div>
 
@@ -773,8 +789,8 @@ export default function Customers() {
                     </div>
                   </td>
                   <td className="py-1.5 px-3 text-right">
-                    <div className="font-semibold">{formatTHB(c.total_spend)}</div>
-                    <div className="text-xs text-muted-foreground">{c.total_trips} ทริป</div>
+                    <div className="font-semibold">{formatTHB(wonSpendMap.get(c.customer_id) ?? 0)}</div>
+                    <div className="text-xs text-muted-foreground">{wonTripsMap.get(c.customer_id) ?? 0} ทริป</div>
                   </td>
                   <td className="py-1.5 px-3 text-center">
                     <div className="flex items-center justify-center gap-1">
