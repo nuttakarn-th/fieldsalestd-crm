@@ -86,9 +86,9 @@ const COL_PATTERNS:{key:keyof ColumnMap;keywords:string[]}[]=[
   {key:"cpm",keywords:["cpm","ต้นทุนต่ออิมเพรสชั่น"]},{key:"ctr",keywords:["ctr"]},
   {key:"cpcLink",keywords:["cpc (ต้นทุนต่อการคลิกลิงก์)","cpc (ลิงก์)"]},
   {key:"cpcAll",keywords:["cpc (ทั้งหมด)"]},
-  {key:"messages",keywords:["ผู้ติดต่อผ่านการส่งข้อความ"]},
+  {key:"messages",keywords:["ผู้ติดต่อผ่านการส่งข้อความ","การสนทนาผ่านการส่งข้อความที่เริ่มขึ้น","การสนทนาผ่านการส่งข้อความ"]},
   {key:"costPerMsg",keywords:["ต้นทุนต่อการเริ่มการสนทนา"]},
-  {key:"pageEngagement",keywords:["การมีส่วนร่วมกับเพจ"]},
+  {key:"pageEngagement",keywords:["การมีส่วนร่วมกับเพจ","การมีส่วนร่วมกับโพสต์"]},
   {key:"roas",keywords:["roas"]},
   {key:"startDate",keywords:["เริ่มการรายงาน"]},{key:"endDate",keywords:["สิ้นสุดการรายงาน"]},
 ];
