@@ -82,8 +82,10 @@ export function AtRiskNotification({ collapsed }: { collapsed: boolean }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const criticalCount = atRisk.filter((p) => p.level === "critical").length;
-  const totalCount    = atRisk.length;
+  // แสดงเฉพาะ critical (≤7 วัน) — warning แยกไปแสดงใน WatchlistNotification
+  const critical     = atRisk.filter((p) => p.level === "critical");
+  const criticalCount = critical.length;
+  const totalCount    = criticalCount;
 
   if (totalCount === 0) return null;
 
@@ -155,9 +157,9 @@ export function AtRiskNotification({ collapsed }: { collapsed: boolean }) {
           <span className="ml-auto">fill rate &lt; {FILL_THRESHOLD}%</span>
         </div>
 
-        {/* Period list */}
+        {/* Period list — critical only */}
         <div className="max-h-[360px] overflow-y-auto divide-y divide-border/50">
-          {atRisk.map((p) => {
+          {critical.map((p) => {
             const isCrit = p.level === "critical";
             return (
               <div
