@@ -74,7 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     category: "REPORTS",
     items: [
-      { label: "OKR Follower",       icon: Target,        to: "/team-resources/okr-follower"       },
+      { label: "OKR Follower",       icon: Target,        to: "/marketing/okr-follower"            },
       { label: "Ads Dashboard",     icon: TrendingUp,    to: "/ads-dashboard"                      },
       { label: "Ads Report",        icon: BarChart3,     to: "/marketing/ads-report"               },
     ],

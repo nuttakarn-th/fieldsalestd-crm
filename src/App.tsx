@@ -177,7 +177,8 @@ const App = () => (
             <Route path="marketing-report" element={<MarketingReport />} />
             <Route path="dashboard" element={<MarketingDashboardPage />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
-            <Route path="ads-report"   element={<AdsReport />} />
+            <Route path="ads-report"     element={<AdsReport />} />
+            <Route path="okr-follower"   element={<OKRFollowerPage />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
@@ -185,7 +186,6 @@ const App = () => (
             <Route path="org-chart"       element={<MarketingOrgChart />} />
             <Route path="team"            element={<MarketingTeam />} />
             <Route path="standard-teams"  element={<SalesTeam embed />} />
-            <Route path="okr-follower"    element={<OKRFollowerPage />} />
           </Route>
           <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
