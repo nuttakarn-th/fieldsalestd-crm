@@ -892,7 +892,7 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
 function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   const avgCTR     = colMap.ctr            !== undefined ? avgN(ads,"ctr")            : null;
   const avgCPM     = colMap.cpm            !== undefined ? avgN(ads,"cpm")            : null;
-  const avgCostMsg = colMap.costPerMsg     !== undefined ? avgN(ads,"costPerMsg")     : null;
+  const avgCostMsg = colMap.messages !== undefined && sumN(ads,"messages") > 0 ? sumN(ads,"spend") / sumN(ads,"messages") : null;
   const totImp     = sumN(ads,"impressions");
   const totEng     = colMap.pageEngagement !== undefined ? sumN(ads,"pageEngagement") : 0;
 
@@ -1118,7 +1118,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const totalMsgs=sumN(ads,"messages");
   const avgCPM=avgN(ads,"cpm");
   const avgCTR=avgN(ads,"ctr");
-  const avgCostMsg=cm.costPerMsg!==undefined?avgN(ads,"costPerMsg"):null;
+  const avgCostMsg=cm.messages!==undefined&&totalMsgs>0?totalSpend/totalMsgs:null;
   const totEng=cm.pageEngagement!==undefined?sumN(ads,"pageEngagement"):0;
 
   const ctrScore=avgCTR!==null?Math.min(100,(avgCTR/2)*100):null;
@@ -1507,9 +1507,9 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
                     <p style={{fontSize:10,color:T3,margin:"0 0 2px"}}>CTR</p>
                     <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>{fmtN(avgN(gAds,"ctr"),2)}%</p>
                   </div>}
-                  {cm.costPerMsg!==undefined&&<div style={{flex:1,textAlign:"center"}}>
+                  {cm.messages!==undefined&&sumN(gAds,"messages")>0&&<div style={{flex:1,textAlign:"center"}}>
                     <p style={{fontSize:10,color:T3,margin:"0 0 2px"}}>Cost/Msg</p>
-                    <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>฿{fmtB(avgN(gAds,"costPerMsg"))}</p>
+                    <p style={{fontSize:17,fontWeight:700,color:T1,margin:0}}>฿{fmtB(sumN(gAds,"spend")/sumN(gAds,"messages"))}</p>
                   </div>}
                 </div></A>;
               })}
