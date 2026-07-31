@@ -1,7 +1,7 @@
 /**
  * OKRFollowerPage.tsx
  * OKR Follower Growth — ติดตามเป้า Social Follower รายไตรมาส
- * 4 platforms: Facebook, YouTube, TikTok, Google Maps (Reviews)
+ * 5 platforms: Facebook, YouTube, TikTok, Instagram, Google Maps (Reviews)
  * Reporter: บีม · รายเดือน
  */
 import { useState } from "react";
@@ -15,7 +15,7 @@ const THAI_MONTHS = [
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
 ];
 
-type PlatformKey = "facebook" | "youtube" | "tiktok" | "google_maps";
+type PlatformKey = "facebook" | "youtube" | "tiktok" | "instagram" | "google_maps";
 
 interface PlatformDef {
   key: PlatformKey;
@@ -26,35 +26,31 @@ interface PlatformDef {
 }
 
 const PLATFORMS: PlatformDef[] = [
-  { key: "facebook",    label: "Facebook",       abbr: "FB", color: "#1877F2", gradient: "from-blue-500 to-blue-600"    },
-  { key: "youtube",     label: "YouTube",        abbr: "YT", color: "#FF0000", gradient: "from-red-500 to-rose-600"     },
-  { key: "tiktok",      label: "TikTok",         abbr: "TT", color: "#00C2CB", gradient: "from-cyan-500 to-pink-500"    },
-  { key: "google_maps", label: "Google Map รีวิว", abbr: "GM", color: "#34A853", gradient: "from-green-500 to-emerald-600" },
+  { key: "facebook",    label: "Facebook",         abbr: "FB", color: "#1877F2", gradient: "from-blue-500 to-blue-600"       },
+  { key: "youtube",     label: "YouTube",          abbr: "YT", color: "#FF0000", gradient: "from-red-500 to-rose-600"        },
+  { key: "tiktok",      label: "TikTok",           abbr: "TT", color: "#00C2CB", gradient: "from-cyan-500 to-pink-500"       },
+  { key: "instagram",   label: "Instagram",        abbr: "IG", color: "#E1306C", gradient: "from-orange-400 via-pink-500 to-purple-600" },
+  { key: "google_maps", label: "Google Map รีวิว", abbr: "GM", color: "#34A853", gradient: "from-green-500 to-emerald-600"   },
 ];
 
-// ─── Platform Logo SVGs (white paths — render on gradient bg) ────────────────
-function PlatformLogo({ platform, className = "w-5 h-5" }: { platform: PlatformKey; className?: string }) {
-  if (platform === "facebook") return (
-    <svg className={className} viewBox="0 0 20 20" fill="none">
-      <path fill="white" d="M12.5 5h-2C10.22 5 10 5.22 10 5.5V8h2.5l-.4 2.5H10V17H7.5v-6.5H6V8h1.5V5.5C7.5 3.57 9.07 2 11 2H12.5v3z"/>
-    </svg>
+// ─── Platform Logo PNGs ───────────────────────────────────────────────────────
+const PLATFORM_LOGO_SRC: Record<PlatformKey, string> = {
+  facebook:    "/platforms/facebook.png",
+  youtube:     "/platforms/youtube.png",
+  tiktok:      "/platforms/tiktok.png",
+  instagram:   "/platforms/instagram.png",
+  google_maps: "/platforms/google-maps.png",
+};
+
+function PlatformLogo({ platform, className = "w-6 h-6" }: { platform: PlatformKey; className?: string }) {
+  return (
+    <img
+      src={PLATFORM_LOGO_SRC[platform]}
+      alt={platform}
+      className={`${className} object-contain`}
+      draggable={false}
+    />
   );
-  if (platform === "youtube") return (
-    <svg className={className} viewBox="0 0 20 20" fill="none">
-      <path fill="white" d="M17.5 6.2a2.1 2.1 0 0 0-1.5-1.5C14.8 4.4 10 4.4 10 4.4s-4.8 0-6 .3a2.1 2.1 0 0 0-1.5 1.5C2.2 7.4 2.2 10 2.2 10s0 2.6.3 3.8a2.1 2.1 0 0 0 1.5 1.5c1.2.3 6 .3 6 .3s4.8 0 6-.3a2.1 2.1 0 0 0 1.5-1.5c.3-1.2.3-3.8.3-3.8s0-2.6-.3-3.8zM8.4 12.5v-5L13 10l-4.6 2.5z"/>
-    </svg>
-  );
-  if (platform === "tiktok") return (
-    <svg className={className} viewBox="0 0 20 20" fill="none">
-      <path fill="white" d="M16.5 2.5h-3.3v9.7a2.7 2.7 0 0 1-2.7 2.7 2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.27 0 .53.04.78.1V6.3A6.2 6.2 0 0 0 10.5 6a6.2 6.2 0 0 0-6.2 6.2 6.2 6.2 0 0 0 6.2 6.2 6.2 6.2 0 0 0 6.2-6.2V7.8c.95.62 2.07 1 3.3 1.1V5.6a3.65 3.65 0 0 1-3.5-3.1z"/>
-    </svg>
-  );
-  if (platform === "google_maps") return (
-    <svg className={className} viewBox="0 0 20 20" fill="none">
-      <path fill="white" d="M10 1.5A6 6 0 0 0 4 7.5c0 4.4 6 11 6 11s6-6.6 6-11a6 6 0 0 0-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
-    </svg>
-  );
-  return null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -199,8 +195,8 @@ function PlatformCard({
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${platform.gradient} flex items-center justify-center shrink-0`}>
-              <PlatformLogo platform={platform.key} className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-center shrink-0 p-1.5">
+              <PlatformLogo platform={platform.key} className="w-full h-full" />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground leading-none mb-0.5">{platform.label}</p>
@@ -330,7 +326,7 @@ function InputForm() {
   const defaultMonth = months[months.length - 1];
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [values, setValues] = useState<Record<PlatformKey, string>>({
-    facebook: "", youtube: "", tiktok: "", google_maps: "",
+    facebook: "", youtube: "", tiktok: "", instagram: "", google_maps: "",
   });
   const [saved, setSaved] = useState(false);
 
@@ -342,10 +338,11 @@ function InputForm() {
         facebook:    existing.facebook    != null ? String(existing.facebook)    : "",
         youtube:     existing.youtube     != null ? String(existing.youtube)     : "",
         tiktok:      existing.tiktok      != null ? String(existing.tiktok)      : "",
+        instagram:   existing.instagram   != null ? String(existing.instagram)   : "",
         google_maps: existing.google_maps != null ? String(existing.google_maps) : "",
       });
     } else {
-      setValues({ facebook: "", youtube: "", tiktok: "", google_maps: "" });
+      setValues({ facebook: "", youtube: "", tiktok: "", instagram: "", google_maps: "" });
     }
   };
 
@@ -358,13 +355,14 @@ function InputForm() {
 
   const handleSave = () => {
     setEntry({
-      month:        selectedMonth,
-      facebook:     toNum(values.facebook),
-      youtube:      toNum(values.youtube),
-      tiktok:       toNum(values.tiktok),
-      google_maps:  toNum(values.google_maps),
+      month:         selectedMonth,
+      facebook:      toNum(values.facebook),
+      youtube:       toNum(values.youtube),
+      tiktok:        toNum(values.tiktok),
+      instagram:     toNum(values.instagram),
+      google_maps:   toNum(values.google_maps),
       google_rating: null,
-      updated_at:   new Date().toISOString(),
+      updated_at:    new Date().toISOString(),
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2200);
@@ -432,6 +430,7 @@ function EditTargetsModal({ onClose }: { onClose: () => void }) {
     facebook:    String(targets.facebook),
     youtube:     String(targets.youtube),
     tiktok:      String(targets.tiktok),
+    instagram:   targets.instagram   != null ? String(targets.instagram)   : "",
     google_maps: targets.google_maps != null ? String(targets.google_maps) : "",
   });
 
@@ -444,6 +443,7 @@ function EditTargetsModal({ onClose }: { onClose: () => void }) {
       facebook:    toNum(vals.facebook)    ?? targets.facebook,
       youtube:     toNum(vals.youtube)     ?? targets.youtube,
       tiktok:      toNum(vals.tiktok)      ?? targets.tiktok,
+      instagram:   toNum(vals.instagram),
       google_maps: toNum(vals.google_maps),
     });
     onClose();
@@ -468,7 +468,7 @@ function EditTargetsModal({ onClose }: { onClose: () => void }) {
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder={p.key === "google_maps" ? "ยังไม่กำหนด" : "กรอกเป้าหมาย"}
+                placeholder={(p.key === "google_maps" || p.key === "instagram") ? "ยังไม่กำหนด" : "กรอกเป้าหมาย"}
                 value={vals[p.key]}
                 onChange={(e) => setVals((v) => ({ ...v, [p.key]: e.target.value }))}
                 className="w-full rounded-lg border bg-background text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
@@ -496,7 +496,7 @@ export default function OKRFollowerPage() {
   const { q, year } = currentQuarter();
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5 pb-10">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5 pb-10">
       {showEditTargets && (
         <EditTargetsModal onClose={() => setShowEditTargets(false)} />
       )}
@@ -528,8 +528,8 @@ export default function OKRFollowerPage() {
         </button>
       </div>
 
-      {/* ── 4 Platform Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ── 5 Platform Cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {PLATFORMS.map((p) => (
           <PlatformCard
             key={p.key}
@@ -540,18 +540,18 @@ export default function OKRFollowerPage() {
         ))}
       </div>
 
-      {/* ── 4 Mini Charts 2×2 ── */}
+      {/* ── 5 Mini Charts ── */}
       <div>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           ความคืบหน้ารายเดือน (12 เดือนล่าสุด)
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {PLATFORMS.map((p) => (
             <div key={p.key} className="bg-card border rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${p.gradient} flex items-center justify-center`}>
-                    <PlatformLogo platform={p.key} className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-center p-1">
+                    <PlatformLogo platform={p.key} className="w-full h-full" />
                   </div>
                   <span className="text-sm font-semibold">{p.label}</span>
                 </div>
