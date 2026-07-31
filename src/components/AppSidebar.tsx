@@ -124,7 +124,7 @@ export function AppSidebar() {
                   <AtRiskNotification collapsed={collapsed} />
                 </div>
               </SidebarMenuItem>
-              {effectiveRole === "OB Co-ordinator" && (
+              {(effectiveRole === "OB Co-ordinator" || effectiveRole === "OB Manager") && (
                 <SidebarMenuItem>
                   <div className="px-1">
                     <ReadyToTravelNotification collapsed={collapsed} />
