@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router-dom";
-import { ChevronLeft, GitBranch, BookOpen, Users2, Users, Building2, Menu, X } from "lucide-react";
+import { ChevronLeft, GitBranch, BookOpen, Users2, Users, Building2, Target, Menu, X } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { NavActions } from "@/components/NavActions";
 
@@ -38,6 +38,13 @@ export const TEAM_RESOURCES_NAV = [
     icon:  Building2,
     to:    "/team-resources/standard-teams",
     gradient: "from-pink-500 to-rose-600",
+  },
+  {
+    title: "OKR Follower",
+    desc:  "เป้าหมาย Social Growth รายไตรมาส",
+    icon:  Target,
+    to:    "/team-resources/okr-follower",
+    gradient: "from-green-500 to-emerald-600",
   },
   // Future: SOP, Brand Guidelines, Training Docs, etc.
 ];

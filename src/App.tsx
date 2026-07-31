@@ -87,6 +87,7 @@ import MarketingWorkflow from "./pages/MarketingWorkflow.tsx";
 import MarketingOrgChart from "./pages/MarketingOrgChart.tsx";
 import MarketingTeam from "./pages/MarketingTeam.tsx";
 import AdsReport from "./pages/AdsReport.tsx";
+import OKRFollowerPage from "./pages/OKRFollowerPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -184,6 +185,7 @@ const App = () => (
             <Route path="org-chart"       element={<MarketingOrgChart />} />
             <Route path="team"            element={<MarketingTeam />} />
             <Route path="standard-teams"  element={<SalesTeam embed />} />
+            <Route path="okr-follower"    element={<OKRFollowerPage />} />
           </Route>
           <Route path="/app" element={<AppErrorBoundary><RouteGuard><AppLayout /></RouteGuard></AppErrorBoundary>}>
             <Route index element={<Index />} />
