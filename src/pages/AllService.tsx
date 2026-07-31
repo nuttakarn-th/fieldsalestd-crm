@@ -2394,9 +2394,9 @@ ${catBlocks}
                           const isFullDisplay = !isCancelled && currentQuota === 0;
                           const bookedCount = p.total_seats - currentQuota;
                           const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
-                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : color;
                           const hasPromo = !!p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat;
-                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : color;
                           return (
                             <div key={pid}
                               className={`rounded-xl border overflow-hidden anim-fade-in ${hasPending ? "ring-1 ring-amber-300" : ""}`}
@@ -2621,8 +2621,8 @@ ${catBlocks}
                           const isFootnoteOpen = expandedPeriods.has(pid);
                           const bookedCount = p.total_seats - currentQuota;
                           const bookedPct = p.total_seats > 0 ? Math.round((bookedCount / p.total_seats) * 100) : 0;
-                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
-                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : "#16A34A";
+                          const statusColor = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : color;
+                          const barBg = isCancelled ? "#EF4444" : isFullDisplay ? "#9CA3AF" : color;
                           // Promo — auto when special_price is set and less than normal price
                           const hasPromo = !!p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat;
                           const discount = hasPromo ? p.price_per_seat - p.special_price! : 0;
