@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, isClosedStatus, isLostStatus } from "@/store/crmStore";
-import { useCurrentUser, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
+import { useCurrentUser, useActiveOBNames, useAllSalesTeamNames } from "@/store/authStore";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -143,7 +143,7 @@ function FunnelBar({ label, count, total, color }: { label: string; count: numbe
 export default function OBDashboard() {
   const user     = useCurrentUser();
   const obNames        = useActiveOBNames();
-  const salesTeamNames = useActiveSalesTeamNames();
+  const salesTeamNames = useAllSalesTeamNames();
   const allLeads = useCRM((s) => s.leads);
   const targets  = useCRM((s) => s.targets);
 
