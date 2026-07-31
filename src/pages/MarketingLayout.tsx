@@ -23,6 +23,7 @@ import { ChatWidget, useChatUI } from "@/components/ChatWidget";
 import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
+import { WatchlistNotification } from "@/components/WatchlistNotification";
 import { ReadyToTravelNotification } from "@/components/ReadyToTravelNotification";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -233,6 +234,7 @@ export default function MarketingLayout() {
         <div className={`shrink-0 border-b border-border ${sidebarCollapsed ? "px-0 py-2 flex flex-col items-center gap-1" : "px-2 py-1.5 space-y-0.5"}`}>
           <NewProgramNotification collapsed={sidebarCollapsed} />
           <AtRiskNotification collapsed={sidebarCollapsed} />
+          <WatchlistNotification collapsed={sidebarCollapsed} />
           <ReadyToTravelNotification collapsed={sidebarCollapsed} stockUrl="/marketing/all-service" />
         </div>
 
