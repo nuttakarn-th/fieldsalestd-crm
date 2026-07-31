@@ -1016,12 +1016,16 @@ export const useCRM = create<CRMState>()(
 
       if (!leads.error && leads.data) {
         const sbLeads = leads.data as Lead[];
-        const sbHasObLeads = sbLeads.some((l) => (OB_SEED_REPS as string[]).includes(l.assigned_to));
-        if (sbHasObLeads) {
-          // Supabase มี OB leads จริง → ใช้ Supabase เป็น source of truth
+        // ── OB Role: sbLeads ถูก pre-filter ที่ DB แล้วให้เหลือเฉพาะ non-Sales leads
+        // → ถ้า DB คืน leads มาเลย (แม้ assigned_to ≠ "แอน") = มีข้อมูล OB จริงใน DB
+        // → ไม่ต้องใช้ seed leads แล้ว ให้ใช้ DB เป็น source of truth ทันที
+        // ── Non-OB Role: ไม่มี seed leads → ใช้ DB ตรงๆ เสมอ
+        const sbHasRealData = isOBRole ? sbLeads.length > 0 : true;
+        if (sbHasRealData) {
+          // Supabase มีข้อมูลจริง → ใช้ Supabase เป็น source of truth (ไม่รวม seed)
           criticalUpdates.leads = sbLeads;
         } else {
-          // Supabase ไม่มี OB leads (demo env) → preserve seed leads
+          // OB role แต่ DB ยังว่าง (demo/staging) → preserve seed leads เป็น fallback
           // ลำดับ fallback: 1) pre-await snapshot, 2) post-await get(), 3) generate fresh
           let obToAdd = _obLeadSnapshot;
           if (obToAdd.length === 0) {
@@ -1034,7 +1038,7 @@ export const useCRM = create<CRMState>()(
             const custSrc = ((criticalUpdates.customers ?? customers.data ?? get().customers) as Customer[]);
             obToAdd = generateOBLeads(custSrc.length > 0 ? custSrc : get().customers);
           }
-          criticalUpdates.leads = [...sbLeads, ...obToAdd];
+          criticalUpdates.leads = obToAdd;
         }
       }
       if (!targets.error && targets.data) {
