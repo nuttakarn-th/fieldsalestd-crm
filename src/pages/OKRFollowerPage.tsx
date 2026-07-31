@@ -32,6 +32,31 @@ const PLATFORMS: PlatformDef[] = [
   { key: "google_maps", label: "Google Map รีวิว", abbr: "GM", color: "#34A853", gradient: "from-green-500 to-emerald-600" },
 ];
 
+// ─── Platform Logo SVGs (white paths — render on gradient bg) ────────────────
+function PlatformLogo({ platform, className = "w-5 h-5" }: { platform: PlatformKey; className?: string }) {
+  if (platform === "facebook") return (
+    <svg className={className} viewBox="0 0 20 20" fill="none">
+      <path fill="white" d="M12.5 5h-2C10.22 5 10 5.22 10 5.5V8h2.5l-.4 2.5H10V17H7.5v-6.5H6V8h1.5V5.5C7.5 3.57 9.07 2 11 2H12.5v3z"/>
+    </svg>
+  );
+  if (platform === "youtube") return (
+    <svg className={className} viewBox="0 0 20 20" fill="none">
+      <path fill="white" d="M17.5 6.2a2.1 2.1 0 0 0-1.5-1.5C14.8 4.4 10 4.4 10 4.4s-4.8 0-6 .3a2.1 2.1 0 0 0-1.5 1.5C2.2 7.4 2.2 10 2.2 10s0 2.6.3 3.8a2.1 2.1 0 0 0 1.5 1.5c1.2.3 6 .3 6 .3s4.8 0 6-.3a2.1 2.1 0 0 0 1.5-1.5c.3-1.2.3-3.8.3-3.8s0-2.6-.3-3.8zM8.4 12.5v-5L13 10l-4.6 2.5z"/>
+    </svg>
+  );
+  if (platform === "tiktok") return (
+    <svg className={className} viewBox="0 0 20 20" fill="none">
+      <path fill="white" d="M16.5 2.5h-3.3v9.7a2.7 2.7 0 0 1-2.7 2.7 2.7 2.7 0 0 1-2.7-2.7 2.7 2.7 0 0 1 2.7-2.7c.27 0 .53.04.78.1V6.3A6.2 6.2 0 0 0 10.5 6a6.2 6.2 0 0 0-6.2 6.2 6.2 6.2 0 0 0 6.2 6.2 6.2 6.2 0 0 0 6.2-6.2V7.8c.95.62 2.07 1 3.3 1.1V5.6a3.65 3.65 0 0 1-3.5-3.1z"/>
+    </svg>
+  );
+  if (platform === "google_maps") return (
+    <svg className={className} viewBox="0 0 20 20" fill="none">
+      <path fill="white" d="M10 1.5A6 6 0 0 0 4 7.5c0 4.4 6 11 6 11s6-6.6 6-11a6 6 0 0 0-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+    </svg>
+  );
+  return null;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtNum(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -174,8 +199,8 @@ function PlatformCard({
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${platform.gradient} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-              {platform.abbr}
+            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${platform.gradient} flex items-center justify-center shrink-0`}>
+              <PlatformLogo platform={platform.key} className="w-5 h-5" />
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground leading-none mb-0.5">{platform.label}</p>
@@ -525,8 +550,8 @@ export default function OKRFollowerPage() {
             <div key={p.key} className="bg-card border rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${p.gradient} flex items-center justify-center text-white text-[10px] font-bold`}>
-                    {p.abbr}
+                  <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${p.gradient} flex items-center justify-center`}>
+                    <PlatformLogo platform={p.key} className="w-4 h-4" />
                   </div>
                   <span className="text-sm font-semibold">{p.label}</span>
                 </div>
