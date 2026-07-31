@@ -1784,7 +1784,11 @@ ${catBlocks}
         ].filter((c) => c.seats > 0);
 
         // ✈️ Hot periods — period ที่มียอดจอง ≥ 10 ที่นั่ง
-        type HotItem = { tourTitle: string; tourCode: string; periodLabel: string; booked: number; total: number };
+        type HotItem = {
+          tourTitle: string; tourCode: string; periodLabel: string;
+          booked: number; total: number;
+          category: string; city: string; country: string; departureDate: string;
+        };
         const hotItems: HotItem[] = [];
         allActiveTours.forEach((t) => {
           (t.periods ?? []).filter((p) => !p.cancelled && !p.archived).forEach((p) => {
@@ -1798,6 +1802,12 @@ ${catBlocks}
                   : `Period ${p.period_id?.slice(-4) ?? ""}`,
                 booked,
                 total: p.total_seats ?? 0,
+                category: t.category ?? "",
+                city: t.city ?? "",
+                country: t.country ?? "",
+                departureDate: p.departure_date
+                  ? new Date(p.departure_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
+                  : "",
               });
             }
           });
@@ -1973,25 +1983,65 @@ ${catBlocks}
                           <span className="font-medium opacity-90">ที่นั่งจอง &gt;10</span>
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent align="end" className="w-72 p-0 shadow-xl" sideOffset={6}>
-                        <div className="px-3 py-2.5 border-b border-border flex items-center gap-2">
-                          <Plane className="w-3.5 h-3.5 text-violet-500" />
-                          <span className="text-[12px] font-bold text-foreground">Period ยอดจอง ≥ 10 ที่นั่ง</span>
-                          <span className="ml-auto text-[11px] font-semibold text-violet-600 bg-violet-100 dark:bg-violet-900/30 px-2 py-0.5 rounded-full">{hotItems.length}</span>
+                      <PopoverContent align="end" className="w-[360px] p-0 shadow-xl rounded-2xl border border-border overflow-hidden" sideOffset={6}>
+                        {/* Header */}
+                        <div className="px-4 py-3 border-b flex items-center justify-between bg-violet-50 dark:bg-violet-950/50">
+                          <div className="flex items-center gap-2">
+                            <Plane className="w-4 h-4 text-violet-500" />
+                            <span className="text-sm font-bold text-foreground">ยอดจอง ≥ 10 ที่นั่ง</span>
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white bg-violet-600">{hotItems.length}</span>
+                          </div>
+                          <span className="text-[10px] text-violet-500/80">Period ที่มีความต้องการสูง</span>
                         </div>
-                        <div className="max-h-[320px] overflow-y-auto divide-y divide-border/50">
+                        {/* Legend */}
+                        <div className="px-4 py-2 flex items-center gap-3 bg-muted/20 border-b text-[10px] text-muted-foreground">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Intl</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Dom</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />Inc</span>
+                          <span className="ml-auto">เรียงตามยอดจองมากสุด</span>
+                        </div>
+                        {/* List */}
+                        <div className="max-h-[360px] overflow-y-auto divide-y divide-border/50">
                           {hotItems.map((item, i) => (
-                            <div key={i} className="px-3 py-2 flex items-start gap-2 hover:bg-muted/40 transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-semibold text-foreground truncate">{item.tourTitle}</p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">{item.tourCode} · {item.periodLabel}</p>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <span className="text-[13px] font-bold text-violet-600">{item.booked}</span>
-                                <span className="text-[10px] text-muted-foreground">/{item.total}</span>
+                            <div key={i} className="px-4 py-3 hover:bg-muted/20 transition-colors">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${
+                                      item.category === "International Tour" ? "bg-green-500"
+                                      : item.category === "Domestic" ? "bg-amber-500"
+                                      : "bg-violet-500"
+                                    }`}>
+                                      {item.category === "International Tour" ? "🌏 Intl"
+                                        : item.category === "Domestic" ? "🇹🇭 Dom"
+                                        : "🏆 Inc"}
+                                    </span>
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
+                                      จอง {item.booked} ที่นั่ง
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-bold text-foreground truncate">{item.tourCode}</p>
+                                  {item.city && (
+                                    <p className="text-[10px] text-muted-foreground truncate">
+                                      📍 {item.city}{item.country ? ` · ${item.country}` : ""}
+                                    </p>
+                                  )}
+                                  {item.departureDate && (
+                                    <p className="text-[10px] text-muted-foreground">📅 เดินทาง {item.departureDate}</p>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-lg font-bold leading-none text-violet-600">{item.booked}</p>
+                                  <p className="text-[10px] text-muted-foreground">/{item.total}</p>
+                                </div>
                               </div>
                             </div>
                           ))}
+                        </div>
+                        {/* Footer */}
+                        <div className="px-4 py-2.5 border-t bg-muted/10 text-[10px] text-muted-foreground flex items-center gap-1.5">
+                          <Plane className="w-3 h-3 text-violet-500" />
+                          Period ที่มียอดจอง ≥ 10 ที่นั่ง — ควรเตรียมเพิ่ม capacity
                         </div>
                       </PopoverContent>
                     </Popover>
