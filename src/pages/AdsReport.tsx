@@ -133,6 +133,11 @@ function avgN(rows:AdRow[],key:keyof AdRow):number|null{
   const vals=rows.map(r=>r[key]).filter(v=>typeof v==="number") as number[];
   return vals.length===0?null:vals.reduce((a,b)=>a+b,0)/vals.length;
 }
+// CPM = (totalSpend / totalImpressions) × 1,000 — weighted aggregate, not simple average
+function cpmCalc(rows:AdRow[]):number|null{
+  const imp=sumN(rows,"impressions");
+  return imp>0?(sumN(rows,"spend")/imp)*1000:null;
+}
 
 // ── Counter animation hook ────────────────────────────────────────────────────
 function useCountUp(target:number,duration=900):number{
@@ -367,7 +372,7 @@ function GroupCard({groupName,ads,cm,expanded,onToggle,color,totalSpend,compareA
   const gMsgs=sumN(ads,"messages");
   const gImpr=sumN(ads,"impressions");
   const gReach=sumN(ads,"reach");
-  const avgCPM=avgN(ads,"cpm");
+  const avgCPM=gImpr>0?(gSpend/gImpr)*1000:null;
   const avgCTR=avgN(ads,"ctr");
   const active=ads.filter(a=>a.status.toLowerCase()==="active").length;
   const spendPct=totalSpend>0?(gSpend/totalSpend)*100:0;
@@ -655,7 +660,7 @@ function ComparePanel({a,b}:{a:ReportData;b:ReportData}){
     {label:"Impressions",valA:sumN(a.ads,"impressions"),valB:sumN(b.ads,"impressions"),fmt:fmtInt,hib:true},
     {label:"Reach",valA:sumN(a.ads,"reach"),valB:sumN(b.ads,"reach"),fmt:fmtInt,hib:true},
     {label:"Messages",valA:sumN(a.ads,"messages"),valB:sumN(b.ads,"messages"),fmt:fmtInt,hib:true},
-    {label:"CPM เฉลี่ย",valA:avgN(a.ads,"cpm"),valB:avgN(b.ads,"cpm"),fmt:(v:number)=>`฿${fmtB(v)}`,hib:false},
+    {label:"CPM เฉลี่ย",valA:cpmCalc(a.ads),valB:cpmCalc(b.ads),fmt:(v:number)=>`฿${fmtB(v)}`,hib:false},
     {label:"CTR เฉลี่ย",valA:avgN(a.ads,"ctr"),valB:avgN(b.ads,"ctr"),fmt:(v:number)=>`${fmtN(v,2)}%`,hib:true},
   ];
   return(
@@ -814,12 +819,12 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
     .sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0];
   const topMsg=entries.filter(([,a])=>sumN(a,"messages")>0)
     .sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0];
-  const topCPM=entries.filter(([,a])=>avgN(a,"cpm")!==null)
-    .sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0];
+  const topCPM=entries.filter(([,a])=>cpmCalc(a)!==null)
+    .sort(([,a],[,b])=>(cpmCalc(a)??Infinity)-(cpmCalc(b)??Infinity))[0];
   const stars=[
     topCTR&&{name:topCTR[0],label:"CTR สูงสุด",sublabel:"Click-Through Rate",icon:<Trophy className="w-4 h-4"/>,color:"#EF9F27",val:`${fmtN(avgN(topCTR[1],"ctr"),2)}%`},
     topMsg&&{name:topMsg[0],label:"ข้อความมากสุด",sublabel:"Total Messages",icon:<MessageCircle className="w-4 h-4"/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsg[1],"messages"))}`},
-    topCPM&&{name:topCPM[0],label:"CPM ต่ำสุด",sublabel:"Cost per 1K Impressions",icon:<Zap className="w-4 h-4"/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPM[1],"cpm"))}`},
+    topCPM&&{name:topCPM[0],label:"CPM ต่ำสุด",sublabel:"Cost per 1K Impressions",icon:<Zap className="w-4 h-4"/>,color:"#7F77DD",val:`฿${fmtB(cpmCalc(topCPM[1]))}`},
   ].filter(Boolean) as {name:string;label:string;sublabel:string;icon:React.ReactNode;color:string;val:string}[];
   if(stars.length===0)return null;
 
@@ -891,7 +896,7 @@ function TopPerformers({ads,groupColorMap,onGroupClick,activeGroupFilter}:{
 // ── Ad Health Score ───────────────────────────────────────────────────────────
 function AdHealthScore({ads,colMap}:{ads:AdRow[];colMap:ColumnMap}){
   const avgCTR     = colMap.ctr            !== undefined ? avgN(ads,"ctr")            : null;
-  const avgCPM     = colMap.cpm            !== undefined ? avgN(ads,"cpm")            : null;
+  const avgCPM     = colMap.impressions     !== undefined ? cpmCalc(ads)              : null;
   const avgCostMsg = colMap.messages !== undefined && sumN(ads,"messages") > 0 ? sumN(ads,"spend") / sumN(ads,"messages") : null;
   const totImp     = sumN(ads,"impressions");
   const totEng     = colMap.pageEngagement !== undefined ? sumN(ads,"pageEngagement") : 0;
@@ -1116,7 +1121,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const totalImpr=sumN(ads,"impressions");
   const totalReach=sumN(ads,"reach");
   const totalMsgs=sumN(ads,"messages");
-  const avgCPM=avgN(ads,"cpm");
+  const avgCPM=totalImpr>0?totalSpend/totalImpr*1000:null;
   const avgCTR=avgN(ads,"ctr");
   const avgCostMsg=cm.messages!==undefined&&totalMsgs>0?totalSpend/totalMsgs:null;
   const totEng=cm.pageEngagement!==undefined?sumN(ads,"pageEngagement"):0;
@@ -1142,7 +1147,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
   const topCTRG=useMemo(()=>[...groups].filter(([,a])=>avgN(a,"ctr")!==null).sort(([,a],[,b])=>(avgN(b,"ctr")??0)-(avgN(a,"ctr")??0))[0],[groups]);
   const topMsgG=useMemo(()=>[...groups].filter(([,a])=>sumN(a,"messages")>0).sort(([,a],[,b])=>sumN(b,"messages")-sumN(a,"messages"))[0],[groups]);
-  const topCPMG=useMemo(()=>[...groups].filter(([,a])=>avgN(a,"cpm")!==null).sort(([,a],[,b])=>(avgN(a,"cpm")??Infinity)-(avgN(b,"cpm")??Infinity))[0],[groups]);
+  const topCPMG=useMemo(()=>[...groups].filter(([,a])=>cpmCalc(a)!==null).sort(([,a],[,b])=>(cpmCalc(a)??Infinity)-(cpmCalc(b)??Infinity))[0],[groups]);
 
   const inefficient=useMemo(()=>ads.map(ad=>{
     const issues:string[]=[];
@@ -1338,7 +1343,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
             {[
               topCTRG&&{name:topCTRG[0],label:"CTR สูงสุด",icon:<MousePointerClick size={28}/>,color:"#EF9F27",val:`${fmtN(avgN(topCTRG[1],"ctr"),2)}%`,rank:"01"},
               topMsgG&&{name:topMsgG[0],label:"Messages มากสุด",icon:<MessageCircle size={28}/>,color:"#1D9E75",val:`${fmtInt(sumN(topMsgG[1],"messages"))}`,rank:"02"},
-              topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap size={28}/>,color:"#7F77DD",val:`฿${fmtB(avgN(topCPMG[1],"cpm"))}`,rank:"03"},
+              topCPMG&&{name:topCPMG[0],label:"CPM ต่ำสุด",icon:<Zap size={28}/>,color:"#7F77DD",val:`฿${fmtB(cpmCalc(topCPMG[1]))}`,rank:"03"},
             ].filter(Boolean).map((star,i)=>{
               if(!star)return null;
               const img=campImgs[star.name];
@@ -1699,7 +1704,7 @@ export default function AdsReport(){
   }).sort(([,a],[,b])=>{
     if(sortBy==="messages")return sumN(b,"messages")-sumN(a,"messages");
     if(sortBy==="ctr"){const aV=avgN(a,"ctr")??-1,bV=avgN(b,"ctr")??-1;return bV-aV;}
-    if(sortBy==="cpm"){const aV=avgN(a,"cpm")??Infinity,bV=avgN(b,"cpm")??Infinity;return aV-bV;}
+    if(sortBy==="cpm"){const aV=cpmCalc(a)??Infinity,bV=cpmCalc(b)??Infinity;return aV-bV;}
     return sumN(b,"spend")-sumN(a,"spend");
   });
 
@@ -1908,7 +1913,7 @@ export default function AdsReport(){
                   {label:"Impressions",num:sumN(ads,"impressions"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"impressions"):undefined,icon:<Eye className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#378ADD",avail:cm.impressions!==undefined,hib:true},
                   {label:"Reach",num:sumN(ads,"reach"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"reach"):undefined,icon:<Users className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#1D9E75",avail:cm.reach!==undefined,hib:true},
                   {label:"Messages",num:sumN(ads,"messages"),prefix:"",decimals:0,cmp:compareReport?sumN(compareReport.ads,"messages"):undefined,icon:<MessageCircle className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#5DCAA5",avail:cm.messages!==undefined,hib:true},
-                  {label:"CPM เฉลี่ย (฿)",num:avgN(ads,"cpm")??0,prefix:"฿",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"cpm")??undefined):undefined,icon:<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#EF9F27",avail:cm.cpm!==undefined,hib:false},
+                  {label:"CPM เฉลี่ย (฿)",num:cpmCalc(ads)??0,prefix:"฿",decimals:2,cmp:compareReport?(cpmCalc(compareReport.ads)??undefined):undefined,icon:<TrendingUp className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#EF9F27",avail:cm.impressions!==undefined,hib:false},
                   {label:"CTR เฉลี่ย",num:avgN(ads,"ctr")??0,prefix:"",suffix:"%",decimals:2,cmp:compareReport?(avgN(compareReport.ads,"ctr")??undefined):undefined,icon:<MousePointerClick className="w-4 h-4 sm:w-5 sm:h-5"/>,color:"#D4537E",avail:cm.ctr!==undefined,hib:true},
                 ].map(({label,num,prefix,suffix,decimals,cmp,icon,color,avail,hib})=>(
                   <div key={label} className="min-w-[140px] sm:min-w-0 snap-start shrink-0 sm:shrink">
