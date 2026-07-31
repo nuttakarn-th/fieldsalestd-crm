@@ -142,7 +142,7 @@ function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean })
   }
 
   return (
-    <Link to={item.to} className={`${cls} gap-2.5 px-3 py-2.5 text-sm`}>
+    <Link to={item.to} className={`${cls} gap-2 px-3 py-1.5 text-sm`}>
       {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-violet-400"/>}
       <Icon className="w-4 h-4 shrink-0" />
       <span className="truncate">{item.label}</span>
@@ -260,7 +260,7 @@ export default function MarketingLayout() {
                 {/* Section header — คลิกพับ/ขยาย */}
                 <button
                   onClick={() => toggleSection(section.category)}
-                  className="w-full flex items-center justify-between pt-3 pb-1 px-3 group"
+                  className="w-full flex items-center justify-between pt-2 pb-0.5 px-3 group"
                 >
                   <p className={`text-[9px] font-bold uppercase tracking-widest ${catColor(section.category)}`}>
                     {section.category}
