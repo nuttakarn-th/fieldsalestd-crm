@@ -1625,10 +1625,7 @@ ${catBlocks}
           </div>
           {/* Row 2: Chips strip (price + divider + tags) scrollable | Sort pinned right */}
           <div className="flex items-center gap-0 min-w-0 overflow-hidden">
-            <div
-              className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto pb-0.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-              onWheel={(e) => { if (e.deltaY === 0) return; e.preventDefault(); e.currentTarget.scrollLeft += e.deltaY; }}
-            >
+            <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
               {/* Price chips */}
               <span className="text-[10px] text-muted-foreground/50 font-medium shrink-0">฿</span>
               {PRICE_PRESETS.map(({ key, label }) => (
@@ -1647,14 +1644,44 @@ ${catBlocks}
               )}
               {/* Divider */}
               <div className="w-px h-3 bg-border shrink-0 mx-1" />
-              {/* Tag chips */}
-              {CATEGORY_TAGS.map((tag) => (
+              {/* Tag chips — แสดง 6 ตัวแรก + popover สำหรับที่เหลือ */}
+              {CATEGORY_TAGS.slice(0, 6).map((tag) => (
                 <button key={tag}
                   onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 whitespace-nowrap transition-colors"
                   style={filterTags.includes(tag) ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}>
-                  {tag}</button>
+                  {tag}
+                </button>
               ))}
+              {/* +N more popover */}
+              {(() => {
+                const remaining = CATEGORY_TAGS.slice(6);
+                const selectedInRemaining = remaining.filter((t) => filterTags.includes(t)).length;
+                return (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        className="px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 whitespace-nowrap transition-colors"
+                        style={selectedInRemaining > 0 ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}
+                      >
+                        {selectedInRemaining > 0 ? `✓ ${selectedInRemaining} เลือก` : `+${remaining.length}`}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-56 p-2" sideOffset={6}>
+                      <div className="flex flex-wrap gap-1.5">
+                        {remaining.map((tag) => (
+                          <button key={tag}
+                            onClick={() => setFilterTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                            className="px-2 py-0.5 rounded-full text-[10px] font-medium border whitespace-nowrap transition-colors"
+                            style={filterTags.includes(tag) ? {background: "#1F2937", color: "#fff", borderColor: "#1F2937"} : {borderColor: "#E5E7EB", color: "#9CA3AF"}}>
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                );
+              })()}
             </div>
             {/* Sort — pinned right */}
             <div className="flex items-center gap-1.5 shrink-0 pl-2 ml-1 border-l border-border">
