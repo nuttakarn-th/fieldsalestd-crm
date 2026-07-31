@@ -638,7 +638,7 @@ export default function CustomerDetail() {
 
             {filteredLeads.length > 0 && (
               <div className="border-t px-4 py-2 bg-muted/20 text-xs text-muted-foreground flex justify-between items-center">
-                <span>✅ ปิดได้ {wonLeads.length} leads · ยอดซื้อจริง {formatTHB(customer.total_spend)}</span>
+                <span>✅ ปิดได้ {wonLeads.length} leads · ยอดซื้อจริง {formatTHB(wonAmount)}</span>
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpenAddLead(true)}>
                   <Plus className="w-3.5 h-3.5 mr-1" /> Lead ใหม่
                 </Button>
