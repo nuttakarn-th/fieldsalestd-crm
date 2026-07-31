@@ -23,7 +23,7 @@ import {
   isLostStatus, isClosedStatus,
   type LeadStatus, type Lead, type Customer,
 } from "@/store/crmStore";
-import { useCurrentUser, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
+import { useCurrentUser, useActiveOBNames, useAllSalesTeamNames } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 import { EditCustomerDialog } from "@/components/EditCustomerDialog";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -52,7 +52,7 @@ export default function Pipeline() {
   const isOB = user?.role === "OB Co-ordinator";
   const isOBRole = user?.role === "OB Co-ordinator" || user?.role === "OB Manager";
   const obNames = useActiveOBNames(); // รวม OB Co-ordinator + OB Manager
-  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager เท่านั้น (สำหรับ exclusion filter)
+  const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า "เฟิร์ส","โดนัท")
   const activeStatuses = isOB ? OB_LEAD_STATUSES : LEAD_STATUSES;
 
   const tours = useServices((s) => s.tours);

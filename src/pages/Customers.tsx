@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCRM, formatTHB, tierBadge, SOURCES, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
-import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames } from "@/store/authStore";
+import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames, useAllSalesTeamNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
 import { CustomerLeadDialog } from "@/components/CustomerLeadDialog";
@@ -109,7 +109,7 @@ export default function Customers() {
     [deleteRequests],
   );
   const SALES_REPS     = useActiveSalesNames() as SalesRep[];
-  const salesTeamNames = useActiveSalesTeamNames(); // Sales + Sales Manager (สำหรับ inclusion filter)
+  const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
   const obNames = useActiveOBNames();
   const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";

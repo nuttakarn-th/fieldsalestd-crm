@@ -49,6 +49,9 @@ interface AuthState {
   jwtExpiresAt: number | null;  // Unix timestamp (seconds)
   theme: ThemeMode;
   viewAsRole: AppRole | null; // Admin can preview other roles
+  /** ชื่อ Sales reps ทั้งหมดจาก sales_reps table (รวมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
+   *  ใช้สำหรับ UI dept filter เพื่อให้ครอบคลุม historical created_by values */
+  salesRepNames: string[];
   login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
   addUser: (u: Omit<AppUser, "user_id" | "created_at">) => Promise<{ ok: boolean; error?: string; user_id?: string }>;
@@ -106,6 +109,7 @@ export const useAuth = create<AuthState>()(
       jwtExpiresAt: null,
       theme: "day",
       viewAsRole: null,
+      salesRepNames: [],
 
       login: async (username, password) => {
         const u = get().users.find(
@@ -340,7 +344,19 @@ export const useAuth = create<AuthState>()(
       loadUsersFromSupabase: async () => {
         if (!SUPABASE_ENABLED || !supabase) return;
         try {
-          const { data, error } = await supabase.from("app_users").select("*").order("created_at", { ascending: true });
+          // โหลด app_users + sales_reps (Sales/SM) พร้อมกัน
+          // sales_reps ใช้สำหรับ build salesRepNames — ชื่อ historical รวมชื่อเก่า เช่น "เฟิร์ส","โดนัท"
+          // ที่ยังคงเป็น created_by ใน customers แม้ app_users เปลี่ยนชื่อไปแล้ว
+          const [{ data, error }, { data: sRepsData }] = await Promise.all([
+            supabase.from("app_users").select("*").order("created_at", { ascending: true }),
+            supabase.from("sales_reps").select("name").in("position", ["Sales", "Sales Manager"]),
+          ]);
+
+          // อัปเดต salesRepNames ทันทีจาก sales_reps table
+          if (sRepsData) {
+            const repNames = sRepsData.map((r: any) => r.name as string).filter(Boolean);
+            set({ salesRepNames: repNames });
+          }
           if (error) throw error;
           if (data && data.length > 0) {
             const users = data.map((r: any) => {
@@ -515,6 +531,19 @@ export function useActiveSalesTeamNames(): string[] {
   return users
     .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
     .map((u) => u.full_name);
+}
+
+/** Returns COMBINED Sales names: app_users (current) + sales_reps (historical)
+ *  ใช้สำหรับ OB/dept filter ใน Customers.tsx และ Pipeline.tsx
+ *  ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท","CHUWIT PUTIPIN" ที่ยังเป็น created_by
+ *  ใน customers table แม้ app_users จะเปลี่ยนชื่อไปแล้ว */
+export function useAllSalesTeamNames(): string[] {
+  const users = useAuth((s) => s.users);
+  const salesRepNames = useAuth((s) => s.salesRepNames);
+  const currentSalesNames = users
+    .filter((u) => u.role === "Sales" || u.role === "Sales Manager")
+    .map((u) => u.full_name);
+  return Array.from(new Set([...currentSalesNames, ...salesRepNames]));
 }
 
 /** Returns full_names of OB team only ('OB Manager', 'OB Co-ordinator') — ไม่รวม Sales

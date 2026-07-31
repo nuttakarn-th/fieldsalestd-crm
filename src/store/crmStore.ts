@@ -931,17 +931,22 @@ export const useCRM = create<CRMState>()(
       let leadsFiltered = leadsQ;
       let routesFiltered = routesQ;
 
-      // ── Query Sales names จาก DB ─────────────────────────────────────────
-      // ดึงก่อน branch เพื่อ reuse สำหรับทั้ง OB exclusion + Sales Manager inclusion
-      // ไม่พึ่ง authStore.users (อาจเป็น seed/stale) — query DB โดยตรงเสมอ
-      const { data: salesUsersData } = await supabase
-        .from("app_users")
-        .select("full_name")
-        .in("role", ["Sales", "Sales Manager"]);
+      // ── Query Sales names จาก DB (app_users + sales_reps รวมกัน) ────────────
+      // ดึงจาก 2 แหล่งพร้อมกัน เพื่อครอบคลุมทั้งชื่อปัจจุบัน + ชื่อเก่า:
+      //   • app_users.role IN ('Sales','Sales Manager') → ชื่อ auth users ปัจจุบัน
+      //   • sales_reps.position IN ('Sales','Sales Manager') → ชื่อ reps ที่ใช้ใน customers/leads
+      // รวม 2 set ด้วย Set ป้องกัน duplicate
+      // สาเหตุที่ต้อง union: customers.created_by อาจอ้างชื่อ sales_reps.name (เช่น "เฟิร์ส","โดนัท")
+      // ที่ยังอยู่ใน sales_reps แต่ไม่อยู่ใน app_users แล้ว → NOT IN filter จะ miss ชื่อเก่า
+      const [{ data: salesUsersData }, { data: salesRepsData }] = await Promise.all([
+        supabase.from("app_users").select("full_name").in("role", ["Sales", "Sales Manager"]),
+        supabase.from("sales_reps").select("name").in("position", ["Sales", "Sales Manager"]),
+      ]);
 
-      const salesNames = (salesUsersData ?? [])
-        .map((u: any) => u.full_name as string)
-        .filter(Boolean);
+      const salesNames = Array.from(new Set([
+        ...(salesUsersData ?? []).map((u: any) => u.full_name as string).filter(Boolean),
+        ...(salesRepsData ?? []).map((r: any) => r.name as string).filter(Boolean),
+      ]));
 
       if (isOBRole) {
         // OB Co-ordinator + OB Manager: NOT IN Sales → เห็นเฉพาะ OB
