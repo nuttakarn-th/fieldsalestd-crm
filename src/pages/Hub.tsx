@@ -361,7 +361,7 @@ export default function Hub() {
   }, [ogMain]);
   if (!user) return <Navigate to="/login" replace />;
   const effectiveRole: AppRole = user.role === "Admin" && viewAsRole ? viewAsRole : user.role;
-  const isMarketing = effectiveRole === "Marketing";
+  const isMarketing = effectiveRole === "Marketing" || effectiveRole === "Marketing Manager";
 
   // ── Marketing role → redirect ไป Marketing Hub Portal ──────────────────────
   if (isMarketing) return <Navigate to="/marketing" replace />;

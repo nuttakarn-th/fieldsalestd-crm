@@ -261,7 +261,7 @@ export default function MarketingTeam() {
   // Filter Marketing role + sort by role rank then name
   const members = useMemo(() => {
     return [...users]
-      .filter((u) => u.role === "Marketing")
+      .filter((u) => u.role === "Marketing" || u.role === "Marketing Manager")
       .sort((a, b) => {
         const ra = ROLE_SORT.indexOf(detectRole(a));
         const rb = ROLE_SORT.indexOf(detectRole(b));

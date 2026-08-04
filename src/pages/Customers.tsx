@@ -127,7 +127,7 @@ export default function Customers() {
   const SALES_REPS     = useActiveSalesNames() as SalesRep[];
   const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
   const obNames = useActiveOBNames();
-  const isMarketing = user?.role === "Marketing" || user?.role === "Admin";
+  const isMarketing = user?.role === "Marketing" || user?.role === "Marketing Manager" || user?.role === "Admin";
   const isAdmin = user?.role === "Admin";
   const isSalesManager = user?.role === "Sales Manager";
   const isOBManager = user?.role === "OB Manager";
@@ -365,7 +365,7 @@ export default function Customers() {
   // Marketing role ที่เข้า /app/customers → redirect ไป /marketing/customers
   // (ตรวจ path ก่อน: ไม่ redirect ถ้าอยู่ใน /marketing/* อยู่แล้ว ป้องกัน infinite loop)
   // เก็บ query string (เช่น ?dept=ob) ไว้ด้วย — ไม่งั้นตัวกรอง OB/Sales จะหายไปตอน redirect
-  if (user?.role === "Marketing" && location.pathname.startsWith("/app")) {
+  if ((user?.role === "Marketing" || user?.role === "Marketing Manager") && location.pathname.startsWith("/app")) {
     return <Navigate to={`/marketing/customers${location.search}`} replace />;
   }
 

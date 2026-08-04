@@ -63,7 +63,7 @@ export function getDeptFromRole(role?: string): "OB" | "Sales" | "Marketing" | "
   if (!role) return "System";
   if (role === "OB Co-ordinator" || role === "OB Manager") return "OB";
   if (role === "Sales" || role === "Sales Manager")        return "Sales";
-  if (role === "Marketing")                                return "Marketing";
+  if (role === "Marketing" || role === "Marketing Manager") return "Marketing";
   return "System";
 }
 

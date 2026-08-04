@@ -84,7 +84,7 @@ function getEventMeta(event_type: string): EventMeta {
 // ── Navigate target ────────────────────────────────────────────────────────────
 /** คืน path ที่ควร navigate ไปเมื่อกดแถว activity */
 function getNavTarget(log: ActivityLog, role: string): string | null {
-  const isMarketing = role === "Marketing";
+  const isMarketing = role === "Marketing" || role === "Marketing Manager";
   const base = (path: string) => isMarketing ? path.replace(/^\/app\//, "/marketing/") : path;
 
   if (log.event_type.startsWith("tour_") || log.event_type.startsWith("period_") || log.event_type === "import_complete" || log.event_type === "period_nearly_full") {
@@ -352,7 +352,7 @@ export function ActivityFeed() {
   const isSalesManager = role === "Sales Manager";
   const isSalesRep   = role === "Sales";
   const isOBManager  = role === "OB Manager";
-  const isMarketing  = role === "Marketing";
+  const isMarketing  = role === "Marketing" || role === "Marketing Manager";
   const isAnyManager = isAdmin || isSalesManager || isOBManager;
   const isSalesTeamView = isSalesRep || isSalesManager;
 

@@ -370,7 +370,7 @@ export default function MarketingLeads() {
 
   if (!user) return null;
 
-  const isMarketing = user.role === "Marketing" || user.role === "Admin";
+  const isMarketing = user.role === "Marketing" || user.role === "Marketing Manager" || user.role === "Admin";
   const isSales     = ["Sales", "Sales Manager", "OB Co-ordinator"].includes(user.role);
   const me          = user.full_name;
 

@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router-dom";
-import { ChevronLeft, GitBranch, BookOpen, Users2, Users, Building2, Menu, X } from "lucide-react";
+import { ChevronLeft, GitBranch, BookOpen, Users2, Users, Building2, Menu, X, ClipboardList } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { NavActions } from "@/components/NavActions";
 
@@ -39,7 +39,13 @@ export const TEAM_RESOURCES_NAV = [
     to:    "/team-resources/standard-teams",
     gradient: "from-pink-500 to-rose-600",
   },
-  // Future: SOP, Brand Guidelines, Training Docs, etc.
+  {
+    title: "KPI แต่ละตำแหน่ง",
+    desc:  "ตัวชี้วัดและสมรรถนะ KSA ของทีม",
+    icon:  ClipboardList,
+    to:    "/team-resources/kpi",
+    gradient: "from-violet-500 to-purple-600",
+  },
 ];
 
 export default function TeamResourcesLayout() {

@@ -353,13 +353,14 @@ export function getMenuForRole(role: AppRole): RoleMenu {
     case "Sales": return salesMenu;
     case "OB Co-ordinator": return obCoordinatorMenu;
     case "Marketing": return marketingMenu;
+    case "Marketing Manager": return marketingMenu;
     case "Co-Ordinator": return coordinatorMenu;
     case "Accounting": return accountingMenu;
   }
 }
 
 export function canEditServices(role: AppRole): boolean {
-  return role === "Admin" || role === "Sales Manager" || role === "OB Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing";
+  return role === "Admin" || role === "Sales Manager" || role === "OB Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing" || role === "Marketing Manager";
 }
 
 export function roleBadgeColor(role: AppRole): string {
@@ -370,6 +371,7 @@ export function roleBadgeColor(role: AppRole): string {
     case "Sales": return "from-pink-500 to-fuchsia-600";
     case "OB Co-ordinator": return "from-teal-500 to-emerald-600";
     case "Marketing": return "from-purple-500 to-indigo-600";
+    case "Marketing Manager": return "from-violet-600 to-purple-700";
     case "Co-Ordinator": return "from-sky-500 to-cyan-600";
     case "Accounting": return "from-emerald-500 to-teal-600";
   }
