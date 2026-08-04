@@ -83,7 +83,8 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
     const finalLostReason = isCancelling
       ? (lostNote.trim() ? `${lostReason} — ${lostNote.trim()}` : lostReason)
       : undefined;
-    if (status !== lead.status) updateLeadStatus(lead.lead_id, status, finalLostReason);
+    // เรียก updateLeadStatus เมื่อ status เปลี่ยน หรือเมื่ออยู่ใน isCancelling (เพื่อให้บันทึก lost_reason ได้แม้ status ไม่เปลี่ยน)
+    if (status !== lead.status || isCancelling) updateLeadStatus(lead.lead_id, status, finalLostReason);
     toast.success("บันทึก Lead เรียบร้อยแล้ว");
     onClose();
   }
