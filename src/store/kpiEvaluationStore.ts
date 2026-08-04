@@ -33,10 +33,16 @@ export interface KPIEvaluation {
 
 interface KPIEvaluationState {
   evaluations: KPIEvaluation[];
+  /** evalId[] ที่พนักงานแต่ละคนเปิดอ่านแล้ว — keyed by userId */
+  seenEvalIds: Record<string, string[]>;
   /** สร้างหรืออัปเดต evaluation (ถ้า id มีอยู่แล้ว = update) */
   upsertEvaluation: (data: Omit<KPIEvaluation, "id" | "createdAt" | "updatedAt"> & { id?: string }) => string;
   toggleShare: (id: string) => void;
   deleteEvaluation: (id: string) => void;
+  /** พนักงานเปิดดู evaluation นี้แล้ว → ล้าง badge */
+  markSeen: (userId: string, evalId: string) => void;
+  /** จำนวนผลประเมินที่ share แล้วแต่ยังไม่ได้เปิดดู */
+  unseenCount: (userId: string) => number;
 }
 
 function genId(): string {
@@ -80,6 +86,23 @@ export const useKPIEvaluationStore = create<KPIEvaluationState>()(
 
       deleteEvaluation: (id) =>
         set((s) => ({ evaluations: s.evaluations.filter((e) => e.id !== id) })),
+
+      seenEvalIds: {},
+
+      markSeen: (userId, evalId) =>
+        set((s) => ({
+          seenEvalIds: {
+            ...s.seenEvalIds,
+            [userId]: [...new Set([...(s.seenEvalIds[userId] ?? []), evalId])],
+          },
+        })),
+
+      unseenCount: (userId) => {
+        const seen = new Set(get().seenEvalIds[userId] ?? []);
+        return get().evaluations.filter(
+          (e) => e.evaluateeId === userId && e.isShared && !seen.has(e.id)
+        ).length;
+      },
     }),
     { name: "kpi-evaluation-store-v1" }
   )

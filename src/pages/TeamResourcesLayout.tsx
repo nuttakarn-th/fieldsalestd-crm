@@ -9,6 +9,7 @@ import { NavLink, Outlet, Navigate, useLocation, Link } from "react-router-dom";
 import { ChevronLeft, GitBranch, BookOpen, Users2, Users, Building2, Menu, X, ClipboardList } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { NavActions } from "@/components/NavActions";
+import { useKPIEvaluationStore } from "@/store/kpiEvaluationStore";
 
 export const TEAM_RESOURCES_NAV = [
   {
@@ -52,6 +53,15 @@ export default function TeamResourcesLayout() {
   const user     = useCurrentUser();
   const location = useLocation();
   const [showSidebar, setShowSidebar] = useState(false);
+
+  // Badge: จำนวนผลประเมิน KPI ที่ Manager แชร์แต่ยังไม่ได้เปิดดู (เฉพาะ Marketing role)
+  const unseenKPI = useKPIEvaluationStore((s) => {
+    if (!user || user.role !== "Marketing") return 0;
+    const seen = new Set(s.seenEvalIds[user.user_id] ?? []);
+    return s.evaluations.filter(
+      (e) => e.evaluateeId === user.user_id && e.isShared && !seen.has(e.id)
+    ).length;
+  });
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -170,12 +180,18 @@ export default function TeamResourcesLayout() {
                     }`}>
                       <item.icon className={`w-4 h-4 ${isActive ? "text-white" : "text-muted-foreground"}`} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className={`text-sm md:text-xs font-semibold leading-tight ${isActive ? "text-primary" : ""}`}>
                         {item.title}
                       </p>
                       <p className="text-xs md:text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
                     </div>
+                    {/* KPI badge — แสดงเฉพาะ Marketing role เมื่อมีผลประเมินใหม่ */}
+                    {item.to === "/team-resources/kpi" && unseenKPI > 0 && (
+                      <span className="shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 leading-none">
+                        {unseenKPI > 9 ? "9+" : unseenKPI}
+                      </span>
+                    )}
                   </>
                 )}
               </NavLink>

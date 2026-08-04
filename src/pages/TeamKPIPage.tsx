@@ -719,7 +719,7 @@ function EvaluationTab({ managerId, managerName }: { managerId: string; managerN
 // ─── My Evaluation view (Marketing role — view own shared evaluations) ────────
 
 function MyEvaluationView({ userId }: { userId: string }) {
-  const { evaluations } = useKPIEvaluationStore();
+  const { evaluations, markSeen } = useKPIEvaluationStore();
   const { positions } = useKPIDefinitionStore();
 
   const myEvals = evaluations
@@ -791,7 +791,7 @@ function MyEvaluationView({ userId }: { userId: string }) {
       {myEvals.map((ev) => (
         <button
           key={ev.id}
-          onClick={() => setSelectedId(ev.id)}
+          onClick={() => { setSelectedId(ev.id); markSeen(userId, ev.id); }}
           className="w-full border rounded-xl p-4 bg-card text-left hover:bg-muted/30 transition-colors"
         >
           <div className="flex items-center justify-between gap-2 flex-wrap">
