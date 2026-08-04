@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: add KPI page for Team Resources - Marketing Manager role, kpiDefinitionStore, kpiEvaluationStore, TeamKPIPage with edit+eval tabs
+if "%MSG%"=="" set MSG=feat: KPI activity feed integration - virtual entries in bell feed, signature ack, manager badge, kpi_shared entries for Marketing role
 
 git commit -m "%MSG%"
 git push

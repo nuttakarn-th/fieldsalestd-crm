@@ -5,7 +5,7 @@
  * Marketing role      → view-only (accordion rubric + competency)
  * Marketing Manager   → view + edit mode + แท็บ "ประเมินผลทีม"
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -21,6 +21,9 @@ import {
   Save,
   RotateCcw,
   AlertCircle,
+  PenLine,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import {
@@ -349,7 +352,7 @@ type EvalView = "list" | "form" | "report";
 
 function EvaluationTab({ managerId, managerName }: { managerId: string; managerName: string }) {
   const { positions } = useKPIDefinitionStore();
-  const { evaluations, upsertEvaluation, toggleShare, deleteEvaluation } = useKPIEvaluationStore();
+  const { evaluations, upsertEvaluation, toggleShare, deleteEvaluation, markAckSeen } = useKPIEvaluationStore();
   const { users } = useAuth(useShallow((s) => ({ users: s.users })));
 
   const marketingTeam = useMemo(
@@ -378,6 +381,16 @@ function EvaluationTab({ managerId, managerName }: { managerId: string; managerN
     setScores({});
     setOverallNote("");
     setEditingId(null);
+  };
+
+  const openReport = (evalId: string) => {
+    setReportId(evalId);
+    setView("report");
+    // ถ้า evaluation มี acknowledgment แล้ว → mark ว่า Manager เห็นแล้ว
+    const ev = evaluations.find((e) => e.id === evalId);
+    if (ev?.acknowledgment) {
+      markAckSeen(managerId, evalId);
+    }
   };
 
   const openNewForm = () => {
@@ -467,11 +480,16 @@ function EvaluationTab({ managerId, managerName }: { managerId: string; managerN
                       {ev.isShared ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                       {ev.isShared ? "แชร์แล้ว" : "ยังไม่แชร์"}
                     </span>
+                    {ev.acknowledgment && (
+                      <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                        <CheckCircle2 className="w-3 h-3" /> ตอบรับแล้ว
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => { setReportId(ev.id); setView("report"); }}
+                    onClick={() => openReport(ev.id)}
                     className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                     title="ดูรายงาน"
                   >
@@ -560,6 +578,31 @@ function EvaluationTab({ managerId, managerName }: { managerId: string; managerN
               <p className="text-sm">{reportEval.overallNote}</p>
             </div>
           )}
+
+          {/* ── การตอบรับจากพนักงาน ── */}
+          {reportEval.acknowledgment ? (
+            <div className="border rounded-xl p-4 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-sm">
+                <CheckCircle2 className="w-4 h-4" />
+                พนักงานรับทราบผลการประเมินแล้ว
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatDateTimeThai(reportEval.acknowledgment.acknowledgedAt)} · ยืนยันโดย {reportEval.acknowledgment.confirmedName}
+              </p>
+              <div className="bg-white rounded-lg p-2 border inline-block">
+                <img
+                  src={reportEval.acknowledgment.signatureDataUrl}
+                  alt="ลายเซ็น"
+                  className="h-14 object-contain"
+                />
+              </div>
+            </div>
+          ) : reportEval.isShared ? (
+            <div className="border rounded-lg p-3 bg-muted/20 text-xs text-muted-foreground flex items-center gap-2">
+              <PenLine className="w-3.5 h-3.5 shrink-0" />
+              รอพนักงานยืนยันรับทราบและลงลายเซ็น...
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <button
@@ -716,6 +759,197 @@ function EvaluationTab({ managerId, managerName }: { managerId: string; managerN
   );
 }
 
+// ─── SignaturePad ─────────────────────────────────────────────────────────────
+
+interface SignaturePadProps {
+  onChange: (dataUrl: string | null) => void;
+}
+
+function SignaturePad({ onChange }: SignaturePadProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawing = useRef(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    isDrawing.current = true;
+  }, []);
+
+  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!isDrawing.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    setHasDrawn(true);
+    onChange(canvas.toDataURL("image/png"));
+  }, [onChange]);
+
+  const stopDraw = useCallback(() => { isDrawing.current = false; }, []);
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasDrawn(false);
+    onChange(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative border-2 border-dashed border-muted-foreground/30 rounded-xl overflow-hidden bg-white cursor-crosshair select-none">
+        <canvas
+          ref={canvasRef}
+          width={600}
+          height={160}
+          className="w-full h-[120px] touch-none block"
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={stopDraw}
+          onMouseLeave={stopDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={stopDraw}
+        />
+        {!hasDrawn && (
+          <p className="absolute inset-0 flex items-center justify-center text-muted-foreground/40 text-xs pointer-events-none select-none">
+            วาดลายเซ็นที่นี่
+          </p>
+        )}
+      </div>
+      {hasDrawn && (
+        <button
+          onClick={clear}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+        >
+          ล้างลายเซ็น
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── AcknowledgeSection ───────────────────────────────────────────────────────
+
+function formatDateTimeThai(isoStr: string) {
+  return new Date(isoStr).toLocaleString("th-TH", {
+    year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+interface AcknowledgeSectionProps {
+  evalId: string;
+  evaluateeName: string;
+}
+
+function AcknowledgeSection({ evalId, evaluateeName }: AcknowledgeSectionProps) {
+  const { evaluations, acknowledgeEvaluation } = useKPIEvaluationStore();
+  const evaluation = evaluations.find((e) => e.id === evalId);
+  const [name, setName] = useState("");
+  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
+
+  if (!evaluation) return null;
+
+  // ── ตอบรับแล้ว ──
+  if (evaluation.acknowledgment) {
+    return (
+      <div className="border rounded-xl p-4 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 space-y-3">
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-semibold text-sm">
+          <CheckCircle2 className="w-4 h-4" />
+          รับทราบผลการประเมินแล้ว
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {formatDateTimeThai(evaluation.acknowledgment.acknowledgedAt)} · ยืนยันโดย {evaluation.acknowledgment.confirmedName}
+        </p>
+        <div className="bg-white rounded-lg p-2 border inline-block">
+          <img
+            src={evaluation.acknowledgment.signatureDataUrl}
+            alt="ลายเซ็น"
+            className="h-12 object-contain"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ── ฟอร์มตอบรับ ──
+  const canSubmit = name.trim() !== "" && sigDataUrl !== null;
+
+  return (
+    <div className="border rounded-xl p-4 space-y-4 bg-card">
+      <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground">
+        <PenLine className="w-4 h-4 text-violet-500" />
+        ยืนยันรับทราบผลการประเมิน
+      </h4>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground">พิมพ์ชื่อ-นามสกุลเพื่อยืนยัน</label>
+        <input
+          type="text"
+          className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder={evaluateeName}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+          <PenLine className="w-3 h-3" /> วาดลายเซ็น
+        </label>
+        <SignaturePad onChange={setSigDataUrl} />
+      </div>
+
+      <button
+        disabled={!canSubmit}
+        onClick={() => {
+          if (!canSubmit) return;
+          acknowledgeEvaluation(evalId, name.trim(), sigDataUrl!);
+        }}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <Send className="w-4 h-4" />
+        ส่งการตอบรับกลับ Manager
+      </button>
+    </div>
+  );
+}
+
 // ─── My Evaluation view (Marketing role — view own shared evaluations) ────────
 
 function MyEvaluationView({ userId }: { userId: string }) {
@@ -782,6 +1016,9 @@ function MyEvaluationView({ userId }: { userId: string }) {
             </div>
           )}
         </div>
+
+        {/* ── ยืนยันรับทราบ / ลายเซ็น ── */}
+        <AcknowledgeSection evalId={selected.id} evaluateeName={selected.evaluateeName} />
       </div>
     );
   }
@@ -799,9 +1036,16 @@ function MyEvaluationView({ userId }: { userId: string }) {
               <p className="font-medium text-sm">{ev.positionTitle}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{formatPeriodThai(ev.period)}</p>
             </div>
-            <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreBadgeClass(ev.weightedTotal)}`}>
-              {ev.weightedTotal.toFixed(2)} — {scoreLabel(ev.weightedTotal)}
-            </span>
+            <div className="flex items-center gap-2">
+              {ev.acknowledgment && (
+                <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> รับทราบแล้ว
+                </span>
+              )}
+              <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreBadgeClass(ev.weightedTotal)}`}>
+                {ev.weightedTotal.toFixed(2)} — {scoreLabel(ev.weightedTotal)}
+              </span>
+            </div>
           </div>
         </button>
       ))}

@@ -54,7 +54,7 @@ export default function TeamResourcesLayout() {
   const location = useLocation();
   const [showSidebar, setShowSidebar] = useState(false);
 
-  // Badge: จำนวนผลประเมิน KPI ที่ Manager แชร์แต่ยังไม่ได้เปิดดู (เฉพาะ Marketing role)
+  // Badge (Marketing): ผลประเมินที่ Manager แชร์มาแต่ยังไม่ได้เปิดดู
   const unseenKPI = useKPIEvaluationStore((s) => {
     if (!user || user.role !== "Marketing") return 0;
     const seen = new Set(s.seenEvalIds[user.user_id] ?? []);
@@ -62,6 +62,17 @@ export default function TeamResourcesLayout() {
       (e) => e.evaluateeId === user.user_id && e.isShared && !seen.has(e.id)
     ).length;
   });
+
+  // Badge (Marketing Manager): พนักงานตอบรับ acknowledgment ที่ Manager ยังไม่ได้เปิดดู
+  const unseenAckKPI = useKPIEvaluationStore((s) => {
+    if (!user || user.role !== "Marketing Manager") return 0;
+    const seen = new Set(s.managerSeenAckIds[user.user_id] ?? []);
+    return s.evaluations.filter(
+      (e) => e.evaluatorId === user.user_id && e.acknowledgment != null && !seen.has(e.id)
+    ).length;
+  });
+
+  const kpiBadgeCount = unseenKPI + unseenAckKPI;
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -186,10 +197,10 @@ export default function TeamResourcesLayout() {
                       </p>
                       <p className="text-xs md:text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
                     </div>
-                    {/* KPI badge — แสดงเฉพาะ Marketing role เมื่อมีผลประเมินใหม่ */}
-                    {item.to === "/team-resources/kpi" && unseenKPI > 0 && (
+                    {/* KPI badge — Marketing: ผลประเมินใหม่ / Manager: พนักงานตอบรับใหม่ */}
+                    {item.to === "/team-resources/kpi" && kpiBadgeCount > 0 && (
                       <span className="shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 leading-none">
-                        {unseenKPI > 9 ? "9+" : unseenKPI}
+                        {kpiBadgeCount > 9 ? "9+" : kpiBadgeCount}
                       </span>
                     )}
                   </>

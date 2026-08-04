@@ -29,6 +29,12 @@ export interface KPIEvaluation {
   isShared: boolean;      // true = พนักงานดูได้
   createdAt: string;
   updatedAt: string;
+  /** พนักงานตอบรับการประเมิน (ถ้า undefined = ยังไม่ได้ตอบรับ) */
+  acknowledgment?: {
+    acknowledgedAt: string;
+    confirmedName: string;     // ชื่อที่พนักงานพิมพ์ยืนยัน
+    signatureDataUrl: string;  // base64 PNG จาก canvas
+  };
 }
 
 interface KPIEvaluationState {
@@ -43,6 +49,16 @@ interface KPIEvaluationState {
   markSeen: (userId: string, evalId: string) => void;
   /** จำนวนผลประเมินที่ share แล้วแต่ยังไม่ได้เปิดดู */
   unseenCount: (userId: string) => number;
+
+  // ── Acknowledgment (พนักงานตอบรับ) ──────────────────────────────────────────
+  /** evalId[] ที่ Manager เห็นการตอบรับแล้ว — keyed by managerId */
+  managerSeenAckIds: Record<string, string[]>;
+  /** บันทึก acknowledgment พร้อมลายเซ็น */
+  acknowledgeEvaluation: (evalId: string, confirmedName: string, signatureDataUrl: string) => void;
+  /** Manager เปิดดู acknowledgment แล้ว → ล้าง badge */
+  markAckSeen: (managerId: string, evalId: string) => void;
+  /** จำนวน acknowledgment ที่ Manager ยังไม่ได้เปิดดู */
+  unseenAckCount: (managerId: string) => number;
 }
 
 function genId(): string {
@@ -101,6 +117,40 @@ export const useKPIEvaluationStore = create<KPIEvaluationState>()(
         const seen = new Set(get().seenEvalIds[userId] ?? []);
         return get().evaluations.filter(
           (e) => e.evaluateeId === userId && e.isShared && !seen.has(e.id)
+        ).length;
+      },
+
+      managerSeenAckIds: {},
+
+      acknowledgeEvaluation: (evalId, confirmedName, signatureDataUrl) =>
+        set((s) => ({
+          evaluations: s.evaluations.map((e) =>
+            e.id === evalId
+              ? {
+                  ...e,
+                  acknowledgment: {
+                    acknowledgedAt: new Date().toISOString(),
+                    confirmedName,
+                    signatureDataUrl,
+                  },
+                  updatedAt: new Date().toISOString(),
+                }
+              : e
+          ),
+        })),
+
+      markAckSeen: (managerId, evalId) =>
+        set((s) => ({
+          managerSeenAckIds: {
+            ...s.managerSeenAckIds,
+            [managerId]: [...new Set([...(s.managerSeenAckIds[managerId] ?? []), evalId])],
+          },
+        })),
+
+      unseenAckCount: (managerId) => {
+        const seen = new Set(get().managerSeenAckIds[managerId] ?? []);
+        return get().evaluations.filter(
+          (e) => e.evaluatorId === managerId && e.acknowledgment != null && !seen.has(e.id)
         ).length;
       },
     }),

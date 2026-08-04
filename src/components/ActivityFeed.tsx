@@ -19,6 +19,7 @@ import {
   ShoppingCart, Zap, Trash2, ShieldCheck, ShieldX, Clock,
   Settings2, Trash, ChevronDown, ChevronUp,
   Eye, EyeOff, RefreshCw, CircleX, RotateCcw,
+  ClipboardList, CheckCircle2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
@@ -29,6 +30,7 @@ function makeIsUnread(lastReadAt: string) {
   return (entry: ActivityLog) => new Date(entry.created_at) > new Date(lastReadAt);
 }
 import { useDeleteRequests } from "@/store/deleteRequestStore";
+import { useKPIEvaluationStore, formatPeriodThai } from "@/store/kpiEvaluationStore";
 import { useCurrentUser, useActiveSalesTeamNames } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
 import { useServices } from "@/store/serviceStore";
@@ -78,6 +80,9 @@ function getEventMeta(event_type: string): EventMeta {
   if (event_type.startsWith("campaign_"))
     return { icon: <Megaphone className="w-3.5 h-3.5" />, color: "bg-orange-500/15", border: "border-orange-500/30", text: "text-orange-600 dark:text-orange-400" };
 
+  if (event_type === "kpi_shared")
+    return { icon: <ClipboardList className="w-3.5 h-3.5" />, color: "bg-violet-500/15", border: "border-violet-500/40", text: "text-violet-600 dark:text-violet-400" };
+
   return { icon: <BookOpen className="w-3.5 h-3.5" />, color: "bg-muted/60", border: "border-border", text: "text-muted-foreground" };
 }
 
@@ -107,6 +112,7 @@ function getNavTarget(log: ActivityLog, role: string): string | null {
   if (log.event_type.startsWith("seat_")) {
     return base("/app/all-service");
   }
+  if (log.event_type === "kpi_shared") return "/team-resources/kpi";
   return null;
 }
 
@@ -255,6 +261,68 @@ function LogRow({
   );
 }
 
+// ── KPIRow — virtual entry สำหรับ KPI notification (เฉพาะพนักงานที่ถูกประเมิน) ─────
+
+function KPIRow({
+  log,
+  isUnread,
+  onNavigate,
+  onMarkSeen,
+}: {
+  log: ActivityLog;
+  isUnread: boolean;
+  onNavigate: (path: string) => void;
+  onMarkSeen: (evalId: string) => void;
+}) {
+  const evalId        = (log as any).__kpiEvalId as string;
+  const isAcknowledged = (log as any).__isAcknowledged as boolean;
+
+  return (
+    <div className={`flex gap-2.5 px-3 py-2.5 transition-colors relative ${
+      isUnread ? "bg-violet-50/60 dark:bg-violet-500/5 hover:bg-violet-50 dark:hover:bg-violet-500/10" : "hover:bg-muted/40"
+    }`}>
+      {/* Unread dot — violet แทน blue */}
+      {isUnread && (
+        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+      )}
+
+      {/* Icon */}
+      <div className="shrink-0 w-7 h-7 rounded-full border flex items-center justify-center mt-0.5 bg-violet-500/15 border-violet-500/40 text-violet-600 dark:text-violet-400">
+        <ClipboardList className="w-3.5 h-3.5" />
+      </div>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <p className={`text-[12px] leading-snug ${isUnread ? "font-bold text-foreground" : "font-semibold text-foreground"}`}>
+          {log.subject}
+        </p>
+        <p className="text-[12px] text-violet-600 dark:text-violet-400 font-medium mt-0.5 leading-snug truncate">
+          {log.detail}
+        </p>
+        <p className="text-[10px] text-muted-foreground/60 mt-1 leading-none">
+          Marketing Manager · {relativeTime(log.created_at)}
+        </p>
+
+        {/* CTA */}
+        <div className="mt-2">
+          {isAcknowledged ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+              <CheckCircle2 className="w-3 h-3" /> รับทราบแล้ว
+            </span>
+          ) : (
+            <button
+              onClick={() => { onMarkSeen(evalId); onNavigate("/team-resources/kpi"); }}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-600 hover:text-violet-700 bg-violet-50 dark:bg-violet-500/15 hover:bg-violet-100 dark:hover:bg-violet-500/25 px-2.5 py-1 rounded-lg transition-colors border border-violet-200 dark:border-violet-500/30"
+            >
+              ดูผลประเมิน →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── EmptyState ────────────────────────────────────────────────────────────────
 
 function EmptyState() {
@@ -341,6 +409,11 @@ export function ActivityFeed() {
     [tours]
   );
 
+  // KPI evaluation store — virtual entries (เฉพาะ Marketing role)
+  const kpiEvaluations  = useKPIEvaluationStore((s) => s.evaluations);
+  const kpiSeenEvalIds  = useKPIEvaluationStore((s) => s.seenEvalIds);
+  const markKPISeen     = useKPIEvaluationStore((s) => s.markSeen);
+
   // Auth
   const user           = useCurrentUser();
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
@@ -348,6 +421,35 @@ export function ActivityFeed() {
   const salesTeamNames = useActiveSalesTeamNames();
 
   const role         = user?.role ?? "";
+
+  // KPI virtual entries — useMemo ต้องอยู่หลัง user (ใช้ user.user_id)
+  const kpiVirtualEntries = useMemo(() => {
+    if (!user || user.role !== "Marketing") return [] as ActivityLog[];
+    return kpiEvaluations
+      .filter((e) => e.evaluateeId === user.user_id && e.isShared)
+      .map((e) => ({
+        id: `kpi-virtual-${e.id}`,
+        event_type: "kpi_shared",
+        subject: "Manager ประเมิน KPI ของคุณ",
+        detail: `${e.positionTitle} · ${formatPeriodThai(e.period)}`,
+        actor: "",
+        entity_type: "kpi",
+        entity_id: e.id,
+        created_at: e.updatedAt,
+        role: "Marketing Manager",
+        __kpiEvalId: e.id,
+        __isAcknowledged: e.acknowledgment != null,
+      } as unknown as ActivityLog));
+  }, [kpiEvaluations, user]);
+
+  const kpiUnseenCount = useMemo(() => {
+    if (!user || user.role !== "Marketing") return 0;
+    const seen = new Set(kpiSeenEvalIds[user.user_id] ?? []);
+    return kpiEvaluations.filter(
+      (e) => e.evaluateeId === user.user_id && e.isShared && !seen.has(e.id)
+    ).length;
+  }, [kpiEvaluations, kpiSeenEvalIds, user]);
+
   const isAdmin      = role === "Admin";
   const isSalesManager = role === "Sales Manager";
   const isSalesRep   = role === "Sales";
@@ -397,7 +499,7 @@ export function ActivityFeed() {
     return false;
   });
 
-  const totalBadge = unreadCount + (isAnyManager ? pendingRequests.length : 0);
+  const totalBadge = unreadCount + kpiUnseenCount + (isAnyManager ? pendingRequests.length : 0);
 
   // Categories visible to this role (for mute panel)
   const visibleCats: NotifCategory[] = ["tour", "lead", "customer", "seat", "system"];
@@ -451,8 +553,15 @@ export function ActivityFeed() {
     if (next) { markAllRead(); setShowMute(false); }
   }
 
+  // ── Merge activityLog + KPI virtual entries → sorted feed ─────────────────
+  const mergedFeed = useMemo(() => {
+    const combined = ([...visibleLogs, ...kpiVirtualEntries] as ActivityLog[]);
+    combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return combined;
+  }, [visibleLogs, kpiVirtualEntries]);
+
   // ── Grouped logs ──────────────────────────────────────────────────────────
-  const groups = groupByDay(visibleLogs);
+  const groups = groupByDay(mergedFeed);
 
   // ── Popover ───────────────────────────────────────────────────────────────
   const popover = open && createPortal(
@@ -467,8 +576,8 @@ export function ActivityFeed() {
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-muted-foreground" />
             <p className="text-sm font-bold text-foreground">กิจกรรมทั้งหมด</p>
-            {visibleLogs.length > 0 && (
-              <span className="text-[10px] text-muted-foreground/60 font-medium">{visibleLogs.length} รายการ</span>
+            {mergedFeed.length > 0 && (
+              <span className="text-[10px] text-muted-foreground/60 font-medium">{mergedFeed.length} รายการ</span>
             )}
           </div>
           <div className="flex items-center gap-1">
@@ -586,9 +695,9 @@ export function ActivityFeed() {
         )}
 
         {/* Activity log — grouped by day */}
-        {visibleLogs.length === 0 && pendingRequests.length === 0 ? (
+        {mergedFeed.length === 0 && pendingRequests.length === 0 ? (
           <EmptyState />
-        ) : visibleLogs.length === 0 ? (
+        ) : mergedFeed.length === 0 ? (
           <div className="py-4 text-center">
             <p className="text-xs text-muted-foreground/60">ยังไม่มีกิจกรรมล่าสุด</p>
           </div>
@@ -601,16 +710,26 @@ export function ActivityFeed() {
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{group.label}</p>
                 </div>
                 <div className="divide-y divide-border/40">
-                  {group.items.map((log) => (
-                    <LogRow
-                      key={log.id}
-                      log={log}
-                      isUnread={isUnread(log)}
-                      role={role}
-                      tourNameMap={tourNameMap}
-                      onNavigate={(path) => { setOpen(false); navigate(path); }}
-                    />
-                  ))}
+                  {group.items.map((log) =>
+                    log.event_type === "kpi_shared" ? (
+                      <KPIRow
+                        key={log.id}
+                        log={log}
+                        isUnread={!(kpiSeenEvalIds[user?.user_id ?? ""] ?? []).includes((log as any).__kpiEvalId)}
+                        onNavigate={(path) => { setOpen(false); navigate(path); }}
+                        onMarkSeen={(evalId) => markKPISeen(user?.user_id ?? "", evalId)}
+                      />
+                    ) : (
+                      <LogRow
+                        key={log.id}
+                        log={log}
+                        isUnread={isUnread(log)}
+                        role={role}
+                        tourNameMap={tourNameMap}
+                        onNavigate={(path) => { setOpen(false); navigate(path); }}
+                      />
+                    )
+                  )}
                 </div>
               </div>
             ))}
@@ -619,10 +738,12 @@ export function ActivityFeed() {
       </div>
 
       {/* ── Footer ── */}
-      {visibleLogs.length > 0 && (
+      {mergedFeed.length > 0 && (
         <div className="px-3 py-2 border-t border-border bg-muted/10 shrink-0 flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground/60">
-            {unreadCount > 0 ? `${unreadCount} รายการยังไม่ได้อ่าน` : "อ่านครบแล้ว ✓"}
+            {(unreadCount + kpiUnseenCount) > 0
+              ? `${unreadCount + kpiUnseenCount} รายการยังไม่ได้อ่าน`
+              : "อ่านครบแล้ว ✓"}
           </span>
           <button
             onClick={() => setShowMute((v) => !v)}
