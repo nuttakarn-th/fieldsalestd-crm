@@ -44,7 +44,8 @@ export default function UserManagement() {
     setForm({
       full_name: u.full_name,
       username: u.username,
-      password: u.password,
+      // ใช้ plain_password (ข้อความจริง) ไม่ใช่ hash — ป้องกัน double-hash ตอน save
+      password: u.plain_password ?? "",
       role: u.role === "Admin" ? "" : u.role,
       email: u.email ?? "",
       tel: u.tel ?? "",
@@ -63,10 +64,13 @@ export default function UserManagement() {
         (x) => x.user_id !== editing.user_id && x.username.toLowerCase() === form.username.trim().toLowerCase(),
       );
       if (dup) { toast.error("Username นี้ถูกใช้แล้ว"); return; }
+      // ส่ง password เฉพาะเมื่อ Admin พิมพ์รหัสใหม่จริงๆ
+      // (ไม่ใช่ค่าเดิมที่ pre-fill มา) — ป้องกัน double-hash
+      const passwordChanged = form.password.trim() !== (editing.plain_password ?? "");
       updateUser(editing.user_id, {
         full_name: form.full_name.trim(),
         username: form.username.trim(),
-        password: form.password,
+        ...(passwordChanged ? { password: form.password.trim() } : {}),
         role: editing.role === "Admin" ? "Admin" : (form.role || editing.role),
         email: form.email,
         tel: form.tel,

@@ -359,8 +359,9 @@ export function getMenuForRole(role: AppRole): RoleMenu {
   }
 }
 
+/** เฉพาะ OB team + Admin เท่านั้นที่แก้ไข/เพิ่มลดการจองได้ — Role อื่นดูอย่างเดียว */
 export function canEditServices(role: AppRole): boolean {
-  return role === "Admin" || role === "Sales Manager" || role === "OB Manager" || role === "OB Co-ordinator" || role === "Co-Ordinator" || role === "Marketing" || role === "Marketing Manager";
+  return role === "Admin" || role === "OB Manager" || role === "OB Co-ordinator";
 }
 
 export function roleBadgeColor(role: AppRole): string {
