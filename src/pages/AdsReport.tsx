@@ -746,9 +746,13 @@ function UploadZone({onFile,compact=false}:{onFile:(text:string,name:string)=>vo
 // ── Supabase / localStorage helpers ──────────────────────────────────────────
 async function sbLoadReports():Promise<ReportMeta[]>{
   if(!supabase)return lsLoadList();
+  // Try with revenue columns (requires migration to have run)
   const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name,inbox_revenue,deals_closed,total_inbox").order("uploaded_at",{ascending:false});
-  if(error)return lsLoadList();
-  return(data??[]) as ReportMeta[];
+  if(!error)return(data??[]) as ReportMeta[];
+  // Fallback: revenue columns may not exist yet — retry without them
+  const{data:data2,error:error2}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name").order("uploaded_at",{ascending:false});
+  if(error2)return lsLoadList();
+  return(data2??[]) as ReportMeta[];
 }
 async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;report_name?:string}):Promise<string|null>{
   if(!supabase)return lsSaveReport(p);
