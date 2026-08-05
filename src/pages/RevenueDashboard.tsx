@@ -376,8 +376,8 @@ function ServiceTab({ svc, rows, months12, onSave }: ServiceTabProps) {
   const chartTargets = months12.map((m) => rowMap.get(m)?.target ?? null);
   const chartActuals = months12.map((m) => rowMap.get(m)?.actual ?? null);
 
-  // Monthly rows sorted descending
-  const sortedRows = [...rows].sort((a, b) => b.month.localeCompare(a.month));
+  // Monthly rows sorted ascending (ม.ค. ก่อน)
+  const sortedRows = [...rows].sort((a, b) => a.month.localeCompare(b.month));
 
   // YTD (current year)
   const curYear = String(new Date().getFullYear());
