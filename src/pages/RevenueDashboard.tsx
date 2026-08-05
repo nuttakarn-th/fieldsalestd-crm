@@ -46,22 +46,13 @@ function monthLabel(m: string, short = false): string {
   return short ? th : `${th} ${parseInt(y) + 543}`;
 }
 
-function last12Months(): string[] {
-  const months: string[] = [];
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return months;
-}
-
-function currentYearMonths(): string[] {
-  const year = new Date().getFullYear();
+function yearMonthsList(year: number): string[] {
   return Array.from({ length: 12 }, (_, i) =>
     `${year}-${String(i + 1).padStart(2, "0")}`
   );
 }
+
+const THIS_YEAR = new Date().getFullYear();
 
 function fmtBaht(n: number | null | undefined, compact = false): string {
   if (n == null) return "—";
@@ -371,34 +362,37 @@ function EditableRow({ row, color, isCurrentMonth, onSave }: EditableRowProps) {
 interface ServiceTabProps {
   svc: ServiceDef;
   rows: RowData[];
-  months12: string[];
+  months: string[];
+  year: number;
   onSave: (month: string, target: number | null, actual: number | null) => void;
 }
 
-function ServiceTab({ svc, rows, months12, onSave }: ServiceTabProps) {
+function ServiceTab({ svc, rows, months, year, onSave }: ServiceTabProps) {
   const rowMap = new Map(rows.map((r) => [r.month, r]));
-  const now = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const nowStr = `${THIS_YEAR}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
   // compute chart data
-  const chartTargets = months12.map((m) => rowMap.get(m)?.target ?? null);
-  const chartActuals = months12.map((m) => rowMap.get(m)?.actual ?? null);
+  const chartTargets = months.map((m) => rowMap.get(m)?.target ?? null);
+  const chartActuals = months.map((m) => rowMap.get(m)?.actual ?? null);
 
   // Monthly rows sorted ascending (ม.ค. ก่อน)
   const sortedRows = [...rows].sort((a, b) => a.month.localeCompare(b.month));
 
-  // YTD (current year)
-  const curYear = String(new Date().getFullYear());
-  const ytdRows = rows.filter((r) => r.month.startsWith(curYear) && r.month <= now);
+  // YTD: ปัจจุบัน → จนถึงเดือนนี้; ปีก่อน → ทั้งปี
+  const curYear = String(year);
+  const cutoff  = year === THIS_YEAR ? nowStr : `${year}-12`;
+  const ytdRows  = rows.filter((r) => r.month.startsWith(curYear) && r.month <= cutoff);
   const ytdActual = ytdRows.reduce((s, r) => s + (r.actual ?? 0), 0);
   const ytdTarget = ytdRows.reduce((s, r) => s + (r.target ?? 0), 0);
+  const ytdLabel  = year === THIS_YEAR ? "YTD" : "รวมทั้งปี";
 
   return (
     <div className="space-y-5">
       {/* Mini stats row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "YTD จริง", val: fmtBaht(ytdActual, true), color: svc.color },
-          { label: "YTD เป้า", val: fmtBaht(ytdTarget, true), color: undefined },
+          { label: `${ytdLabel} จริง`, val: fmtBaht(ytdActual, true), color: svc.color },
+          { label: `${ytdLabel} เป้า`, val: fmtBaht(ytdTarget, true), color: undefined },
           { label: "ทำได้", val: (() => { const p = achPct(ytdActual, ytdTarget); return p ? `${p}%` : "—"; })(), color: gapStatus(achPct(ytdActual, ytdTarget)) === "good" ? "#10b981" : gapStatus(achPct(ytdActual, ytdTarget)) === "warn" ? "#f59e0b" : "#f43f5e" },
         ].map(({ label, val, color: c }) => (
           <div key={label} className="bg-card border border-border/50 rounded-lg px-3 py-2.5 text-center">
@@ -410,8 +404,8 @@ function ServiceTab({ svc, rows, months12, onSave }: ServiceTabProps) {
 
       {/* Bar chart */}
       <div className="bg-card border border-border/50 rounded-xl p-4">
-        <p className="text-xs text-muted-foreground mb-2">จริง vs เป้า — 12 เดือนล่าสุด</p>
-        <BarChart months={months12} targets={chartTargets} actuals={chartActuals} color={svc.color} />
+        <p className="text-xs text-muted-foreground mb-2">จริง vs เป้า — ม.ค.–ธ.ค. {year + 543}</p>
+        <BarChart months={months} targets={chartTargets} actuals={chartActuals} color={svc.color} />
       </div>
 
       {/* Monthly table */}
@@ -449,26 +443,24 @@ function ServiceTab({ svc, rows, months12, onSave }: ServiceTabProps) {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function RevenueDashboard() {
-  const [activeTab, setActiveTab] = useState<ServiceKey>("ob");
-  const [page, setPage]  = useState(0); // pagination for months
+  const [activeTab,    setActiveTab]    = useState<ServiceKey>("ob");
+  const [selectedYear, setSelectedYear] = useState<number>(THIS_YEAR);
 
   const { entries, setEntry } = useMarketingRevenueStore();
   const obTargets = useCRM((s) => s.targets);
 
-  const months12     = useMemo(() => last12Months(), []);     // chart: 12 เดือนล่าสุด
-  const yearMonths   = useMemo(() => currentYearMonths(), []); // table: ม.ค.–ธ.ค. ปีนี้
-  const now = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const yearMonths = useMemo(() => yearMonthsList(selectedYear), [selectedYear]);
+  const now = `${THIS_YEAR}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
-  // ── Build row data per service ──
-  // ตารางใช้ yearMonths (ม.ค.–ธ.ค.) + entry เพิ่มเติมจาก store
+  // ── Build row data per service (ทุกเดือนของปีที่เลือก) ──
   const allMonths = useMemo(() => {
-    const curYear = String(new Date().getFullYear());
+    const yr = String(selectedYear);
     const set = new Set([
       ...yearMonths,
-      ...entries.map((e) => e.month).filter((m) => m.startsWith(curYear)),
+      ...entries.map((e) => e.month).filter((m) => m.startsWith(yr)),
     ]);
     return [...set].sort();
-  }, [yearMonths, entries]);
+  }, [yearMonths, entries, selectedYear]);
 
   function getOBTarget(month: string): number | null {
     return obTargets.find((t) => t.rep === "OB Team" && t.month === month)?.total_sales ?? null;
@@ -509,17 +501,18 @@ export default function RevenueDashboard() {
   // ── YTD per service (for header cards) ──
   function ytd(svc: ServiceKey) {
     const rows = buildRows(svc);
-    const curYear = String(new Date().getFullYear());
-    const ys = rows.filter((r) => r.month.startsWith(curYear) && r.month <= now);
+    const yr = String(selectedYear);
+    const cutoff = selectedYear === THIS_YEAR ? now : `${selectedYear}-12`;
+    const ys = rows.filter((r) => r.month.startsWith(yr) && r.month <= cutoff);
     return {
       actual: ys.reduce((s, r) => s + (r.actual ?? 0), 0),
       target: ys.reduce((s, r) => s + (r.target ?? 0), 0),
     };
   }
 
-  const activeRows  = buildRows(activeTab);
-  const activeSvc   = SERVICES.find((s) => s.key === activeTab)!;
-  const activeMonths = yearMonths;  // chart ใช้ ม.ค.–ธ.ค. ปีนี้
+  const activeRows   = buildRows(activeTab);
+  const activeSvc    = SERVICES.find((s) => s.key === activeTab)!;
+  const activeMonths = yearMonths;
 
   // ── Pagination — show 12 months max, handled by page offset ──
   // (for now all 12 months shown; pagination nav kept for future use)
@@ -530,14 +523,32 @@ export default function RevenueDashboard() {
     <div className="p-5 max-w-5xl mx-auto space-y-5">
 
       {/* ── Header ── */}
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-violet-400" />
-          Revenue Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          ติดตามรายได้จริง vs เป้าหมาย รายเดือน · 3 บริการ
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-violet-400" />
+            Revenue Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            ติดตามรายได้จริง vs เป้าหมาย รายเดือน · 3 บริการ
+          </p>
+        </div>
+
+        {/* Year picker */}
+        <div className="flex items-center gap-1 bg-muted/40 rounded-xl p-1 shrink-0">
+          <button
+            onClick={() => setSelectedYear((y) => y - 1)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+          ><ChevronLeft className="w-4 h-4"/></button>
+          <span className="text-sm font-semibold px-2 min-w-[60px] text-center tabular-nums">
+            {selectedYear + 543}
+          </span>
+          <button
+            onClick={() => setSelectedYear((y) => y + 1)}
+            disabled={selectedYear >= THIS_YEAR}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-card transition-colors disabled:opacity-30"
+          ><ChevronRight className="w-4 h-4"/></button>
+        </div>
       </div>
 
       {/* ── Summary Cards (clickable tabs) ── */}
@@ -584,10 +595,11 @@ export default function RevenueDashboard() {
 
       {/* ── Tab Content ── */}
       <ServiceTab
-        key={activeTab}
+        key={`${activeTab}-${selectedYear}`}
         svc={activeSvc}
         rows={activeRows}
-        months12={activeMonths}
+        months={activeMonths}
+        year={selectedYear}
         onSave={handleSave(activeTab)}
       />
 
@@ -598,23 +610,6 @@ export default function RevenueDashboard() {
         </p>
       )}
 
-      {/* ── Pagination Nav (if needed in the future) ── */}
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <button
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          className="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-30 transition-colors"
-          disabled={page === 0}
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <span className="text-xs text-muted-foreground">12 เดือนล่าสุด</span>
-        <button
-          onClick={() => setPage((p) => p + 1)}
-          className="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 }
