@@ -519,7 +519,7 @@ export default function RevenueDashboard() {
 
   const activeRows  = buildRows(activeTab);
   const activeSvc   = SERVICES.find((s) => s.key === activeTab)!;
-  const activeMonths = months12;
+  const activeMonths = yearMonths;  // chart ใช้ ม.ค.–ธ.ค. ปีนี้
 
   // ── Pagination — show 12 months max, handled by page offset ──
   // (for now all 12 months shown; pagination nav kept for future use)
