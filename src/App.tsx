@@ -89,6 +89,7 @@ import MarketingTeam from "./pages/MarketingTeam.tsx";
 import TeamKPIPage from "./pages/TeamKPIPage.tsx";
 import AdsReport from "./pages/AdsReport.tsx";
 import OKRFollowerPage from "./pages/OKRFollowerPage.tsx";
+import RevenueDashboard from "./pages/RevenueDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -178,8 +179,9 @@ const App = () => (
             <Route path="marketing-report" element={<MarketingReport />} />
             <Route path="dashboard" element={<MarketingDashboardPage />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
-            <Route path="ads-report"     element={<AdsReport />} />
-            <Route path="okr-follower"   element={<OKRFollowerPage />} />
+            <Route path="ads-report"        element={<AdsReport />} />
+            <Route path="revenue-dashboard" element={<RevenueDashboard />} />
+            <Route path="okr-follower"      element={<OKRFollowerPage />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>
