@@ -752,7 +752,12 @@ async function sbLoadReports():Promise<ReportMeta[]>{
   // Fallback: revenue columns may not exist yet — retry without them
   const{data:data2,error:error2}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name").order("uploaded_at",{ascending:false});
   if(error2)return lsLoadList();
-  return(data2??[]) as ReportMeta[];
+  // Merge revenue fields from localStorage (written by lsUpdateRevenue) so data survives reload even without migration
+  const lsMap=new Map(lsLoadList().map(r=>[r.id,r]));
+  return(data2??[]).map(r=>{
+    const ls=lsMap.get(r.id);
+    return ls&&(ls.inbox_revenue!=null||ls.deals_closed!=null)?{...r,inbox_revenue:ls.inbox_revenue,deals_closed:ls.deals_closed}:r;
+  }) as ReportMeta[];
 }
 async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;report_name?:string}):Promise<string|null>{
   if(!supabase)return lsSaveReport(p);
