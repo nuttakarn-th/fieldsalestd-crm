@@ -20,6 +20,7 @@ import {
   MousePointerClick, AlertTriangle, Info, Plus, Trash2,
   GitCompare, Loader2, CloudUpload, Trophy, Wrench, Rocket,
   Save, CheckCircle2, Search, SlidersHorizontal, Zap, Monitor, Pencil,
+  Banknote, ShoppingBag, BarChart2, Percent,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
@@ -46,6 +47,10 @@ interface AdRow {
 interface ReportMeta {
   id:string;period_label:string;file_name:string;uploaded_at:string;uploaded_by:string|null;
   report_name?:string; // ชื่อรายงานที่ user ตั้ง (optional)
+  // Revenue fields (กรอกโดย Marketing หลังประสานงานทีมขาย)
+  inbox_revenue?:number|null;
+  deals_closed?:number|null;
+  total_inbox?:number|null;
 }
 interface ReportData extends ReportMeta { ads:AdRow[]; colMap:ColumnMap; }
 
@@ -741,7 +746,7 @@ function UploadZone({onFile,compact=false}:{onFile:(text:string,name:string)=>vo
 // ── Supabase / localStorage helpers ──────────────────────────────────────────
 async function sbLoadReports():Promise<ReportMeta[]>{
   if(!supabase)return lsLoadList();
-  const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name").order("uploaded_at",{ascending:false});
+  const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name,inbox_revenue,deals_closed,total_inbox").order("uploaded_at",{ascending:false});
   if(error)return lsLoadList();
   return(data??[]) as ReportMeta[];
 }
@@ -778,6 +783,23 @@ function lsLoadData(id:string):{ads:AdRow[];colMap:ColumnMap}|null{try{return JS
 function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id));localStorage.removeItem(lsKey(id));}
 function lsRenameReport(id:string,name:string){lsSaveList(lsLoadList().map(r=>r.id===id?{...r,report_name:name}:r));}
 
+// ── Revenue update ────────────────────────────────────────────────────────────
+type RevenuePayload = {inbox_revenue:number;deals_closed:number;total_inbox:number|null};
+async function sbUpdateRevenue(id:string,data:RevenuePayload):Promise<void>{
+  lsUpdateRevenue(id,data); // local first
+  if(!supabase)return;
+  await supabase.from("ads_reports").update(data).eq("id",id);
+}
+function lsUpdateRevenue(id:string,data:RevenuePayload){
+  lsSaveList(lsLoadList().map(r=>r.id===id?{...r,...data}:r));
+}
+
+// ── Revenue helpers ────────────────────────────────────────────────────────────
+const calcROAS=(rev:number,spend:number):number|null=>spend>0?rev/spend:null;
+const calcROI=(rev:number,spend:number):number|null=>spend>0?((rev-spend)/spend)*100:null;
+const calcCPB=(spend:number,deals:number):number|null=>deals>0?spend/deals:null;
+const calcCR=(deals:number,inbox:number):number|null=>inbox>0?(deals/inbox)*100:null;
+
 // ── Campaign images — cross-device via Supabase ────────────────────────────────
 const CAMP_LS=(n:string)=>`camp-img::${n}`;
 function lsLoadCampImgs():Record<string,string>{
@@ -804,6 +826,194 @@ async function sbRemoveCampImg(n:string):Promise<void>{
   lsRemoveCampImg(n);
   if(!supabase)return;
   await supabase.from("campaign_images").delete().eq("group_name",n);
+}
+
+// ── Revenue KPI Cards (แสดงเมื่อมีข้อมูลยอดขาย) ──────────────────────────────
+function RevenueKPICards({report,totalSpend,onEdit}:{report:ReportMeta;totalSpend:number;onEdit:()=>void}){
+  const rev=report.inbox_revenue??0;
+  const deals=report.deals_closed??0;
+  const inbox=report.total_inbox??0;
+  const roas=calcROAS(rev,totalSpend);
+  const roi=calcROI(rev,totalSpend);
+  const cpb=calcCPB(totalSpend,deals);
+  const cr=calcCR(deals,inbox);
+
+  const roasGood=roas!==null&&roas>=3;
+  const roiGood=roi!==null&&roi>=200;
+
+  return(
+    <div className="rounded-2xl border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-400"/>
+          </div>
+          <p className="text-sm font-semibold">ROAS & ROI จาก Inbox</p>
+          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">ยอดขาย ฿{rev.toLocaleString("th-TH")}</span>
+        </div>
+        <button onClick={onEdit}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-2.5 py-1.5 rounded-lg transition-colors border border-border">
+          <Pencil className="w-3 h-3"/> แก้ไขยอดขาย
+        </button>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* ROAS */}
+        <div className={`rounded-xl p-3.5 border ${roasGood?"border-emerald-500/30 bg-emerald-500/5":"border-border bg-muted/30"}`}>
+          <p className="text-[11px] text-muted-foreground mb-1.5">ROAS</p>
+          <p className={`text-2xl font-bold tabular-nums ${roasGood?"text-emerald-400":"text-foreground"}`}>
+            {roas!==null?`${roas.toFixed(2)}x`:"—"}
+          </p>
+          <p className="text-[10px] mt-1">
+            {roas===null?"ไม่มีข้อมูล spend":roasGood
+              ?<span className="text-emerald-400 font-semibold">เกินเป้า ✓ (≥3x)</span>
+              :<span className="text-amber-400">ต่ำกว่าเป้า (≥3x)</span>}
+          </p>
+        </div>
+        {/* ROI */}
+        <div className={`rounded-xl p-3.5 border ${roiGood?"border-emerald-500/30 bg-emerald-500/5":"border-border bg-muted/30"}`}>
+          <p className="text-[11px] text-muted-foreground mb-1.5">ROI</p>
+          <p className={`text-2xl font-bold tabular-nums ${roiGood?"text-emerald-400":"text-foreground"}`}>
+            {roi!==null?`${roi.toFixed(0)}%`:"—"}
+          </p>
+          <p className="text-[10px] mt-1 text-muted-foreground">
+            {roi===null?"—":`(ยอด − spend) ÷ spend`}
+          </p>
+        </div>
+        {/* Cost per Booking */}
+        <div className="rounded-xl p-3.5 border border-border bg-muted/30">
+          <p className="text-[11px] text-muted-foreground mb-1.5">Cost per Booking</p>
+          <p className="text-2xl font-bold tabular-nums text-foreground">
+            {cpb!==null?`฿${cpb.toLocaleString("th-TH",{maximumFractionDigits:0})}`:"—"}
+          </p>
+          <p className="text-[10px] mt-1 text-muted-foreground">
+            {deals>0?`${deals} deal ที่ปิดได้`:"ยังไม่มี deal"}
+          </p>
+        </div>
+        {/* Inbox Close Rate */}
+        <div className="rounded-xl p-3.5 border border-border bg-muted/30">
+          <p className="text-[11px] text-muted-foreground mb-1.5">Inbox → Close Rate</p>
+          <p className="text-2xl font-bold tabular-nums text-foreground">
+            {cr!==null?`${cr.toFixed(1)}%`:"—"}
+          </p>
+          <p className="text-[10px] mt-1 text-muted-foreground">
+            {inbox>0?`${deals} จาก ${inbox.toLocaleString("th-TH")} inbox`:"ยังไม่มีข้อมูล inbox"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Revenue Input Modal ────────────────────────────────────────────────────────
+function RevenueModal({report,totalSpend,onSave,onClose}:{
+  report:ReportMeta;
+  totalSpend:number;
+  onSave:(data:RevenuePayload)=>Promise<void>;
+  onClose:()=>void;
+}){
+  const[revenue,setRevenue]=useState(report.inbox_revenue!=null?String(report.inbox_revenue):"");
+  const[deals,setDeals]=useState(report.deals_closed!=null?String(report.deals_closed):"");
+  const[inbox,setInbox]=useState(report.total_inbox!=null?String(report.total_inbox):"");
+  const[saving,setSaving]=useState(false);
+
+  const rev=parseFloat(revenue.replace(/,/g,""))||0;
+  const d=parseInt(deals)||0;
+  const inb=parseInt(inbox)||0;
+  const roas=rev>0&&totalSpend>0?calcROAS(rev,totalSpend):null;
+  const roi=rev>0&&totalSpend>0?calcROI(rev,totalSpend):null;
+  const cpb=d>0?calcCPB(totalSpend,d):null;
+  const cr=d>0&&inb>0?calcCR(d,inb):null;
+
+  const canSave=rev>0&&d>0;
+
+  const handleSave=async()=>{
+    if(!canSave)return;
+    setSaving(true);
+    await onSave({inbox_revenue:rev,deals_closed:d,total_inbox:inb||null});
+    setSaving(false);
+    onClose();
+  };
+
+  return(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)"}}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-border">
+          <div>
+            <h2 className="text-base font-bold">กรอกยอดขายจาก Inbox</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{report.period_label} · ค่าโฆษณา ฿{totalSpend.toLocaleString("th-TH",{maximumFractionDigits:2})}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-4 h-4 text-muted-foreground"/>
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              ยอดขายจาก Inbox Ads (฿) <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="number" min="0" value={revenue} onChange={e=>setRevenue(e.target.value)}
+              placeholder="เช่น 320000"
+              className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"/>
+            <p className="text-[10px] text-muted-foreground mt-1">ยอดที่ลูกค้า message เข้ามาจากการคลิก Ad แล้วปิดการขายได้</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              จำนวน deal ที่ปิดได้ (รายการ) <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="number" min="0" value={deals} onChange={e=>setDeals(e.target.value)}
+              placeholder="เช่น 12"
+              className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">จำนวน Inbox ทั้งหมดในช่วงนี้</label>
+            <input
+              type="number" min="0" value={inbox} onChange={e=>setInbox(e.target.value)}
+              placeholder="เช่น 463 (ดูจาก Meta Business Suite → Inbox)"
+              className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"/>
+            <p className="text-[10px] text-muted-foreground mt-1">ไม่บังคับ — ใช้คำนวณ Inbox Close Rate</p>
+          </div>
+
+          {/* Preview */}
+          {canSave&&(
+            <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">ผลคำนวณ (preview)</p>
+              {[
+                {label:"ROAS",val:roas!==null?`${roas.toFixed(2)}x`:null,good:roas!==null&&roas>=3},
+                {label:"ROI",val:roi!==null?`${roi.toFixed(0)}%`:null,good:roi!==null&&roi>=200},
+                {label:"Cost per Booking",val:cpb!==null?`฿${cpb.toLocaleString("th-TH",{maximumFractionDigits:0})}`:null,good:null},
+                {label:"Inbox Close Rate",val:cr!==null?`${cr.toFixed(1)}%`:null,good:null},
+              ].map(({label,val,good})=>val&&(
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className={`text-sm font-bold tabular-nums ${good===true?"text-emerald-400":good===false?"text-amber-400":"text-foreground"}`}>
+                    {val}
+                    {good===true&&<span className="text-[10px] ml-1 font-normal">✓</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 px-5 pb-5">
+          <button onClick={onClose} className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold border border-border bg-muted/50 hover:bg-muted text-muted-foreground transition-colors">
+            ยกเลิก
+          </button>
+          <button onClick={handleSave} disabled={!canSave||saving}
+            className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            {saving?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<CheckCircle2 className="w-3.5 h-3.5"/>}
+            บันทึกยอดขาย
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Top Performers — Premium Editorial Cards ──────────────────────────────────
@@ -1619,6 +1829,7 @@ export default function AdsReport(){
   const[reportTitleInput,setReportTitleInput]=useState("");
   const[renameMode,setRenameMode]=useState(false);
   const[renameInput,setRenameInput]=useState("");
+  const[showRevenueModal,setShowRevenueModal]=useState(false);
 
   useEffect(()=>{
     setLoadingList(true);
@@ -1680,6 +1891,14 @@ export default function AdsReport(){
     setRenameMode(false);
   };
 
+  const handleRevenueSave=async(data:RevenuePayload)=>{
+    if(!activeReport)return;
+    await sbUpdateRevenue(activeReport.id,data);
+    const updated={...activeReport,...data};
+    setActiveReport(updated);
+    setReports(prev=>prev.map(r=>r.id===activeReport.id?{...r,...data}:r));
+  };
+
   const handleDelete=async(id:string)=>{
     await sbDeleteReport(id);const newList=await sbLoadReports();setReports(newList);
     if(activeReport?.id===id)setActiveReport(null);
@@ -1730,6 +1949,14 @@ export default function AdsReport(){
         onClose={()=>setPresentMode(false)}
       />
     )}
+    {showRevenueModal&&activeReport&&(
+      <RevenueModal
+        report={activeReport}
+        totalSpend={totalSpend}
+        onSave={handleRevenueSave}
+        onClose={()=>setShowRevenueModal(false)}
+      />
+    )}
     <div className="min-h-screen bg-background" style={{backgroundImage:"radial-gradient(ellipse at 30% -10%,rgba(127,119,221,0.08) 0%,transparent 55%)"}}>
       <style>{`@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.slide-up{animation:slideUp 0.35s ease-out both}`}</style>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
@@ -1754,10 +1981,17 @@ export default function AdsReport(){
               <div className="flex items-center gap-3">
                 {saving&&<span className="flex items-center gap-1.5 text-xs text-violet-400"><Loader2 className="w-3.5 h-3.5 animate-spin"/>กำลังบันทึก...</span>}
                 {activeReport&&(
-                  <button onClick={()=>setPresentMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-violet-600 hover:bg-violet-500 text-white border border-violet-500">
-                    <Monitor className="w-4 h-4"/>Present
-                  </button>
+                  <>
+                    <button onClick={()=>setShowRevenueModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-emerald-600/50 text-emerald-400 hover:bg-emerald-500/10">
+                      <Banknote className="w-4 h-4"/>
+                      {activeReport.inbox_revenue!=null?"แก้ไขยอดขาย":"กรอกยอดขาย"}
+                    </button>
+                    <button onClick={()=>setPresentMode(true)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-violet-600 hover:bg-violet-500 text-white border border-violet-500">
+                      <Monitor className="w-4 h-4"/>Present
+                    </button>
+                  </>
                 )}
                 <UploadZone onFile={handleFile} compact/>
               </div>
@@ -1924,6 +2158,15 @@ export default function AdsReport(){
                 ))}
               </div>
             </div>
+
+            {/* ① Revenue KPI cards (แสดงเมื่อมีข้อมูลยอดขาย) */}
+            {activeReport.inbox_revenue!=null&&totalSpend>0&&(
+              <RevenueKPICards
+                report={activeReport}
+                totalSpend={totalSpend}
+                onEdit={()=>setShowRevenueModal(true)}
+              />
+            )}
 
             {/* ② Ad Health Score */}
             <AdHealthScore ads={ads} colMap={cm}/>
