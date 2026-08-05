@@ -514,11 +514,6 @@ export default function RevenueDashboard() {
   const activeSvc    = SERVICES.find((s) => s.key === activeTab)!;
   const activeMonths = yearMonths;
 
-  // ── Pagination — show 12 months max, handled by page offset ──
-  // (for now all 12 months shown; pagination nav kept for future use)
-  void page;
-  void setPage;
-
   return (
     <div className="p-5 max-w-5xl mx-auto space-y-5">
 
