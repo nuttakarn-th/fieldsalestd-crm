@@ -788,7 +788,7 @@ function lsDeleteReport(id:string){lsSaveList(lsLoadList().filter(r=>r.id!==id))
 function lsRenameReport(id:string,name:string){lsSaveList(lsLoadList().map(r=>r.id===id?{...r,report_name:name}:r));}
 
 // ── Revenue update ────────────────────────────────────────────────────────────
-type RevenuePayload = {inbox_revenue:number;deals_closed:number;total_inbox:number|null};
+type RevenuePayload = {inbox_revenue:number;deals_closed:number};
 async function sbUpdateRevenue(id:string,data:RevenuePayload):Promise<void>{
   lsUpdateRevenue(id,data); // local first
   if(!supabase)return;
@@ -833,14 +833,13 @@ async function sbRemoveCampImg(n:string):Promise<void>{
 }
 
 // ── Revenue KPI Cards (แสดงเมื่อมีข้อมูลยอดขาย) ──────────────────────────────
-function RevenueKPICards({report,totalSpend,onEdit}:{report:ReportMeta;totalSpend:number;onEdit:()=>void}){
+function RevenueKPICards({report,totalSpend,totalMsgs,onEdit}:{report:ReportMeta;totalSpend:number;totalMsgs:number;onEdit:()=>void}){
   const rev=report.inbox_revenue??0;
   const deals=report.deals_closed??0;
-  const inbox=report.total_inbox??0;
   const roas=calcROAS(rev,totalSpend);
   const roi=calcROI(rev,totalSpend);
   const cpb=calcCPB(totalSpend,deals);
-  const cr=calcCR(deals,inbox);
+  const cr=calcCR(deals,totalMsgs); // ดึงจาก CSV messages column โดยตรง
 
   const roasGood=roas!==null&&roas>=3;
   const roiGood=roi!==null&&roi>=200;
@@ -900,7 +899,7 @@ function RevenueKPICards({report,totalSpend,onEdit}:{report:ReportMeta;totalSpen
             {cr!==null?`${cr.toFixed(1)}%`:"—"}
           </p>
           <p className="text-[10px] mt-1 text-muted-foreground">
-            {inbox>0?`${deals} จาก ${inbox.toLocaleString("th-TH")} inbox`:"ยังไม่มีข้อมูล inbox"}
+            {totalMsgs>0?`${deals} จาก ${totalMsgs.toLocaleString("th-TH")} inbox (จาก CSV)`:"ไม่มีข้อมูล messages ใน CSV"}
           </p>
         </div>
       </div>
@@ -909,31 +908,30 @@ function RevenueKPICards({report,totalSpend,onEdit}:{report:ReportMeta;totalSpen
 }
 
 // ── Revenue Input Modal ────────────────────────────────────────────────────────
-function RevenueModal({report,totalSpend,onSave,onClose}:{
+function RevenueModal({report,totalSpend,totalMsgs,onSave,onClose}:{
   report:ReportMeta;
   totalSpend:number;
+  totalMsgs:number; // ดึงจาก CSV messages column โดยตรง
   onSave:(data:RevenuePayload)=>Promise<void>;
   onClose:()=>void;
 }){
   const[revenue,setRevenue]=useState(report.inbox_revenue!=null?String(report.inbox_revenue):"");
   const[deals,setDeals]=useState(report.deals_closed!=null?String(report.deals_closed):"");
-  const[inbox,setInbox]=useState(report.total_inbox!=null?String(report.total_inbox):"");
   const[saving,setSaving]=useState(false);
 
   const rev=parseFloat(revenue.replace(/,/g,""))||0;
   const d=parseInt(deals)||0;
-  const inb=parseInt(inbox)||0;
   const roas=rev>0&&totalSpend>0?calcROAS(rev,totalSpend):null;
   const roi=rev>0&&totalSpend>0?calcROI(rev,totalSpend):null;
   const cpb=d>0?calcCPB(totalSpend,d):null;
-  const cr=d>0&&inb>0?calcCR(d,inb):null;
+  const cr=d>0&&totalMsgs>0?calcCR(d,totalMsgs):null;
 
   const canSave=rev>0&&d>0;
 
   const handleSave=async()=>{
     if(!canSave)return;
     setSaving(true);
-    await onSave({inbox_revenue:rev,deals_closed:d,total_inbox:inb||null});
+    await onSave({inbox_revenue:rev,deals_closed:d});
     setSaving(false);
     onClose();
   };
@@ -973,13 +971,15 @@ function RevenueModal({report,totalSpend,onSave,onClose}:{
               placeholder="เช่น 12"
               className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"/>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">จำนวน Inbox ทั้งหมดในช่วงนี้</label>
-            <input
-              type="number" min="0" value={inbox} onChange={e=>setInbox(e.target.value)}
-              placeholder="เช่น 463 (ดูจาก Meta Business Suite → Inbox)"
-              className="w-full rounded-xl border bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500"/>
-            <p className="text-[10px] text-muted-foreground mt-1">ไม่บังคับ — ใช้คำนวณ Inbox Close Rate</p>
+          {/* Inbox count — auto from CSV */}
+          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-3 py-2.5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">จำนวน Inbox (จาก CSV)</p>
+              <p className="text-[10px] text-muted-foreground/60 mt-0.5">ดึงจาก column "ผู้ติดต่อผ่านการส่งข้อความ" ในไฟล์ที่อัปโหลด</p>
+            </div>
+            <span className="text-sm font-bold tabular-nums text-foreground">
+              {totalMsgs>0?totalMsgs.toLocaleString("th-TH"):"—"}
+            </span>
           </div>
 
           {/* Preview */}
@@ -1287,7 +1287,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   report:ReportData;ads:AdRow[];cm:ColumnMap;groupColorMap:Record<string,string>;onClose:()=>void;
 }){
   const[slide,setSlide]=useState(0);
-  const TOTAL=8;
+  const TOTAL=9;
   const next=useCallback(()=>setSlide(s=>Math.min(s+1,TOTAL-1)),[]);
   const prev=useCallback(()=>setSlide(s=>Math.max(s-1,0)),[]);
 
@@ -1768,11 +1768,75 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
         </div>
       );
 
+      // ⑨ ROAS / ROI ────────────────────────────────────────────────────────────
+      case 8:{
+        const rev=report.inbox_revenue??0;
+        const deals=report.deals_closed??0;
+        const roas=calcROAS(rev,totalSpend);
+        const roi=calcROI(rev,totalSpend);
+        const cpb=calcCPB(totalSpend,deals);
+        const cr=calcCR(deals,totalMsgs);
+        const roasGood=roas!==null&&roas>=3;
+        const roiGood=roi!==null&&roi>=200;
+        const hasData=report.inbox_revenue!=null;
+        return(
+          <div key={8} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+            <SH title="ROAS & ROI" sub={`ผลตอบแทนจากโฆษณา · ${report.period_label}`}/>
+            {!hasData?(
+              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,textAlign:"center"}}>
+                <div style={{width:64,height:64,borderRadius:20,background:"rgba(127,119,221,0.12)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <Banknote size={28} style={{color:ACC}}/>
+                </div>
+                <div>
+                  <p style={{fontSize:20,fontWeight:700,color:T1,margin:"0 0 8px"}}>ยังไม่ได้กรอกยอดขาย</p>
+                  <p style={{fontSize:14,color:T3,maxWidth:340,lineHeight:1.6,margin:0}}>กลับไปหน้า Dashboard แล้วกด "กรอกยอดขาย" เพื่อให้สไลด์นี้แสดงผล ROAS และ ROI</p>
+                </div>
+              </div>
+            ):(
+              <div style={{flex:1,display:"flex",flexDirection:"column",gap:24,minHeight:0,justifyContent:"center"}}>
+                {/* Hero row — Spend vs Revenue */}
+                <A d={80}><div style={{display:"flex",gap:16}}>
+                  {[
+                    {label:"ค่าโฆษณารวม",val:`฿${fmtB(totalSpend)}`,color:"#EF9F27",desc:"Meta Ads Spend"},
+                    {label:"ยอดขาย Inbox",val:`฿${rev.toLocaleString("th-TH")}`,color:"#1D9E75",desc:"ปิดการขายจาก Inbox Ads"},
+                  ].map(({label,val,color,desc})=>(
+                    <div key={label} style={{flex:1,padding:"20px 24px",borderRadius:16,background:`${color}14`,border:`1px solid ${color}35`,textAlign:"center"}}>
+                      <p style={{fontSize:11,fontWeight:700,color:`${color}cc`,textTransform:"uppercase",letterSpacing:"0.14em",margin:"0 0 8px"}}>{label}</p>
+                      <p style={{fontSize:"clamp(1.8rem,3.5vw,3rem)",fontWeight:800,color,lineHeight:1,letterSpacing:"-0.02em",margin:"0 0 6px"}}>{val}</p>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.35)",margin:0}}>{desc}</p>
+                    </div>
+                  ))}
+                </div></A>
+                {/* 4 KPI cards */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+                  {[
+                    {label:"ROAS",val:roas!==null?`${roas.toFixed(2)}x`:"—",color:roasGood?"#1D9E75":"#EF9F27",bench:"เป้า ≥ 3x",good:roasGood,desc:`ทุก ฿1 ที่ยิง Ads ได้ยอดขาย ฿${roas?.toFixed(2)??"-"}`},
+                    {label:"ROI",val:roi!==null?`${roi.toFixed(0)}%`:"—",color:roiGood?"#1D9E75":"#EF9F27",bench:"เป้า ≥ 200%",good:roiGood,desc:roi!==null?`กำไร ${roi.toFixed(0)}% เทียบกับ Ads Spend`:"—"},
+                    {label:"Cost / Booking",val:cpb!==null?`฿${Math.round(cpb).toLocaleString("th-TH")}`:"—",color:"#7F77DD",bench:`${deals} deal`,good:null,desc:cpb!==null?`ต้นทุนต่อ 1 การจอง`:"ยังไม่มี deal"},
+                    {label:"Inbox Close Rate",val:cr!==null?`${cr.toFixed(1)}%`:"—",color:"#378ADD",bench:totalMsgs>0?`${deals}/${totalMsgs.toLocaleString("th-TH")} inbox`:"ไม่มีข้อมูล messages",good:null,desc:"อัตราปิดการขายจาก inbox"},
+                  ].map(({label,val,color,bench,good,desc},i)=>(
+                    <A key={label} d={180+i*60}><div style={{padding:"18px 20px",borderRadius:14,background:`${color}12`,border:`1px solid ${color}${good===true?"55":"28"}`,height:"100%",display:"flex",flexDirection:"column",gap:10}}>
+                      <p style={{fontSize:10,fontWeight:700,color:`${color}aa`,textTransform:"uppercase",letterSpacing:"0.15em",margin:0}}>{label}</p>
+                      <p style={{fontSize:"clamp(1.6rem,3vw,2.6rem)",fontWeight:800,color,lineHeight:1,letterSpacing:"-0.02em",margin:0,textShadow:`0 0 30px ${color}50`}}>{val}</p>
+                      {good===true&&<span style={{fontSize:10,color:"#1D9E75",fontWeight:700}}>✓ เกินเป้า</span>}
+                      {good===false&&<span style={{fontSize:10,color:"#EF9F27",fontWeight:700}}>ต่ำกว่าเป้า</span>}
+                      <div style={{height:"1px",background:`${color}25`}}/>
+                      <p style={{fontSize:10,color:"rgba(255,255,255,0.35)",margin:0,lineHeight:1.4}}>{bench}</p>
+                      <p style={{fontSize:10.5,color:"rgba(255,255,255,0.5)",margin:0}}>{desc}</p>
+                    </div></A>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       default:return null;
     }
   };
 
-  const SLIDE_NAMES=["Cover","KPIs","Health","Spend","Top","แย่","Groups","Insights"];
+  const SLIDE_NAMES=["Cover","KPIs","Health","Spend","Top","แย่","Groups","Insights","ROAS/ROI"];
 
   return(
     <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(9,8,14,0.98)"}}>
@@ -1916,6 +1980,7 @@ export default function AdsReport(){
   const cm=activeReport?.colMap??{};
   const filteredAds=filterStatus==="all"?ads:ads.filter(a=>a.status.toLowerCase()===filterStatus);
   const totalSpend=sumN(ads,"spend");
+  const totalMsgs=sumN(ads,"messages"); // จาก CSV — ใช้คำนวณ Close Rate
 
   // Build group entries + assign colors
   const groupEntries=Object.entries(
@@ -1957,6 +2022,7 @@ export default function AdsReport(){
       <RevenueModal
         report={activeReport}
         totalSpend={totalSpend}
+        totalMsgs={totalMsgs}
         onSave={handleRevenueSave}
         onClose={()=>setShowRevenueModal(false)}
       />
@@ -2168,6 +2234,7 @@ export default function AdsReport(){
               <RevenueKPICards
                 report={activeReport}
                 totalSpend={totalSpend}
+                totalMsgs={totalMsgs}
                 onEdit={()=>setShowRevenueModal(true)}
               />
             )}
