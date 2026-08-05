@@ -746,18 +746,22 @@ function UploadZone({onFile,compact=false}:{onFile:(text:string,name:string)=>vo
 // ── Supabase / localStorage helpers ──────────────────────────────────────────
 async function sbLoadReports():Promise<ReportMeta[]>{
   if(!supabase)return lsLoadList();
+  // Revenue cache is the source of truth for revenue fields (persists across reloads)
+  const revCache=lsLoadRevenueCache();
+  const applyRevCache=(list:ReportMeta[])=>list.map(r=>{
+    const rc=revCache[r.id];
+    // Apply cache when Supabase doesn't have the field yet (pre-migration) or has NULL
+    if(rc&&(r.inbox_revenue==null||r.deals_closed==null))
+      return{...r,inbox_revenue:rc.inbox_revenue,deals_closed:rc.deals_closed};
+    return r;
+  });
   // Try with revenue columns (requires migration to have run)
   const{data,error}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name,inbox_revenue,deals_closed,total_inbox").order("uploaded_at",{ascending:false});
-  if(!error)return(data??[]) as ReportMeta[];
+  if(!error)return applyRevCache((data??[]) as ReportMeta[]);
   // Fallback: revenue columns may not exist yet — retry without them
   const{data:data2,error:error2}=await supabase.from("ads_reports").select("id,period_label,file_name,uploaded_at,uploaded_by,report_name").order("uploaded_at",{ascending:false});
   if(error2)return lsLoadList();
-  // Merge revenue fields from localStorage (written by lsUpdateRevenue) so data survives reload even without migration
-  const lsMap=new Map(lsLoadList().map(r=>[r.id,r]));
-  return(data2??[]).map(r=>{
-    const ls=lsMap.get(r.id);
-    return ls&&(ls.inbox_revenue!=null||ls.deals_closed!=null)?{...r,inbox_revenue:ls.inbox_revenue,deals_closed:ls.deals_closed}:r;
-  }) as ReportMeta[];
+  return applyRevCache((data2??[]) as ReportMeta[]);
 }
 async function sbSaveReport(p:{period_label:string;start_date:string;end_date:string;file_name:string;uploaded_by:string;rows_json:AdRow[];col_map:ColumnMap;report_name?:string}):Promise<string|null>{
   if(!supabase)return lsSaveReport(p);
@@ -794,14 +798,26 @@ function lsRenameReport(id:string,name:string){lsSaveList(lsLoadList().map(r=>r.
 
 // ── Revenue update ────────────────────────────────────────────────────────────
 type RevenuePayload = {inbox_revenue:number;deals_closed:number};
+// Revenue cache: persists per report-id regardless of whether report is in LS or Supabase
+const LS_REVENUE_CACHE="ads-revenue-cache-v1";
+function lsLoadRevenueCache():Record<string,{inbox_revenue:number;deals_closed:number}>{
+  try{return JSON.parse(localStorage.getItem(LS_REVENUE_CACHE)??"{}");} catch{return{};}
+}
+function lsSaveRevenuePatch(id:string,data:RevenuePayload){
+  const cache=lsLoadRevenueCache();
+  cache[id]={inbox_revenue:data.inbox_revenue,deals_closed:data.deals_closed};
+  localStorage.setItem(LS_REVENUE_CACHE,JSON.stringify(cache));
+}
 async function sbUpdateRevenue(id:string,data:RevenuePayload):Promise<void>{
-  lsUpdateRevenue(id,data); // local first
+  // Always save to revenue cache first (works for both LS and Supabase reports)
+  lsSaveRevenuePatch(id,data);
+  // Also update LS list if report happens to be there
+  const list=lsLoadList();
+  if(list.some(r=>r.id===id))lsSaveList(list.map(r=>r.id===id?{...r,...data}:r));
   if(!supabase)return;
   await supabase.from("ads_reports").update(data).eq("id",id);
 }
-function lsUpdateRevenue(id:string,data:RevenuePayload){
-  lsSaveList(lsLoadList().map(r=>r.id===id?{...r,...data}:r));
-}
+function lsUpdateRevenue(id:string,data:RevenuePayload){lsSaveRevenuePatch(id,data);}
 
 // ── Revenue helpers ────────────────────────────────────────────────────────────
 const calcROAS=(rev:number,spend:number):number|null=>spend>0?rev/spend:null;
@@ -1388,7 +1404,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   const animImpr=usePCount(slide===1?Math.round(totalImpr):0,slide);
   const animReach=usePCount(slide===1?Math.round(totalReach):0,slide);
   const animMsgs=usePCount(slide===1?Math.round(totalMsgs):0,slide);
-  const animScore=usePCount(slide===2&&healthScore!==null?healthScore:0,slide,1400,620);
+  const animScore=usePCount(slide===3&&healthScore!==null?healthScore:0,slide,1400,620);
 
   // Format helpers local to PM
   const fmtSpend=(cents:number)=>(cents/100).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1477,8 +1493,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ③ Health Score ───────────────────────────────────────────────────────────
-      case 2:return(
-        <div key={2} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 3:return(
+        <div key={3} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="Ad Health Score" sub={`ประเมินจาก ${psubs.length} ตัวชี้วัดหลัก`}/>
           {healthScore!==null?(
             <div style={{flex:1,display:"flex",gap:72,alignItems:"center",minHeight:0}}>
@@ -1528,8 +1544,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ④ Spend by Group ────────────────────────────────────────────────────────
-      case 3:return(
-        <div key={3} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 4:return(
+        <div key={4} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="สัดส่วนงบโฆษณา" sub={`Spend by Group · รวม ฿${fmtB(totalSpend)}`}/>
           <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",gap:20}}>
             {groups.slice(0,6).map(([name,gAds],i)=>{
@@ -1555,8 +1571,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ⑤ Top Performers ────────────────────────────────────────────────────────
-      case 4:return(
-        <div key={4} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 5:return(
+        <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="Top Performers" sub="กลุ่มโฆษณาที่ทำได้ดีที่สุด"/>
           <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gridAutoRows:"1fr",gap:20,minHeight:0,overflow:"hidden"}}>
             {[
@@ -1608,8 +1624,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ⑥ Inefficient Ads ───────────────────────────────────────────────────────
-      case 5:return(
-        <div key={5} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 6:return(
+        <div key={6} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           {/* Header — centered เหมือน slide อื่น */}
           <A><div style={{flexShrink:0,textAlign:"center",marginBottom:"1.25rem"}}>
             <div style={{width:32,height:2,background:"#EF4444",borderRadius:1,margin:"0 auto 14px"}}/>
@@ -1693,8 +1709,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ⑦ Group Performance — animated bar chart (not table) ─────────────────────
-      case 6:return(
-        <div key={6} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 7:return(
+        <div key={7} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="ผลรายกลุ่มโฆษณา" sub={`Top ${Math.min(5,groups.length)} กลุ่ม`}/>
           <div style={{flex:1,display:"flex",gap:24,minHeight:0}}>
             {/* Bar chart — main visual */}
@@ -1743,8 +1759,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       );
 
       // ⑧ Insights ──────────────────────────────────────────────────────────────
-      case 7:return(
-        <div key={7} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
+      case 8:return(
+        <div key={8} className="absolute inset-0 flex flex-col overflow-hidden" style={{padding:PAD}}>
           <SH title="Insights" sub={report.period_label}/>
           <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,minHeight:0}}>
             {([
@@ -1773,8 +1789,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
         </div>
       );
 
-      // ⑨ ROAS / ROI ────────────────────────────────────────────────────────────
-      case 8:{
+      // ② ROAS / ROI ────────────────────────────────────────────────────────────
+      case 2:{
         const rev=report.inbox_revenue??0;
         const deals=report.deals_closed??0;
         const roas=calcROAS(rev,totalSpend);
@@ -1841,7 +1857,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
     }
   };
 
-  const SLIDE_NAMES=["Cover","KPIs","Health","Spend","Top","แย่","Groups","Insights","ROAS/ROI"];
+  const SLIDE_NAMES=["Cover","KPIs","ROAS/ROI","Health","Spend","Top","แย่","Groups","Insights"];
 
   return(
     <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(9,8,14,0.98)"}}>
