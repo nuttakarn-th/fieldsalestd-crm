@@ -56,6 +56,13 @@ function last12Months(): string[] {
   return months;
 }
 
+function currentYearMonths(): string[] {
+  const year = new Date().getFullYear();
+  return Array.from({ length: 12 }, (_, i) =>
+    `${year}-${String(i + 1).padStart(2, "0")}`
+  );
+}
+
 function fmtBaht(n: number | null | undefined, compact = false): string {
   if (n == null) return "—";
   if (compact) {
@@ -448,15 +455,20 @@ export default function RevenueDashboard() {
   const { entries, setEntry } = useMarketingRevenueStore();
   const obTargets = useCRM((s) => s.targets);
 
-  const months12 = useMemo(() => last12Months(), []);
+  const months12     = useMemo(() => last12Months(), []);     // chart: 12 เดือนล่าสุด
+  const yearMonths   = useMemo(() => currentYearMonths(), []); // table: ม.ค.–ธ.ค. ปีนี้
   const now = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
   // ── Build row data per service ──
-  // Ensure all months12 have a row
+  // ตารางใช้ yearMonths (ม.ค.–ธ.ค.) + entry เพิ่มเติมจาก store
   const allMonths = useMemo(() => {
-    const set = new Set([...months12, ...entries.map((e) => e.month)]);
+    const curYear = String(new Date().getFullYear());
+    const set = new Set([
+      ...yearMonths,
+      ...entries.map((e) => e.month).filter((m) => m.startsWith(curYear)),
+    ]);
     return [...set].sort();
-  }, [months12, entries]);
+  }, [yearMonths, entries]);
 
   function getOBTarget(month: string): number | null {
     return obTargets.find((t) => t.rep === "OB Team" && t.month === month)?.total_sales ?? null;
