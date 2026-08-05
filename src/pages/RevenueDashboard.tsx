@@ -427,7 +427,7 @@ function ServiceTab({ svc, rows, months, year, onSave }: ServiceTabProps) {
                 key={row.month}
                 row={row}
                 color={svc.color}
-                isCurrentMonth={row.month === now}
+                isCurrentMonth={row.month === nowStr}
                 onSave={onSave}
               />
             ))}
