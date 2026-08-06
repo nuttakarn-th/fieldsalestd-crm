@@ -1286,8 +1286,10 @@ ${catBlocks}
         const bDate = (b.periods ?? []).filter((p) => !p.cancelled && p.start_date).map((p) => p.start_date!).sort()[0] ?? "9999";
         return aDate.localeCompare(bDate);
       }
-      // "added" — เพิ่งเพิ่มล่าสุดขึ้นก่อน
-      return 0; // ไม่ sort = insertion order
+      // "added" — เพิ่งเพิ่มล่าสุดขึ้นก่อน (ใช้ created_at, fallback updated_at)
+      const ta = a.created_at ?? a.updated_at ?? "";
+      const tb = b.created_at ?? b.updated_at ?? "";
+      return tb.localeCompare(ta);
     });
     return sorted.filter((t) => {
       if (filterText) {

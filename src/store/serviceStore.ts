@@ -72,6 +72,7 @@ export interface TourItem {
   is_published?: boolean;   // แสดงในหน้า Package Program หรือไม่
   // ── Audit trail (tour-level) ──
   created_by?: string;      // ชื่อผู้ใช้ที่สร้าง
+  created_at?: string;      // ISO timestamp เมื่อสร้าง
   updated_by?: string;      // ชื่อผู้ใช้ที่แก้ไขล่าสุด
   updated_at?: string;      // ISO timestamp เมื่อแก้ไขล่าสุด
   // ── Phase 3 fields (migration 24 — มีใน DB แล้ว) ──
@@ -223,7 +224,7 @@ export const useServices = create<ServiceState>()(
       addTour: (t) => {
         const now = new Date().toISOString();
         const id = uid();
-        const item: TourItem = { ...t, quota: t.total_seats, id, updated_at: now };
+        const item: TourItem = { ...t, quota: t.total_seats, id, created_at: t.created_at ?? now, updated_at: now };
         set({ tours: [...get().tours, item] });
         sbInsert("tours", { ...item, created_by: t.created_by, updated_by: t.created_by, updated_at: now });
         const actor = t.created_by ?? "ระบบ";
