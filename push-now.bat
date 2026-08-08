@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: root-level short links — digit-first 3-char codes + legacy /s/ compat
+if "%MSG%"=="" set MSG=fix: createShortLink was calling genCode(5) explicitly — now uses genCode() default 3
 
 git commit -m "%MSG%"
 git push

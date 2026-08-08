@@ -53,7 +53,7 @@ export async function createShortLink(
 ): Promise<ShortLink | null> {
   if (!supabase) return null;
   for (let i = 0; i < 3; i++) {
-    const code = genCode(5);
+    const code = genCode();
     const { data, error } = await supabase
       .from("short_links")
       .insert({ code, pkg_id, source, view_count: 0 })
