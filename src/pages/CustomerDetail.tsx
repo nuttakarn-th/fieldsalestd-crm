@@ -32,6 +32,18 @@ function fmtDate(iso: string) {
   return `${day} ${year}`;
 }
 
+/** แสดงวันที่ + เวลา (ถ้า ISO มี T) หรือแค่วันที่ (ถ้าเป็น date-only) */
+function fmtThaiDT(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const hasTime = iso.includes("T");
+  const d = hasTime ? new Date(iso) : new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return "-";
+  if (hasTime) {
+    return d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  }
+  return d.toLocaleDateString("th-TH", { dateStyle: "medium" });
+}
+
 const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ทัวร์ต่างประเทศ":  { label: "✈️ ทัวร์ต่างประเทศ",   className: "bg-blue-100 text-blue-700 border-blue-200" },
   "ทัวร์ภายในประเทศ": { label: "🏔️ ทัวร์ภายในประเทศ",  className: "bg-emerald-100 text-emerald-700 border-emerald-200" },
@@ -289,6 +301,12 @@ function LeadCard({ lead }: { lead: Lead }) {
             {isLost && lead.lost_reason && (
               <span className="text-destructive/80">❌ {lead.lost_reason}</span>
             )}
+            {lead.created_at && (
+              <span className="text-muted-foreground/60">📅 {fmtThaiDT(lead.created_at)}</span>
+            )}
+            {lead.updated_at && lead.updated_at !== lead.created_at && (
+              <span className="text-muted-foreground/60">✏️ {fmtThaiDT(lead.updated_at)}</span>
+            )}
           </div>
 
           {/* ── Won value (compact) ── */}
@@ -297,7 +315,7 @@ function LeadCard({ lead }: { lead: Lead }) {
               <span className="text-sm font-extrabold text-emerald-600">฿{wonValue.toLocaleString()}</span>
               {lead.closed_date && (
                 <span className="text-[10px] text-emerald-700/70">
-                  ✅ {new Date(lead.closed_date + "T00:00:00").toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                  ✅ {fmtThaiDT(lead.closed_date)}
                 </span>
               )}
             </div>
@@ -389,9 +407,7 @@ function ProfileCard({ customer }: { customer: Customer }) {
         <div>
           <p className="text-muted-foreground">เพิ่มเมื่อ</p>
           <p className="font-medium mt-0.5">
-            {customer.created_at
-              ? new Date(customer.created_at).toLocaleDateString("th-TH", { dateStyle: "medium" })
-              : customer.first_contact_date}
+            {customer.created_at ? fmtThaiDT(customer.created_at) : customer.first_contact_date}
           </p>
         </div>
         {customer.province && (
@@ -403,7 +419,7 @@ function ProfileCard({ customer }: { customer: Customer }) {
         {customer.last_contacted_at && (
           <div>
             <p className="text-muted-foreground">ติดต่อล่าสุด</p>
-            <p className="font-medium mt-0.5">{new Date(customer.last_contacted_at).toLocaleDateString("th-TH", { dateStyle: "medium" })}</p>
+            <p className="font-medium mt-0.5">{fmtThaiDT(customer.last_contacted_at)}</p>
           </div>
         )}
       </div>
@@ -604,7 +620,7 @@ export default function CustomerDetail() {
                           <span className="font-semibold text-primary">{log.to_rep}</span>
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          🕐 {new Date(log.transferred_at).toLocaleDateString("th-TH", { dateStyle: "medium" })}
+                          🕐 {fmtThaiDT(log.transferred_at)}
                           {log.transferred_by && log.transferred_by !== log.from_rep && ` · โดย ${log.transferred_by}`}
                         </p>
                         {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}

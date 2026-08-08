@@ -101,6 +101,8 @@ export interface Lead {
   status_note?: string | null;
   requirement_tags?: string[];  // tags เก็บความต้องการ เช่น ["ทัวร์ญี่ปุ่น","ครอบครัว"]
   followup_logs?: FollowupLog[];  // ประวัติการ Follow-up ทุกครั้ง
+  created_at?: string;  // ISO timestamp เมื่อสร้าง Lead
+  updated_at?: string;  // ISO timestamp แก้ไขล่าสุด
 }
 
 export interface MonthlyTarget {
@@ -1434,20 +1436,22 @@ export const useCRM = create<CRMState>()(
       if (closedPrice == null) closedPrice = l.quoted_price || 0;
     }
 
+    const now = new Date().toISOString();
     const newL: Lead = {
       ...l,
       lead_category: l.lead_category ?? "บริษัทเอกชน",
       scope: l.scope ?? (l.bu_type === "ทัวร์ภายในประเทศ" ? "Domestic" : "International"),
       lead_id: id,
       status: initStatus,
-      closed_date: isWon || isLostStatus(initStatus) ? today : null,
+      closed_date: isWon || isLostStatus(initStatus) ? now : null,
       lost_reason: null,
       closed_price: isWon ? closedPrice : (l.closed_price ?? null),
+      created_at: now,
+      updated_at: now,
     };
     set({ leads: [newL, ...get().leads] });
 
     // Auto-update last_contacted_at on the linked customer
-    const now = new Date().toISOString();
     get().updateCustomer(l.customer_id, { last_contacted_at: now });
 
     // ── ถ้าสร้างมาพร้อมสถานะจองแล้ว → อัป total_spend + deduct quota ทันที ──
@@ -1595,9 +1599,10 @@ export const useCRM = create<CRMState>()(
   },
 
   updateLead: (leadId, patch) => {
-    set({ leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...patch } : l)) });
+    const fullPatch = { ...patch, updated_at: new Date().toISOString() };
+    set({ leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...fullPatch } : l)) });
     if (SUPABASE_ENABLED && supabase) {
-      supabase.from("leads").update(patch).eq("lead_id", leadId).then(({ error }) => {
+      supabase.from("leads").update(fullPatch).eq("lead_id", leadId).then(({ error }) => {
         if (error) console.error("[supabase] update lead ล้มเหลว:", error);
       });
     }
@@ -1607,7 +1612,7 @@ export const useCRM = create<CRMState>()(
     const lead = get().leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
     const prevStatus = lead.status; // capture ก่อน update
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date().toISOString();
 
     // ── Auto closed_price: ดึงราคาจาก TourPeriod เมื่อปิดดีล ──
     let closedPrice: number | null = lead.closed_price ?? null;
@@ -1629,9 +1634,10 @@ export const useCRM = create<CRMState>()(
     const leadPatch: Partial<Lead> = {
       status,
       lost_reason: isLostStatus(status) ? lostReason ?? null : null,
-      closed_date: isClosedStatus(status) || isLostStatus(status) ? today : lead.closed_date,
+      closed_date: isClosedStatus(status) || isLostStatus(status) ? now : lead.closed_date,
       next_followup_date: isClosedStatus(status) || isLostStatus(status) ? null : lead.next_followup_date,
       closed_price: isClosedStatus(status) ? closedPrice : (isLostStatus(status) ? null : lead.closed_price),
+      updated_at: now,
     };
     set({
       leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...leadPatch } : l)),
