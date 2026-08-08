@@ -2,9 +2,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "rewrites": [
-    { "source": "/s/:code", "destination": "/api/s?c=:code" },
-    { "source": "/:code([0-9][A-Za-z0-9][A-Za-z0-9])", "destination": "/api/s?c=:code" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "^/s/(.+)$", "dest": "/api/s?c=$1" },
+    { "src": "^/([0-9][A-Za-z0-9]{2})$", "dest": "/api/s?c=$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

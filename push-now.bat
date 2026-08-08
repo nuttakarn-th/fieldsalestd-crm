@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=fix: vercel rewrite — replace {2,4} quantifier with explicit 3-char pattern
+if "%MSG%"=="" set MSG=fix: switch vercel.json to routes config — supports full regex for root-level short links
 
 git commit -m "%MSG%"
 git push
