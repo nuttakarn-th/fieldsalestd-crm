@@ -11,9 +11,14 @@ import { supabase } from "@/lib/supabase";
 // ── Base62: 0-9, A-Z, a-z ─────────────────────────────────────────────────
 const B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-/** สุ่ม code ขนาด `len` ตัวอักษร (default 5 → 62^5 = ~916M combinations) */
-export function genCode(len = 5): string {
-  return Array.from({ length: len }, () => B62[Math.floor(Math.random() * 62)]).join("");
+/**
+ * สุ่ม code ขนาด `len` ตัวอักษร (default 3 → 10×62² = ~38K combinations)
+ * ตัวแรกเป็นตัวเลข 0-9 เสมอ → ป้องกันชนกับ SPA routes (/app, /login ฯลฯ)
+ */
+export function genCode(len = 3): string {
+  const first = B62[Math.floor(Math.random() * 10)]; // '0'-'9'
+  const rest = Array.from({ length: len - 1 }, () => B62[Math.floor(Math.random() * 62)]).join("");
+  return first + rest;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -26,10 +31,14 @@ export interface ShortLink {
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
-export const SHORT_BASE = "https://stdtour.vercel.app/s";
+export const SHORT_BASE = "https://stdtour.vercel.app";
 
 export function shortUrl(code: string): string {
-  return `${SHORT_BASE}/${code}`;
+  // code ที่ขึ้นต้นด้วยตัวเลข → root-level (ใหม่): stdtour.vercel.app/3Ak
+  // code เก่า (ขึ้นต้นด้วยตัวอักษร เช่น O6X19) → legacy /s/ path
+  return /^[0-9]/.test(code)
+    ? `${SHORT_BASE}/${code}`
+    : `${SHORT_BASE}/s/${code}`;
 }
 
 // ── CRUD helpers ──────────────────────────────────────────────────────────────
