@@ -36,6 +36,7 @@ import { applyOgMeta } from "@/lib/ogMeta";
 import { useCurrentUser } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { createShortLink, getLinksForPkg, shortUrl } from "@/lib/shortLink";
 import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
 
@@ -1282,10 +1283,22 @@ function PackageCard({
   const clr = CONTINENT_COLORS[pkg.continent] ?? { bg: "bg-muted", text: "text-muted-foreground", border: "border-border", emoji: "🌍" };
 
   async function handleShare() {
-    // /api/share?pkg=xxx → Vercel serverless fn ที่ inject OG meta tags ถูกต้อง
-    // แล้ว redirect ผู้ใช้จริงไปหน้า /tour-packages?pkg=xxx ทันที
-    // (Facebook / LINE bots ไม่รัน JS → เห็น OG tags ของโปรแกรมนี้โดยเฉพาะ)
-    const shareUrl = `${window.location.origin}/api/share?pkg=${pkg.id}`;
+    // พยายามใช้ short link (/s/xxxxx) ก่อน — ถ้าไม่มี auto-สร้าง
+    // ถ้า Supabase ใช้ไม่ได้หรือ table ยังไม่มี → fallback ลิงค์เต็ม
+    let shareUrl = `${window.location.origin}/api/share?pkg=${pkg.id}`;
+    try {
+      const existing = await getLinksForPkg(pkg.id);
+      const linkRow = existing.find((l) => l.source === "link");
+      if (linkRow) {
+        shareUrl = shortUrl(linkRow.code);
+      } else {
+        const created = await createShortLink(pkg.id, "link");
+        if (created) shareUrl = shortUrl(created.code);
+      }
+    } catch (_) {
+      // ถ้า table ยังไม่มี หรือ Supabase error → ใช้ลิงค์เต็ม
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({ title: pkg.title, text: `${pkg.title} — Standard Tour`, url: shareUrl });
