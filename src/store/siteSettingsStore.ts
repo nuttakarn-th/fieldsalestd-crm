@@ -129,13 +129,13 @@ const DEFAULT_PHONES: PhoneEntry[] = [
 const DEFAULT_OG_MAIN: OgMeta = {
   title: "Standard Tour Hub — ระบบบริหารงานขายและจัดการลูกค้า",
   description: "ระบบติดตามการขาย จัดการลูกค้า Pipeline, Target, Mission และ Dashboard สำหรับทีม Standard Tour",
-  imageUrl: "https://stour.vercel.app/og-image.jpg",
+  imageUrl: "https://stdtour.vercel.app/og-image.jpg",
 };
 
 const DEFAULT_OG_PACKAGES: OgMeta = {
   title: "Standard Tour — โปรแกรมทัวร์ & E-Booklet",
   description: "เลือกโปรแกรมทัวร์ที่ใช่สำหรับคุณ — ทัวร์ต่างประเทศ ในประเทศ และทั่วโลก โดย Standard Tour",
-  imageUrl: "https://stour.vercel.app/og-image-packages.jpg",
+  imageUrl: "https://stdtour.vercel.app/og-image-packages.jpg",
 };
 
 const DEFAULT_BANNER_SLIDES: BannerSlide[] = [

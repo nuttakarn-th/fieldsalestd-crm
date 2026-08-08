@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: rebrand URL to stour.vercel.app + fix OG meta fallback to tours table
+if "%MSG%"=="" set MSG=feat: rebrand URL to stdtour.vercel.app + fix OG meta fallback to tours table
 
 git commit -m "%MSG%"
 git push
