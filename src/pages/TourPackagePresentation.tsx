@@ -350,6 +350,12 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const [isFullscreen,  setIsFullscreen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // ── Mobile single-page state ──────────────────────────────────────────────
+  const [mobilePage,    setMobilePage] = useState(0);
+  // slide animation: null=idle, 'next'=sliding to next, 'prev'=sliding to prev
+  const [mobileSlide,   setMobileSlide] = useState<'next' | 'prev' | null>(null);
+  const mobileAnimLock = useRef(false);
+
   const flipRef    = useRef<{
     progress:    number;
     direction:   'right' | 'left';
@@ -381,15 +387,25 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   // Compute display book dimensions from window size
   // Fullscreen: use screen dimensions at max 92% height / 46% width per page
   // Mobile: larger maxW so single pages are readable; desktop: dual-page side-by-side
-  const { pageW, pageH } = useMemo(() => {
-    if (imgW === 0 || imgH === 0) return { pageW: 0, pageH: 0 };
+  const { pageW, pageH, mobilePageW, mobilePageH } = useMemo(() => {
+    if (imgW === 0 || imgH === 0) return { pageW: 0, pageH: 0, mobilePageW: 0, mobilePageH: 0 };
     const vH = isFullscreen ? (screen.height || window.screen.height) : window.innerHeight;
     const vW = isFullscreen ? (screen.width  || window.screen.width)  : window.innerWidth;
-    const maxH = vH * (isFullscreen ? 0.90 : isMobile ? 0.65 : 0.72);
-    const maxW = vW * (isFullscreen ? 0.46 : isMobile ? 0.42 : 0.37);
+    // Desktop / fullscreen book dimensions (2-page spread)
+    const maxH = vH * (isFullscreen ? 0.90 : 0.72);
+    const maxW = vW * (isFullscreen ? 0.46 : 0.37);
     const scale = Math.min(maxH / imgH, maxW / imgW, 1);
-    return { pageW: Math.floor(imgW * scale), pageH: Math.floor(imgH * scale) };
-  }, [imgW, imgH, isMobile, isFullscreen]);
+    // Mobile single-page dimensions: 88% viewport width, up to 80% viewport height
+    const mobileMaxW = vW * (isFullscreen ? 0.92 : 0.88);
+    const mobileMaxH = vH * (isFullscreen ? 0.90 : 0.80);
+    const mobileScale = Math.min(mobileMaxW / imgW, mobileMaxH / imgH, 1);
+    return {
+      pageW:       Math.floor(imgW * scale),
+      pageH:       Math.floor(imgH * scale),
+      mobilePageW: Math.floor(imgW * mobileScale),
+      mobilePageH: Math.floor(imgH * mobileScale),
+    };
+  }, [imgW, imgH, isFullscreen]);
   const bookW = pageW * 2;
 
   // Window resize + fullscreen change
@@ -422,6 +438,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   useEffect(() => {
     setLoading(true);
     setSpread(0);
+    setMobilePage(0);
+    mobileAnimLock.current = false;
     flipRef.current = null;
     renderPdfToImagesWithSize(pkg.pdfUrl, (d, t) => { setProgress(d); setTotal(t); })
       .then(({ images, width, height }) => {
@@ -472,18 +490,44 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     startFlip('left', lPg(spread), rPg(spread - 1));
   }
 
-  // ── Touch swipe (mobile) ──
+  // ── Mobile single-page navigation (slide animation) ──────────────────────
+  function mobileGoNext() {
+    if (mobileAnimLock.current || mobilePage >= pages.length - 1) return;
+    mobileAnimLock.current = true;
+    setMobileSlide('next');
+    setTimeout(() => {
+      setMobilePage(p => p + 1);
+      setMobileSlide(null);
+      mobileAnimLock.current = false;
+    }, 320);
+  }
+  function mobileGoPrev() {
+    if (mobileAnimLock.current || mobilePage <= 0) return;
+    mobileAnimLock.current = true;
+    setMobileSlide('prev');
+    setTimeout(() => {
+      setMobilePage(p => p - 1);
+      setMobileSlide(null);
+      mobileAnimLock.current = false;
+    }, 320);
+  }
+
+  // Unified nav — dispatches to mobile or desktop depending on mode
+  function navNext() { if (isMobile) mobileGoNext(); else goNext(); }
+  function navPrev() { if (isMobile) mobileGoPrev(); else goPrev(); }
+
+  // ── Touch swipe ──
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
   function onTouchEnd(e: React.TouchEvent) {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     touchStartX.current = null;
-    if (dx < -50) goNext(); else if (dx > 50) goPrev();
+    if (dx < -50) navNext(); else if (dx > 50) navPrev();
   }
 
   // ── Mouse drag (desktop) ──
   function onMouseDown(e: React.MouseEvent) {
-    if (e.button !== 0) return; // left button only
+    if (e.button !== 0) return;
     mouseStartX.current = e.clientX;
     mouseDragging.current = false;
   }
@@ -495,8 +539,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     if (mouseStartX.current === null) return;
     const dx = e.clientX - mouseStartX.current;
     mouseStartX.current = null;
-    if (!mouseDragging.current) return; // was a click, not a drag
-    if (dx < -50) goNext(); else if (dx > 50) goPrev();
+    if (!mouseDragging.current) return;
+    if (dx < -50) navNext(); else if (dx > 50) navPrev();
     mouseDragging.current = false;
   }
   function onMouseLeave() {
@@ -506,16 +550,16 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if      (e.key === "ArrowRight" || e.key === "PageDown") goNext();
-      else if (e.key === "ArrowLeft"  || e.key === "PageUp")   goPrev();
+      if      (e.key === "ArrowRight" || e.key === "PageDown") navNext();
+      else if (e.key === "ArrowLeft"  || e.key === "PageUp")   navPrev();
       else if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [spread, pages.length, totalSpreads]);
+  }, [spread, mobilePage, pages.length, totalSpreads, isMobile]);
 
-  const canPrev = spread > 0;
-  const canNext = spread < totalSpreads - 1;
+  const canPrev = isMobile ? mobilePage > 0 : spread > 0;
+  const canNext = isMobile ? mobilePage < pages.length - 1 : spread < totalSpreads - 1;
 
   // Polygon data for this render
   const fl         = flipRef.current;
@@ -560,7 +604,9 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           <p className="text-white font-semibold text-sm truncate">{pkg.title}</p>
           {pages.length > 0 && !loading && (
             <p className="text-white/50 text-xs">
-              {`สเปรด ${spread + 1} / ${totalSpreads} · ${pages.length} หน้า`}
+              {isMobile
+                ? `หน้า ${mobilePage + 1} / ${pages.length}`
+                : `สเปรด ${spread + 1} / ${totalSpreads} · ${pages.length} หน้า`}
             </p>
           )}
         </div>
@@ -631,22 +677,41 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           <div className="flex items-center gap-3 sm:gap-4 h-full py-2 px-2 sm:px-4">
 
             {/* Prev */}
-            <button onClick={goPrev} disabled={!canPrev || !!flipRef.current}
+            <button onClick={navPrev} disabled={!canPrev || (isMobile ? mobileAnimLock.current : !!flipRef.current)}
               className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronLeft className="w-6 h-6" />
             </button>
 
-            {/* Book */}
+            {/* Book / Page */}
             <div className="flex-1 flex items-center justify-center overflow-hidden">
               <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
 
-                {/* Polygon flipbook — mobile + desktop */}
-                {pageW > 0 && (
+                {/* ── MOBILE: single-page slide viewer ── */}
+                {isMobile && mobilePageW > 0 && (
+                  <div
+                    style={{
+                      width: mobilePageW, height: mobilePageH,
+                      borderRadius: 4, overflow: 'hidden',
+                      boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
+                    }}
+                  >
+                    <img
+                      key={mobilePage}
+                      src={pages[mobilePage]}
+                      alt={`หน้า ${mobilePage + 1}`}
+                      draggable={false}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                        transform: mobileSlide === 'next' ? 'translateX(-110%)' : mobileSlide === 'prev' ? 'translateX(110%)' : 'translateX(0)',
+                        transition: mobileSlide ? 'transform 0.3s ease' : 'none',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* ── DESKTOP: dual-page polygon flipbook ── */}
+                {!isMobile && pageW > 0 && (
                   <div style={{ filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.85))" }}>
-                    {/*
-                      displayW = pageW  → spread 0 idle (cover only, no blank page)
-                      displayW = bookW  → spread 1+ or animating (dual-page spread)
-                    */}
                     <div
                       className="relative select-none"
                       style={{ width: displayW, height: pageH, background: "transparent", overflow: "visible" }}
@@ -737,7 +802,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             </div>
 
             {/* Next */}
-            <button onClick={goNext} disabled={!canNext || !!flipRef.current}
+            <button onClick={navNext} disabled={!canNext || (isMobile ? mobileAnimLock.current : !!flipRef.current)}
               className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -748,31 +813,54 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
       {/* Thumbnail strip */}
       {!loading && pages.length > 0 && (
         <div className="shrink-0 bg-black/70 border-t border-white/10 py-2 px-4 flex items-center gap-2 overflow-x-auto">
-          {totalSpreads <= 15 ? (
-            Array.from({ length: totalSpreads }).map((_, si) => (
-              <button key={si} onClick={() => goToSpread(si)}
-                className={`shrink-0 relative flex gap-0.5 overflow-hidden rounded transition-all border-2 ${
-                  si === spread ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
-                }`}
-                style={{ height: 40 }}>
-                {lPg(si) && <img src={lPg(si)!} alt="" className="h-full w-auto object-cover" />}
-                {!lPg(si) && <div className="h-full w-5 bg-white/5" />}
-                {rPg(si) && <img src={rPg(si)!} alt="" className="h-full w-auto object-cover" />}
-                {!rPg(si) && <div className="h-full w-5 bg-white/5" />}
-              </button>
-            ))
-          ) : (
-            <div className="flex-1 flex items-center gap-3">
-              <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-violet-500 rounded-full transition-all"
-                  style={{ width: `${((spread + 1) / totalSpreads) * 100}%` }}
-                />
+
+          {/* Mobile: individual page thumbnails */}
+          {isMobile && (
+            pages.length <= 20 ? (
+              pages.map((pg, pi) => (
+                <button key={pi} onClick={() => { if (!mobileAnimLock.current) setMobilePage(pi); }}
+                  className={`shrink-0 overflow-hidden rounded transition-all border-2 ${
+                    pi === mobilePage ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                  }`}
+                  style={{ height: 40 }}>
+                  <img src={pg} alt="" className="h-full w-auto object-cover" />
+                </button>
+              ))
+            ) : (
+              <div className="flex-1 flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-violet-500 rounded-full transition-all"
+                    style={{ width: `${((mobilePage + 1) / pages.length) * 100}%` }} />
+                </div>
+                <span className="text-white/60 text-xs whitespace-nowrap">{mobilePage + 1} / {pages.length}</span>
               </div>
-              <span className="text-white/60 text-xs whitespace-nowrap">
-                {`${spread + 1} / ${totalSpreads}`}
-              </span>
-            </div>
+            )
+          )}
+
+          {/* Desktop: spread thumbnails */}
+          {!isMobile && (
+            totalSpreads <= 15 ? (
+              Array.from({ length: totalSpreads }).map((_, si) => (
+                <button key={si} onClick={() => goToSpread(si)}
+                  className={`shrink-0 relative flex gap-0.5 overflow-hidden rounded transition-all border-2 ${
+                    si === spread ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
+                  }`}
+                  style={{ height: 40 }}>
+                  {lPg(si) && <img src={lPg(si)!} alt="" className="h-full w-auto object-cover" />}
+                  {!lPg(si) && <div className="h-full w-5 bg-white/5" />}
+                  {rPg(si) && <img src={rPg(si)!} alt="" className="h-full w-auto object-cover" />}
+                  {!rPg(si) && <div className="h-full w-5 bg-white/5" />}
+                </button>
+              ))
+            ) : (
+              <div className="flex-1 flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-violet-500 rounded-full transition-all"
+                    style={{ width: `${((spread + 1) / totalSpreads) * 100}%` }} />
+                </div>
+                <span className="text-white/60 text-xs whitespace-nowrap">{spread + 1} / {totalSpreads}</span>
+              </div>
+            )
           )}
         </div>
       )}
