@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: Fix OG meta for short links — tour_packages_og table + syncTourPackagesOg on mount
+if "%MSG%"=="" set MSG=fix: OG meta — fallback to tours table so short links show program name immediately
 
 git commit -m "%MSG%"
 git push

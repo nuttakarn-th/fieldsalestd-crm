@@ -156,15 +156,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (pkg.cover_url) image = pkg.cover_url as string;
     } else {
-      // Fallback: site_settings payload (legacy / edge case)
-      const { data, error } = await sb
+      // Fallback 1: site_settings payload (legacy)
+      const { data: ssData, error: ssError } = await sb
         .from("site_settings")
         .select("payload")
         .eq("id", "default")
         .single();
 
-      if (!error && data?.payload) {
-        const payload = data.payload as SitePayload;
+      let foundInSS = false;
+      if (!ssError && ssData?.payload) {
+        const payload = ssData.payload as SitePayload;
 
         if (payload.ogPackages?.title) title = payload.ogPackages.title;
         if (payload.ogPackages?.description) description = payload.ogPackages.description;
@@ -174,6 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           (p) => p.id === pkgId || p.id === bareId
         );
         if (legacyPkg) {
+          foundInSS = true;
           let pkgTitle = legacyPkg.title;
           if (legacyPkg.days) pkgTitle += ` ${legacyPkg.days} วัน`;
           if (legacyPkg.nights) pkgTitle += ` ${legacyPkg.nights} คืน`;
@@ -187,6 +189,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           description = parts.join(" · ") || DEFAULT_DESC;
 
           if (legacyPkg.coverUrl) image = legacyPkg.coverUrl;
+        }
+      }
+
+      // Fallback 2: tours table (service store — canonical source)
+      if (!foundInSS) {
+        const { data: tourRow } = await sb
+          .from("tours")
+          .select("title, city, country, duration")
+          .eq("id", bareId)
+          .maybeSingle();
+
+        if (tourRow) {
+          let pkgTitle = (tourRow.title as string) || (tourRow.city as string) || "";
+          if (tourRow.duration) pkgTitle += ` ${tourRow.duration as string}`;
+          title = `${pkgTitle} — Standard Tour`;
+
+          const parts: string[] = [];
+          if (tourRow.city && tourRow.city !== tourRow.title) parts.push(tourRow.city as string);
+          if (tourRow.country) parts.push(tourRow.country as string);
+          description = parts.join(" · ") || DEFAULT_DESC;
         }
       }
     }
