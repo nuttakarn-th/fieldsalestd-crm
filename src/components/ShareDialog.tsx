@@ -175,7 +175,7 @@ export function ShareDialog({
 
                       {/* Short URL — truncated, fills remaining space */}
                       <span className="flex-1 min-w-0 text-[11px] font-mono text-muted-foreground truncate">
-                        /s/{link.code}
+                        {shortUrl(link.code).replace("https://stdtour.vercel.app", "")}
                       </span>
 
                       {/* Views */}
