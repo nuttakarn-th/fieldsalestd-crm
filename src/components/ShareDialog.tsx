@@ -126,7 +126,7 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Link2 className="w-4 h-4 text-primary" /> แชร์โปรแกรม
@@ -156,8 +156,8 @@ export function ShareDialog({
           <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
             ลิงค์เต็ม (OG preview ครบ)
           </p>
-          <div className="flex items-center gap-1.5">
-            <code className="flex-1 text-[11px] bg-muted px-2.5 py-1.5 rounded-lg truncate font-mono text-foreground">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <code className="flex-1 min-w-0 text-[11px] bg-muted px-2.5 py-1.5 rounded-lg truncate font-mono text-foreground block">
               {longUrl}
             </code>
             <Button

@@ -23,7 +23,7 @@ import {
   MessageCircle, Flame, Phone,
   Facebook, Instagram, Youtube,
   Share2, ChevronDown, ChevronUp, Settings, ImagePlus, Link2, Copy,
-  SlidersHorizontal, Check, Search, Maximize2, Minimize2,
+  SlidersHorizontal, Check, Search, Maximize2, Minimize2, Eye,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { StandaloneHeader } from "@/components/StandaloneHeader";
@@ -36,7 +36,7 @@ import { applyOgMeta } from "@/lib/ogMeta";
 import { useCurrentUser } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { createShortLink, getLinksForPkg, shortUrl } from "@/lib/shortLink";
+import { createShortLink, getLinksForPkg, shortUrl, getAllViewCounts } from "@/lib/shortLink";
 import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
 
@@ -1270,10 +1270,11 @@ function FilterSidebar({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PackageCard({
-  pkg, canEdit, onOpen, onEdit, onDelete, onUploadCover, onToggleHighlight,
+  pkg, canEdit, viewCount = 0, onOpen, onEdit, onDelete, onUploadCover, onToggleHighlight,
 }: {
   pkg: TourPackageItem;
   canEdit: boolean;
+  viewCount?: number;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1340,6 +1341,14 @@ function PackageCard({
         {pkg.isHighlight && (
           <div className="absolute top-2 right-2 flex items-center gap-1 bg-orange-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
             <Flame className="w-3 h-3 fill-current" /> แนะนำ
+          </div>
+        )}
+
+        {/* View count badge — bottom-left, shows when > 0 */}
+        {viewCount > 0 && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 bg-black/60 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+            <Eye className="w-2.5 h-2.5" />
+            {viewCount.toLocaleString()}
           </div>
         )}
 
@@ -1442,12 +1451,13 @@ function PackageCard({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CategorySection({
-  title, emoji, packages, canEdit, onOpen, onEdit, onDelete, onUploadCover, onToggleHighlight,
+  title, emoji, packages, canEdit, viewCountMap = {}, onOpen, onEdit, onDelete, onUploadCover, onToggleHighlight,
 }: {
   title: string;
   emoji: string;
   packages: TourPackageItem[];
   canEdit: boolean;
+  viewCountMap?: Record<string, number>;
   onOpen: (pkg: TourPackageItem) => void;
   onEdit: (pkg: TourPackageItem) => void;
   onDelete: (pkg: TourPackageItem) => void;
@@ -1479,6 +1489,7 @@ function CategorySection({
             <PackageCard
               pkg={pkg}
               canEdit={canEdit}
+              viewCount={viewCountMap[pkg.id] ?? 0}
               onOpen={() => onOpen(pkg)}
               onEdit={() => onEdit(pkg)}
               onDelete={() => onDelete(pkg)}
@@ -2180,6 +2191,12 @@ export default function TourPackagePresentation() {
     new URLSearchParams(window.location.search).get("q") ?? ""
   );
 
+  // View counts from short_links table
+  const [viewCountMap, setViewCountMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    getAllViewCounts().then(setViewCountMap).catch(() => {});
+  }, []);
+
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -2552,6 +2569,7 @@ export default function TourPackagePresentation() {
                         <PackageCard
                           pkg={pkg}
                           canEdit={canEdit}
+                          viewCount={viewCountMap[pkg.id] ?? 0}
                           onOpen={() => setFlipbookPkg(pkg)}
                           onEdit={() => setEditPkg(pkg)}
                           onDelete={() => handleDelete(pkg)}
@@ -2573,6 +2591,7 @@ export default function TourPackagePresentation() {
                   emoji={CONTINENT_COLORS[continent]?.emoji ?? "🌍"}
                   packages={pkgs}
                   canEdit={canEdit}
+                  viewCountMap={viewCountMap}
                   onOpen={setFlipbookPkg}
                   onEdit={setEditPkg}
                   onDelete={handleDelete}

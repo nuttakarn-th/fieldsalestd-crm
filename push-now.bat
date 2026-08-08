@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: Short URL + View Count + QR Code - short_links table, api/s.ts redirect, ShareDialog with per-source tracking, vercel.json rewrite, AllService share button + eye badge
+if "%MSG%"=="" set MSG=feat: View count badge on /tour-packages cards + ShareDialog overflow fix - Eye icon overlay on PackageCard cover, getAllViewCounts loaded in TourPackagePresentation, CategorySection + Highlight section wired, overflow-x-hidden on DialogContent
 
 git commit -m "%MSG%"
 git push
