@@ -71,15 +71,29 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
       toast.error("กรุณาระบุเหตุผลที่ยกเลิก");
       return;
     }
+    const newPax = parseInt(pax) || lead.pax_count;
     const patch: Partial<Lead> = {
       urgency: urgency as Lead["urgency"],
-      pax_count: parseInt(pax) || lead.pax_count,
+      pax_count: newPax,
       travel_month: travelMonth,
       quoted_price: parseFloat(quotedPrice) || 0,
       next_followup_date: nextFollowup || null,
       status_note: note || null,
     };
     updateLead(lead.lead_id, patch);
+
+    // ── ถ้า pax เปลี่ยน และ Lead อยู่ใน "จองแล้ว" ทั้งก่อนและหลัง → adjust quota ตาม delta ──
+    const paxDelta = newPax - lead.pax_count;
+    const bothWon = isClosedStatus(lead.status) && isClosedStatus(status);
+    if (paxDelta !== 0 && bothWon) {
+      const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
+      if (isTour && lead.tour_id) {
+        const { adjustQuota, adjustPeriodQuota } = useServices.getState();
+        if (lead.period_id) adjustPeriodQuota(lead.tour_id, lead.period_id, -paxDelta);
+        else adjustQuota(lead.tour_id, -paxDelta);
+      }
+    }
+
     const finalLostReason = isCancelling
       ? (lostNote.trim() ? `${lostReason} — ${lostNote.trim()}` : lostReason)
       : undefined;
