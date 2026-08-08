@@ -104,6 +104,7 @@ interface State {
   setOgPackages: (patch: Partial<OgMeta>) => void;
   setOfficeLocation: (lat: number, lng: number) => Promise<void>;
 
+  syncTourPackagesOg: () => Promise<void>;
   loadFromSupabase: () => Promise<void>;
   saveToSupabase: () => Promise<void>;
 }
@@ -215,12 +216,23 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
     get().saveToSupabase();
   },
   removeBannerSlide: (id) => { set({ bannerSlides: get().bannerSlides.filter((s) => s.id !== id) }); get().saveToSupabase(); },
-  addTourPackage: (p) => { set({ tourPackages: [...(get().tourPackages ?? []), p] }); get().saveToSupabase(); },
+  addTourPackage: (p) => {
+    set({ tourPackages: [...(get().tourPackages ?? []), p] });
+    get().saveToSupabase();
+    get().syncTourPackagesOg();
+  },
   updateTourPackage: (id, patch) => {
     set({ tourPackages: (get().tourPackages ?? []).map((x) => x.id === id ? { ...x, ...patch } : x) });
     get().saveToSupabase();
+    get().syncTourPackagesOg();
   },
-  removeTourPackage: (id) => { set({ tourPackages: (get().tourPackages ?? []).filter((x) => x.id !== id) }); get().saveToSupabase(); },
+  removeTourPackage: (id) => {
+    set({ tourPackages: (get().tourPackages ?? []).filter((x) => x.id !== id) });
+    get().saveToSupabase();
+    if (SUPABASE_ENABLED && supabase) {
+      supabase.from("tour_packages_og").delete().eq("id", id).then(() => {});
+    }
+  },
   setTourPackageBanners: (banners) => { set({ tourPackageBanners: banners }); get().saveToSupabase(); },
   addTourPackageBanner: (banner) => { set({ tourPackageBanners: [...(get().tourPackageBanners ?? []), banner] }); get().saveToSupabase(); },
   updateTourPackageBanner: (id, patch) => {
@@ -241,6 +253,25 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
         .upsert({ id: "default", payload: snap }, { onConflict: "id" });
       if (error) console.error("[siteSettings] setOfficeLocation ล้มเหลว:", error);
     }
+  },
+
+  syncTourPackagesOg: async () => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const pkgs = get().tourPackages ?? [];
+    if (!pkgs.length) return;
+    const rows = pkgs.map((p) => ({
+      id: p.id,
+      title: p.title,
+      duration: p.duration ?? null,
+      cover_url: p.coverUrl ?? null,
+      country: p.country ?? null,
+      city: p.city ?? null,
+      updated_at: new Date().toISOString(),
+    }));
+    const { error } = await supabase
+      .from("tour_packages_og")
+      .upsert(rows, { onConflict: "id" });
+    if (error) console.error("[supabase] syncTourPackagesOg ล้มเหลว:", error);
   },
 
   loadFromSupabase: async () => {
@@ -270,8 +301,11 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
         if (!payload.bannerSlides || payload.bannerSlides.length === 0) {
           payload.bannerSlides = DEFAULT_BANNER_SLIDES;
         }
-        // Ensure tourPackages defaults
-        if (!payload.tourPackages) payload.tourPackages = [];
+        // Ensure tourPackages defaults — never clobber localStorage data with empty Supabase array
+        if (!payload.tourPackages || payload.tourPackages.length === 0) {
+          const localPkgs = get().tourPackages;
+          payload.tourPackages = (localPkgs && localPkgs.length > 0) ? localPkgs : [];
+        }
         // Ensure tourPackageBanners defaults
         if (!payload.tourPackageBanners) payload.tourPackageBanners = [];
         // Ensure OG meta defaults

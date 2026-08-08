@@ -2370,6 +2370,15 @@ export default function TourPackagePresentation() {
     getAllViewCounts().then(setViewCountMap).catch(() => {});
   }, []);
 
+  // Startup sync: push existing packages to tour_packages_og so OG meta works for shared links
+  const syncTourPackagesOg = settings.syncTourPackagesOg;
+  useEffect(() => {
+    if (packages.length > 0) {
+      syncTourPackagesOg().catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** เปิด flipbook + นับ direct view (เฉพาะ user คลิกเอง ไม่ใช่ deep-link จาก short URL) */
   function handleOpenPkg(pkg: TourPackageItem) {
     setFlipbookPkg(pkg);

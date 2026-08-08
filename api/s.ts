@@ -134,38 +134,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let image = DEFAULT_IMAGE;
 
   try {
-    const { data, error } = await sb
-      .from("site_settings")
-      .select("payload")
-      .eq("id", "default")
-      .single();
+    // pkgId may be "tour_mrlfhd20-dr1gn" — strip prefix for bare match
+    const bareId = pkgId.startsWith("tour_") ? pkgId.slice(5) : pkgId;
 
-    if (!error && data?.payload) {
-      const payload = data.payload as SitePayload;
+    // Primary: dedicated tour_packages_og table (always in sync with frontend)
+    const { data: pkg } = await sb
+      .from("tour_packages_og")
+      .select("*")
+      .or(`id.eq.${pkgId},id.eq.${bareId}`)
+      .maybeSingle();
 
-      if (payload.ogPackages?.title) title = payload.ogPackages.title;
-      if (payload.ogPackages?.description) description = payload.ogPackages.description;
-      if (payload.ogPackages?.imageUrl) image = payload.ogPackages.imageUrl;
+    if (pkg) {
+      let pkgTitle = (pkg.title as string) || "";
+      if (pkg.duration) pkgTitle += ` ${pkg.duration as string}`;
+      title = `${pkgTitle} — Standard Tour`;
 
-      // pkgId is like "tour_mrlfhd20-dr1gn" — strip prefix to match DB id
-      const bareId = pkgId.startsWith("tour_") ? pkgId.slice(5) : pkgId;
-      const pkg = (payload.tourPackages ?? []).find(
-        (p) => p.id === pkgId || p.id === bareId
-      );
-      if (pkg) {
-        let pkgTitle = pkg.title;
-        if (pkg.days) pkgTitle += ` ${pkg.days} วัน`;
-        if (pkg.nights) pkgTitle += ` ${pkg.nights} คืน`;
-        title = `${pkgTitle} — Standard Tour`;
+      const parts: string[] = [];
+      if (pkg.city) parts.push(pkg.city as string);
+      if (pkg.country) parts.push(pkg.country as string);
+      description = parts.join(" · ") || DEFAULT_DESC;
 
-        const parts: string[] = [];
-        if (pkg.city) parts.push(pkg.city);
-        if (pkg.country) parts.push(pkg.country);
-        if (pkg.subtitle) parts.push(pkg.subtitle);
-        else if (pkg.description) parts.push(pkg.description.slice(0, 80));
-        description = parts.join(" · ") || DEFAULT_DESC;
+      if (pkg.cover_url) image = pkg.cover_url as string;
+    } else {
+      // Fallback: site_settings payload (legacy / edge case)
+      const { data, error } = await sb
+        .from("site_settings")
+        .select("payload")
+        .eq("id", "default")
+        .single();
 
-        if (pkg.coverUrl) image = pkg.coverUrl;
+      if (!error && data?.payload) {
+        const payload = data.payload as SitePayload;
+
+        if (payload.ogPackages?.title) title = payload.ogPackages.title;
+        if (payload.ogPackages?.description) description = payload.ogPackages.description;
+        if (payload.ogPackages?.imageUrl) image = payload.ogPackages.imageUrl;
+
+        const legacyPkg = (payload.tourPackages ?? []).find(
+          (p) => p.id === pkgId || p.id === bareId
+        );
+        if (legacyPkg) {
+          let pkgTitle = legacyPkg.title;
+          if (legacyPkg.days) pkgTitle += ` ${legacyPkg.days} วัน`;
+          if (legacyPkg.nights) pkgTitle += ` ${legacyPkg.nights} คืน`;
+          title = `${pkgTitle} — Standard Tour`;
+
+          const parts: string[] = [];
+          if (legacyPkg.city) parts.push(legacyPkg.city);
+          if (legacyPkg.country) parts.push(legacyPkg.country);
+          if (legacyPkg.subtitle) parts.push(legacyPkg.subtitle);
+          else if (legacyPkg.description) parts.push(legacyPkg.description.slice(0, 80));
+          description = parts.join(" · ") || DEFAULT_DESC;
+
+          if (legacyPkg.coverUrl) image = legacyPkg.coverUrl;
+        }
       }
     }
   } catch (_) {

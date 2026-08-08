@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: Count direct views from /tour-packages — incrementDirectView on open button click
+if "%MSG%"=="" set MSG=feat: Fix OG meta for short links — tour_packages_og table + syncTourPackagesOg on mount
 
 git commit -m "%MSG%"
 git push
