@@ -352,9 +352,18 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
 
   // ── Mobile single-page state ──────────────────────────────────────────────
   const [mobilePage,    setMobilePage] = useState(0);
-  // slide animation: null=idle, 'next'=sliding to next, 'prev'=sliding to prev
-  const [mobileSlide,   setMobileSlide] = useState<'next' | 'prev' | null>(null);
-  const mobileAnimLock = useRef(false);
+  const [,           mobileFU]         = useState(0);   // force-update for mobile RAF frames
+  // Polygon flip animation state for mobile (mirrors desktop flipRef)
+  const mobileFlipRef = useRef<{
+    progress:   number;
+    direction:  'right' | 'left';
+    frontImg:   string | null;   // face that curls away  (direction=right: current page)
+    backImg:    string | null;   // face that appears     (direction=left:  prev page)
+    staticBase: string | null;   // behind the polygons   (destination page)
+    t0:         number;
+    targetPage: number;
+  } | null>(null);
+  const mobileRafRef = useRef<number | null>(null);
 
   const flipRef    = useRef<{
     progress:    number;
@@ -439,7 +448,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     setLoading(true);
     setSpread(0);
     setMobilePage(0);
-    mobileAnimLock.current = false;
+    mobileFlipRef.current = null;
+    if (mobileRafRef.current) cancelAnimationFrame(mobileRafRef.current);
     flipRef.current = null;
     renderPdfToImagesWithSize(pkg.pdfUrl, (d, t) => { setProgress(d); setTotal(t); })
       .then(({ images, width, height }) => {
@@ -455,7 +465,9 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
       });
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (mobileRafRef.current) cancelAnimationFrame(mobileRafRef.current);
       flipRef.current = null;
+      mobileFlipRef.current = null;
     };
   }, [pkg.pdfUrl]);
 
@@ -490,26 +502,42 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     startFlip('left', lPg(spread), rPg(spread - 1));
   }
 
-  // ── Mobile single-page navigation (slide animation) ──────────────────────
+  // ── Mobile single-page navigation (polygon flip) ─────────────────────────
+  function startMobileFlip(dir: 'right' | 'left', targetPage: number) {
+    if (mobileFlipRef.current) return;
+    // direction='right' (next): current page curls away (front), destination revealed (staticBase)
+    // direction='left'  (prev): destination un-curls onto screen (back),  current stays as base
+    mobileFlipRef.current = {
+      progress: 0,
+      direction: dir,
+      frontImg:   dir === 'right' ? pages[mobilePage]  : null,
+      backImg:    dir === 'left'  ? pages[targetPage]   : null,
+      staticBase: dir === 'right' ? pages[targetPage]   : pages[mobilePage],
+      t0: performance.now(),
+      targetPage,
+    };
+    const tick = (now: number) => {
+      const mfl = mobileFlipRef.current;
+      if (!mfl) return;
+      mfl.progress = easeInOut(Math.min((now - mfl.t0) / FLIP_MS, 1));
+      mobileFU(c => c + 1);
+      if (now - mfl.t0 < FLIP_MS) {
+        mobileRafRef.current = requestAnimationFrame(tick);
+      } else {
+        const tp = mfl.targetPage;
+        mobileFlipRef.current = null;
+        setMobilePage(tp);
+      }
+    };
+    mobileRafRef.current = requestAnimationFrame(tick);
+  }
   function mobileGoNext() {
-    if (mobileAnimLock.current || mobilePage >= pages.length - 1) return;
-    mobileAnimLock.current = true;
-    setMobileSlide('next');
-    setTimeout(() => {
-      setMobilePage(p => p + 1);
-      setMobileSlide(null);
-      mobileAnimLock.current = false;
-    }, 320);
+    if (mobileFlipRef.current || mobilePage >= pages.length - 1) return;
+    startMobileFlip('right', mobilePage + 1);
   }
   function mobileGoPrev() {
-    if (mobileAnimLock.current || mobilePage <= 0) return;
-    mobileAnimLock.current = true;
-    setMobileSlide('prev');
-    setTimeout(() => {
-      setMobilePage(p => p - 1);
-      setMobileSlide(null);
-      mobileAnimLock.current = false;
-    }, 320);
+    if (mobileFlipRef.current || mobilePage <= 0) return;
+    startMobileFlip('left', mobilePage - 1);
   }
 
   // Unified nav — dispatches to mobile or desktop depending on mode
@@ -583,6 +611,23 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     ? [
         ...makePolygons({ ...polyBase, face: 'front', image: fl!.frontImg }),
         ...makePolygons({ ...polyBase, face: 'back',  image: fl!.backImg  }),
+      ].sort((a, b) => a.z - b.z)
+    : [];
+
+  // Mobile polygon flip: treat mobile page as the RIGHT page of a 2-page book (viewW = 2×mobilePageW).
+  // Polygon div is offset left by mobilePageW inside an overflow:hidden wrapper, so only the right
+  // half of the 2-page layout is visible — exactly the single mobile page area.
+  const mfl = mobileFlipRef.current;
+  const mobilePolyBase = mfl && mobilePageW > 0 ? {
+    viewW: mobilePageW * 2, pageWidth: mobilePageW, pageHeight: mobilePageH,
+    xMargin: 0, yMargin: 0,
+    nPolygons: N_POLY, perspective: PERSP, ambient: AMBIENT, gloss: GLOSS,
+    progress: mfl.progress, direction: mfl.direction,
+  } : null;
+  const mobilePolygons = mobilePolyBase
+    ? [
+        ...makePolygons({ ...mobilePolyBase, face: 'front', image: mfl!.frontImg }),
+        ...makePolygons({ ...mobilePolyBase, face: 'back',  image: mfl!.backImg  }),
       ].sort((a, b) => a.z - b.z)
     : [];
 
@@ -677,7 +722,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           <div className="flex items-center gap-3 sm:gap-4 h-full py-2 px-2 sm:px-4">
 
             {/* Prev */}
-            <button onClick={navPrev} disabled={!canPrev || (isMobile ? mobileAnimLock.current : !!flipRef.current)}
+            <button onClick={navPrev} disabled={!canPrev || (isMobile ? !!mobileFlipRef.current : !!flipRef.current)}
               className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -686,26 +731,66 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             <div className="flex-1 flex items-center justify-center overflow-hidden">
               <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
 
-                {/* ── MOBILE: single-page slide viewer ── */}
+                {/* ── MOBILE: single-page polygon flip viewer ── */}
                 {isMobile && mobilePageW > 0 && (
                   <div
                     style={{
                       width: mobilePageW, height: mobilePageH,
-                      borderRadius: 4, overflow: 'hidden',
+                      borderRadius: 4,
                       boxShadow: '0 24px 64px rgba(0,0,0,0.85)',
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
                   >
-                    <img
-                      key={mobilePage}
-                      src={pages[mobilePage]}
-                      alt={`หน้า ${mobilePage + 1}`}
-                      draggable={false}
-                      style={{
-                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                        transform: mobileSlide === 'next' ? 'translateX(-110%)' : mobileSlide === 'prev' ? 'translateX(110%)' : 'translateX(0)',
-                        transition: mobileSlide ? 'transform 0.3s ease' : 'none',
-                      }}
-                    />
+                    {/* Static base — destination page (right flip) or current page (left flip) */}
+                    <div className="absolute inset-0" style={{ background: '#f8f7f2' }}>
+                      <img
+                        src={mfl ? (mfl.staticBase ?? undefined) : pages[mobilePage]}
+                        alt=""
+                        draggable={false}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      />
+                    </div>
+
+                    {/* Polygon overlay — 2-page-wide coordinate space, shifted left so only
+                        the right half (= the single mobile page) is visible through the clip */}
+                    {mfl && mobilePageW > 0 && (
+                      <div
+                        className="absolute top-0"
+                        style={{
+                          left: -mobilePageW,
+                          width: mobilePageW * 2,
+                          height: mobilePageH,
+                          transformStyle: 'preserve-3d',
+                          overflow: 'visible',
+                        }}
+                      >
+                        {mobilePolygons.map(poly => (
+                          <div
+                            key={poly.key}
+                            style={{
+                              position: 'absolute',
+                              top: 0, left: 0,
+                              width:  mobilePageW / N_POLY,
+                              height: mobilePageH,
+                              backgroundImage:    poly.image ? `url("${poly.image}")` : 'none',
+                              backgroundSize:     `${mobilePageW}px ${mobilePageH}px`,
+                              backgroundPosition: poly.bgPos,
+                              backgroundRepeat:   'no-repeat',
+                              transform:          poly.transform,
+                              transformOrigin:    '0 0',
+                              backfaceVisibility: 'hidden',
+                              WebkitBackfaceVisibility: 'hidden' as 'hidden',
+                              zIndex: poly.z,
+                            }}
+                          >
+                            {poly.lighting && (
+                              <div style={{ position: 'absolute', inset: 0, backgroundImage: poly.lighting, pointerEvents: 'none' }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -802,7 +887,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             </div>
 
             {/* Next */}
-            <button onClick={navNext} disabled={!canNext || (isMobile ? mobileAnimLock.current : !!flipRef.current)}
+            <button onClick={navNext} disabled={!canNext || (isMobile ? !!mobileFlipRef.current : !!flipRef.current)}
               className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-all disabled:opacity-20 z-10">
               <ChevronRight className="w-6 h-6" />
             </button>
@@ -818,7 +903,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           {isMobile && (
             pages.length <= 20 ? (
               pages.map((pg, pi) => (
-                <button key={pi} onClick={() => { if (!mobileAnimLock.current) setMobilePage(pi); }}
+                <button key={pi} onClick={() => { if (!mobileFlipRef.current) setMobilePage(pi); }}
                   className={`shrink-0 overflow-hidden rounded transition-all border-2 ${
                     pi === mobilePage ? "border-violet-400 scale-110" : "border-transparent opacity-50 hover:opacity-100"
                   }`}

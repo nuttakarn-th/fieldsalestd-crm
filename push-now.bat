@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: View count badge on /tour-packages cards + ShareDialog overflow fix - Eye icon overlay on PackageCard cover, getAllViewCounts loaded in TourPackagePresentation, CategorySection + Highlight section wired, overflow-x-hidden on DialogContent
+if "%MSG%"=="" set MSG=feat: Mobile PDF viewer — 3D polygon flip animation (same cylinder curl as desktop)
 
 git commit -m "%MSG%"
 git push
