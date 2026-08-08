@@ -26,7 +26,7 @@ export interface ShortLink {
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
-export const SHORT_BASE = "https://standardtour-hub.vercel.app/s";
+export const SHORT_BASE = "https://stour.vercel.app/s";
 
 export function shortUrl(code: string): string {
   return `${SHORT_BASE}/${code}`;

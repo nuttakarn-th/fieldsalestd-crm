@@ -615,20 +615,20 @@ function OgMetaSection() {
 
       <OgCard
         label="หน้าหลักระบบ"
-        url="https://standardtour-hub.vercel.app/"
+        url="https://stour.vercel.app/"
         draft={mainDraft}
         setDraft={setMainDraft}
         onSave={saveMain}
-        onCopy={() => copyHtml(mainDraft, "https://standardtour-hub.vercel.app/")}
+        onCopy={() => copyHtml(mainDraft, "https://stour.vercel.app/")}
       />
 
       <OgCard
         label="หน้าโปรแกรมทัวร์ (ลูกค้า)"
-        url="https://standardtour-hub.vercel.app/tour-packages"
+        url="https://stour.vercel.app/tour-packages"
         draft={pkgDraft}
         setDraft={setPkgDraft}
         onSave={savePkg}
-        onCopy={() => copyHtml(pkgDraft, "https://standardtour-hub.vercel.app/tour-packages")}
+        onCopy={() => copyHtml(pkgDraft, "https://stour.vercel.app/tour-packages")}
       />
     </div>
   );

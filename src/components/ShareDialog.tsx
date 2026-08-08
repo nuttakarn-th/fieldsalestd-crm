@@ -46,7 +46,7 @@ export function ShareDialog({
   open, onClose, tourId, tourTitle, isPublished, onViewCountChange,
 }: Props) {
   const pkgId   = `tour_${tourId}`;
-  const longUrl = `https://standardtour-hub.vercel.app/api/share?pkg=${pkgId}`;
+  const longUrl = `https://stour.vercel.app/api/share?pkg=${pkgId}`;
 
   const [links,      setLinks]      = useState<ShortLink[]>([]);
   const [loading,    setLoading]    = useState(false);
