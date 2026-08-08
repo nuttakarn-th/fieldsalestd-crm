@@ -3,6 +3,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
+    { "source": "/s/:code", "destination": "/api/s?c=:code" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

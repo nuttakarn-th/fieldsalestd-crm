@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,9 @@ import { toast } from "sonner";
 import { ImportExportMenu } from "@/components/ImportExportMenu";
 import type { ExcelField } from "@/lib/excelUtils";
 import { logActivity, getDeptFromRole } from "@/lib/activityLog";
+import { supabase } from "@/lib/supabase";
+import { ShareDialog } from "@/components/ShareDialog";
+import { getAllViewCounts } from "@/lib/shortLink";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -448,6 +451,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [selectedPeriods, setSelectedPeriods] = useState<Set<string>>(new Set());
   // ── import error reporting ──
   const [importErrors, setImportErrors] = useState<{row: number; code: string; issue: string}[]>([]);
+
+  // ── Short link view count map { "tour_ID" → total_views } ──
+  const [viewCountMap, setViewCountMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!supabase) return;
+    getAllViewCounts().then((m) => setViewCountMap(m));
+  }, []);
+
+  // ── Share dialog ──
+  const [shareDialogTourId, setShareDialogTourId] = useState<string | null>(null);
 
   // ── program sort state ──
   type TourSortKey = "name" | "code" | "date" | "added";
@@ -2247,6 +2260,20 @@ ${catBlocks}
                             )}
                           </PopoverContent>
                         </Popover>
+                      {/* 🔗 Share + 👁 View count — Desktop */}
+                      <button
+                        onClick={() => setShareDialogTourId(t.id)}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="แชร์โปรแกรม / QR Code / View Stats"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        {(viewCountMap[`tour_${t.id}`] ?? 0) > 0 && (
+                          <span className="flex items-center gap-0.5 text-[10px] tabular-nums">
+                            <Eye className="w-3 h-3" />
+                            {viewCountMap[`tour_${t.id}`].toLocaleString()}
+                          </span>
+                        )}
+                      </button>
                       {canEdit && (
                         <button onClick={() => openAddPeriod(t.id)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-90" style={{background:"#EC4899"}}>
                           <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
@@ -2376,6 +2403,14 @@ ${catBlocks}
                             <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem onClick={() => openEdit(t.id)}>
                                 <Pencil className="w-3.5 h-3.5 mr-2" /> แก้ไขโปรแกรม
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setShareDialogTourId(t.id)}>
+                                <Share2 className="w-3.5 h-3.5 mr-2" /> แชร์ / QR Code
+                                {(viewCountMap[`tour_${t.id}`] ?? 0) > 0 && (
+                                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums">
+                                    <Eye className="w-3 h-3" />{viewCountMap[`tour_${t.id}`].toLocaleString()}
+                                  </span>
+                                )}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => duplicateTour(t.id)}>
                                 <Copy className="w-3.5 h-3.5 mr-2" /> Duplicate โปรแกรม
@@ -4186,6 +4221,22 @@ ${catBlocks}
           </DialogContent>
         </Dialog>
       )}
+      {/* ── Share Dialog ── */}
+      {shareDialogTourId && (() => {
+        const sTour = tours.find((t) => t.id === shareDialogTourId);
+        return (
+          <ShareDialog
+            open={!!shareDialogTourId}
+            onClose={() => setShareDialogTourId(null)}
+            tourId={shareDialogTourId}
+            tourTitle={sTour?.title ?? sTour?.city ?? shareDialogTourId}
+            isPublished={sTour?.is_published}
+            onViewCountChange={(pkgId, total) =>
+              setViewCountMap((prev) => ({ ...prev, [pkgId]: total }))
+            }
+          />
+        );
+      })()}
     </div>
   );
 }
