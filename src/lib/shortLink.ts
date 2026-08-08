@@ -85,3 +85,34 @@ export async function deleteShortLink(code: string): Promise<void> {
   if (!supabase) return;
   await supabase.from("short_links").delete().eq("code", code);
 }
+
+/**
+ * นับ "direct view" — การคลิกเปิดโปรแกรมโดยตรงจากหน้า /tour-packages
+ * ใช้ row พิเศษ: code = 'd_{pkg_id}', source = 'direct'
+ * ไม่ต้องเปลี่ยน schema ใดๆ — getAllViewCounts() รวมค่านี้อัตโนมัติ
+ */
+export async function incrementDirectView(pkg_id: string): Promise<void> {
+  if (!supabase) return;
+  const code = `d_${pkg_id}`;
+
+  // พยายาม insert ครั้งแรก (view_count = 1)
+  const { error: insertErr } = await supabase
+    .from("short_links")
+    .insert({ code, pkg_id, source: "direct", view_count: 1 });
+
+  if (!insertErr) return; // insert สำเร็จ — จบ
+
+  // row มีอยู่แล้ว → read current count แล้ว +1
+  const { data } = await supabase
+    .from("short_links")
+    .select("view_count")
+    .eq("code", code)
+    .single();
+
+  if (data) {
+    await supabase
+      .from("short_links")
+      .update({ view_count: (data as { view_count: number }).view_count + 1 })
+      .eq("code", code);
+  }
+}

@@ -36,7 +36,7 @@ import { applyOgMeta } from "@/lib/ogMeta";
 import { useCurrentUser } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { createShortLink, getLinksForPkg, shortUrl, getAllViewCounts } from "@/lib/shortLink";
+import { createShortLink, getLinksForPkg, shortUrl, getAllViewCounts, incrementDirectView } from "@/lib/shortLink";
 import { compressImage } from "@/lib/imageCompression";
 import { toast } from "sonner";
 
@@ -2370,6 +2370,15 @@ export default function TourPackagePresentation() {
     getAllViewCounts().then(setViewCountMap).catch(() => {});
   }, []);
 
+  /** เปิด flipbook + นับ direct view (เฉพาะ user คลิกเอง ไม่ใช่ deep-link จาก short URL) */
+  function handleOpenPkg(pkg: TourPackageItem) {
+    setFlipbookPkg(pkg);
+    incrementDirectView(pkg.id).then(() => {
+      // รีโหลด view count เพื่ออัปเดต badge บน card
+      getAllViewCounts().then(setViewCountMap).catch(() => {});
+    }).catch(() => {});
+  }
+
   // Upload refs
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -2743,7 +2752,7 @@ export default function TourPackagePresentation() {
                           pkg={pkg}
                           canEdit={canEdit}
                           viewCount={viewCountMap[pkg.id] ?? 0}
-                          onOpen={() => setFlipbookPkg(pkg)}
+                          onOpen={() => handleOpenPkg(pkg)}
                           onEdit={() => setEditPkg(pkg)}
                           onDelete={() => handleDelete(pkg)}
                           onUploadCover={() => highlightCoverRefs.current[pkg.id]?.click()}
@@ -2765,7 +2774,7 @@ export default function TourPackagePresentation() {
                   packages={pkgs}
                   canEdit={canEdit}
                   viewCountMap={viewCountMap}
-                  onOpen={setFlipbookPkg}
+                  onOpen={handleOpenPkg}
                   onEdit={setEditPkg}
                   onDelete={handleDelete}
                   onUploadCover={(id, file) => handleCoverUpload(id, file)}
