@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=revert: restore simple /s/:code rewrite — get site back online
+if "%MSG%"=="" set MSG=fix: digit rewrites + SPA catch-all + correct BASE_URL
 
 git commit -m "%MSG%"
 git push
