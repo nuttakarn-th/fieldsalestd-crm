@@ -3,17 +3,6 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/s/:code",  "destination": "/api/s?c=:code"  },
-    { "source": "/0:rest",   "destination": "/api/s?c=0:rest" },
-    { "source": "/1:rest",   "destination": "/api/s?c=1:rest" },
-    { "source": "/2:rest",   "destination": "/api/s?c=2:rest" },
-    { "source": "/3:rest",   "destination": "/api/s?c=3:rest" },
-    { "source": "/4:rest",   "destination": "/api/s?c=4:rest" },
-    { "source": "/5:rest",   "destination": "/api/s?c=5:rest" },
-    { "source": "/6:rest",   "destination": "/api/s?c=6:rest" },
-    { "source": "/7:rest",   "destination": "/api/s?c=7:rest" },
-    { "source": "/8:rest",   "destination": "/api/s?c=8:rest" },
-    { "source": "/9:rest",   "destination": "/api/s?c=9:rest" },
-    { "source": "/:path*",   "destination": "/"               }
+    { "source": "/s/:code", "destination": "/api/s?c=:code" }
   ]
 }
