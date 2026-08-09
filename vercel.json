@@ -5,6 +5,6 @@
   "rewrites": [
     { "source": "/s/:code", "destination": "/api/s?c=:code" },
     { "source": "/:code(\\d..)", "destination": "/api/s?c=:code" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/:path*", "destination": "/" }
   ]
 }
