@@ -2,10 +2,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "routes": [
-    { "src": "^/s/(.+)$", "dest": "/api/s?c=$1" },
-    { "src": "^/([0-9][A-Za-z0-9]{2})$", "dest": "/api/s?c=$1" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/s/:code", "destination": "/api/s?c=:code" },
+    { "source": "/:code(\\d..)", "destination": "/api/s?c=:code" }
   ]
 }
