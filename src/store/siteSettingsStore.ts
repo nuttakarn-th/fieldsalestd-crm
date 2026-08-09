@@ -259,15 +259,46 @@ export const useSiteSettings = create<State>()(persist((set, get) => ({
     if (!SUPABASE_ENABLED || !supabase) return;
     const pkgs = get().tourPackages ?? [];
     if (!pkgs.length) return;
-    const rows = pkgs.map((p) => ({
-      id: p.id,
-      title: p.title,
-      duration: p.duration ?? null,
-      cover_url: p.coverUrl ?? null,
-      country: p.country ?? null,
-      city: p.city ?? null,
-      updated_at: new Date().toISOString(),
-    }));
+
+    // Lazy-import pdfCover เพื่อหลีกเลี่ยง bundle bloat ในกรณีที่ไม่ได้ใช้ PDF
+    const { extractAndUploadPdfCover } = await import("@/lib/pdfCover");
+
+    // Process ทีละ package — ถ้าไม่มี coverUrl แต่มี pdfUrl ให้ extract cover จาก PDF
+    const rows: {
+      id: string; title: string; duration: string | null;
+      cover_url: string | null; pdf_url: string | null;
+      country: string | null; city: string | null; updated_at: string;
+    }[] = [];
+
+    for (const p of pkgs) {
+      let coverUrl = p.coverUrl ?? null;
+
+      // ถ้าไม่มีรูปปกแต่มี PDF → สกัดหน้า 1 แล้ว upload
+      if (!coverUrl && p.pdfUrl) {
+        const uploaded = await extractAndUploadPdfCover(p.id, p.pdfUrl);
+        if (uploaded) {
+          coverUrl = uploaded;
+          // อัปเดต local store โดยตรง (ไม่ผ่าน updateTourPackage เพื่อหลีกเลี่ยง infinite loop)
+          set((s) => ({
+            tourPackages: s.tourPackages.map((t) =>
+              t.id === p.id ? { ...t, coverUrl: uploaded } : t
+            ),
+          }));
+        }
+      }
+
+      rows.push({
+        id: p.id,
+        title: p.title,
+        duration: p.duration ?? null,
+        cover_url: coverUrl,
+        pdf_url: p.pdfUrl ?? null,
+        country: p.country ?? null,
+        city: p.city ?? null,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
     const { error } = await supabase
       .from("tour_packages_og")
       .upsert(rows, { onConflict: "id" });

@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=fix: digit rewrites + SPA catch-all + correct BASE_URL
+if "%MSG%"=="" set MSG=feat: auto-extract PDF cover → og-covers Storage + sync to tour_packages_og
 
 git commit -m "%MSG%"
 git push
