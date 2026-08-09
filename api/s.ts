@@ -20,7 +20,7 @@ const SUPABASE_URL = "https://jhblvwyjnumfuxdorlnp.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYmx2d3lqbnVtZnV4ZG9ybG5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMTg0NTYsImV4cCI6MjA5Mzc5NDQ1Nn0.nytbitxccEg2c9Csp_mqCgfDQOkR9WR2_s46O_sVYAU";
 
-const BASE_URL = "https://standardtour-hub.vercel.app";
+const BASE_URL = "https://stdtour.vercel.app";
 
 const DEFAULT_TITLE = "Standard Tour — โปรแกรมทัวร์ & E-Booklet";
 const DEFAULT_DESC  = "ดูโปรแกรมทัวร์ทั้งหมด ราคาพิเศษ จองง่าย บริการครบ";

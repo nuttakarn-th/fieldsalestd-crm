@@ -31,10 +31,10 @@ export interface ShortLink {
 }
 
 // ── URL helpers ───────────────────────────────────────────────────────────────
-export const SHORT_BASE = "https://standardtour-hub.vercel.app";
+export const SHORT_BASE = "https://stdtour.vercel.app";
 
 export function shortUrl(code: string): string {
-  // code ที่ขึ้นต้นด้วยตัวเลข → root-level (ใหม่): stdtour.vercel.app/3Ak
+  // code ที่ขึ้นต้นด้วยตัวเลข → root-level: stdtour.vercel.app/3Ak
   // code เก่า (ขึ้นต้นด้วยตัวอักษร เช่น O6X19) → legacy /s/ path
   return /^[0-9]/.test(code)
     ? `${SHORT_BASE}/${code}`
