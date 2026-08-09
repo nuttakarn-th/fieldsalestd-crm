@@ -10,7 +10,7 @@ git add -A
 
 REM ถาม commit message (กด Enter เพื่อใช้ "update")
 set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=fix: use rewrites with \d.. pattern — avoid unsupported char class in Vercel regex
+if "%MSG%"=="" set MSG=fix: add SPA catch-all to rewrites — restore /tour-packages routing
 
 git commit -m "%MSG%"
 git push
