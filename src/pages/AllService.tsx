@@ -370,6 +370,13 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     return unsub;
   }, [subscribeToursRealtime]);
 
+  // ── Backfill OG covers สำหรับ serviceStore tours (ครั้งแรกที่เปิดหน้านี้) ──
+  useEffect(() => {
+    import("@/lib/syncServiceToursOg").then(({ syncServiceToursOg }) => {
+      syncServiceToursOg().catch(console.warn);
+    });
+  }, []);
+
   // ── Auto-archive: Period ที่กลับมาแล้วเกิน 7 วัน → archive เฉพาะ Period นั้น ──
   const autoArchiveDone = React.useRef(false);
   useEffect(() => {

@@ -511,6 +511,15 @@ export const useServices = create<ServiceState>()(
         const pdf_url = urlData.publicUrl;
         set({ tours: get().tours.map((x) => x.id === tourId ? { ...x, pdf_url } : x) });
         sbUpdate("tours", tourId, { pdf_url });
+
+        // ── Async: extract PDF cover → og-covers → tour_packages_og ──────────
+        const tour = get().tours.find((x) => x.id === tourId);
+        if (tour) {
+          import("@/lib/syncServiceToursOg").then(({ syncOneTourOg }) => {
+            syncOneTourOg({ ...tour, pdf_url }).catch(console.warn);
+          });
+        }
+
         return pdf_url;
       },
 
