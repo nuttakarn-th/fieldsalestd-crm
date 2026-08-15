@@ -27,7 +27,7 @@ const BASE_URL = "https://stdtour.vercel.app";
 // Default OG fallback (ใช้เมื่อหา package ไม่เจอ)
 const DEFAULT_TITLE = "Standard Tour — โปรแกรมทัวร์ & E-Booklet";
 const DEFAULT_DESC = "ดูโปรแกรมทัวร์ทั้งหมด ราคาพิเศษ จองง่าย บริการครบ";
-const DEFAULT_IMAGE = `${BASE_URL}/og-packages.png`;
+const DEFAULT_IMAGE = `${BASE_URL}/og-image.jpg`;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Type matching siteSettingsStore

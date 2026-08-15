@@ -1301,10 +1301,31 @@ ${catBlocks}
         return (a.code || "").localeCompare(b.code || "", "th", { sensitivity: "base" });
       }
       if (tourSort === "date") {
-        // เรียงตาม start_date ของ Period แรกที่ใกล้สุด (ไม่รวมยกเลิก)
-        const aDate = (a.periods ?? []).filter((p) => !p.cancelled && p.start_date).map((p) => p.start_date!).sort()[0] ?? "9999";
-        const bDate = (b.periods ?? []).filter((p) => !p.cancelled && p.start_date).map((p) => p.start_date!).sort()[0] ?? "9999";
-        return aDate.localeCompare(bDate);
+        // เรียงตาม start_date ที่ใกล้ที่สุด — ข้าม cancelled + archived
+        // ถ้ามี date filter active → เอาเฉพาะ period ที่อยู่ใน range นั้น
+        // ถ้าไม่มี date filter → เอา period อนาคต (≥ today) ก่อน, fallback ไป past
+        const today = new Date().toISOString().split("T")[0];
+        const getDateKey = (t: typeof a): string => {
+          const valid = (t.periods ?? []).filter(
+            (p) => !p.cancelled && !p.archived && p.start_date && p.start_date.length >= 8,
+          );
+          // ถ้ามี date filter active ให้กรองเฉพาะ period ที่อยู่ใน range ก่อน
+          const inRange = (filterDateFrom || filterDateTo)
+            ? valid.filter((p) => {
+                const end = p.end_date ?? p.start_date!;
+                if (filterDateFrom && end   < filterDateFrom) return false;
+                if (filterDateTo   && p.start_date! > filterDateTo) return false;
+                return true;
+              })
+            : valid;
+          const pool = inRange.length > 0 ? inRange : valid;
+          // เลือก upcoming (≥ today) ก่อน ถ้าไม่มีค่อย fallback past
+          const upcoming = pool.filter((p) => p.start_date! >= today).map((p) => p.start_date!).sort();
+          if (upcoming.length > 0) return upcoming[0];
+          const past = pool.map((p) => p.start_date!).sort().reverse();
+          return past[0] ?? "9999";
+        };
+        return getDateKey(a).localeCompare(getDateKey(b));
       }
       // "added" — เพิ่งเพิ่มล่าสุดขึ้นก่อน (ใช้ created_at, fallback updated_at)
       const ta = a.created_at ?? a.updated_at ?? "";
