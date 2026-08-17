@@ -190,17 +190,21 @@ export default function MarketingLayout() {
   );
 
   // Custom smooth scroll — ใช้ rAF แทน behavior:"smooth" (Edge มีบั๊ก)
-  const smoothScrollTop = (el: Element | null, duration = 350) => {
-    const startTop = el ? el.scrollTop : (document.documentElement.scrollTop || document.body.scrollTop || window.scrollY);
-    if (startTop === 0) return;
+  const smoothScrollTop = (duration = 350) => {
+    const main = document.querySelector("main");
+    const mainStart = main ? main.scrollTop : 0;
+    const winStart = window.scrollY || document.documentElement.scrollTop || 0;
+    if (mainStart === 0 && winStart === 0) return;
     const startTime = performance.now();
     const ease = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
     const frame = (now: number) => {
       const p = Math.min((now - startTime) / duration, 1);
-      const pos = startTop * (1 - ease(p));
-      if (el) { el.scrollTop = pos; }
-      document.documentElement.scrollTop = pos;
-      document.body.scrollTop = pos;
+      const f = 1 - ease(p);
+      if (main && mainStart > 0) main.scrollTop = mainStart * f;
+      if (winStart > 0) {
+        document.documentElement.scrollTop = winStart * f;
+        document.body.scrollTop = winStart * f;
+      }
       if (p < 1) requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
@@ -376,10 +380,7 @@ export default function MarketingLayout() {
       {/* Scroll-to-top FAB */}
       {showScrollTop && (
         <button
-          onClick={() => {
-            const el = scrollElRef.current ?? document.querySelector("main");
-            smoothScrollTop(el);
-          }}
+          onClick={() => smoothScrollTop()}
           className="fixed z-50 bottom-6 right-4 sm:right-6 w-10 h-10 rounded-full bg-card border border-violet-500/30 shadow-lg flex items-center justify-center text-violet-500 hover:bg-violet-500 hover:text-white transition-colors"
           aria-label="กลับขึ้นบน"
           title="กลับขึ้นบน"
