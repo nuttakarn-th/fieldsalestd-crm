@@ -153,6 +153,24 @@ export default function Customers() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deptFilter, isMarketing]);
 
+  // ── Activity Feed scroll-to highlight ──
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    const tryScroll = (attempts = 0) => {
+      const el = document.querySelector<HTMLElement>(`[data-customer-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("row-highlight");
+        setTimeout(() => el.classList.remove("row-highlight"), 2200);
+      } else if (attempts < 10) {
+        setTimeout(() => tryScroll(attempts + 1), 200);
+      }
+    };
+    tryScroll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // obSet สำหรับ determine department ของลูกค้า (Marketing view)
   const obSet = useMemo(() => new Set(obNames), [obNames]);
 
@@ -602,6 +620,7 @@ export default function Customers() {
         {pagedCustomers.map((c) => (
           <div
             key={c.customer_id}
+            data-customer-id={c.customer_id}
             className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60"
             onClick={() => navigate(`/app/customers/${c.customer_id}`)}
           >
@@ -698,6 +717,7 @@ export default function Customers() {
               {pagedCustomers.map((c) => (
                 <tr
                   key={c.customer_id}
+                  data-customer-id={c.customer_id}
                   className="hover:bg-muted/30 transition cursor-pointer"
                   onClick={() => navigate(`/app/customers/${c.customer_id}`)}
                 >

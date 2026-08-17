@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   closestCenter, type DragEndEvent, type DragStartEvent,
@@ -86,6 +87,25 @@ export default function Pipeline() {
     setNewNote(lead.status_note ?? "");
     setNewFollowup(lead.next_followup_date ?? "");
   };
+
+  // ── Activity Feed scroll-to highlight ──
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    const tryScroll = (attempts = 0) => {
+      const el = document.querySelector<HTMLElement>(`[data-lead-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("row-highlight");
+        setTimeout(() => el.classList.remove("row-highlight"), 2200);
+      } else if (attempts < 10) {
+        setTimeout(() => tryScroll(attempts + 1), 200);
+      }
+    };
+    tryScroll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submitStatusUpdate = () => {
     if (!statusOpen) return;
@@ -324,6 +344,7 @@ export default function Pipeline() {
     return (
       <div
         ref={setNodeRef}
+        data-lead-id={lead.lead_id}
         className={`relative group ${isDragging ? "opacity-40" : ""}`}
         {...attributes}
       >
@@ -386,7 +407,7 @@ export default function Pipeline() {
             const noContact = !c || ((!c.phone || c.phone === "-") && !c.line_id);
             const periodLabel = getPeriodLabel(lead.tour_id, lead.period_id, "");
             return (
-              <tr key={lead.lead_id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isWon ? "bg-emerald-50/30" : isLost ? "bg-destructive/5 opacity-80" : ""}`}>
+              <tr key={lead.lead_id} data-lead-id={lead.lead_id} className={`border-b last:border-0 hover:bg-muted/20 transition-colors ${isWon ? "bg-emerald-50/30" : isLost ? "bg-destructive/5 opacity-80" : ""}`}>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1">
                     {noContact && <AlertCircle className="w-3 h-3 text-warning-foreground shrink-0" />}

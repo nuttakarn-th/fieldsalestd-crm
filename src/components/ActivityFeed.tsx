@@ -93,24 +93,27 @@ function getNavTarget(log: ActivityLog, role: string): string | null {
   const base = (path: string) => isMarketing ? path.replace(/^\/app\//, "/marketing/") : path;
 
   if (log.event_type.startsWith("tour_") || log.event_type.startsWith("period_") || log.event_type === "import_complete" || log.event_type === "period_nearly_full") {
-    return base("/app/all-service");
+    const path = base("/app/all-service");
+    return log.entity_id ? `${path}?highlight=${log.entity_id}` : path;
   }
   if (log.event_type.startsWith("lead_")) {
     // ถ้า detail มี "OB" → pipeline OB, else pipeline sales
     const dept = (log as any).department;
     if (isMarketing) return dept === "OB" ? "/marketing/ob-leads" : "/marketing/sales-leads";
-    return "/app/pipeline";
+    const path = "/app/pipeline";
+    return log.entity_id ? `${path}?highlight=${log.entity_id}` : path;
   }
   if (log.event_type.startsWith("customer_")) {
-    if (isMarketing) return "/marketing/customers";
-    return "/app/customers";
+    const path = isMarketing ? "/marketing/customers" : "/app/customers";
+    return log.entity_id ? `${path}?highlight=${log.entity_id}` : path;
   }
   if (log.event_type.startsWith("campaign_")) {
     if (isMarketing) return "/marketing/campaigns";
     return null;
   }
   if (log.event_type.startsWith("seat_")) {
-    return base("/app/all-service");
+    const path = base("/app/all-service");
+    return log.entity_id ? `${path}?highlight=${log.entity_id}` : path;
   }
   if (log.event_type === "kpi_shared") return "/team-resources/kpi";
   return null;

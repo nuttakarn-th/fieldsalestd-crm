@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
@@ -396,6 +397,25 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       });
     });
   }, [tours, isLoadingTours, archivePeriod]);
+
+  // ── Activity Feed scroll-to highlight ──
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    // รอให้การ render เสร็จก่อน (tours อาจยัง loading อยู่)
+    const tryScroll = (attempts = 0) => {
+      const el = document.querySelector<HTMLElement>(`[data-tour-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("row-highlight");
+        setTimeout(() => el.classList.remove("row-highlight"), 2200);
+      } else if (attempts < 10) {
+        setTimeout(() => tryScroll(attempts + 1), 200);
+      }
+    };
+    tryScroll();
+  }, [searchParams]);
 
   // ── program dialog ──
   const [open, setOpen]       = useState(false);
@@ -2216,7 +2236,7 @@ ${catBlocks}
                 const displayDuration: string | null = t.duration || null;
 
                 return (
-                  <div key={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
+                  <div key={t.id} data-tour-id={t.id} className="rounded-2xl overflow-hidden shadow-sm border" style={{borderColor: `${color}30`}}>
                     {/* ── Program Header Row — DESKTOP (sm+) ── */}
                     <div className={`hidden sm:flex items-center gap-2 px-4 py-2 transition-colors ${isExpanded ? "" : "hover:bg-muted/30"}`} style={{background: isExpanded ? bg : "hsl(var(--card))", borderLeft: `4px solid ${color}`}}>
                       <button className="w-6 h-6 flex items-center justify-center shrink-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors" onClick={() => toggleExpand(t.id)}>
