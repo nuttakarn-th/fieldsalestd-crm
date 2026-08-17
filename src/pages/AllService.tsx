@@ -4468,9 +4468,9 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">
-            รวม {cars.length} คัน
-            {(carSearch || carTypeFilter) && filteredCars.length !== cars.length && (
-              <span className="ml-1.5 text-xs text-amber-500 font-medium">(แสดง {filteredCars.length})</span>
+            รวม {groupedCars.length} รุ่น · {cars.length} ตัวเลือก
+            {(carSearch || carTypeFilter) && groupedCars.length !== [...new Set(cars.map(c => c.name))].length && (
+              <span className="ml-1.5 text-xs text-amber-500 font-medium">(แสดง {groupedCars.length} รุ่น)</span>
             )}
           </p>
           <p className="text-xs text-muted-foreground/60 mt-0.5">🚗 บริการเช่ารถ — ไม่จำกัดโควต้า (Unlimited)</p>
@@ -4494,7 +4494,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
             return (
               <button key={t} onClick={() => setCarTypeFilter(t === "ทั้งหมด" ? "" : t)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${active ? "bg-primary/90 text-primary-foreground border-primary" : "bg-transparent border-border text-muted-foreground hover:bg-muted/50"}`}>
-                {t}{t !== "ทั้งหมด" && <span className="ml-1.5 opacity-60">{cars.filter((c) => c.type === t).length}</span>}
+                {t}{t !== "ทั้งหมด" && <span className="ml-1.5 opacity-60">{[...new Set(cars.filter((c) => c.type === t).map(c => c.name))].length}</span>}
               </button>
             );
           })}
@@ -4531,7 +4531,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   <div className={`relative h-40 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
                     {group.rep.image_url
                       ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
-                      : <Car className={`w-14 h-14 ${iconColor} opacity-40`} />}
+                      : <Car className={`w-14 h-14 ${iconColor} opacity-65`} />}
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       {hasMultiple
@@ -4610,7 +4610,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                           <div className={`w-14 h-10 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                             {group.rep.image_url
                               ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
-                              : <Car className={`w-5 h-5 ${iconColor} opacity-55`} />}
+                              : <Car className={`w-5 h-5 ${iconColor} opacity-70`} />}
                           </div>
                           <div>
                             <p className="font-semibold text-sm text-foreground">{group.name}</p>
@@ -4629,7 +4629,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                               <div key={item.id} className="flex items-center gap-2 group/pill">
                                 <span className="text-sm font-bold text-foreground tabular-nums w-20 shrink-0">฿{p.toLocaleString()}</span>
                                 {item.note && (
-                                  <span className="text-xs text-muted-foreground/70 truncate max-w-[200px]">{item.note}</span>
+                                  <span className="text-sm text-muted-foreground/80 truncate max-w-[200px]">{item.note}</span>
                                 )}
                                 {canEdit && (
                                   <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity ml-auto shrink-0">
