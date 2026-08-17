@@ -8,8 +8,8 @@
  *  - Tooltip on every icon in collapsed mode
  */
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { MessageSquare, ChevronDown, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { MessageSquare, ChevronDown, ChevronRight, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronUp } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
   TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus,
@@ -189,6 +189,26 @@ export default function MarketingLayout() {
     () => new Set(NAV_SECTIONS.filter((s) => s.defaultCollapsed).map((s) => s.category))
   );
 
+  // Scroll-to-top FAB
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollElRef = useRef<Element | null>(null);
+  useEffect(() => {
+    const onElementScroll = (e: Event) => {
+      const el = e.target as Element;
+      if (el && el !== document.documentElement && el !== document.body) {
+        scrollElRef.current = el;
+        setShowScrollTop(el.scrollTop > 300);
+      }
+    };
+    const onWindowScroll = () => setShowScrollTop(window.scrollY > 300);
+    document.addEventListener("scroll", onElementScroll, { passive: true, capture: true });
+    window.addEventListener("scroll", onWindowScroll, { passive: true });
+    return () => {
+      document.removeEventListener("scroll", onElementScroll, { capture: true });
+      window.removeEventListener("scroll", onWindowScroll);
+    };
+  }, []);
+
   function toggleSection(category: string) {
     setClosedSections((prev) => {
       const next = new Set(prev);
@@ -335,6 +355,21 @@ export default function MarketingLayout() {
       {/* Chat panel + AI Standy */}
       <ChatWidget />
       <StandyWidget />
+
+      {/* Scroll-to-top FAB */}
+      {showScrollTop && (
+        <button
+          onClick={() => {
+            scrollElRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="fixed z-50 bottom-6 right-4 sm:right-6 w-10 h-10 rounded-full bg-card border border-violet-500/30 shadow-lg flex items-center justify-center text-violet-500 hover:bg-violet-500 hover:text-white transition-colors"
+          aria-label="กลับขึ้นบน"
+          title="กลับขึ้นบน"
+        >
+          <ChevronUp className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }
