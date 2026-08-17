@@ -4342,19 +4342,6 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   };
 
   // Group filteredCars by name for display
-  const groupedCars = useMemo(() => {
-    const map = new Map<string, typeof cars[number][]>();
-    filteredCars.forEach((c) => {
-      if (!map.has(c.name)) map.set(c.name, []);
-      map.get(c.name)!.push(c);
-    });
-    return [...map.entries()].map(([name, items]) => {
-      const allPrices = items.map((c) => getMinPrice(c));
-      const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
-      return { name, items, rep: items[0], uniquePrices, minPrice: uniquePrices[0] ?? 0, maxPrice: uniquePrices[uniquePrices.length - 1] ?? 0 };
-    });
-  }, [filteredCars]);
-
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "", total_seats: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
@@ -4387,6 +4374,20 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     }
     return list;
   }, [cars, carSearch, carTypeFilter]);
+
+  // Group filteredCars by name — must be after filteredCars declaration
+  const groupedCars = useMemo(() => {
+    const map = new Map<string, typeof cars[number][]>();
+    filteredCars.forEach((c) => {
+      if (!map.has(c.name)) map.set(c.name, []);
+      map.get(c.name)!.push(c);
+    });
+    return [...map.entries()].map(([name, items]) => {
+      const allPrices = items.map((c) => getMinPrice(c));
+      const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
+      return { name, items, rep: items[0], uniquePrices, minPrice: uniquePrices[0] ?? 0, maxPrice: uniquePrices[uniquePrices.length - 1] ?? 0 };
+    });
+  }, [filteredCars]);
 
   const openAdd = () => {
     setEditId(null);
