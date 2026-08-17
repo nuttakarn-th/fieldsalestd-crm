@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, Fragment } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye } from "lucide-react";
@@ -4389,6 +4389,18 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     });
   }, [filteredCars]);
 
+  // Unique route labels (from item.note) — used as pivot columns in the price table
+  const allRouteNotes = useMemo(() => {
+    const seen = new Set<string>();
+    const notes: string[] = [];
+    filteredCars.forEach((c) => {
+      if (c.note && !seen.has(c.note)) { seen.add(c.note); notes.push(c.note); }
+    });
+    return notes;
+  }, [filteredCars]);
+
+  const shortRouteLabel = (note: string) => note.replace(/^ราคาเส้นทาง/, "").trim() || note;
+
   const openAdd = () => {
     setEditId(null);
     setForm({ name: "", type: "", total_seats: "", seat_material: "ไม่ระบุ", note: "" });
@@ -4584,75 +4596,97 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
-      {/* ═══════════════ SECTION 2: Price Table (grouped) ═══════════════ */}
+      {/* ═══════════════ SECTION 2: Price Table — pivot by route ═══════════════ */}
       {!showSkeleton && groupedCars.length > 0 && (
         <div id="car-price-table">
-          <p className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">ตารางราคา</p>
+          <p className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">ตารางราคา (บาท/วัน)</p>
           <div className="bg-card rounded-2xl border shadow-soft overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/50 border-b border-border/60 [&>th]:text-foreground/55">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">รุ่นรถ</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap">ที่นั่ง</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap">เบาะ</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">ราคา (บาท/วัน)</th>
-                  {canEdit && <th className="px-3 py-3 w-10" />}
+                <tr className="bg-muted/50 border-b-2 border-border/60">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">รุ่นรถ</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">ที่นั่ง</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">เบาะ</th>
+                  {allRouteNotes.map((note) => (
+                    <th key={note} className="px-4 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                      {shortRouteLabel(note)}
+                    </th>
+                  ))}
+                  {canEdit && <th className="px-3 py-3 w-16" />}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/40">
-                {groupedCars.map((group) => {
+              <tbody>
+                {groupedCars.map((group, gi) => {
                   const { gradient, iconColor } = carTypeStyle(group.rep.type);
+
+                  // Sub-group by (seats, seat_material) → pivot prices by note
+                  const svMap = new Map<string, { seats: number; mat: string; prices: Map<string, number>; ids: string[] }>();
+                  group.items.forEach((item) => {
+                    const key = `${item.total_seats}||${item.seat_material}`;
+                    if (!svMap.has(key)) svMap.set(key, { seats: item.total_seats, mat: item.seat_material, prices: new Map(), ids: [] });
+                    const sv = svMap.get(key)!;
+                    if (item.note) sv.prices.set(item.note, getMinPrice(item));
+                    sv.ids.push(item.id);
+                  });
+                  const subVariants = [...svMap.values()];
+
                   return (
-                    <tr key={group.name} className="hover:bg-muted/20 transition-colors group/row">
-                      {/* Vehicle + thumbnail */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-14 h-10 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                            {group.rep.image_url
-                              ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
-                              : <Car className={`w-5 h-5 ${iconColor} opacity-70`} />}
+                    <Fragment key={group.name}>
+                      {/* ── Group header ── */}
+                      <tr className={`${gi > 0 ? "border-t-2 border-border/50" : ""} bg-muted/25`}>
+                        <td colSpan={3 + allRouteNotes.length + (canEdit ? 1 : 0)} className="px-4 py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
+                              {group.rep.image_url
+                                ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
+                                : <Car className={`w-4 h-4 ${iconColor} opacity-70`} />}
+                            </div>
+                            <span className="font-semibold text-sm text-foreground">{group.name}</span>
+                            <span className="text-[11px] text-muted-foreground/70 bg-muted px-2 py-0.5 rounded-full">{group.rep.type}</span>
                           </div>
-                          <div>
-                            <p className="font-semibold text-sm text-foreground">{group.name}</p>
-                            {group.rep.type && <p className="text-[10px] text-muted-foreground mt-0.5">{group.rep.type}</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3.5 text-center text-sm text-muted-foreground whitespace-nowrap">{group.rep.total_seats}</td>
-                      <td className="px-3 py-3.5 text-center text-xs text-muted-foreground whitespace-nowrap">{group.rep.seat_material !== "ไม่ระบุ" ? group.rep.seat_material : "—"}</td>
-                      {/* Price rows — price + note label per variant */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex flex-col gap-1">
-                          {group.items.map((item) => {
-                            const p = getMinPrice(item);
+                        </td>
+                      </tr>
+
+                      {/* ── Variant rows ── */}
+                      {subVariants.map((sv, si) => (
+                        <tr key={`${group.name}-${sv.seats}-${sv.mat}`}
+                          className={`hover:bg-primary/5 transition-colors group/row ${si < subVariants.length - 1 ? "border-b border-border/30" : ""}`}>
+                          {/* Indent spacer */}
+                          <td className="px-4 py-3 pl-16 w-0" />
+                          {/* Seats */}
+                          <td className="px-3 py-3 text-center text-sm font-medium text-foreground/80 whitespace-nowrap">{sv.seats}</td>
+                          {/* Material */}
+                          <td className="px-3 py-3 text-center">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{sv.mat !== "ไม่ระบุ" ? sv.mat : "—"}</span>
+                          </td>
+                          {/* Price per route (pivot columns) */}
+                          {allRouteNotes.map((note) => {
+                            const price = sv.prices.get(note);
                             return (
-                              <div key={item.id} className="flex items-center gap-2 group/pill">
-                                <span className="text-sm font-bold text-foreground tabular-nums w-20 shrink-0">฿{p.toLocaleString()}</span>
-                                {item.note && (
-                                  <span className="text-sm text-muted-foreground/80 truncate max-w-[200px]">{item.note}</span>
-                                )}
-                                {canEdit && (
-                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity ml-auto shrink-0">
-                                    <button onClick={() => openEdit(item.id)} className="text-muted-foreground/40 hover:text-primary p-0.5 transition-colors"><Pencil className="w-3 h-3" /></button>
-                                    <button onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(item.id); toast.success("ลบแล้ว"); } }} className="text-muted-foreground/40 hover:text-destructive p-0.5 transition-colors"><Trash2 className="w-3 h-3" /></button>
-                                  </div>
-                                )}
-                              </div>
+                              <td key={note} className="px-4 py-3 text-right whitespace-nowrap">
+                                {price != null
+                                  ? <span className="text-sm font-bold text-foreground tabular-nums">฿{price.toLocaleString()}</span>
+                                  : <span className="text-muted-foreground/25 text-xs select-none">—</span>}
+                              </td>
                             );
                           })}
-                        </div>
-                      </td>
-                      {canEdit && (
-                        <td className="px-3 py-3.5 text-right whitespace-nowrap">
-                          {group.items.length === 1 && (
-                            <div className="opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-0.5 justify-end">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(group.items[0].id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(group.items[0].id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                            </div>
+                          {/* Edit/delete (hover) */}
+                          {canEdit && (
+                            <td className="px-3 py-3 text-right whitespace-nowrap">
+                              <div className="opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-0.5 justify-end">
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(sv.ids[0])}><Pencil className="w-3.5 h-3.5" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                                  if (confirm(`ลบ ${group.name} (${sv.seats} ที่นั่ง) ทั้งหมด ${sv.ids.length} รายการ?`)) {
+                                    sv.ids.forEach((id) => { deleteCar(id); });
+                                    toast.success("ลบแล้ว");
+                                  }
+                                }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                              </div>
+                            </td>
                           )}
-                        </td>
-                      )}
-                    </tr>
+                        </tr>
+                      ))}
+                    </Fragment>
                   );
                 })}
               </tbody>
