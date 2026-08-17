@@ -4337,6 +4337,20 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     return car.rate_per_day || 0;
   };
 
+  // Group filteredCars by name for display
+  const groupedCars = useMemo(() => {
+    const map = new Map<string, typeof cars[number][]>();
+    filteredCars.forEach((c) => {
+      if (!map.has(c.name)) map.set(c.name, []);
+      map.get(c.name)!.push(c);
+    });
+    return [...map.entries()].map(([name, items]) => {
+      const allPrices = items.map((c) => getMinPrice(c));
+      const uniquePrices = [...new Set(allPrices)].sort((a, b) => a - b);
+      return { name, items, rep: items[0], uniquePrices, minPrice: uniquePrices[0] ?? 0, maxPrice: uniquePrices[uniquePrices.length - 1] ?? 0 };
+    });
+  }, [filteredCars]);
+
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "", total_seats: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
@@ -4483,66 +4497,62 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         </div>
       )}
 
-      {/* ═══════════════ SECTION 1: Card Grid ═══════════════ */}
+      {/* ═══════════════ SECTION 1: Vehicle Cards (grouped by name) ═══════════════ */}
       <div>
-        <p className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">รายการรถ</p>
-
         {/* Skeleton */}
         {showSkeleton && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {[1,2,3,4,5].map((i) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[1,2,3,4].map((i) => (
               <div key={i} className="bg-card rounded-2xl border overflow-hidden animate-pulse">
-                <div className="h-36 bg-muted/60" />
-                <div className="p-3 space-y-2"><div className="h-4 bg-muted rounded w-3/4" /><div className="h-3 bg-muted/60 rounded w-1/2" /></div>
+                <div className="h-40 bg-muted/60" />
+                <div className="p-4 space-y-2"><div className="h-4 bg-muted rounded w-3/4" /><div className="h-3 bg-muted/60 rounded w-1/2" /><div className="h-5 bg-muted/40 rounded w-1/3" /></div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Cards */}
-        {!showSkeleton && filteredCars.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {filteredCars.map((c, idx) => {
-              const { gradient, iconColor } = carTypeStyle(c.type);
-              const minPrice = getMinPrice(c);
-              const hasRates = (c.rates || []).length > 1;
+        {/* Grouped cards */}
+        {!showSkeleton && groupedCars.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {groupedCars.map((group, idx) => {
+              const { gradient, iconColor } = carTypeStyle(group.rep.type);
+              const hasMultiple = group.items.length > 1;
+              const priceLabel = group.minPrice === group.maxPrice
+                ? `฿${group.minPrice.toLocaleString()}`
+                : `฿${group.minPrice.toLocaleString()} – ฿${group.maxPrice.toLocaleString()}`;
               return (
-                <div key={c.id} className="group bg-card rounded-2xl border shadow-soft overflow-hidden anim-card-in hover:border-primary/30 transition-all" style={{ animationDelay: `${idx * 35}ms` }}>
+                <div key={group.name} className="group bg-card rounded-2xl border shadow-soft overflow-hidden anim-card-in hover:shadow-md hover:border-primary/25 transition-all" style={{ animationDelay: `${idx * 40}ms` }}>
                   {/* Photo */}
-                  <div className={`relative h-36 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
-                    {c.image_url
-                      ? <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
-                      : <Car className={`w-12 h-12 ${iconColor} opacity-25`} />}
-                    {canEdit && (
-                      <button onClick={() => openEdit(c.id)} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium">
-                        <Pencil className="w-4 h-4" /> แก้ไข
-                      </button>
-                    )}
-                    {c.type && <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-sm">{c.type}</span>}
+                  <div className={`relative h-40 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
+                    {group.rep.image_url
+                      ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
+                      : <Car className={`w-14 h-14 ${iconColor} opacity-20`} />}
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      {hasMultiple
+                        ? <button onClick={() => document.getElementById("car-price-table")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="text-white text-xs font-semibold flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">ดูตารางราคา ↓</button>
+                        : canEdit && <button onClick={() => openEdit(group.items[0].id)} className="text-white text-xs font-semibold flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20"><Pencil className="w-3.5 h-3.5" /> แก้ไข</button>}
+                    </div>
+                    {/* Badges */}
+                    {group.rep.type && <span className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/35 text-white backdrop-blur-sm">{group.rep.type}</span>}
+                    {hasMultiple && <span className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm">{group.items.length} ตัวเลือก</span>}
                   </div>
+
                   {/* Info */}
-                  <div className="p-3 space-y-1.5">
-                    <p className="font-bold text-sm text-foreground leading-snug line-clamp-2">{c.name}</p>
+                  <div className="p-4 space-y-2.5">
+                    <p className="font-bold text-sm text-foreground leading-snug">{group.name}</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground"><Car className="w-3 h-3" />{c.total_seats} ที่นั่ง</span>
-                      {c.seat_material && c.seat_material !== "ไม่ระบุ" && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{c.seat_material}</span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Car className="w-3 h-3" /> {group.rep.total_seats} ที่นั่ง
+                      </span>
+                      {group.rep.seat_material && group.rep.seat_material !== "ไม่ระบุ" && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{group.rep.seat_material}</span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xs text-muted-foreground mr-1">{hasRates ? "เริ่มต้น" : ""}</span>
-                        <span className="text-base font-bold text-foreground">฿{minPrice.toLocaleString()}</span>
-                        <span className="text-xs text-muted-foreground ml-0.5">/วัน</span>
-                      </div>
-                      {canEdit && (
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(c.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                        </div>
-                      )}
+                    <div className="pt-0.5 border-t border-border/40">
+                      {hasMultiple && <p className="text-[10px] text-muted-foreground/60 mb-0.5">เริ่มต้น</p>}
+                      <p className="text-base font-bold text-foreground">{priceLabel}<span className="text-xs font-normal text-muted-foreground ml-1">/วัน</span></p>
                     </div>
-                    {c.note && <p className="text-xs text-muted-foreground/60 line-clamp-1">{c.note}</p>}
                   </div>
                 </div>
               );
@@ -4551,14 +4561,14 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         )}
 
         {/* Empty states */}
-        {!showSkeleton && filteredCars.length === 0 && cars.length === 0 && (
+        {!showSkeleton && groupedCars.length === 0 && cars.length === 0 && (
           <div className="py-16 flex flex-col items-center gap-3 bg-card rounded-2xl border">
             <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center"><Car className="w-8 h-8 text-muted-foreground/40" /></div>
             <div className="text-center"><p className="text-sm font-semibold text-muted-foreground">ยังไม่มีรถในระบบ</p><p className="text-xs text-muted-foreground/60 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p></div>
             {canEdit && <Button onClick={openAdd} size="sm" className="bg-gradient-pink text-accent-foreground mt-1"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรถคันแรก</Button>}
           </div>
         )}
-        {!showSkeleton && filteredCars.length === 0 && cars.length > 0 && (
+        {!showSkeleton && groupedCars.length === 0 && cars.length > 0 && (
           <div className="py-10 flex flex-col items-center gap-2 bg-card rounded-2xl border">
             <Search className="w-5 h-5 text-muted-foreground/40" />
             <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับเงื่อนไข</p>
@@ -4567,60 +4577,70 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         )}
       </div>
 
-      {/* ═══════════════ SECTION 2: Rate Matrix ═══════════════ */}
-      {!showSkeleton && allRoutes.length > 0 && filteredCars.length > 0 && (
-        <div>
-          <p className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">ตารางราคาตามเส้นทาง</p>
+      {/* ═══════════════ SECTION 2: Price Table (grouped) ═══════════════ */}
+      {!showSkeleton && groupedCars.length > 0 && (
+        <div id="car-price-table">
+          <p className="text-[11px] font-semibold text-muted-foreground/50 uppercase tracking-widest mb-3">ตารางราคา</p>
           <div className="bg-card rounded-2xl border shadow-soft overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-muted/50 border-b border-border/60">
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-foreground/60 uppercase tracking-wide whitespace-nowrap">รถ</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-foreground/60 uppercase tracking-wide whitespace-nowrap">ที่นั่ง</th>
-                  <th className="px-3 py-2.5 text-center text-xs font-semibold text-foreground/60 uppercase tracking-wide whitespace-nowrap">เบาะ</th>
-                  {allRoutes.map((route) => (
-                    <th key={route} className="px-4 py-2.5 text-right text-xs font-semibold text-foreground/60 uppercase tracking-wide whitespace-nowrap">{route}</th>
-                  ))}
-                  {canEdit && <th className="px-3 py-2.5" />}
+                <tr className="bg-muted/50 border-b border-border/60 [&>th]:text-foreground/55">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">รุ่นรถ</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap">ที่นั่ง</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wide whitespace-nowrap">เบาะ</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide">ราคา (บาท/วัน)</th>
+                  {canEdit && <th className="px-3 py-3 w-10" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {filteredCars.map((c) => {
-                  const { gradient, iconColor } = carTypeStyle(c.type);
+                {groupedCars.map((group) => {
+                  const { gradient, iconColor } = carTypeStyle(group.rep.type);
                   return (
-                    <tr key={c.id} className="hover:bg-muted/20 transition-colors group/row">
-                      {/* Vehicle cell with thumbnail */}
-                      <td className="px-4 py-3">
+                    <tr key={group.name} className="hover:bg-muted/20 transition-colors group/row">
+                      {/* Vehicle + thumbnail */}
+                      <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-9 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                            {c.image_url
-                              ? <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
-                              : <Car className={`w-5 h-5 ${iconColor} opacity-40`} />}
+                          <div className={`w-14 h-10 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                            {group.rep.image_url
+                              ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
+                              : <Car className={`w-5 h-5 ${iconColor} opacity-35`} />}
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-foreground leading-snug">{c.name}</p>
-                            {c.type && <p className="text-[10px] text-muted-foreground mt-0.5">{c.type}</p>}
+                          <div>
+                            <p className="font-semibold text-sm text-foreground">{group.name}</p>
+                            {group.rep.type && <p className="text-[10px] text-muted-foreground mt-0.5">{group.rep.type}</p>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-center text-sm text-muted-foreground whitespace-nowrap">{c.total_seats}</td>
-                      <td className="px-3 py-3 text-center text-xs text-muted-foreground whitespace-nowrap">{c.seat_material !== "ไม่ระบุ" ? c.seat_material : "—"}</td>
-                      {allRoutes.map((route) => {
-                        const price = getCarPrice(c, route);
-                        return (
-                          <td key={route} className="px-4 py-3 text-right whitespace-nowrap">
-                            {price !== null
-                              ? <><span className="font-bold text-foreground">{price.toLocaleString()}</span><span className="text-xs text-muted-foreground ml-0.5">฿</span></>
-                              : <span className="text-muted-foreground/25 select-none">—</span>}
-                          </td>
-                        );
-                      })}
+                      <td className="px-3 py-3.5 text-center text-sm text-muted-foreground whitespace-nowrap">{group.rep.total_seats}</td>
+                      <td className="px-3 py-3.5 text-center text-xs text-muted-foreground whitespace-nowrap">{group.rep.seat_material !== "ไม่ระบุ" ? group.rep.seat_material : "—"}</td>
+                      {/* Price pills — one per item variant */}
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {group.items.map((item, ii) => {
+                            const p = getMinPrice(item);
+                            return (
+                              <div key={item.id} className="flex items-center gap-1 group/pill">
+                                {ii > 0 && <span className="text-border select-none">·</span>}
+                                <span className="text-sm font-bold text-foreground">฿{p.toLocaleString()}</span>
+                                {canEdit && (
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                    <button onClick={() => openEdit(item.id)} className="text-muted-foreground/40 hover:text-primary p-0.5 transition-colors"><Pencil className="w-3 h-3" /></button>
+                                    <button onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(item.id); toast.success("ลบแล้ว"); } }} className="text-muted-foreground/40 hover:text-destructive p-0.5 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
                       {canEdit && (
-                        <td className="px-3 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover/row:opacity-100 transition-opacity">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(c.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                          </div>
+                        <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                          {group.items.length === 1 && (
+                            <div className="opacity-0 group-hover/row:opacity-100 transition-opacity flex items-center gap-0.5 justify-end">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(group.items[0].id)}><Pencil className="w-3.5 h-3.5" /></Button>
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(group.items[0].id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                            </div>
+                          )}
                         </td>
                       )}
                     </tr>
