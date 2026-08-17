@@ -2746,13 +2746,12 @@ ${catBlocks}
                             <React.Fragment key={pid}>
                               {/* Period Card */}
                               <div
-                                className={`rounded-xl overflow-hidden border anim-fade-in ${hasPending ? "ring-1 ring-amber-300" : ""}`}
+                                className={`rounded-xl overflow-hidden border anim-fade-in ${isCancelled ? "bg-destructive/5" : hasPending ? "bg-amber-500/5" : "bg-card"} ${hasPending ? "ring-1 ring-amber-400/50" : ""}`}
                                 style={{
                                   animationDelay: `${pIdx * 35}ms`,
                                   borderColor: `${statusColor}30`,
                                   borderLeftWidth: "4px",
                                   borderLeftColor: statusColor,
-                                  background: isCancelled ? "#FFF5F5" : hasPending ? "#FFFBEB" : "white",
                                 }}
                               >
                                 {/* ── Tablet / Mobile card (< lg) ─────────────────────────────── */}
