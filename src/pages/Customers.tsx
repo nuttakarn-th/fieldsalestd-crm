@@ -617,15 +617,23 @@ export default function Customers() {
         {filtered.length === 0 && (
           <div className="p-8 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</div>
         )}
-        {pagedCustomers.map((c) => (
+        {pagedCustomers.map((c) => {
+          const isOBCustomer = isMarketing && (obSet.has(c.created_by) || obSet.has(c.transferred_to ?? "") || obSet.has(c.transferred_from ?? ""));
+          return (
           <div
             key={c.customer_id}
             data-customer-id={c.customer_id}
-            className="flex items-center gap-3 px-3 py-2 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60"
+            className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/40 transition cursor-pointer active:bg-muted/60 ${
+              isMarketing ? (isOBCustomer ? "border-l-[3px] border-violet-400" : "border-l-[3px] border-orange-400") : ""
+            }`}
             onClick={() => navigate(`/app/customers/${c.customer_id}`)}
           >
             {/* Avatar circle */}
-            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center shrink-0 text-white font-bold text-sm">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-sm ${
+              isMarketing
+                ? (isOBCustomer ? "bg-gradient-to-br from-violet-500 to-purple-600" : "bg-gradient-to-br from-orange-400 to-amber-500")
+                : "bg-gradient-primary"
+            }`}>
               {c.full_name.charAt(0)}
             </div>
 
@@ -714,11 +722,15 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {pagedCustomers.map((c) => (
+              {pagedCustomers.map((c) => {
+                const isOBCustomer = isMarketing && (obSet.has(c.created_by) || obSet.has(c.transferred_to ?? "") || obSet.has(c.transferred_from ?? ""));
+                return (
                 <tr
                   key={c.customer_id}
                   data-customer-id={c.customer_id}
-                  className="hover:bg-muted/30 transition cursor-pointer"
+                  className={`hover:bg-muted/30 transition cursor-pointer ${
+                    isMarketing ? (isOBCustomer ? "border-l-[3px] border-violet-400" : "border-l-[3px] border-orange-400") : ""
+                  }`}
                   onClick={() => navigate(`/app/customers/${c.customer_id}`)}
                 >
                   {/* ชื่อ / องค์กร / จังหวัด */}
@@ -847,7 +859,8 @@ export default function Customers() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {filtered.length === 0 && (
                 <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</td></tr>
               )}
