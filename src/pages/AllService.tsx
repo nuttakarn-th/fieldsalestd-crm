@@ -4620,17 +4620,19 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                       </td>
                       <td className="px-3 py-3.5 text-center text-sm text-muted-foreground whitespace-nowrap">{group.rep.total_seats}</td>
                       <td className="px-3 py-3.5 text-center text-xs text-muted-foreground whitespace-nowrap">{group.rep.seat_material !== "ไม่ระบุ" ? group.rep.seat_material : "—"}</td>
-                      {/* Price pills — one per item variant */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {group.items.map((item, ii) => {
+                      {/* Price rows — price + note label per variant */}
+                      <td className="px-4 py-2.5">
+                        <div className="flex flex-col gap-1">
+                          {group.items.map((item) => {
                             const p = getMinPrice(item);
                             return (
-                              <div key={item.id} className="flex items-center gap-1 group/pill">
-                                {ii > 0 && <span className="text-border select-none">·</span>}
-                                <span className="text-sm font-bold text-foreground">฿{p.toLocaleString()}</span>
+                              <div key={item.id} className="flex items-center gap-2 group/pill">
+                                <span className="text-sm font-bold text-foreground tabular-nums w-20 shrink-0">฿{p.toLocaleString()}</span>
+                                {item.note && (
+                                  <span className="text-xs text-muted-foreground/70 truncate max-w-[200px]">{item.note}</span>
+                                )}
                                 {canEdit && (
-                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity ml-auto shrink-0">
                                     <button onClick={() => openEdit(item.id)} className="text-muted-foreground/40 hover:text-primary p-0.5 transition-colors"><Pencil className="w-3 h-3" /></button>
                                     <button onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(item.id); toast.success("ลบแล้ว"); } }} className="text-muted-foreground/40 hover:text-destructive p-0.5 transition-colors"><Trash2 className="w-3 h-3" /></button>
                                   </div>
