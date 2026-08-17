@@ -2149,9 +2149,9 @@ ${catBlocks}
       {/* ── SECTIONS ── */}
       {(
         [
-          { labelTh: "ทัวร์ต่างประเทศ", labelEn: "International Tours", items: intlTours, color: "#16A34A", bg: "#ECFDF5", textColor: "#065F46", Icon: Plane },
-          { labelTh: "ทัวร์ในประเทศ",   labelEn: "Domestic Tours",      items: domTours,  color: "#F59E0B", bg: "#FFFBEB", textColor: "#92400E", Icon: MapPinned },
-          { labelTh: "Incentive",        labelEn: "Incentive & Group",    items: incTours,  color: "#7C3AED", bg: "#F5F3FF", textColor: "#4C1D95", Icon: FileBadge },
+          { labelTh: "ทัวร์ต่างประเทศ", labelEn: "International Tours", items: intlTours, color: "#16A34A", bg: "rgba(22,163,74,0.10)",   textColor: "#16A34A", Icon: Plane },
+          { labelTh: "ทัวร์ในประเทศ",   labelEn: "Domestic Tours",      items: domTours,  color: "#F59E0B", bg: "rgba(245,158,11,0.10)", textColor: "#D97706", Icon: MapPinned },
+          { labelTh: "Incentive",        labelEn: "Incentive & Group",    items: incTours,  color: "#7C3AED", bg: "rgba(124,58,237,0.10)", textColor: "#7C3AED", Icon: FileBadge },
         ] as const
       ).map(({ labelTh, labelEn, items, color, bg, textColor, Icon }) =>
         items.length === 0 ? null : (
@@ -2250,7 +2250,7 @@ ${catBlocks}
                           <span className="text-sm font-semibold font-mono mr-2" style={{color}}>{t.code}</span>
                           <button onClick={() => hasPeriods && toggleExpand(t.id)}
                             className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
-                            style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"#E5E7EB",color:"#9CA3AF",background:"#F9FAFB"}}>
+                            style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"hsl(var(--border))",color:"hsl(var(--muted-foreground))",background:"hsl(var(--muted))"}}>
                             {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
                             {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                           </button>
