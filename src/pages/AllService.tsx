@@ -2157,7 +2157,7 @@ ${catBlocks}
         items.length === 0 ? null : (
           <div key={labelTh} className="mb-6">
             {/* ── Section Header Card ── */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 mx-4 sm:mx-6 mt-4 rounded-2xl" style={{background: bg, border: `1.5px solid ${color}30`}}>
+            <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 mx-4 sm:mx-6 mt-4 rounded-2xl" style={{background: bg, border: `1.5px solid ${color}30`}}>
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm" style={{background: color}}>
                   <Icon className="w-5 h-5 text-white" />
@@ -2167,7 +2167,7 @@ ${catBlocks}
                   <div className="text-xs font-medium mt-0.5" style={{color: textColor, opacity: 0.65}}>{labelEn}</div>
                 </div>
               </div>
-              <span className="text-sm font-bold px-3 py-1.5 rounded-full text-white shadow-sm" style={{background: color}}>
+              <span className="text-sm font-semibold px-3 py-1 rounded-full border" style={{color, borderColor: `${color}50`, background: `${color}18`}}>
                 {items.length} โปรแกรม
               </span>
             </div>
@@ -2659,7 +2659,7 @@ ${catBlocks}
                             <button className="ml-auto text-xs text-blue-400 hover:text-blue-300" onClick={() => setSelectedPeriods(new Set())}>✕ ยกเลิกการเลือก</button>
                           </div>
                         )}
-                        <div className="hidden lg:flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none bg-muted/40">
+                        <div className="hidden lg:flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none bg-muted/50 [&>div]:text-foreground/55">
                           {/* Bulk select-all checkbox — hidden when !canEdit */}
                           {canEdit ? (
                             <input
