@@ -89,12 +89,14 @@ export interface TourItem {
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====
 export type SeatMaterial = "หนัง" | "ผ้า" | "กำมะหยี่" | "ไม่ระบุ";
+export interface CarRate { route: string; price: number }
 export interface CarItem {
   id: string;
   name: string;
   type: string;
   total_seats: number;   // จำนวนที่นั่งในรถ (ไม่ใช่โควต้า)
-  rate_per_day: number;
+  rate_per_day: number;  // ราคาต่ำสุด (auto-fill จาก rates หรือ legacy single price)
+  rates: CarRate[];      // ราคาแยกตามเส้นทาง เช่น [{route:"เชียงใหม่", price:1800}]
   seat_material: SeatMaterial;
   note?: string;
   image_url?: string;    // รูปภาพรถ (Supabase Storage public URL)
