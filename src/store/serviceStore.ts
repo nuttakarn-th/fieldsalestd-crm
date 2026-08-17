@@ -97,6 +97,7 @@ export interface CarItem {
   rate_per_day: number;
   seat_material: SeatMaterial;
   note?: string;
+  image_url?: string;    // รูปภาพรถ (Supabase Storage public URL)
 }
 
 // ===== Booking sub-services — ไม่มีโควต้า (บริการ Unlimited) =====
@@ -137,9 +138,10 @@ interface ServiceState {
   /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
   adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => void;
 
-  addCar: (c: Omit<CarItem, "id">) => void;
+  addCar: (c: Omit<CarItem, "id">) => string;
   updateCar: (id: string, p: Partial<CarItem>) => void;
   deleteCar: (id: string) => void;
+  uploadCarImage: (carId: string, file: File) => Promise<string | null>;
 
   addFlight: (f: Omit<FlightItem, "id">) => void;
   updateFlight: (id: string, p: Partial<FlightItem>) => void;
@@ -560,9 +562,11 @@ export const useServices = create<ServiceState>()(
 
       // ── Car ──
       addCar: (c) => {
-        const item: CarItem = { ...c, id: uid() };
+        const newId = uid();
+        const item: CarItem = { ...c, id: newId };
         set({ cars: [...get().cars, item] });
         sbInsert("cars", item);
+        return newId;
       },
       updateCar: (id, p) => {
         set({ cars: get().cars.map((x) => (x.id === id ? { ...x, ...p } : x)) });
@@ -571,6 +575,20 @@ export const useServices = create<ServiceState>()(
       deleteCar: (id) => {
         set({ cars: get().cars.filter((x) => x.id !== id) });
         sbDelete("cars", id);
+      },
+      uploadCarImage: async (carId, file) => {
+        if (!SUPABASE_ENABLED || !supabase) return null;
+        const ext = file.name.split(".").pop() ?? "jpg";
+        const path = `${carId}/${Date.now()}.${ext}`;
+        const { data, error } = await supabase.storage
+          .from("car-images")
+          .upload(path, file, { contentType: file.type, upsert: true });
+        if (error || !data) { console.error("[supabase] upload car image failed:", error); return null; }
+        const { data: urlData } = supabase.storage.from("car-images").getPublicUrl(data.path);
+        const image_url = urlData.publicUrl;
+        set({ cars: get().cars.map((x) => x.id === carId ? { ...x, image_url } : x) });
+        sbUpdate("cars", carId, { image_url });
+        return image_url;
       },
 
       // ── Flight ──

@@ -4298,17 +4298,36 @@ const CAR_FIELDS: ExcelField[] = [
   { key: "note",         header: "หมายเหตุ",        example: "" },
 ];
 
+// ── helper: gradient bg + icon color by vehicle type ──────────────────────────
+function carTypeStyle(type: string): { gradient: string; iconColor: string } {
+  const t = type.toLowerCase();
+  if (t.includes("van") || t.includes("commuter")) return { gradient: "from-blue-500/20 to-blue-600/5", iconColor: "text-blue-400" };
+  if (t.includes("bus") && t.includes("ใหญ่")) return { gradient: "from-orange-500/20 to-orange-600/5", iconColor: "text-orange-400" };
+  if (t.includes("bus")) return { gradient: "from-amber-500/20 to-amber-600/5", iconColor: "text-amber-400" };
+  if (t.includes("suv") || t.includes("4wd")) return { gradient: "from-green-500/20 to-green-600/5", iconColor: "text-green-400" };
+  if (t.includes("sedan") || t.includes("saloon")) return { gradient: "from-purple-500/20 to-purple-600/5", iconColor: "text-purple-400" };
+  return { gradient: "from-muted/60 to-muted/20", iconColor: "text-muted-foreground" };
+}
+
 function CarSection({ canEdit }: { canEdit: boolean }) {
   const cars = useServices((s) => s.cars);
   const addCar = useServices((s) => s.addCar);
   const updateCar = useServices((s) => s.updateCar);
   const deleteCar = useServices((s) => s.deleteCar);
+  const uploadCarImage = useServices((s) => s.uploadCarImage);
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
   const [carSearch, setCarSearch] = useState("");
+  const [carTypeFilter, setCarTypeFilter] = useState("");
   const [showSkeleton, setShowSkeleton] = useState(cars.length === 0);
+  // image upload state
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [pendingImagePreview, setPendingImagePreview] = useState<string>("");
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>("");
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const imgInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setShowSkeleton(false), 2000);
@@ -4316,24 +4335,66 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   }, []);
   useEffect(() => { if (cars.length > 0) setShowSkeleton(false); }, [cars.length]);
 
-  const filteredCars = useMemo(() => {
-    if (!carSearch.trim()) return cars;
-    const q = carSearch.toLowerCase();
-    return cars.filter((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
-  }, [cars, carSearch]);
+  // unique types for filter chips
+  const carTypes = useMemo(() => [...new Set(cars.map((c) => c.type).filter(Boolean))].sort(), [cars]);
 
-  const openAdd = () => { setEditId(null); setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ", note: "" }); setOpen(true); };
+  const filteredCars = useMemo(() => {
+    let list = cars;
+    if (carTypeFilter) list = list.filter((c) => c.type === carTypeFilter);
+    if (carSearch.trim()) {
+      const q = carSearch.toLowerCase();
+      list = list.filter((c) => c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
+    }
+    return list;
+  }, [cars, carSearch, carTypeFilter]);
+
+  const openAdd = () => {
+    setEditId(null);
+    setForm({ name: "", type: "", total_seats: "", rate_per_day: "", seat_material: "ไม่ระบุ", note: "" });
+    setPendingImageFile(null); setPendingImagePreview(""); setCurrentImageUrl("");
+    setOpen(true);
+  };
   const openEdit = (id: string) => {
     const c = cars.find((x) => x.id === id); if (!c) return;
     setEditId(id);
     setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), rate_per_day: String(c.rate_per_day), seat_material: c.seat_material, note: c.note ?? "" });
+    setPendingImageFile(null); setPendingImagePreview(""); setCurrentImageUrl(c.image_url ?? "");
     setOpen(true);
   };
-  const submit = () => {
+
+  const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setPendingImageFile(file);
+    const url = URL.createObjectURL(file);
+    setPendingImagePreview(url);
+  };
+
+  const submit = async () => {
     if (!form.name) { toast.error("กรุณากรอกชื่อรถ"); return; }
-    const payload = { name: form.name, type: form.type, total_seats: Number(form.total_seats || 0), rate_per_day: Number(form.rate_per_day || 0), seat_material: form.seat_material, note: form.note };
-    if (editId) updateCar(editId, payload); else addCar(payload);
-    toast.success(editId ? "อัปเดตแล้ว" : "เพิ่มรถใหม่แล้ว"); setOpen(false);
+    const payload = {
+      name: form.name, type: form.type,
+      total_seats: Number(form.total_seats || 0),
+      rate_per_day: Number(form.rate_per_day || 0),
+      seat_material: form.seat_material, note: form.note,
+    };
+    if (editId) {
+      updateCar(editId, payload);
+      if (pendingImageFile) {
+        setUploadingImg(true);
+        await uploadCarImage(editId, pendingImageFile);
+        setUploadingImg(false);
+      }
+      toast.success("อัปเดตแล้ว");
+    } else {
+      const newId = addCar(payload);
+      if (pendingImageFile) {
+        setUploadingImg(true);
+        await uploadCarImage(newId, pendingImageFile);
+        setUploadingImg(false);
+      }
+      toast.success("เพิ่มรถใหม่แล้ว");
+    }
+    setOpen(false);
   };
 
   const exportData = useMemo(() =>
@@ -4348,169 +4409,198 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     toast.success(`นำเข้า ${rows.length} รถแล้ว`);
   };
 
+  const displayImage = pendingImagePreview || currentImageUrl;
+
   return (
-    <div className="space-y-3 anim-tab-enter">
+    <div className="space-y-4 anim-tab-enter">
+      {/* ── Toolbar ── */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm text-muted-foreground">
             รวม {cars.length} คัน
-            {carSearch && filteredCars.length !== cars.length && <span className="ml-1.5 text-xs text-amber-600 font-medium">(กรอง {filteredCars.length})</span>}
+            {(carSearch || carTypeFilter) && filteredCars.length !== cars.length && (
+              <span className="ml-1.5 text-xs text-amber-500 font-medium">(แสดง {filteredCars.length})</span>
+            )}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">🚗 บริการเช่ารถ — ไม่จำกัดโควต้า (Unlimited)</p>
+          <p className="text-xs text-muted-foreground/60 mt-0.5">🚗 บริการเช่ารถ — ไม่จำกัดโควต้า (Unlimited)</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
             <Input className="pl-8 h-8 text-sm w-36 sm:w-44" placeholder="ค้นหารถ..." value={carSearch} onChange={(e) => setCarSearch(e.target.value)} />
-            {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
+            {carSearch && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setCarSearch("")}><X className="w-3.5 h-3.5" /></button>}
           </div>
           <ImportExportMenu fields={CAR_FIELDS} sheetName="รถเช่า" filename="cars" data={exportData} onImport={handleImport} canImport={canEdit} />
           {canEdit && <Button onClick={openAdd} className="bg-gradient-pink text-accent-foreground"><Plus className="w-4 h-4 mr-1" /> เพิ่มรถ</Button>}
         </div>
       </div>
 
-      {/* Skeleton — แสดงเมื่อ load จาก Supabase ยังไม่มาถึง */}
-      {showSkeleton && (
-        <>
-          <div className="hidden sm:block bg-card rounded-xl border overflow-hidden animate-pulse">
-            {[1,2,3].map((i) => (
-              <div key={i} className="flex items-center gap-4 px-3 py-3.5 border-b last:border-0">
-                <div className="h-4 bg-muted rounded w-1/4" />
-                <div className="h-3 bg-muted/60 rounded w-1/6" />
-                <div className="h-3 bg-muted/60 rounded w-1/12 ml-auto" />
-                <div className="h-3 bg-muted/60 rounded w-1/6" />
-              </div>
-            ))}
-          </div>
-          <div className="sm:hidden space-y-2">
-            {[1,2,3].map((i) => (
-              <div key={i} className="bg-card rounded-xl border p-3.5 animate-pulse">
-                <div className="h-4 bg-muted rounded w-2/5 mb-2" />
-                <div className="h-3 bg-muted/60 rounded w-1/4" />
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Desktop table — hidden on mobile */}
-      {!showSkeleton && (
-      <div className="hidden sm:block bg-card rounded-xl border shadow-soft overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className="p-3 text-left">ชื่อรถ</th>
-                <th className="p-3 text-left">ประเภท</th>
-                <th className="p-3 text-center">ที่นั่ง</th>
-                <th className="p-3 text-right">ราคา/วัน</th>
-                <th className="p-3 text-left">เบาะ</th>
-                <th className="p-3 text-left">หมายเหตุ</th>
-                {canEdit && <th className="p-3"></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredCars.map((c) => (
-                <tr key={c.id} className="hover:bg-muted/30 anim-fade-in">
-                  <td className="p-3 font-semibold">{c.name}</td>
-                  <td className="p-3">{c.type}</td>
-                  <td className="p-3 text-center">{c.total_seats}</td>
-                  <td className="p-3 text-right font-bold">{c.rate_per_day.toLocaleString()}</td>
-                  <td className="p-3">{c.seat_material}</td>
-                  <td className="p-3 text-xs text-muted-foreground">{c.note || "-"}</td>
-                  {canEdit && (
-                    <td className="p-3 text-right whitespace-nowrap">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(c.id)}><Pencil className="w-4 h-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {filteredCars.length === 0 && cars.length === 0 && (
-                <tr><td colSpan={canEdit ? 7 : 6} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center"><Car className="w-6 h-6 text-muted-foreground/40" /></div>
-                    <p className="text-sm font-medium text-muted-foreground">ยังไม่มีรถในระบบ</p>
-                    <p className="text-xs text-muted-foreground/60">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
-                  </div>
-                </td></tr>
-              )}
-              {filteredCars.length === 0 && cars.length > 0 && (
-                <tr><td colSpan={canEdit ? 7 : 6} className="py-8 text-center">
-                  <div className="flex flex-col items-center gap-1.5">
-                    <Search className="w-5 h-5 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
-                    <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline mt-0.5">ล้างการค้นหา</button>
-                  </div>
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+      {/* ── Filter Chips ── */}
+      {carTypes.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {["ทั้งหมด", ...carTypes].map((t) => {
+            const active = carTypeFilter === (t === "ทั้งหมด" ? "" : t);
+            return (
+              <button
+                key={t}
+                onClick={() => setCarTypeFilter(t === "ทั้งหมด" ? "" : t)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  active
+                    ? "bg-primary/90 text-primary-foreground border-primary"
+                    : "bg-transparent border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                {t}
+                {t !== "ทั้งหมด" && (
+                  <span className="ml-1.5 opacity-60">{cars.filter((c) => c.type === t).length}</span>
+                )}
+              </button>
+            );
+          })}
+          {carTypeFilter && (
+            <button onClick={() => setCarTypeFilter("")} className="text-xs text-muted-foreground/60 hover:text-muted-foreground flex items-center gap-0.5">
+              <X className="w-3 h-3" /> ล้าง
+            </button>
+          )}
         </div>
-      </div>
       )}
 
-      {/* Mobile cards — hidden on sm+ */}
-      {!showSkeleton && (
-      <div className="sm:hidden space-y-2">
-        {filteredCars.length === 0 && cars.length === 0 && (
-          <div className="py-12 flex flex-col items-center gap-3 bg-card rounded-xl border">
-            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center"><Car className="w-7 h-7 text-muted-foreground/40" /></div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-muted-foreground">ยังไม่มีรถในระบบ</p>
-              <p className="text-xs text-muted-foreground/60 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+      {/* ── Skeleton ── */}
+      {showSkeleton && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="bg-card rounded-2xl border overflow-hidden animate-pulse">
+              <div className="h-36 bg-muted/60" />
+              <div className="p-3 space-y-2">
+                <div className="h-4 bg-muted rounded w-3/4" />
+                <div className="h-3 bg-muted/60 rounded w-1/2" />
+                <div className="h-3 bg-muted/60 rounded w-1/3" />
+              </div>
             </div>
-            {canEdit && <Button onClick={openAdd} size="sm" className="bg-gradient-pink text-accent-foreground"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรถคันแรก</Button>}
-          </div>
-        )}
-        {filteredCars.length === 0 && cars.length > 0 && (
-          <div className="py-8 flex flex-col items-center gap-2 bg-card rounded-xl border">
-            <Search className="w-5 h-5 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับ "<span className="font-medium">{carSearch}</span>"</p>
-            <button onClick={() => setCarSearch("")} className="text-xs text-blue-500 hover:underline">ล้างการค้นหา</button>
-          </div>
-        )}
-        {filteredCars.map((c, idx) => (
-          <div key={c.id} className="bg-card rounded-xl border shadow-soft p-3.5 anim-card-in" style={{animationDelay: `${idx * 40}ms`}}>
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-base text-foreground leading-snug">{c.name}</span>
-                  {c.type && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{c.type}</span>}
-                  {c.seat_material && c.seat_material !== "ไม่ระบุ" && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{c.seat_material}</span>
+          ))}
+        </div>
+      )}
+
+      {/* ── Card Grid ── */}
+      {!showSkeleton && filteredCars.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {filteredCars.map((c, idx) => {
+            const { gradient, iconColor } = carTypeStyle(c.type);
+            return (
+              <div
+                key={c.id}
+                className="group bg-card rounded-2xl border shadow-soft overflow-hidden anim-card-in hover:border-primary/30 transition-all"
+                style={{ animationDelay: `${idx * 35}ms` }}
+              >
+                {/* Photo area */}
+                <div className={`relative h-36 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
+                  {c.image_url ? (
+                    <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Car className={`w-14 h-14 ${iconColor} opacity-30`} />
+                  )}
+                  {/* Upload overlay on hover — canEdit only */}
+                  {canEdit && (
+                    <button
+                      onClick={() => openEdit(c.id)}
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium"
+                    >
+                      <Pencil className="w-4 h-4" /> แก้ไข
+                    </button>
+                  )}
+                  {/* Type badge */}
+                  {c.type && (
+                    <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-sm">
+                      {c.type}
+                    </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  <div className="flex items-center gap-1">
-                    <Car className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">{c.total_seats} ที่นั่ง</span>
+
+                {/* Info */}
+                <div className="p-3 space-y-1.5">
+                  <p className="font-bold text-sm text-foreground leading-snug line-clamp-2">{c.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Car className="w-3 h-3" /> {c.total_seats} ที่นั่ง
+                    </span>
+                    {c.seat_material && c.seat_material !== "ไม่ระบุ" && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{c.seat_material}</span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-foreground">฿{c.rate_per_day.toLocaleString()}</span>
-                    <span className="text-xs text-muted-foreground">/วัน</span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-base font-bold text-foreground">฿{c.rate_per_day.toLocaleString()}</span>
+                      <span className="text-xs text-muted-foreground ml-1">/วัน</span>
+                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(c.id)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                          if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); }
+                        }}>
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
+                  {c.note && <p className="text-xs text-muted-foreground/70 line-clamp-1">{c.note}</p>}
                 </div>
-                {c.note && <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{c.note}</p>}
               </div>
-              {canEdit && (
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(c.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { if (confirm("ลบรถคันนี้?")) { deleteCar(c.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
       )}
 
+      {/* ── Empty states ── */}
+      {!showSkeleton && filteredCars.length === 0 && cars.length === 0 && (
+        <div className="py-16 flex flex-col items-center gap-3 bg-card rounded-2xl border">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+            <Car className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-muted-foreground">ยังไม่มีรถในระบบ</p>
+            <p className="text-xs text-muted-foreground/60 mt-0.5">เพิ่มรถเช่าเพื่อเริ่มจัดการบริการ</p>
+          </div>
+          {canEdit && <Button onClick={openAdd} size="sm" className="bg-gradient-pink text-accent-foreground mt-1"><Plus className="w-3.5 h-3.5 mr-1" /> เพิ่มรถคันแรก</Button>}
+        </div>
+      )}
+      {!showSkeleton && filteredCars.length === 0 && cars.length > 0 && (
+        <div className="py-10 flex flex-col items-center gap-2 bg-card rounded-2xl border">
+          <Search className="w-5 h-5 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">ไม่พบรถที่ตรงกับเงื่อนไข</p>
+          <button onClick={() => { setCarSearch(""); setCarTypeFilter(""); }} className="text-xs text-blue-500 hover:underline">ล้างตัวกรอง</button>
+        </div>
+      )}
+
+      {/* ── Add/Edit Dialog ── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editId ? "แก้ไขรถ" : "เพิ่มรถใหม่"}</DialogTitle></DialogHeader>
+
+          {/* Image upload area */}
+          <div
+            className="relative w-full h-40 rounded-xl overflow-hidden border-2 border-dashed border-border cursor-pointer group hover:border-primary/50 transition-colors"
+            onClick={() => imgInputRef.current?.click()}
+          >
+            {displayImage ? (
+              <img src={displayImage} alt="preview" className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${form.type ? carTypeStyle(form.type).gradient : "from-muted/60 to-muted/20"} flex flex-col items-center justify-center gap-2`}>
+                <Car className={`w-10 h-10 ${form.type ? carTypeStyle(form.type).iconColor : "text-muted-foreground"} opacity-30`} />
+                <span className="text-xs text-muted-foreground/60">คลิกเพื่ออัปโหลดรูปรถ</span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-sm font-medium">
+              <FileUp className="w-4 h-4" /> {displayImage ? "เปลี่ยนรูป" : "อัปโหลดรูป"}
+            </div>
+          </div>
+          <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickImage} />
+
           <div className="grid grid-cols-2 gap-3">
             <div><label className="text-xs font-semibold">ชื่อรถ</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Toyota Commuter" /></div>
-            <div><label className="text-xs font-semibold">ประเภท</label><Input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="SUV / Van / Sedan" /></div>
+            <div><label className="text-xs font-semibold">ประเภท</label><Input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="Van / Bus ใหญ่ / SUV" /></div>
             <div><label className="text-xs font-semibold">จำนวนที่นั่ง</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="12" /></div>
             <div><label className="text-xs font-semibold">ราคา/วัน</label><Input type="number" min={0} value={form.rate_per_day} onChange={(e) => setForm({ ...form, rate_per_day: e.target.value })} placeholder="2500" /></div>
             <div>
@@ -4524,7 +4614,9 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>ยกเลิก</Button>
-            <Button onClick={submit} className="bg-gradient-primary text-primary-foreground">บันทึก</Button>
+            <Button onClick={submit} disabled={uploadingImg} className="bg-gradient-primary text-primary-foreground">
+              {uploadingImg ? "กำลังอัปโหลดรูป..." : "บันทึก"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
