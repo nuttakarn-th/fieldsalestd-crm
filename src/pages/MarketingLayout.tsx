@@ -201,13 +201,35 @@ export default function MarketingLayout() {
   return (
     <div className="min-h-screen flex bg-background">
 
-      {/* ── Sidebar ── */}
-      <aside
-        className={`relative shrink-0 flex flex-col border-r border-violet-500/15 transition-[width] duration-200 ease-in-out overflow-hidden ${
-          sidebarCollapsed ? "w-[60px]" : "w-56"
-        }`}
-        style={{background:"linear-gradient(180deg,rgba(127,119,221,0.10) 0%,rgba(127,119,221,0.04) 35%,var(--card) 65%)"}}
-      >
+      {/* ── Sidebar wrapper — relative so floating toggle can escape overflow:hidden ── */}
+      <div className="relative shrink-0">
+
+        {/* Floating collapse toggle — always visible at top of sidebar edge */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              className="absolute right-[-13px] top-[68px] z-50 w-6 h-6 rounded-full bg-card border border-violet-500/30 shadow-md flex items-center justify-center text-muted-foreground hover:text-violet-500 hover:border-violet-400 transition-colors"
+              aria-label={sidebarCollapsed ? "ขยาย sidebar" : "พับ sidebar"}
+            >
+              {sidebarCollapsed
+                ? <ChevronRightIcon className="w-3 h-3" />
+                : <ChevronLeft className="w-3 h-3" />
+              }
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-xs">
+            {sidebarCollapsed ? "ขยาย" : "พับ sidebar"}
+          </TooltipContent>
+        </Tooltip>
+
+        {/* ── Sidebar ── */}
+        <aside
+          className={`flex flex-col border-r border-violet-500/15 transition-[width] duration-200 ease-in-out overflow-hidden h-screen sticky top-0 ${
+            sidebarCollapsed ? "w-[60px]" : "w-56"
+          }`}
+          style={{background:"linear-gradient(180deg,rgba(127,119,221,0.10) 0%,rgba(127,119,221,0.04) 35%,var(--card) 65%)"}}
+        >
         {/* Top violet accent line */}
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-violet-500 via-purple-400 to-transparent pointer-events-none z-10"/>
 
@@ -287,27 +309,8 @@ export default function MarketingLayout() {
           })}
         </nav>
 
-        {/* ── Collapse toggle button — วางชิดขอบขวาของ sidebar ── */}
-        <div className="shrink-0 border-t border-border p-2 flex justify-end">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setSidebarCollapsed((v) => !v)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                aria-label={sidebarCollapsed ? "ขยาย sidebar" : "พับ sidebar"}
-              >
-                {sidebarCollapsed
-                  ? <ChevronRightIcon className="w-4 h-4" />
-                  : <ChevronLeft className="w-4 h-4" />
-                }
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              {sidebarCollapsed ? "ขยาย" : "พับ sidebar"}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </aside>
+        </aside>
+      </div>
 
       {/* ── Main area ── */}
       <div className="flex-1 flex flex-col min-w-0">
