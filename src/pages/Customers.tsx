@@ -760,7 +760,8 @@ export default function Customers() {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Desktop: Table */}
