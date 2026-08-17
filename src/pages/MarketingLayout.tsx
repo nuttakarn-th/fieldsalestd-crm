@@ -132,7 +132,7 @@ function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean })
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link to={item.to} className={`${cls} w-10 h-10 justify-center mx-auto`}>
+          <Link to={item.to} className={`${cls} w-8 h-8 justify-center mx-auto`}>
             <Icon className="w-4.5 h-4.5 w-[18px] h-[18px] shrink-0" />
           </Link>
         </TooltipTrigger>
