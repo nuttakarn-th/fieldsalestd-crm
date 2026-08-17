@@ -136,18 +136,22 @@
 }
 
 /* ── Sidebar compact: icon-only mode ── */
-[data-collapsible=icon] [data-sidebar=group] {
+[data-collapsible=icon] [data-sidebar=group],
+[data-state=collapsed] [data-sidebar=group] {
   padding-top: 0 !important;
   padding-bottom: 0 !important;
 }
-[data-collapsible=icon] [data-sidebar=menu-item] {
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-}
-[data-collapsible=icon] [data-sidebar=menu-button] {
+[data-collapsible=icon] [data-sidebar=menu-item],
+[data-state=collapsed] [data-sidebar=menu-item] {
+  margin: 0 !important;
+  padding: 0 !important;
   height: 1.5rem !important;
-  min-height: 1.5rem !important;
-  width: 1.5rem !important;
+  min-height: 0 !important;
+}
+[data-collapsible=icon] [data-sidebar=menu-button],
+[data-state=collapsed] [data-sidebar=menu-button] {
+  height: 1.5rem !important;
+  min-height: 0 !important;
 }
 
 @layer utilities {
