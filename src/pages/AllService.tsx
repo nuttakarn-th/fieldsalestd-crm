@@ -4299,13 +4299,17 @@ const CAR_FIELDS: ExcelField[] = [
 ];
 
 // ── helper: gradient + icon color by vehicle type ─────────────────────────────
-function carTypeStyle(type: string): { gradient: string; iconColor: string } {
+function carTypeStyle(type: string): { gradient: string; iconColor: string; accentColor: string } {
   const t = (type || "").toLowerCase();
-  if (t.includes("van") || t.includes("commuter") || t.includes("รถตู้")) return { gradient: "from-blue-500/20 to-blue-600/5", iconColor: "text-blue-400" };
-  if (t.includes("bus") || t.includes("บัส")) return { gradient: "from-orange-500/20 to-orange-600/5", iconColor: "text-orange-400" };
-  if (t.includes("suv") || t.includes("4wd")) return { gradient: "from-green-500/20 to-green-600/5", iconColor: "text-green-400" };
-  if (t.includes("sedan") || t.includes("saloon")) return { gradient: "from-purple-500/20 to-purple-600/5", iconColor: "text-purple-400" };
-  return { gradient: "from-muted/60 to-muted/20", iconColor: "text-muted-foreground" };
+  if (t.includes("van") || t.includes("commuter") || t.includes("รถตู้"))
+    return { gradient: "from-blue-400/35 via-blue-300/20 to-blue-500/10", iconColor: "text-blue-500", accentColor: "bg-blue-500/15 border-blue-400/30 text-blue-600 dark:text-blue-400" };
+  if (t.includes("bus") || t.includes("บัส"))
+    return { gradient: "from-orange-400/35 via-orange-300/20 to-amber-400/10", iconColor: "text-orange-500", accentColor: "bg-orange-500/15 border-orange-400/30 text-orange-600 dark:text-orange-400" };
+  if (t.includes("suv") || t.includes("4wd"))
+    return { gradient: "from-green-400/35 via-green-300/20 to-emerald-400/10", iconColor: "text-green-500", accentColor: "bg-green-500/15 border-green-400/30 text-green-600 dark:text-green-400" };
+  if (t.includes("sedan") || t.includes("saloon"))
+    return { gradient: "from-purple-400/35 via-purple-300/20 to-violet-400/10", iconColor: "text-purple-500", accentColor: "bg-purple-500/15 border-purple-400/30 text-purple-600 dark:text-purple-400" };
+  return { gradient: "from-muted/70 to-muted/30", iconColor: "text-muted-foreground", accentColor: "bg-muted border-border text-muted-foreground" };
 }
 
 function CarSection({ canEdit }: { canEdit: boolean }) {
@@ -4515,7 +4519,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
         {!showSkeleton && groupedCars.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {groupedCars.map((group, idx) => {
-              const { gradient, iconColor } = carTypeStyle(group.rep.type);
+              const { gradient, iconColor, accentColor } = carTypeStyle(group.rep.type);
               const hasMultiple = group.items.length > 1;
               const priceLabel = group.minPrice === group.maxPrice
                 ? `฿${group.minPrice.toLocaleString()}`
@@ -4526,16 +4530,18 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                   <div className={`relative h-40 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
                     {group.rep.image_url
                       ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
-                      : <Car className={`w-14 h-14 ${iconColor} opacity-20`} />}
+                      : <Car className={`w-14 h-14 ${iconColor} opacity-40`} />}
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       {hasMultiple
                         ? <button onClick={() => document.getElementById("car-price-table")?.scrollIntoView({ behavior: "smooth", block: "start" })} className="text-white text-xs font-semibold flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20">ดูตารางราคา ↓</button>
                         : canEdit && <button onClick={() => openEdit(group.items[0].id)} className="text-white text-xs font-semibold flex items-center gap-1.5 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/20"><Pencil className="w-3.5 h-3.5" /> แก้ไข</button>}
                     </div>
-                    {/* Badges */}
-                    {group.rep.type && <span className="absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/35 text-white backdrop-blur-sm">{group.rep.type}</span>}
-                    {hasMultiple && <span className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm">{group.items.length} ตัวเลือก</span>}
+                    {/* Type badge — colored, visible in both modes */}
+                    {group.rep.type && (
+                      <span className={`absolute top-2.5 left-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full border ${accentColor}`}>{group.rep.type}</span>
+                    )}
+                    {hasMultiple && <span className="absolute top-2.5 right-2.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/30 text-white backdrop-blur-sm">{group.items.length} ตัวเลือก</span>}
                   </div>
 
                   {/* Info */}
@@ -4546,7 +4552,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                         <Car className="w-3 h-3" /> {group.rep.total_seats} ที่นั่ง
                       </span>
                       {group.rep.seat_material && group.rep.seat_material !== "ไม่ระบุ" && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{group.rep.seat_material}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/25 dark:text-amber-400">{group.rep.seat_material}</span>
                       )}
                     </div>
                     <div className="pt-0.5 border-t border-border/40">
@@ -4603,7 +4609,7 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
                           <div className={`w-14 h-10 rounded-lg overflow-hidden shrink-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                             {group.rep.image_url
                               ? <img src={group.rep.image_url} alt={group.name} className="w-full h-full object-cover" />
-                              : <Car className={`w-5 h-5 ${iconColor} opacity-35`} />}
+                              : <Car className={`w-5 h-5 ${iconColor} opacity-55`} />}
                           </div>
                           <div>
                             <p className="font-semibold text-sm text-foreground">{group.name}</p>
