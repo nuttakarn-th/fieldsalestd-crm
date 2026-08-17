@@ -51,8 +51,8 @@ export function AppSidebar() {
   const renderItem = (item: MenuItem) => {
     const t = toneClasses(item.tone);
     return (
-      <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild tooltip={item.title} className={`${collapsed ? "h-7" : "h-8"} px-2 text-sm`}>
+      <SidebarMenuItem key={item.title} className={collapsed ? "my-0 py-0" : ""}>
+        <SidebarMenuButton asChild tooltip={item.title} className="h-6 px-2 text-sm">
           <NavLink to={item.url} end={item.end} className={t.base} activeClassName={t.active}>
             <item.icon className="w-4 h-4" />
             {!collapsed && <span>{item.title}</span>}
