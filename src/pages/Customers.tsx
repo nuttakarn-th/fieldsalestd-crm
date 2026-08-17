@@ -792,125 +792,105 @@ export default function Customers() {
                   }`}
                   onClick={() => navigate(`/app/customers/${c.customer_id}`)}
                 >
-                  {/* ชื่อ / องค์กร / จังหวัด */}
-                  <td className="py-1.5 px-3 max-w-[200px]">
-                    <div className="font-semibold truncate">{c.full_name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{c.company !== "-" ? c.company : "B2C"}</div>
-                    {c.province && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                        <MapPin className="w-2.5 h-2.5" />{c.province}
-                      </div>
-                    )}
-                    {c.transferred_from === currentRep && c.transferred_to && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300">
-                        <ArrowRightLeft className="w-2.5 h-2.5" /> โอน → {c.transferred_to}
-                      </div>
-                    )}
-                    {c.transferred_to === currentRep && c.transferred_from && c.transferred_from !== currentRep && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
-                        <Inbox className="w-2.5 h-2.5" /> รับโอนจาก {c.transferred_from}
-                      </div>
-                    )}
-                    {c.last_contacted_at && (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">
-                        ติดต่อล่าสุด {fmtDate(c.last_contacted_at)}
-                      </div>
-                    )}
-                    {c.note && (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground italic truncate max-w-[180px]" title={c.note}>
-                        📝 {c.note}
-                      </div>
-                    )}
-                    {pendingDeleteIds.has(c.customer_id) && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-300 font-medium">
-                        <Clock className="w-2.5 h-2.5" /> รอ Manager อนุมัติลบ
-                      </div>
-                    )}
-                  </td>
-                  {/* ติดต่อ */}
-                  <td className="py-1.5 px-3">
-                    <div className="flex items-center gap-1.5 text-xs"><Phone className="w-3 h-3 text-primary" /> {c.phone}</div>
-                    <div className="flex items-center gap-1.5 text-xs text-success mt-0.5"><MessageCircle className="w-3 h-3" /> {c.line_id || "—"}</div>
-                    {c.email && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                        <Mail className="w-3 h-3" />
-                        <span className="truncate max-w-[130px]">{c.email}</span>
-                      </div>
-                    )}
-                  </td>
-                  {/* บริการที่สนใจ */}
-                  <td className="py-1.5 px-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(c.interests ?? []).length > 0
-                        ? (c.interests!).map((key) => {
-                            const style = INTEREST_STYLE[key];
-                            if (!style) return null;
-                            return (
-                              <span key={key} className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${style.className}`}>
-                                {style.label}
-                              </span>
-                            );
-                          })
-                        : <span className="text-xs text-muted-foreground">—</span>
-                      }
+                  {/* ชื่อ / องค์กร — compact single line */}
+                  <td className="py-1 px-3 max-w-[220px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {pendingDeleteIds.has(c.customer_id) && (
+                        <Clock className="w-3 h-3 text-amber-500 shrink-0" title="รอ Manager อนุมัติลบ" />
+                      )}
+                      <span className="text-sm font-semibold truncate leading-none">{c.full_name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+                      <span className="truncate">{c.company !== "-" ? c.company : "B2C"}</span>
+                      {c.province && <><span className="opacity-40">·</span><span className="shrink-0">{c.province}</span></>}
+                      {c.last_contacted_at && <><span className="opacity-40">·</span><span className="shrink-0">{fmtDate(c.last_contacted_at)}</span></>}
                     </div>
                   </td>
-                  {/* ช่องทาง */}
-                  <td className="py-1.5 px-3">
-                    <div className="text-sm">{c.source}</div>
-                    <div className="text-xs text-muted-foreground">{c.segment}</div>
+                  {/* ติดต่อ — phone + LINE inline */}
+                  <td className="py-1 px-3">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="flex items-center gap-1 text-foreground/80"><Phone className="w-3 h-3 text-primary shrink-0" />{c.phone}</span>
+                      {c.line_id && c.line_id !== "-" && (
+                        <span className="flex items-center gap-1 text-success shrink-0"><MessageCircle className="w-3 h-3 shrink-0" />{c.line_id}</span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-1.5 px-3"><Badge variant="outline" className={tierBadge(c.customer_tier)}>{c.customer_tier}</Badge></td>
-                  <td className="py-1.5 px-3">
-                    <div className="flex flex-col gap-1">
-                      {/* Department badge — แสดงเฉพาะ Marketing */}
+                  {/* บริการที่สนใจ — max 3 badges */}
+                  <td className="py-1 px-3">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {(c.interests ?? []).slice(0, 3).map((key) => {
+                        const style = INTEREST_STYLE[key];
+                        if (!style) return null;
+                        return (
+                          <span key={key} className={`text-[10px] px-1.5 py-0 rounded border font-medium leading-5 ${style.className}`}>
+                            {style.label}
+                          </span>
+                        );
+                      })}
+                      {(c.interests ?? []).length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                      {(c.interests ?? []).length > 3 && <span className="text-[10px] text-muted-foreground">+{c.interests!.length - 3}</span>}
+                    </div>
+                  </td>
+                  {/* ช่องทาง — source + segment inline */}
+                  <td className="py-1 px-3">
+                    <div className="text-xs font-medium">{c.source}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">{c.segment}</div>
+                  </td>
+                  <td className="py-1 px-3">
+                    <Badge variant="outline" className={`${tierBadge(c.customer_tier)} text-[10px] px-1.5 py-0`}>{c.customer_tier}</Badge>
+                  </td>
+                  {/* Sales — dept badge inline + name */}
+                  <td className="py-1 px-3">
+                    <div className="flex items-center gap-1.5">
                       {isMarketing && (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full w-fit ${
+                        <span className={`text-[9px] font-bold px-1.5 py-0 rounded-full leading-4 shrink-0 ${
                           obSet.has(c.created_by)
                             ? "bg-purple-100 text-purple-700 border border-purple-200"
-                            : "bg-blue-100 text-blue-700 border border-blue-200"
+                            : "bg-orange-100 text-orange-700 border border-orange-200"
                         }`}>
                           {obSet.has(c.created_by) ? "OB" : "Sales"}
                         </span>
                       )}
-                      <div className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-accent/10 text-accent border border-accent/30">
-                        <span className="w-5 h-5 rounded-full bg-gradient-pink text-accent-foreground flex items-center justify-center text-[10px] font-bold">{c.created_by[0]}</span>
-                        <span className="font-semibold">{c.created_by}</span>
+                      <div className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">
+                        <span className="w-4 h-4 rounded-full bg-gradient-pink text-accent-foreground flex items-center justify-center text-[9px] font-bold shrink-0">{c.created_by[0]}</span>
+                        <span className="font-semibold truncate max-w-[80px]">{c.created_by}</span>
                       </div>
                     </div>
                   </td>
-                  <td className="py-1.5 px-3 text-right">
-                    <div className="font-semibold">{formatTHB(wonSpendMap.get(c.customer_id) ?? 0)}</div>
-                    <div className="text-xs text-muted-foreground">{wonTripsMap.get(c.customer_id) ?? 0} ทริป</div>
+                  {/* ยอดซื้อ — amount + trips inline */}
+                  <td className="py-1 px-3 text-right">
+                    <div className="text-xs font-semibold">{formatTHB(wonSpendMap.get(c.customer_id) ?? 0)}</div>
+                    <div className="text-[10px] text-muted-foreground">{wonTripsMap.get(c.customer_id) ?? 0} ทริป</div>
                   </td>
-                  <td className="py-1.5 px-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
+                  {/* จัดการ */}
+                  <td className="py-1 px-2 text-center">
+                    <div className="flex items-center justify-center gap-0.5">
                       {c.transferred_from === currentRep && c.transferred_to ? (
                         <span title="โอนแล้ว ไม่สามารถแก้ไขได้" className="inline-flex items-center text-muted-foreground">
-                          <Lock className="w-4 h-4" />
+                          <Lock className="w-3.5 h-3.5" />
                         </span>
                       ) : (
                         <>
-                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditing(c); }} title="แก้ไข"><Pencil className="w-4 h-4 text-primary" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setEditing(c); }} title="แก้ไข"><Pencil className="w-3.5 h-3.5 text-primary" /></Button>
                           {currentRep !== "All" && c.created_by === currentRep && (
-                            <Button size="icon" variant="ghost" title="โอนลูกค้า" onClick={(e) => { e.stopPropagation(); setTransferOf(c); setTransferTo(""); }}>
-                              <ArrowRightLeft className="w-4 h-4 text-amber-600" />
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="โอนลูกค้า" onClick={(e) => { e.stopPropagation(); setTransferOf(c); setTransferTo(""); }}>
+                              <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
                             </Button>
                           )}
                           {currentRep !== "All" && !canDirectDelete && (
                             pendingDeleteIds.has(c.customer_id) ? (
-                              <span title="รอ Manager อนุมัติลบอยู่" className="w-8 h-8 flex items-center justify-center text-amber-500">
-                                <Clock className="w-4 h-4" />
+                              <span title="รอ Manager อนุมัติลบอยู่" className="w-7 h-7 flex items-center justify-center text-amber-500">
+                                <Clock className="w-3.5 h-3.5" />
                               </span>
                             ) : (
-                              <Button size="icon" variant="ghost" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                                <Trash2 className="w-4 h-4 text-destructive/70 hover:text-destructive" />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" title="ขอลบลูกค้า" onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                                <Trash2 className="w-3.5 h-3.5 text-destructive/70 hover:text-destructive" />
                               </Button>
                             )
                           )}
                           {canDirectDelete && (
-                            <Button size="icon" variant="ghost" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
-                              <Trash2 className="w-4 h-4 text-destructive hover:text-destructive" />
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title={isAdmin ? "ลบทันที (Admin)" : "ลบทันที (Sales Manager)"} onClick={(e) => { e.stopPropagation(); setDeleteOf(c); setDeleteReason(""); }}>
+                              <Trash2 className="w-3.5 h-3.5 text-destructive hover:text-destructive" />
                             </Button>
                           )}
                         </>
