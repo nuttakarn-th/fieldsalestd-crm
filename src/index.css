@@ -148,10 +148,14 @@
   height: 1.5rem !important;
   min-height: 0 !important;
 }
-[data-collapsible=icon] [data-sidebar=menu-button],
-[data-state=collapsed] [data-sidebar=menu-button] {
-  height: 1.5rem !important;
-  min-height: 0 !important;
+
+@layer base {
+  /* Override shadcn's group-data-[collapsible=icon]:!size-8 which is in @layer utilities */
+  [data-collapsible=icon] [data-sidebar=menu-button],
+  [data-state=collapsed] [data-sidebar=menu-button] {
+    height: 1.5rem !important;
+    min-height: 0 !important;
+  }
 }
 
 @layer utilities {
