@@ -36,6 +36,12 @@ function thaiCurrency(n?: number | null) {
   if (!n) return null;
   return n.toLocaleString("th-TH") + " ฿";
 }
+function fmtMoney(n: number): string {
+  if (!n) return "฿0";
+  if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `฿${Math.round(n / 1_000)}K`;
+  return `฿${n.toLocaleString("th-TH")}`;
+}
 
 interface StatusMeta {
   label: string;
@@ -85,7 +91,8 @@ interface ListRowProps {
 }
 
 function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
-  const meta = statusMeta(lead?.status ?? "ใหม่");
+  const meta  = statusMeta(lead?.status ?? "ใหม่");
+  const value = lead?.closed_price || lead?.quoted_price;
   return (
     <button
       onClick={onClick}
@@ -105,20 +112,27 @@ function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
         {customer.full_name.charAt(0)}
       </div>
 
-      {/* Name + lead info */}
+      {/* Name + status pill + program */}
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold truncate leading-tight ${selected ? "text-violet-700 dark:text-violet-300" : ""}`}>
           {customer.full_name}
         </p>
-        <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-          {lead?.program || lead?.bu_type || customer.phone}
-        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${meta.pill}`}>
+            {meta.label}
+          </Badge>
+          <p className="text-[10px] text-muted-foreground truncate leading-tight">
+            {lead?.program || lead?.bu_type || customer.phone}
+          </p>
+        </div>
       </div>
 
-      {/* Status pill */}
-      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${meta.pill}`}>
-        {meta.label}
-      </Badge>
+      {/* Deal value */}
+      {value ? (
+        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 tabular-nums">
+          {fmtMoney(value)}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -350,12 +364,19 @@ export default function MarketingOBLeads() {
   }, [allLeads, obSet]);
 
   const stats = useMemo(() => {
-    const s = { active: 0, won: 0, lost: 0, all: obCustomers.length };
+    const s = { active: 0, won: 0, lost: 0, all: obCustomers.length, wonValue: 0, pipelineValue: 0 };
     obCustomers.forEach((c) => {
-      const g = statusMeta(latestLeadByCustomer.get(c.customer_id)?.status ?? "ใหม่").group;
-      if (g === "active") s.active++;
-      else if (g === "won") s.won++;
-      else if (g === "lost") s.lost++;
+      const lead = latestLeadByCustomer.get(c.customer_id);
+      const g = statusMeta(lead?.status ?? "ใหม่").group;
+      if (g === "active") {
+        s.active++;
+        if (lead?.quoted_price) s.pipelineValue += lead.quoted_price;
+      } else if (g === "won") {
+        s.won++;
+        s.wonValue += lead?.closed_price || lead?.quoted_price || 0;
+      } else if (g === "lost") {
+        s.lost++;
+      }
     });
     return s;
   }, [obCustomers, latestLeadByCustomer]);
@@ -441,6 +462,25 @@ export default function MarketingOBLeads() {
               </span>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* ── Stats strip ── */}
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="text-[11px] text-muted-foreground">จองแล้ว</span>
+          <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{fmtMoney(stats.wonValue)}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200/60">
+          <Banknote className="w-3.5 h-3.5 text-violet-600" />
+          <span className="text-[11px] text-muted-foreground">Pipeline</span>
+          <span className="text-sm font-bold text-violet-700 dark:text-violet-400 tabular-nums">{fmtMoney(stats.pipelineValue)}</span>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="font-semibold text-amber-600">{stats.active}</span> ดำเนินการ
+          <span className="opacity-40">·</span>
+          <span className="font-semibold text-red-500">{stats.lost}</span> ยกเลิก
         </div>
       </div>
 

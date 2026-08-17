@@ -37,6 +37,12 @@ function thaiCurrency(n?: number | null) {
   if (!n) return null;
   return n.toLocaleString("th-TH") + " ฿";
 }
+function fmtMoney(n: number): string {
+  if (!n) return "฿0";
+  if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `฿${Math.round(n / 1_000)}K`;
+  return `฿${n.toLocaleString("th-TH")}`;
+}
 
 const SOURCE_COLOR: Record<string, string> = {
   "FB":         "bg-blue-100 text-blue-700 border-blue-200",
@@ -102,20 +108,27 @@ function ListRow({ customer, selected, onClick }: { customer: Customer; selected
         {customer.full_name.charAt(0)}
       </div>
 
-      {/* Name + company */}
+      {/* Name + source badge */}
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold truncate leading-tight ${selected ? "text-orange-700 dark:text-orange-300" : ""}`}>
           {customer.full_name}
         </p>
-        <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
-          {customer.company && customer.company !== "-" ? customer.company : customer.phone}
-        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${sourceColor(customer.source)}`}>
+            {customer.source}
+          </Badge>
+          <p className="text-[10px] text-muted-foreground truncate leading-tight">
+            {customer.company && customer.company !== "-" ? customer.company : customer.phone}
+          </p>
+        </div>
       </div>
 
-      {/* Source badge */}
-      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${sourceColor(customer.source)}`}>
-        {customer.source}
-      </Badge>
+      {/* Total spend */}
+      {customer.total_spend && customer.total_spend > 0 ? (
+        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 tabular-nums">
+          {fmtMoney(customer.total_spend)}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -331,6 +344,11 @@ export default function MarketingSalesLeads() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
   }, [salesCustomers]);
 
+  const totalSpend = useMemo(
+    () => salesCustomers.reduce((sum, c) => sum + (c.total_spend ?? 0), 0),
+    [salesCustomers],
+  );
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] p-4 sm:p-5 gap-3 overflow-hidden">
 
@@ -369,7 +387,7 @@ export default function MarketingSalesLeads() {
       </div>
 
       {/* ── Source mini stats ── */}
-      <div className="grid grid-cols-4 gap-2 shrink-0">
+      <div className="grid grid-cols-5 gap-2 shrink-0">
         {topSources.map(([src, count]) => (
           <button
             key={src}
@@ -393,13 +411,16 @@ export default function MarketingSalesLeads() {
             </div>
           </button>
         ))}
-        {/* Total card */}
+        {/* Total + Revenue card */}
         <div className="rounded-xl border p-2.5 bg-orange-50/40 dark:bg-orange-900/10 border-orange-200/40">
           <div className="flex items-center justify-between">
             <span className="text-xl font-bold text-orange-600">{salesCustomers.length}</span>
             <TrendingUp className="w-4 h-4 text-orange-400" />
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">ทั้งหมด</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">ทั้งหมด</p>
+          {totalSpend > 0 && (
+            <p className="text-[10px] font-bold text-emerald-600 mt-0.5 tabular-nums">{fmtMoney(totalSpend)}</p>
+          )}
         </div>
       </div>
 

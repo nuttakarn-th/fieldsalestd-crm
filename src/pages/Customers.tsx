@@ -52,6 +52,13 @@ const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "ประกันการเดินทาง": { label: "🛡️ ประกัน", className: "bg-orange-100 text-orange-700 border-orange-200" },
 };
 
+function fmtMoney(n: number): string {
+  if (!n) return "฿0";
+  if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `฿${Math.round(n / 1_000)}K`;
+  return `฿${n.toLocaleString("th-TH")}`;
+}
+
 // ── Marketing Export helpers ──────────────────────────────────────────────────
 function exportCSV(rows: string[][], filename: string) {
   const BOM = "﻿";
@@ -337,6 +344,19 @@ export default function Customers() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedCustomers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // Marketing revenue breakdown (OB vs Sales) — ใช้ scoped ทั้งหมด ไม่ผ่าน filter
+  const marketingStats = useMemo(() => {
+    if (!isMarketing) return null;
+    let obCount = 0, obRev = 0, salesCount = 0, salesRev = 0;
+    scoped.forEach((c) => {
+      const isOB = obSet.has(c.created_by) || obSet.has(c.transferred_to ?? "") || obSet.has(c.transferred_from ?? "");
+      const spend = wonSpendMap.get(c.customer_id) ?? 0;
+      if (isOB) { obCount++; obRev += spend; }
+      else { salesCount++; salesRev += spend; }
+    });
+    return { obCount, obRev, salesCount, salesRev, total: scoped.length, totalRev: obRev + salesRev };
+  }, [isMarketing, scoped, obSet, wonSpendMap]);
+
   // Build export-ready records from filtered customers
   const exportData = useMemo(() =>
     filtered.map((c) => ({
@@ -477,6 +497,44 @@ export default function Customers() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Marketing revenue stats strip ── */}
+      {isMarketing && marketingStats && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50/70 dark:bg-violet-900/20 border border-violet-200/60">
+            <div className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
+            <span className="text-[11px] text-muted-foreground">OB</span>
+            <span className="text-sm font-bold text-violet-700 dark:text-violet-400">{marketingStats.obCount} ราย</span>
+            {marketingStats.obRev > 0 && (
+              <>
+                <span className="opacity-30">·</span>
+                <span className="text-sm font-bold text-emerald-600 tabular-nums">{fmtMoney(marketingStats.obRev)}</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50/70 dark:bg-orange-900/20 border border-orange-200/60">
+            <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+            <span className="text-[11px] text-muted-foreground">Sales</span>
+            <span className="text-sm font-bold text-orange-700 dark:text-orange-400">{marketingStats.salesCount} ราย</span>
+            {marketingStats.salesRev > 0 && (
+              <>
+                <span className="opacity-30">·</span>
+                <span className="text-sm font-bold text-emerald-600 tabular-nums">{fmtMoney(marketingStats.salesRev)}</span>
+              </>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/60">
+            <span className="text-[11px] text-muted-foreground">รวม</span>
+            <span className="text-sm font-bold">{marketingStats.total} ราย</span>
+            {marketingStats.totalRev > 0 && (
+              <>
+                <span className="opacity-30">·</span>
+                <span className="text-sm font-bold text-emerald-600 tabular-nums">{fmtMoney(marketingStats.totalRev)}</span>
+              </>
+            )}
+          </div>
         </div>
       )}
 
