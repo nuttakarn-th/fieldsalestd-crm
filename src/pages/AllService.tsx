@@ -2336,7 +2336,7 @@ ${catBlocks}
                                 : t.pdf_url}                          // ยังไม่ publish → เปิด PDF ตรงๆ
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}
                               title={t.is_published ? "เปิดหน้าโปรแกรมที่ลูกค้าเห็น" : "เปิด PDF โปรแกรม"}
                             >
                               {t.is_published ? "🌐 Live" : "📄 PDF"}
@@ -2629,17 +2629,17 @@ ${catBlocks}
                     </div>
 
                     {/* ════ DESKTOP period table (sm+) ════ */}
-                    <div className="hidden sm:block border-t anim-slide-down" style={{background: "#FAFAFA"}}>
+                    <div className="hidden sm:block border-t anim-slide-down bg-muted/20">
                         {/* Column Headers — pl-7 matches card offset: px-3(wrapper)+border(4px)+px-3(inner)=28px */}
                         {/* v142: w-full — stretch to fill container width */}
                         {/* Bulk action toolbar */}
                         {selectedPeriods.size > 0 && (
-                          <div className="flex items-center gap-2 px-3 py-1.5 border-b" style={{background:"#EFF6FF"}}>
-                            <CheckSquare className="w-4 h-4 text-blue-600 shrink-0" />
-                            <span className="text-xs font-semibold text-blue-700">เลือก {selectedPeriods.size} Period</span>
+                          <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-blue-500/10">
+                            <CheckSquare className="w-4 h-4 text-blue-400 shrink-0" />
+                            <span className="text-xs font-semibold text-blue-400">เลือก {selectedPeriods.size} Period</span>
                             <div className="flex items-center gap-1 ml-2">
                               <button
-                                className="h-7 px-3 rounded-md text-xs font-semibold border border-blue-300 text-blue-700 transition-colors hover:bg-blue-50"
+                                className="h-7 px-3 rounded-md text-xs font-semibold border border-blue-500/40 text-blue-400 transition-colors hover:bg-blue-500/10"
                                 onClick={() => {
                                   const rows: Record<string, unknown>[] = [];
                                   selectedPeriods.forEach((pid) => {
@@ -2656,10 +2656,10 @@ ${catBlocks}
                                 }}
                               >Export ที่เลือก</button>
                             </div>
-                            <button className="ml-auto text-xs text-blue-500 hover:text-blue-700" onClick={() => setSelectedPeriods(new Set())}>✕ ยกเลิกการเลือก</button>
+                            <button className="ml-auto text-xs text-blue-400 hover:text-blue-300" onClick={() => setSelectedPeriods(new Set())}>✕ ยกเลิกการเลือก</button>
                           </div>
                         )}
-                        <div className="hidden lg:flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none" style={{background: "#F3F4F6"}}>
+                        <div className="hidden lg:flex items-center gap-1 pl-7 pr-3 py-1 border-b w-full select-none bg-muted/40">
                           {/* Bulk select-all checkbox — hidden when !canEdit */}
                           {canEdit ? (
                             <input
@@ -2879,7 +2879,7 @@ ${catBlocks}
                                           <span className={hasPending ? "text-amber-600 font-semibold" : "text-muted-foreground"}>จอง {bookedCount}/{p.total_seats}</span>
                                           <span className={hasPending ? "text-amber-500 font-semibold" : "text-emerald-600"}>ว่าง {currentQuota}</span>
                                         </div>
-                                        <div className="relative h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                        <div className="relative h-2.5 rounded-full overflow-hidden bg-muted">
                                           <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-300" style={{width: `${bookedPct}%`, background: barBg}} />
                                           {bookedPct >= 20 && (
                                             <span className="absolute inset-y-0 left-1 flex items-center text-[8px] font-bold text-white">{bookedPct}%</span>
@@ -2914,7 +2914,7 @@ ${catBlocks}
                                     {hasPending && (
                                       <div className="flex items-center gap-0.5 shrink-0">
                                         <button
-                                          className="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 border border-green-200"
+                                          className="w-7 h-7 flex items-center justify-center rounded-lg text-green-400 hover:bg-green-500/10 border border-green-500/30"
                                           title="บันทึกโควต้า"
                                           onClick={() => {
                                             const newQ = pendingQuota[pid];
@@ -2990,19 +2990,19 @@ ${catBlocks}
 
                                 {/* 4. PROMO — auto when special_price set */}
                                 <div className="w-8 text-center shrink-0 leading-none">
-                                  {hasPromo ? <span title={`ราคาพิเศษ ลด ${discount.toLocaleString()} บาท`} className="text-sm">🔥</span> : <span className="text-gray-200 text-xs">–</span>}
+                                  {hasPromo ? <span title={`ราคาพิเศษ ลด ${discount.toLocaleString()} บาท`} className="text-sm">🔥</span> : <span className="text-muted-foreground/30 text-xs">–</span>}
                                 </div>
 
                                 {/* 4.5 บิน — departure city (CNX/DMK/BKK) */}
                                 <div className="w-[46px] shrink-0 text-center">
                                   {p.departure_city
                                     ? <span className="text-[11px] font-bold text-pink-500">{p.departure_city}</span>
-                                    : <span className="text-gray-200 text-xs">–</span>}
+                                    : <span className="text-muted-foreground/30 text-xs">–</span>}
                                 </div>
 
                                 {/* 5. เดินทาง (airline code) */}
                                 <div className="w-9 shrink-0 text-[11px] font-mono text-muted-foreground text-center">
-                                  {p.airline_code || <span className="text-gray-200">–</span>}
+                                  {p.airline_code || <span className="text-muted-foreground/30">–</span>}
                                 </div>
 
                                 {/* separator */}
@@ -3014,28 +3014,28 @@ ${catBlocks}
                                 <div className="w-14 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.freeday
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="Freeday" style={{background: "#7C3AED"}}>FD</span>
-                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                    : <span className="text-muted-foreground/30 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 7. ลงร้าน chip — "ร้าน" abbreviated */}
                                 <div className="w-9 shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.shopping
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="ลงร้าน" style={{background: "#F59E0B"}}>ร้าน</span>
-                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                    : <span className="text-muted-foreground/30 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 8. All-in chip */}
                                 <div className="w-[62px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.all_in
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="จอง จ่าย จบ" style={{background: "#16A34A"}}>All-in</span>
-                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                    : <span className="text-muted-foreground/30 text-[10px]">–</span>}
                                 </div>
 
                                 {/* 9. VAT chip */}
                                 <div className="w-[40px] shrink-0 flex justify-center" style={{opacity: isCancelled ? 0.5 : 1}}>
                                   {p.vat7
                                     ? <span className="text-[10px] text-white px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap" title="มีภาษีมูลค่าเพิ่ม 7%" style={{background: "#2563EB"}}>VAT</span>
-                                    : <span className="text-gray-200 text-[10px]">–</span>}
+                                    : <span className="text-muted-foreground/30 text-[10px]">–</span>}
                                 </div>
 
                                 {/* separator VAT7% | ราคา */}
@@ -3085,7 +3085,7 @@ ${catBlocks}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="relative h-2.5 rounded-full overflow-hidden" style={{background: "#E5E7EB"}}>
+                                  <div className="relative h-2.5 rounded-full overflow-hidden bg-muted">
                                     <div
                                       className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
                                       style={{width: `${bookedPct}%`, background: barBg}}
@@ -3684,7 +3684,7 @@ ${catBlocks}
               </div>
 
               {pForm.start_date ? (
-                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-300 bg-amber-50/60" : "border-primary/20 bg-primary/8"}`}>
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-500/40 bg-amber-500/10" : "border-primary/20 bg-primary/8"}`}>
                   <CalendarDays className={`w-3 h-3 shrink-0 ${pForm.manualNights ? "text-amber-500" : "text-primary"}`} />
                   {/* วัน — อิสระ ไม่บังคับ คืน */}
                   <div className="flex items-center gap-0.5">
@@ -3717,7 +3717,7 @@ ${catBlocks}
                         }
                         return { ...f, manualNights: false };
                       })}
-                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 shrink-0 whitespace-nowrap">✏️ Manual · ↺ Auto</button>
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 shrink-0 whitespace-nowrap">✏️ Manual · ↺ Auto</button>
                   ) : (
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/60 shrink-0 whitespace-nowrap">Auto</span>
                   )}
@@ -3878,7 +3878,7 @@ ${catBlocks}
 
               {/* วัน/คืน — อิสระจากกัน แก้แยกกันได้, แสดงทันทีที่มี start_date */}
               {pForm.start_date ? (
-                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-300 bg-amber-50/60" : "border-primary/20 bg-primary/8"}`}>
+                <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border ${pForm.manualNights ? "border-amber-500/40 bg-amber-500/10" : "border-primary/20 bg-primary/8"}`}>
                   <CalendarDays className={`w-3 h-3 shrink-0 ${pForm.manualNights ? "text-amber-500" : "text-primary"}`} />
                   {/* วัน — อิสระ ไม่บังคับ คืน */}
                   <div className="flex items-center gap-0.5">
@@ -3916,7 +3916,7 @@ ${catBlocks}
                         }
                         return { ...f, manualNights: false };
                       })}
-                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 shrink-0 whitespace-nowrap"
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 shrink-0 whitespace-nowrap"
                     >✏️ Manual · ↺ Auto</button>
                   ) : (
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary/60 shrink-0 whitespace-nowrap">Auto</span>
@@ -4140,11 +4140,11 @@ ${catBlocks}
               <DialogTitle>ตรวจสอบก่อน Import</DialogTitle>
             </DialogHeader>
             <div className="flex gap-3 mb-4">
-              <div className="flex-1 bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+              <div className="flex-1 bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
                 <div className="text-3xl font-bold text-green-700">{importPreviewData.toCreate}</div>
                 <div className="text-xs text-green-600 mt-1 font-medium">ทัวร์ใหม่จะถูกสร้าง</div>
               </div>
-              <div className="flex-1 bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+              <div className="flex-1 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
                 <div className="text-3xl font-bold text-amber-700">{importPreviewData.toUpdate}</div>
                 <div className="text-xs text-amber-600 mt-1 font-medium">ทัวร์เดิม — Periods จะถูกแทนที่ทั้งหมด</div>
               </div>
