@@ -117,6 +117,23 @@ export default function AppLayout() {
   const effectiveRole = user ? (user.role === "Admin" && viewAsRole ? viewAsRole : user.role) : null;
   const showFAB = effectiveRole === "Sales" || effectiveRole === "OB Co-ordinator";
 
+  // Custom smooth scroll — ใช้ rAF แทน behavior:"smooth" (Edge มีบั๊ก)
+  const smoothScrollTop = (el: Element | null, duration = 350) => {
+    const startTop = el ? el.scrollTop : (document.documentElement.scrollTop || document.body.scrollTop || window.scrollY);
+    if (startTop === 0) return;
+    const startTime = performance.now();
+    const ease = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const frame = (now: number) => {
+      const p = Math.min((now - startTime) / duration, 1);
+      const pos = startTop * (1 - ease(p));
+      if (el) { el.scrollTop = pos; }
+      document.documentElement.scrollTop = pos;
+      document.body.scrollTop = pos;
+      if (p < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  };
+
   // Scroll-to-top FAB — catches scroll on BOTH window AND any inner element (e.g. main overflow-auto)
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollElRef = useRef<Element | null>(null);
@@ -188,12 +205,8 @@ export default function AppLayout() {
         {showScrollTop && (
           <button
             onClick={() => {
-              // หา element ที่ scroll ได้จริง — ลอง ref ก่อน ถ้าไม่ได้ ใช้ <main> และ window
               const el = scrollElRef.current ?? document.querySelector("main");
-              if (el) { el.scrollTop = 0; }
-              document.documentElement.scrollTop = 0;
-              document.body.scrollTop = 0;
-              window.scrollTo(0, 0);
+              smoothScrollTop(el);
             }}
             className={`fixed z-50 bottom-6 ${showFAB ? "right-16 sm:right-[4.5rem]" : "right-4 sm:right-6"} w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted/60 hover:border-primary/40 transition-all`}
             aria-label="กลับขึ้นบน"
