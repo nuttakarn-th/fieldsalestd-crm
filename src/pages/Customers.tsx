@@ -202,8 +202,9 @@ export default function Customers() {
   const [filterDateRange, setFilterDateRange] = useState<"all" | "7d" | "30d" | "90d" | "365d">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "spend_desc" | "spend_asc" | "name">("newest");
   const [showFilters, setShowFilters] = useState(false);
-  const PAGE_SIZE = 20;
+  const [pageSize, setPageSize] = useState(20);
   const [page, setPage] = useState(1);
+  const PAGE_SIZE = pageSize;
 
   const scoped = useMemo(() => {
     // Guard: ถ้า currentRep = null/undefined (Supabase ยังโหลดชื่อไม่เสร็จ)
@@ -326,8 +327,8 @@ export default function Customers() {
     return sorted;
   }, [scoped, debouncedQ, filterTier, filterSource, filterDateRange, sortBy]);
 
-  // Reset to page 1 whenever filter/search changes (ใช้ debouncedQ ไม่ใช่ q ดิบ)
-  useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterDateRange, sortBy]);
+  // Reset to page 1 whenever filter/search/pageSize changes
+  useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterDateRange, sortBy, pageSize]);
 
   const resetFilters = () => {
     setFilterTier("all");
@@ -909,38 +910,56 @@ export default function Customers() {
       </div>
 
       {/* Pagination bar — shared for both mobile & desktop */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between bg-card border rounded-xl px-4 py-2.5 shadow-soft">
+      <div className="flex items-center justify-between bg-card border rounded-xl px-4 py-2 shadow-soft gap-2 flex-wrap">
+        {/* Left: info + page size */}
+        <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
-            แสดง {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ
+            แสดง {filtered.length > 0 ? (page - 1) * PAGE_SIZE + 1 : 0}–{Math.min(page * PAGE_SIZE, filtered.length)} จาก {filtered.length} รายการ
           </span>
+          {/* Page size selector */}
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline" size="sm" className="h-8 px-3 text-xs"
-              disabled={page === 1}
-              onClick={() => setPage(1)}
-            >«</Button>
-            <Button
-              variant="outline" size="sm" className="h-8 px-3 text-xs"
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >‹ ก่อน</Button>
-            <span className="text-xs font-semibold px-3 py-1.5 bg-primary/10 text-primary rounded-lg border border-primary/20">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline" size="sm" className="h-8 px-3 text-xs"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >ถัดไป ›</Button>
-            <Button
-              variant="outline" size="sm" className="h-8 px-3 text-xs"
-              disabled={page === totalPages}
-              onClick={() => setPage(totalPages)}
-            >»</Button>
+            {([20, 50, 100] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => setPageSize(n)}
+                className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                  pageSize === n
+                    ? "bg-primary text-primary-foreground border-primary font-semibold"
+                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+        {/* Right: page navigation */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline" size="sm" className="h-7 px-2 text-xs"
+            disabled={page === 1}
+            onClick={() => setPage(1)}
+          >«</Button>
+          <Button
+            variant="outline" size="sm" className="h-7 px-2.5 text-xs"
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+          >‹ ก่อน</Button>
+          <span className="text-xs font-semibold px-3 py-1 bg-primary/10 text-primary rounded-lg border border-primary/20">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline" size="sm" className="h-7 px-2.5 text-xs"
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >ถัดไป ›</Button>
+          <Button
+            variant="outline" size="sm" className="h-7 px-2 text-xs"
+            disabled={page === totalPages}
+            onClick={() => setPage(totalPages)}
+          >»</Button>
+        </div>
+      </div>
 
       <CustomerLeadDialog open={openAdd} onOpenChange={setOpenAdd} />
       <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
