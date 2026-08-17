@@ -178,7 +178,7 @@ export default function AppLayout() {
               <UserMenu />
             </div>
           </header>
-          <main className={`flex-1 overflow-auto${showFAB ? " pb-28" : ""}`}>
+          <main className={`flex-1 overflow-auto ${showFAB ? "pb-28" : "pb-20"}`}>
             <Outlet />
           </main>
         </div>
