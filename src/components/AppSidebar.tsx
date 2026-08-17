@@ -52,7 +52,7 @@ export function AppSidebar() {
     const t = toneClasses(item.tone);
     return (
       <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton asChild tooltip={item.title} className="h-8 px-2 text-sm">
+        <SidebarMenuButton asChild tooltip={item.title} className={`${collapsed ? "h-7" : "h-8"} px-2 text-sm`}>
           <NavLink to={item.url} end={item.end} className={t.base} activeClassName={t.active}>
             <item.icon className="w-4 h-4" />
             {!collapsed && <span>{item.title}</span>}
@@ -86,35 +86,35 @@ export function AppSidebar() {
 
       <SidebarContent className="flex flex-col gap-0">
         {menu.sections.map((section) => (
-          <SidebarGroup key={section.category} className={collapsed ? "py-1" : "py-1.5"}>
+          <SidebarGroup key={section.category} className={collapsed ? "py-0" : "py-1.5"}>
             {!collapsed && (
               <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
                 {section.category}
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">{section.items.map(renderItem)}</SidebarMenu>
+              <SidebarMenu className={collapsed ? "gap-0" : "gap-0.5"}>{section.items.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
 
         {menu.account.length > 0 && (
-          <SidebarGroup className={collapsed ? "py-1" : "py-1.5"}>
+          <SidebarGroup className={collapsed ? "py-0" : "py-1.5"}>
             {!collapsed && (
               <SidebarGroupLabel className="h-5 text-[9px] font-bold uppercase tracking-wider text-sidebar-primary/80 px-2">
                 ACCOUNT
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">{menu.account.map(renderItem)}</SidebarMenu>
+              <SidebarMenu className={collapsed ? "gap-0" : "gap-0.5"}>{menu.account.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
         {/* ── Notifications ── */}
-        <SidebarGroup className={collapsed ? "py-1" : "py-1"}>
+        <SidebarGroup className={collapsed ? "py-0" : "py-1"}>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-0.5">
+            <SidebarMenu className={collapsed ? "gap-0" : "gap-0.5"}>
               <SidebarMenuItem>
                 <div className="px-1">
                   <NewProgramNotification collapsed={collapsed} />
