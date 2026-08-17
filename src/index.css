@@ -144,6 +144,11 @@
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
+[data-collapsible=icon] [data-sidebar=menu-button] {
+  height: 1.5rem !important;
+  min-height: 1.5rem !important;
+  width: 1.5rem !important;
+}
 
 @layer utilities {
   .font-inter { font-family: 'Inter', 'Kanit', system-ui, sans-serif; letter-spacing: -0.03em; }
