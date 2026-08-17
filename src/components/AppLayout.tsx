@@ -188,9 +188,8 @@ export default function AppLayout() {
         {showScrollTop && (
           <button
             onClick={() => {
-              // scroll whichever container is active
-              scrollElRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              scrollElRef.current?.scrollTo({ top: 0, behavior: "instant" });
+              window.scrollTo({ top: 0, behavior: "instant" });
             }}
             className={`fixed z-50 bottom-6 ${showFAB ? "right-16 sm:right-[4.5rem]" : "right-4 sm:right-6"} w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted/60 hover:border-primary/40 transition-all`}
             aria-label="กลับขึ้นบน"

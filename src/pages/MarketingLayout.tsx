@@ -360,8 +360,8 @@ export default function MarketingLayout() {
       {showScrollTop && (
         <button
           onClick={() => {
-            scrollElRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            scrollElRef.current?.scrollTo({ top: 0, behavior: "instant" });
+            window.scrollTo({ top: 0, behavior: "instant" });
           }}
           className="fixed z-50 bottom-6 right-4 sm:right-6 w-10 h-10 rounded-full bg-card border border-violet-500/30 shadow-lg flex items-center justify-center text-violet-500 hover:bg-violet-500 hover:text-white transition-colors"
           aria-label="กลับขึ้นบน"
