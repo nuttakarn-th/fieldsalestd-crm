@@ -4389,17 +4389,22 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     });
   }, [filteredCars]);
 
-  // Unique route labels (from item.note) — used as pivot columns in the price table
+  // Normalized short route key — strip "ราคาเส้นทาง" prefix for consistency
+  const normalizeRoute = (r: string) => r.replace(/^ราคาเส้นทาง/, "").trim() || r;
+
+  // Collect unique route keys from BOTH rates[].route AND item.note (normalized)
   const allRouteNotes = useMemo(() => {
     const seen = new Set<string>();
-    const notes: string[] = [];
+    const routes: string[] = [];
+    const add = (r: string) => { const k = normalizeRoute(r); if (k && !seen.has(k)) { seen.add(k); routes.push(k); } };
     filteredCars.forEach((c) => {
-      if (c.note && !seen.has(c.note)) { seen.add(c.note); notes.push(c.note); }
+      if (c.rates?.length > 0) c.rates.forEach((r) => add(r.route));
+      if (c.note) add(c.note);
     });
-    return notes;
+    return routes;
   }, [filteredCars]);
 
-  const shortRouteLabel = (note: string) => note.replace(/^ราคาเส้นทาง/, "").trim() || note;
+  const shortRouteLabel = (key: string) => key; // already normalized
 
   const openAdd = () => {
     setEditId(null);
@@ -4614,13 +4619,18 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
           {groupedCars.map((group) => {
             const { gradient, iconColor, accentColor } = carTypeStyle(group.rep.type);
 
-            // Sub-group by (seats, seat_material) → pivot prices by note
+            // Sub-group by (seats, seat_material) → pivot prices by normalized route key
             const svMap = new Map<string, { seats: number; mat: string; prices: Map<string, number>; ids: string[] }>();
             group.items.forEach((item) => {
               const key = `${item.total_seats}||${item.seat_material}`;
               if (!svMap.has(key)) svMap.set(key, { seats: item.total_seats, mat: item.seat_material, prices: new Map(), ids: [] });
               const sv = svMap.get(key)!;
-              if (item.note) sv.prices.set(item.note, getMinPrice(item));
+              // Prefer rates[] (new data) — map each route → price
+              if (item.rates?.length > 0) {
+                item.rates.forEach((r) => { const rk = normalizeRoute(r.route); if (rk) sv.prices.set(rk, r.price); });
+              }
+              // Fallback: note-based pricing for old/legacy data
+              if (item.note) { const nk = normalizeRoute(item.note); if (nk && !sv.prices.has(nk)) sv.prices.set(nk, item.rate_per_day); }
               sv.ids.push(item.id);
             });
             const subVariants = [...svMap.values()];
