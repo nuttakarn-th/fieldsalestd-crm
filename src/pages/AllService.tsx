@@ -4448,11 +4448,21 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     };
     if (editId) {
       updateCar(editId, payload);
-      if (pendingImageFile) { setUploadingImg(true); await uploadCarImage(editId, pendingImageFile); setUploadingImg(false); }
+      if (pendingImageFile) {
+        setUploadingImg(true);
+        try { await uploadCarImage(editId, pendingImageFile); }
+        catch (e) { toast.error("อัปโหลดรูปไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e))); setUploadingImg(false); return; }
+        setUploadingImg(false);
+      }
       toast.success("อัปเดตแล้ว");
     } else {
       const newId = addCar(payload);
-      if (pendingImageFile) { setUploadingImg(true); await uploadCarImage(newId, pendingImageFile); setUploadingImg(false); }
+      if (pendingImageFile) {
+        setUploadingImg(true);
+        try { await uploadCarImage(newId, pendingImageFile); }
+        catch (e) { toast.error("อัปโหลดรูปไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e))); setUploadingImg(false); return; }
+        setUploadingImg(false);
+      }
       toast.success("เพิ่มรถใหม่แล้ว");
     }
     setOpen(false);

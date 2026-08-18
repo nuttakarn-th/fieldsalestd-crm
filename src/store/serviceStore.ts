@@ -585,7 +585,7 @@ export const useServices = create<ServiceState>()(
         const { data, error } = await supabase.storage
           .from("car-images")
           .upload(path, file, { contentType: file.type, upsert: true });
-        if (error || !data) { console.error("[supabase] upload car image failed:", error); return null; }
+        if (error || !data) { console.error("[supabase] upload car image failed:", error); throw new Error(error?.message ?? "upload failed"); }
         const { data: urlData } = supabase.storage.from("car-images").getPublicUrl(data.path);
         const image_url = urlData.publicUrl;
         set({ cars: get().cars.map((x) => x.id === carId ? { ...x, image_url } : x) });
