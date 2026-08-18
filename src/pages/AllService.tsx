@@ -4313,6 +4313,17 @@ function carTypeStyle(type: string): { gradient: string; iconColor: string; acce
   return { gradient: "from-muted/70 to-muted/30", iconColor: "text-muted-foreground", accentColor: "bg-muted border-border text-muted-foreground" };
 }
 
+// ── helper: short display label for a route column header ──────────────────────
+function shortRouteLabel(route: string): string {
+  const map: Record<string, string> = {
+    "เชียงใหม่": "เชียงใหม่",
+    "ภาคเหนือ": "ภาคเหนือ",
+    "กรุงเทพฯ": "กรุงเทพฯ",
+    "อื่นๆ": "อื่นๆ",
+  };
+  return map[route] ?? route;
+}
+
 function CarSection({ canEdit }: { canEdit: boolean }) {
   const cars        = useServices((s) => s.cars);
   const addCar      = useServices((s) => s.addCar);
