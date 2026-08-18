@@ -31,6 +31,7 @@ import { getAllViewCounts } from "@/lib/shortLink";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
+const FIXED_ROUTES = ["เชียงใหม่", "ภาคเหนือ", "กรุงเทพฯ", "อื่นๆ"] as const;
 const CATEGORY_TAGS = [
   "Adventure", "City Break", "Wellness", "กิน เที่ยว", "ครอบครัว",
   "ความงาม", "จีน", "ทะเล", "ธรรมชาติ", "ประวัติศาสตร์",
@@ -4344,8 +4345,8 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   // Group filteredCars by name for display
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "", total_seats: "", seat_material: "ไม่ระบุ" as SeatMaterial, note: "" });
-  const [formRates, setFormRates] = useState<{ route: string; price: string }[]>([{ route: "", price: "" }]);
+  const [form, setForm] = useState({ name: "", type: "", total_seats: "", seat_materials: [] as string[], note: "" });
+  const [formPrices, setFormPrices] = useState<Record<string, string>>({});
   const [carSearch, setCarSearch] = useState("");
   const [carTypeFilter, setCarTypeFilter] = useState("");
   const [showSkeleton, setShowSkeleton] = useState(cars.length === 0);
@@ -4392,36 +4393,36 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
   // Normalized short route key — strip "ราคาเส้นทาง" prefix for consistency
   const normalizeRoute = (r: string) => r.replace(/^ราคาเส้นทาง/, "").trim() || r;
 
-  // Collect unique route keys from BOTH rates[].route AND item.note (normalized)
+  // Show only FIXED_ROUTES that have at least one price entry in the current filtered set
   const allRouteNotes = useMemo(() => {
-    const seen = new Set<string>();
-    const routes: string[] = [];
-    const add = (r: string) => { const k = normalizeRoute(r); if (k && !seen.has(k)) { seen.add(k); routes.push(k); } };
-    filteredCars.forEach((c) => {
-      if (c.rates?.length > 0) c.rates.forEach((r) => add(r.route));
-      if (c.note) add(c.note);
-    });
-    return routes;
+    return FIXED_ROUTES.filter((route) =>
+      filteredCars.some((c) => {
+        if (c.rates?.length > 0) return c.rates.some((r) => normalizeRoute(r.route) === route);
+        if (c.note) return normalizeRoute(c.note) === route;
+        return false;
+      })
+    );
   }, [filteredCars]);
-
-  const shortRouteLabel = (key: string) => key; // already normalized
 
   const openAdd = () => {
     setEditId(null);
-    setForm({ name: "", type: "", total_seats: "", seat_material: "ไม่ระบุ", note: "" });
-    setFormRates([{ route: "", price: "" }]);
+    setForm({ name: "", type: "", total_seats: "", seat_materials: [], note: "" });
+    setFormPrices({});
     setPendingImageFile(null); setPendingImagePreview(""); setCurrentImageUrl("");
     setOpen(true);
   };
   const openEdit = (id: string) => {
     const c = cars.find((x) => x.id === id); if (!c) return;
     setEditId(id);
-    setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), seat_material: c.seat_material, note: c.note ?? "" });
-    const existingRates = (c.rates || []).length > 0
-      ? c.rates.map((r) => ({ route: r.route, price: String(r.price) }))
-      : c.rate_per_day > 0 ? [{ route: "ทั่วไป", price: String(c.rate_per_day) }]
-      : [{ route: "", price: "" }];
-    setFormRates(existingRates);
+    setForm({ name: c.name, type: c.type, total_seats: String(c.total_seats), seat_materials: c.seat_material && c.seat_material !== "ไม่ระบุ" ? [c.seat_material] : [], note: c.note ?? "" });
+    // Load existing prices into fixed-route map
+    const priceMap: Record<string, string> = {};
+    if (c.rates?.length > 0) {
+      c.rates.forEach((r) => { const k = normalizeRoute(r.route); if (k) priceMap[k] = String(r.price); });
+    } else if (c.rate_per_day > 0 && c.note) {
+      const k = normalizeRoute(c.note); if (k) priceMap[k] = String(c.rate_per_day);
+    }
+    setFormPrices(priceMap);
     setPendingImageFile(null); setPendingImagePreview(""); setCurrentImageUrl(c.image_url ?? "");
     setOpen(true);
   };
@@ -4432,27 +4433,23 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
     setPendingImagePreview(URL.createObjectURL(file));
   };
 
-  const updateFormRate = (i: number, field: "route" | "price", val: string) => {
-    const next = [...formRates];
-    next[i] = { ...next[i], [field]: val };
-    setFormRates(next);
-  };
-
   const submit = async () => {
     if (!form.name) { toast.error("กรุณากรอกชื่อรถ"); return; }
-    const ratesParsed = formRates
-      .filter((r) => r.route.trim() && r.price)
-      .map((r) => ({ route: r.route.trim(), price: Number(r.price) }));
+    // Build rates from fixed route price map
+    const ratesParsed = FIXED_ROUTES
+      .filter((r) => formPrices[r]?.trim() && Number(formPrices[r]) > 0)
+      .map((r) => ({ route: r, price: Number(formPrices[r]) }));
     const minPrice = ratesParsed.length > 0 ? Math.min(...ratesParsed.map((r) => r.price)) : 0;
-    const payload = {
+    const mats = form.seat_materials.length > 0 ? form.seat_materials : ["ไม่ระบุ"];
+    const makePayload = (mat: string) => ({
       name: form.name, type: form.type,
       total_seats: Number(form.total_seats || 0),
       rate_per_day: minPrice,
       rates: ratesParsed,
-      seat_material: form.seat_material, note: form.note,
-    };
+      seat_material: mat as SeatMaterial, note: form.note,
+    });
     if (editId) {
-      updateCar(editId, payload);
+      updateCar(editId, makePayload(mats[0]));
       if (pendingImageFile) {
         setUploadingImg(true);
         try { await uploadCarImage(editId, pendingImageFile); }
@@ -4461,14 +4458,16 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
       }
       toast.success("อัปเดตแล้ว");
     } else {
-      const newId = addCar(payload);
+      // Add: create one record per selected seat material
+      const firstId = addCar(makePayload(mats[0]));
+      mats.slice(1).forEach((mat) => addCar(makePayload(mat)));
       if (pendingImageFile) {
         setUploadingImg(true);
-        try { await uploadCarImage(newId, pendingImageFile); }
+        try { await uploadCarImage(firstId, pendingImageFile); }
         catch (e) { toast.error("อัปโหลดรูปไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e))); setUploadingImg(false); return; }
         setUploadingImg(false);
       }
-      toast.success("เพิ่มรถใหม่แล้ว");
+      toast.success(`เพิ่มรถใหม่แล้ว${mats.length > 1 ? ` (${mats.length} ตัวเลือกเบาะ)` : ""}`);
     }
     setOpen(false);
   };
@@ -4752,35 +4751,68 @@ function CarSection({ canEdit }: { canEdit: boolean }) {
             <div><label className="text-xs font-semibold">ชื่อรถ</label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Toyota Commuter" /></div>
             <div><label className="text-xs font-semibold">ประเภท</label><Input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="Van / Bus ใหญ่ / SUV" /></div>
             <div><label className="text-xs font-semibold">จำนวนที่นั่ง</label><Input type="number" min={0} value={form.total_seats} onChange={(e) => setForm({ ...form, total_seats: e.target.value })} placeholder="12" /></div>
-            <div>
-              <label className="text-xs font-semibold">ประเภทเบาะ</label>
-              <Select value={form.seat_material} onValueChange={(v) => setForm({ ...form, seat_material: v as SeatMaterial })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{SEAT_MATS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2"><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
+            <div><label className="text-xs font-semibold">หมายเหตุ</label><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="ข้อมูลเพิ่มเติม..." /></div>
           </div>
 
-          {/* Rates per route */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold">ราคาตามเส้นทาง</label>
-              <button onClick={() => setFormRates([...formRates, { route: "", price: "" }])} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                <Plus className="w-3 h-3" /> เพิ่มเส้นทาง
-              </button>
+          {/* Seat material — multi-select toggle chips */}
+          <div>
+            <label className="text-xs font-semibold mb-2 block">
+              ประเภทเบาะ
+              {editId && <span className="ml-2 text-muted-foreground/50 font-normal">(แก้ไขได้ 1 ตัวเลือก)</span>}
+              {!editId && <span className="ml-2 text-muted-foreground/50 font-normal">(เลือกได้หลายแบบ — สร้างแยกอัตโนมัติ)</span>}
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {SEAT_MATS.filter((m) => m !== "ไม่ระบุ").map((m) => {
+                const selected = form.seat_materials.includes(m);
+                return (
+                  <button key={m} type="button"
+                    onClick={() => {
+                      if (editId) {
+                        // Edit mode: single select
+                        setForm((f) => ({ ...f, seat_materials: selected ? [] : [m] }));
+                      } else {
+                        // Add mode: multi-select toggle
+                        setForm((f) => ({
+                          ...f,
+                          seat_materials: selected
+                            ? f.seat_materials.filter((x) => x !== m)
+                            : [...f.seat_materials, m],
+                        }));
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                      selected
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent border-border text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-              {formRates.map((r, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Input className="flex-1 h-8 text-sm" placeholder="เส้นทาง เช่น เชียงใหม่" value={r.route} onChange={(e) => updateFormRate(i, "route", e.target.value)} />
-                  <Input className="w-28 h-8 text-sm" type="number" placeholder="ราคา" value={r.price} onChange={(e) => updateFormRate(i, "price", e.target.value)} />
-                  <button onClick={() => setFormRates(formRates.filter((_, idx) => idx !== i))} className="text-muted-foreground/40 hover:text-destructive transition-colors shrink-0"><X className="w-4 h-4" /></button>
+            {form.seat_materials.length === 0 && (
+              <p className="text-xs text-muted-foreground/50 mt-1.5">ไม่ระบุประเภทเบาะ</p>
+            )}
+          </div>
+
+          {/* Fixed route prices */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold block">ราคาตามเส้นทาง <span className="text-muted-foreground/50 font-normal">(ว่างไว้ = ไม่แสดงคอลัมน์)</span></label>
+            <div className="space-y-2">
+              {FIXED_ROUTES.map((route) => (
+                <div key={route} className="flex items-center gap-3">
+                  <span className="w-24 text-sm text-muted-foreground shrink-0">{route}</span>
+                  <Input
+                    className="flex-1 h-8 text-sm"
+                    type="number"
+                    min={0}
+                    placeholder="ราคา (บาท)"
+                    value={formPrices[route] ?? ""}
+                    onChange={(e) => setFormPrices((prev) => ({ ...prev, [route]: e.target.value }))}
+                  />
                 </div>
               ))}
-              {formRates.length === 0 && (
-                <p className="text-xs text-muted-foreground/50 py-2 text-center">กด "เพิ่มเส้นทาง" เพื่อระบุราคาแต่ละเส้นทาง</p>
-              )}
             </div>
           </div>
 
