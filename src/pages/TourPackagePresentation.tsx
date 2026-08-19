@@ -346,6 +346,9 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const [spread,        setSpread]     = useState(0);
   const [,          forceUpdate]       = useState(0);
   const [zoom,          setZoom]       = useState(1);
+  const [panX,          setPanX]       = useState(0);
+  const [panY,          setPanY]       = useState(0);
+  const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [isMobile,      setIsMobile]   = useState(window.innerWidth < 768);
   const [isFullscreen,  setIsFullscreen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -541,8 +544,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   }
 
   // Unified nav — dispatches to mobile or desktop depending on mode
-  function navNext() { if (isMobile) mobileGoNext(); else goNext(); }
-  function navPrev() { if (isMobile) mobileGoPrev(); else goPrev(); }
+  function navNext() { setPanX(0); setPanY(0); if (isMobile) mobileGoNext(); else goNext(); }
+  function navPrev() { setPanX(0); setPanY(0); if (isMobile) mobileGoPrev(); else goPrev(); }
 
   // ── Touch swipe ──
   function onTouchStart(e: React.TouchEvent) { touchStartX.current = e.touches[0].clientX; }
@@ -553,17 +556,30 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     if (dx < -50) navNext(); else if (dx > 50) navPrev();
   }
 
-  // ── Mouse drag (desktop) ──
+  // ── Mouse drag (desktop) — pan when zoomed, flip page when zoom=1 ──
   function onMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return;
     mouseStartX.current = e.clientX;
     mouseDragging.current = false;
+    if (zoom > 1) panStart.current = { x: e.clientX, y: e.clientY, px: panX, py: panY };
   }
   function onMouseMove(e: React.MouseEvent) {
+    if (zoom > 1 && panStart.current) {
+      setPanX(panStart.current.px + (e.clientX - panStart.current.x));
+      setPanY(panStart.current.py + (e.clientY - panStart.current.y));
+      mouseDragging.current = true;
+      return;
+    }
     if (mouseStartX.current === null) return;
     if (Math.abs(e.clientX - mouseStartX.current) > 8) mouseDragging.current = true;
   }
   function onMouseUp(e: React.MouseEvent) {
+    if (zoom > 1) {
+      panStart.current = null;
+      mouseDragging.current = false;
+      mouseStartX.current = null;
+      return;
+    }
     if (mouseStartX.current === null) return;
     const dx = e.clientX - mouseStartX.current;
     mouseStartX.current = null;
@@ -572,6 +588,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     mouseDragging.current = false;
   }
   function onMouseLeave() {
+    panStart.current = null;
     mouseStartX.current = null;
     mouseDragging.current = false;
   }
@@ -729,7 +746,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
 
             {/* Book / Page */}
             <div className="flex-1 flex items-center justify-center">
-              <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
+              <div style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})`, transformOrigin: "center center", transition: panStart.current ? "none" : "transform 0.2s" }}>
 
                 {/* ── MOBILE: single-page polygon flip viewer ── */}
                 {isMobile && mobilePageW > 0 && (
