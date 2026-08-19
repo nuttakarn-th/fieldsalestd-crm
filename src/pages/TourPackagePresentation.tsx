@@ -681,7 +681,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
 
       {/* Viewer */}
       <div
-        className="flex-1 min-h-0 flex items-center justify-center relative select-none"
+        className="flex-1 min-h-0 flex items-center justify-center relative select-none overflow-hidden"
         style={{ cursor: mouseDragging.current ? "grabbing" : "grab" }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -728,7 +728,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             </button>
 
             {/* Book / Page */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <div className="flex-1 flex items-center justify-center">
               <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
 
                 {/* ── MOBILE: single-page polygon flip viewer ── */}
