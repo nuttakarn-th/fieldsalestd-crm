@@ -2328,21 +2328,21 @@ ${catBlocks}
                           <Plus className="w-3.5 h-3.5" /> เพิ่ม Period
                         </button>
                       )}
+                      {t.pdf_url && (
+                        <a
+                          href={t.is_published
+                            ? `/tour-packages?pkg=tour_${t.id}`
+                            : t.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}
+                          title={t.is_published ? "เปิดหน้าโปรแกรมที่ลูกค้าเห็น" : "เปิด PDF โปรแกรม"}
+                        >
+                          {t.is_published ? "🌐 Live" : "📄 PDF"}
+                        </a>
+                      )}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0">
-                          {t.pdf_url && (
-                            <a
-                              href={t.is_published
-                                ? `/tour-packages?pkg=tour_${t.id}`  // หน้า flipbook ที่ลูกค้าเห็น
-                                : t.pdf_url}                          // ยังไม่ publish → เปิด PDF ตรงๆ
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1 transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}
-                              title={t.is_published ? "เปิดหน้าโปรแกรมที่ลูกค้าเห็น" : "เปิด PDF โปรแกรม"}
-                            >
-                              {t.is_published ? "🌐 Live" : "📄 PDF"}
-                            </a>
-                          )}
                           {t.pdf_url ? (
                             <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบ PDF" onClick={async () => { if (!confirm("ลบ PDF?")) return; await deleteTourPDF(t.id); toast.success("ลบ PDF แล้ว"); }}><FileX className="w-3.5 h-3.5 text-destructive/70" /></Button>
                           ) : (
