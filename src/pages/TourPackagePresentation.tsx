@@ -728,8 +728,8 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
             </button>
 
             {/* Book / Page */}
-            <div className="flex-1 flex items-center justify-center overflow-auto">
-              <div style={{ transform: `scale(${zoom})`, transformOrigin: "top center", transition: "transform 0.2s" }}>
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
+              <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.2s" }}>
 
                 {/* ── MOBILE: single-page polygon flip viewer ── */}
                 {isMobile && mobilePageW > 0 && (
