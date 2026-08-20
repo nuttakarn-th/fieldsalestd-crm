@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search, Users, Phone, Calendar, ChevronRight,
   Mail, MapPin, User, Star, Tag, FileText,
@@ -88,6 +88,7 @@ function exportCSV(customers: Customer[]) {
 function ListRow({ customer, selected, onClick }: { customer: Customer; selected: boolean; onClick: () => void }) {
   return (
     <button
+      data-id={customer.customer_id}
       onClick={onClick}
       className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 transition-colors border-b border-border last:border-0 group ${
         selected ? "bg-orange-50 dark:bg-orange-900/20" : "hover:bg-muted/50"
@@ -334,6 +335,22 @@ export default function MarketingSalesLeads() {
       setSelectedId(null);
     }
   }, [filtered]);
+
+  // ── Activity Feed scroll-to highlight ──
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    setSelectedId(id);
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("row-highlight");
+      setTimeout(() => el.classList.remove("row-highlight"), 2200);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchParams]);
 
   const selectedCustomer = selectedId ? salesCustomers.find((c) => c.customer_id === selectedId) ?? null : null;
 

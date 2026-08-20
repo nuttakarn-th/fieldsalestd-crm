@@ -8,7 +8,7 @@
  */
 
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search, Users2, Phone, Calendar, ChevronRight,
   CheckCircle2, XCircle, Clock, Sparkles,
@@ -95,6 +95,7 @@ function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
   const value = lead?.closed_price || lead?.quoted_price;
   return (
     <button
+      data-id={customer.customer_id}
       onClick={onClick}
       className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 transition-colors border-b border-border last:border-0 group ${
         selected
@@ -416,6 +417,22 @@ export default function MarketingOBLeads() {
       setSelectedId(null);
     }
   }, [filtered]);
+
+  // ── Activity Feed scroll-to highlight ──
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("highlight");
+    if (!id) return;
+    setSelectedId(id);
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("row-highlight");
+      setTimeout(() => el.classList.remove("row-highlight"), 2200);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchParams]);
 
   const selectedCustomer = selectedId ? obCustomers.find((c) => c.customer_id === selectedId) ?? null : null;
   const selectedLead     = selectedId ? latestLeadByCustomer.get(selectedId) : undefined;
