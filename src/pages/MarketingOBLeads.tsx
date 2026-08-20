@@ -156,11 +156,11 @@ function InfoRow({ icon, label, value, className = "" }: { icon: React.ReactNode
 
 interface DetailPanelProps {
   customer: Customer | null;
-  lead: Lead | undefined;
+  leads: Lead[];
   onNavigate: () => void;
 }
 
-function DetailPanel({ customer, lead, onNavigate }: DetailPanelProps) {
+function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
   if (!customer) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground p-8">
@@ -170,9 +170,8 @@ function DetailPanel({ customer, lead, onNavigate }: DetailPanelProps) {
     );
   }
 
-  const meta       = statusMeta(lead?.status ?? "ใหม่");
-  const value      = lead?.closed_price || lead?.quoted_price;
-  const followup   = thaiDate(lead?.next_followup_date);
+  const bestLead   = leads[0]; // already sorted by leadPriority
+  const meta       = statusMeta(bestLead?.status ?? "ใหม่");
   const lastContact= thaiDateTime(customer.last_contacted_at);
   const tierColors: Record<string, string> = {
     "Gold":     "bg-amber-100 text-amber-700 border-amber-300",
@@ -245,41 +244,50 @@ function DetailPanel({ customer, lead, onNavigate }: DetailPanelProps) {
           <InfoRow icon={<User className="w-4 h-4" />} label="สร้างโดย" value={customer.created_by} />
         </div>
 
-        {/* ── Lead card ── */}
-        {lead ? (
-          <div className="bg-card border rounded-xl p-4 space-y-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูล Lead ปัจจุบัน</p>
-            <InfoRow icon={<Sparkles className="w-4 h-4" />} label="โปรแกรม" value={lead.program || lead.bu_type || "—"} />
-            <InfoRow icon={<Users2 className="w-4 h-4" />} label="จำนวน" value={`${lead.pax_count} ท่าน`} />
-            {lead.travel_month && (
-              <InfoRow icon={<Calendar className="w-4 h-4" />} label="เดือนที่จะเดินทาง" value={lead.travel_month} />
-            )}
-            <InfoRow icon={<User className="w-4 h-4" />} label="Coordinator" value={lead.assigned_to || "—"} />
-            {followup && (
-              <InfoRow icon={<Clock className="w-4 h-4" />} label="นัด Follow-up" value={followup} />
-            )}
+        {/* ── Lead history list ── */}
+        <div className="bg-card border rounded-xl overflow-hidden lg:col-span-2">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ประวัติ Lead</p>
+            <span className="text-[10px] text-muted-foreground">{leads.length} รายการ</span>
           </div>
-        ) : (
-          <div className="bg-muted/30 border border-dashed rounded-xl p-4 flex items-center justify-center text-muted-foreground text-sm">
-            ยังไม่มี Lead
-          </div>
-        )}
-
-        {/* ── Value card ── */}
-        {value ? (
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/60 rounded-xl p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/80 mb-2">มูลค่า Deal</p>
-            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-              {thaiCurrency(value)}
-            </p>
-            {lead?.closed_price && lead.closed_date && (
-              <p className="text-[11px] text-emerald-600/70 mt-1">ปิดดีล {thaiDate(lead.closed_date)}</p>
-            )}
-            {!lead?.closed_price && (
-              <p className="text-[11px] text-muted-foreground mt-1">ราคา Quote (ยังไม่ปิด)</p>
-            )}
-          </div>
-        ) : null}
+          {leads.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm">ยังไม่มี Lead</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {leads.map((l) => {
+                const lm = statusMeta(l.status);
+                const lv = l.closed_price || l.quoted_price;
+                return (
+                  <div key={l.lead_id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                    {/* Status bar */}
+                    <div className={`w-1 h-10 rounded-full shrink-0 ${lm.bar}`} />
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lm.pill}`}>{lm.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
+                        {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
+                        {l.assigned_to && <span className="flex items-center gap-1"><User className="w-3 h-3" />{l.assigned_to}</span>}
+                      </div>
+                    </div>
+                    {/* Value */}
+                    {lv ? (
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{thaiCurrency(lv)}</p>
+                        {l.closed_price && l.closed_date && (
+                          <p className="text-[10px] text-muted-foreground">ปิด {thaiDate(l.closed_date)}</p>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* ── Note card ── */}
         {customer.note && (
@@ -438,7 +446,14 @@ export default function MarketingOBLeads() {
   }, [searchParams, allLeads]);
 
   const selectedCustomer = selectedId ? obCustomers.find((c) => c.customer_id === selectedId) ?? null : null;
-  const selectedLead     = selectedId ? latestLeadByCustomer.get(selectedId) : undefined;
+  const selectedLeads = useMemo(
+    () => selectedId
+      ? allLeads
+          .filter((l) => l.customer_id === selectedId && obSet.has(l.assigned_to))
+          .sort((a, b) => leadPriority(a.status) - leadPriority(b.status))
+      : [],
+    [allLeads, selectedId, obSet],
+  );
 
   // Filter tab config
   const TABS = [
@@ -560,7 +575,7 @@ export default function MarketingOBLeads() {
         <div className="flex-1 bg-card border rounded-xl overflow-hidden shadow-sm flex flex-col">
           <DetailPanel
             customer={selectedCustomer}
-            lead={selectedLead}
+            leads={selectedLeads}
             onNavigate={() => selectedId && navigate(`/marketing/customers/${selectedId}`)}
           />
         </div>
