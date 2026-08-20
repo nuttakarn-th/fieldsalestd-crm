@@ -423,16 +423,19 @@ export default function MarketingOBLeads() {
   useEffect(() => {
     const id = searchParams.get("highlight");
     if (!id) return;
-    setSelectedId(id);
+    // entity_id in log is leadId — resolve to customer_id
+    const matchLead = allLeads.find((l) => l.lead_id === id);
+    const customerId = matchLead?.customer_id ?? id;
+    setSelectedId(customerId);
     const timer = setTimeout(() => {
-      const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+      const el = document.querySelector(`[data-id="${customerId}"]`) as HTMLElement | null;
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("row-highlight");
       setTimeout(() => el.classList.remove("row-highlight"), 2200);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchParams]);
+  }, [searchParams, allLeads]);
 
   const selectedCustomer = selectedId ? obCustomers.find((c) => c.customer_id === selectedId) ?? null : null;
   const selectedLead     = selectedId ? latestLeadByCustomer.get(selectedId) : undefined;

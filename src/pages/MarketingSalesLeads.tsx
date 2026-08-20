@@ -289,6 +289,7 @@ export default function MarketingSalesLeads() {
   const navigate  = useNavigate();
   const obNames   = useActiveOBNames();
   const customers = useCRM((s) => s.customers);
+  const allLeads  = useCRM((s) => s.leads);
 
   const [search, setSearch]               = useState("");
   const [sourceFilter, setSourceFilter]   = useState<Source | "all">("all");
@@ -341,16 +342,19 @@ export default function MarketingSalesLeads() {
   useEffect(() => {
     const id = searchParams.get("highlight");
     if (!id) return;
-    setSelectedId(id);
+    // entity_id in log is leadId — resolve to customer_id
+    const matchLead = allLeads.find((l) => l.lead_id === id);
+    const customerId = matchLead?.customer_id ?? id;
+    setSelectedId(customerId);
     const timer = setTimeout(() => {
-      const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null;
+      const el = document.querySelector(`[data-id="${customerId}"]`) as HTMLElement | null;
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("row-highlight");
       setTimeout(() => el.classList.remove("row-highlight"), 2200);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchParams]);
+  }, [searchParams, allLeads]);
 
   const selectedCustomer = selectedId ? salesCustomers.find((c) => c.customer_id === selectedId) ?? null : null;
 
