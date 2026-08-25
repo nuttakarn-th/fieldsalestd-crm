@@ -351,6 +351,26 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
   const panStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
   const [isMobile,      setIsMobile]   = useState(window.innerWidth < 768);
   const [isFullscreen,  setIsFullscreen] = useState(false);
+  const [showLineCta,   setShowLineCta]  = useState(false);
+  const lineUrl = useSiteSettings((s) => s.lineUrl);
+
+  function handleClose() {
+    const already = sessionStorage.getItem("line_cta_shown");
+    if (!already && lineUrl) {
+      setShowLineCta(true);
+    } else {
+      onClose();
+    }
+  }
+  function ctaAddLine() {
+    sessionStorage.setItem("line_cta_shown", "1");
+    if (lineUrl) window.open(lineUrl, "_blank", "noopener");
+    onClose();
+  }
+  function ctaDismiss() {
+    sessionStorage.setItem("line_cta_shown", "1");
+    onClose();
+  }
   const modalRef = useRef<HTMLDivElement>(null);
 
   // ── Mobile single-page state ──────────────────────────────────────────────
@@ -597,7 +617,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
     function onKey(e: KeyboardEvent) {
       if      (e.key === "ArrowRight" || e.key === "PageDown") navNext();
       else if (e.key === "ArrowLeft"  || e.key === "PageUp")   navPrev();
-      else if (e.key === "Escape") onClose();
+      else if (e.key === "Escape") handleClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -690,7 +710,7 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
           title={isFullscreen ? "ออกจากเต็มจอ" : "เต็มจอ"}>
           {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
-        <button onClick={onClose}
+        <button onClick={handleClose}
           className="w-8 h-8 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all">
           <X className="w-5 h-5" />
         </button>
@@ -964,6 +984,41 @@ function BookFlipbookModal({ pkg, onClose }: { pkg: TourPackageItem; onClose: ()
               </div>
             )
           )}
+        </div>
+      )}
+
+      {/* ── LINE CTA Modal ── */}
+      {showLineCta && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-[320px] max-w-[90vw] overflow-hidden">
+            {/* Green top band */}
+            <div className="bg-[#06C755] px-6 pt-6 pb-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+                <MessageCircle className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-white text-xs font-semibold tracking-widest uppercase opacity-80 mb-1">สนใจโปรแกรม?</p>
+              <h3 className="text-white text-lg font-bold leading-tight">{pkg.title}</h3>
+            </div>
+            {/* Content */}
+            <div className="px-6 py-5 text-center">
+              <p className="text-gray-600 text-sm leading-relaxed mb-5">
+                เพิ่มเพื่อน LINE เพื่อรับโปรโมชั่นพิเศษ<br />และคำปรึกษาจากทีมงานของเรา 🎉
+              </p>
+              <button
+                onClick={ctaAddLine}
+                className="w-full py-3 rounded-xl bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-base transition-colors shadow-md mb-3 flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                เพิ่มเพื่อน LINE
+              </button>
+              <button
+                onClick={ctaDismiss}
+                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                ปิด ไม่เป็นไร
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
