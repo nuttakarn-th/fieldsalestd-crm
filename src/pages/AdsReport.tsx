@@ -1315,24 +1315,23 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
   const next=useCallback(()=>!viewOnly&&setSlide(s=>Math.min(s+1,TOTAL-1)),[viewOnly]);
   const prev=useCallback(()=>!viewOnly&&setSlide(s=>Math.max(s-1,0)),[viewOnly]);
 
+  // ── Share Live state — must be declared BEFORE the sync effect to avoid TDZ ──
+  const[shareId,setShareId]=useState<string|null>(null);
+  const[shareCreating,setShareCreating]=useState(false);
+  const[copied,setCopied]=useState(false);
+
   // ── Viewer: follow external slide (Realtime-driven) ───────────────────────
   useEffect(()=>{
     if(viewOnly&&externalSlide!==undefined)setSlide(externalSlide);
   },[viewOnly,externalSlide]);
 
   // ── Presenter: sync slide to Supabase when it changes ────────────────────
-  // dynamic import เพื่อหลีกเลี่ยง TDZ บน production bundle
   useEffect(()=>{
     const sid=sessionId??shareId;
     if(!sid||viewOnly)return;
     import("@/lib/presentSession").then(({updatePresentSlide})=>updatePresentSlide(sid,slide));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[slide,sessionId,shareId,viewOnly]);
-
-  // ── Share Live state ─────────────────────────────────────────────────────
-  const[shareId,setShareId]=useState<string|null>(null);
-  const[shareCreating,setShareCreating]=useState(false);
-  const[copied,setCopied]=useState(false);
   async function handleShare(){
     if(shareId){copyLink();return;}
     setShareCreating(true);
