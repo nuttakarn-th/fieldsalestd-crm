@@ -1,7 +1,7 @@
 /**
  * IncentivePipeline.tsx
  * Kanban board สำหรับติดตาม Incentive Tour requests
- * 6 columns: รับเรื่อง → ออกแบบแผน → ส่ง Proposal → รอยืนยัน → ยืนยันแล้ว → ดำเนินการ
+ * 5 columns: รับเรื่อง → ส่ง Proposal → ดำเนินการ → สำเร็จ | ยกเลิก
  */
 import { useState, useMemo } from "react";
 import {
@@ -31,12 +31,11 @@ import { cn } from "@/lib/utils";
 // ── Column config ─────────────────────────────────────────────────────────────
 
 const COLUMN_CONFIG: Record<IncentiveStatus, { color: string; bg: string; dot: string; emoji: string }> = {
-  "รับเรื่อง":     { color: "text-sky-700",    bg: "bg-sky-50 border-sky-200",     dot: "bg-sky-400",    emoji: "📥" },
-  "ออกแบบแผน":    { color: "text-violet-700",  bg: "bg-violet-50 border-violet-200", dot: "bg-violet-400", emoji: "✏️" },
-  "ส่ง Proposal": { color: "text-amber-700",   bg: "bg-amber-50 border-amber-200",  dot: "bg-amber-400",  emoji: "📤" },
-  "รอยืนยัน":     { color: "text-orange-700",  bg: "bg-orange-50 border-orange-200", dot: "bg-orange-400", emoji: "⏳" },
-  "ยืนยันแล้ว":   { color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400", emoji: "✅" },
-  "ดำเนินการ":    { color: "text-primary",     bg: "bg-primary/5 border-primary/20",  dot: "bg-primary",    emoji: "🚀" },
+  "รับเรื่อง":     { color: "text-sky-700",    bg: "bg-sky-50 border-sky-200",        dot: "bg-sky-400",     emoji: "📥" },
+  "ส่ง Proposal": { color: "text-amber-700",   bg: "bg-amber-50 border-amber-200",    dot: "bg-amber-400",   emoji: "📋" },
+  "ดำเนินการ":    { color: "text-primary",     bg: "bg-primary/5 border-primary/20",  dot: "bg-primary",     emoji: "🚀" },
+  "สำเร็จ":       { color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200",dot: "bg-emerald-400", emoji: "✅" },
+  "ยกเลิก":       { color: "text-rose-700",    bg: "bg-rose-50 border-rose-200",      dot: "bg-rose-400",    emoji: "❌" },
 };
 
 // ── Blank form ────────────────────────────────────────────────────────────────
@@ -327,8 +326,8 @@ export default function IncentivePipeline() {
   // Group requests by status
   const byStatus = useMemo(() => {
     const map: Record<IncentiveStatus, IncentiveRequest[]> = {
-      "รับเรื่อง": [], "ออกแบบแผน": [], "ส่ง Proposal": [],
-      "รอยืนยัน": [], "ยืนยันแล้ว": [], "ดำเนินการ": [],
+      "รับเรื่อง": [], "ส่ง Proposal": [], "ดำเนินการ": [],
+      "สำเร็จ": [], "ยกเลิก": [],
     };
     for (const r of requests) {
       map[r.status].push(r);

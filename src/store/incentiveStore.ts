@@ -10,11 +10,10 @@ import { persist } from "zustand/middleware";
 
 export const INCENTIVE_STATUSES = [
   "รับเรื่อง",
-  "ออกแบบแผน",
   "ส่ง Proposal",
-  "รอยืนยัน",
-  "ยืนยันแล้ว",
   "ดำเนินการ",
+  "สำเร็จ",
+  "ยกเลิก",
 ] as const;
 
 export type IncentiveStatus = (typeof INCENTIVE_STATUSES)[number];
@@ -81,6 +80,6 @@ export const useIncentive = create<IncentiveState>()(
         set({ requests: get().requests.filter((r) => r.id !== id) });
       },
     }),
-    { name: "incentive-pipeline-v1" }
+    { name: "incentive-pipeline-v2" }
   )
 );
