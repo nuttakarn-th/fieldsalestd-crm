@@ -24,11 +24,8 @@ import {
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
-import {
-  updatePresentSlide,
-  createPresentSession,
-  presentUrl,
-} from "@/lib/presentSession";
+// presentSession ใช้ dynamic import() เพื่อหลีกเลี่ยง TDZ บน production bundle
+const mkPresentUrl=(id:string)=>`${window.location.origin}/present/${id}`;
 
 // ── Group color palette ────────────────────────────────────────────────────────
 const GROUP_COLORS = [
@@ -1324,14 +1321,13 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
   },[viewOnly,externalSlide]);
 
   // ── Presenter: sync slide to Supabase when it changes ────────────────────
-  // sessionId = prop passed from outside (viewer mode)
-  // shareId   = created inside this component when presenter clicks Share
-  // ต้องใช้ shareId ด้วยเพราะ presenter ไม่ได้รับ sessionId prop
+  // dynamic import เพื่อหลีกเลี่ยง TDZ บน production bundle
   useEffect(()=>{
     const sid=sessionId??shareId;
-    if(sid&&!viewOnly){updatePresentSlide(sid,slide);}
+    if(!sid||viewOnly)return;
+    import("@/lib/presentSession").then(({updatePresentSlide})=>updatePresentSlide(sid,slide));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[slide,sessionId,shareId]);
+  },[slide,sessionId,shareId,viewOnly]);
 
   // ── Share Live state ─────────────────────────────────────────────────────
   const[shareId,setShareId]=useState<string|null>(null);
@@ -1341,12 +1337,13 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
     if(shareId){copyLink();return;}
     setShareCreating(true);
     const snap={report,ads:ads as object[],cm:cm as object,groupColorMap};
+    const {createPresentSession}=await import("@/lib/presentSession");
     const id=await createPresentSession(snap);
     setShareCreating(false);
     if(id){setShareId(id);copyLinkFor(id);}
   }
   function copyLinkFor(id:string){
-    navigator.clipboard.writeText(presentUrl(id)).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+    navigator.clipboard.writeText(mkPresentUrl(id)).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
   }
   function copyLink(){if(shareId)copyLinkFor(shareId);}
 
