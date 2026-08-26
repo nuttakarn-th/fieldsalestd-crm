@@ -71,6 +71,7 @@ import AudienceInterestSegment from "./pages/audience/AudienceInterestSegment.ts
 import Gallery from "./pages/Gallery.tsx";
 import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
+import PresentView from "./pages/PresentView.tsx";
 import WebSetting from "./pages/WebSetting.tsx";
 import MarketingLeads from "./pages/MarketingLeads.tsx";
 import AdsDashboard from "./pages/AdsDashboard.tsx";
@@ -133,6 +134,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/tour-presentation" element={<TourPresentation />} />
           <Route path="/tour-packages" element={<TourPackagePresentation />} />
+          <Route path="/present/:sessionId" element={<PresentView />} />
           <Route path="/contact-info" element={<ContactInfo />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/gallery/:albumId" element={<GalleryAlbumView />} />

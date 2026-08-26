@@ -1304,13 +1304,48 @@ function AnimBar({pct,color,delay=0}:{pct:number;color:string;delay?:number}){
   return<div ref={ref} style={{width:0,height:"100%",background:color,borderRadius:"0 4px 4px 0"}}/>;
 }
 
-function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
+function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnly,externalSlide}:{
   report:ReportData;ads:AdRow[];cm:ColumnMap;groupColorMap:Record<string,string>;onClose:()=>void;
+  sessionId?:string;viewOnly?:boolean;externalSlide?:number;
 }){
-  const[slide,setSlide]=useState(0);
+  const[slide,setSlide]=useState(externalSlide??0);
   const TOTAL=9;
-  const next=useCallback(()=>setSlide(s=>Math.min(s+1,TOTAL-1)),[]);
-  const prev=useCallback(()=>setSlide(s=>Math.max(s-1,0)),[]);
+  const next=useCallback(()=>!viewOnly&&setSlide(s=>Math.min(s+1,TOTAL-1)),[viewOnly]);
+  const prev=useCallback(()=>!viewOnly&&setSlide(s=>Math.max(s-1,0)),[viewOnly]);
+
+  // ── Viewer: follow external slide (Realtime-driven) ───────────────────────
+  useEffect(()=>{
+    if(viewOnly&&externalSlide!==undefined)setSlide(externalSlide);
+  },[viewOnly,externalSlide]);
+
+  // ── Presenter: sync slide to Supabase when it changes ────────────────────
+  const{updatePresentSlide:syncSlide,createPresentSession,presentUrl}=
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    require("@/lib/presentSession") as typeof import("@/lib/presentSession");
+  useEffect(()=>{
+    if(sessionId&&!viewOnly){syncSlide(sessionId,slide);}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[slide,sessionId]);
+
+  // ── Share Live state ─────────────────────────────────────────────────────
+  const[shareId,setShareId]=useState<string|null>(null);
+  const[shareCreating,setShareCreating]=useState(false);
+  const[copied,setCopied]=useState(false);
+  async function handleShare(){
+    if(shareId){copyLink();return;}
+    setShareCreating(true);
+    const snap={report,ads:ads as object[],cm:cm as object,groupColorMap};
+    const id=await createPresentSession(snap);
+    setShareCreating(false);
+    if(id){setShareId(id);copyLinkFor(id);}
+  }
+  function copyLinkFor(id:string){
+    navigator.clipboard.writeText(presentUrl(id)).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  }
+  function copyLink(){if(shareId)copyLinkFor(shareId);}
+
+  // ── Keep passed-in sessionId synced (presenter prop) ────────────────────
+  useEffect(()=>{if(sessionId)setShareId(sessionId);},[sessionId]);
 
   // ── Campaign images (localStorage, keyed by group name) ──────────────────────
   const[campImgs,setCampImgs]=useState<Record<string,string>>(lsLoadCampImgs); // local cache เป็น initial
@@ -1343,13 +1378,15 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
 
   useEffect(()=>{
     const h=(e:KeyboardEvent)=>{
-      if(e.key==="ArrowRight"||e.key==="ArrowDown")next();
-      if(e.key==="ArrowLeft"||e.key==="ArrowUp")prev();
-      if(e.key==="Escape")onClose();
+      if(!viewOnly){
+        if(e.key==="ArrowRight"||e.key==="ArrowDown")next();
+        if(e.key==="ArrowLeft"||e.key==="ArrowUp")prev();
+        if(e.key==="Escape")onClose();
+      }
     };
     window.addEventListener("keydown",h);
     return()=>window.removeEventListener("keydown",h);
-  },[next,prev,onClose]);
+  },[next,prev,onClose,viewOnly]);
 
   // ── Derived data ─────────────────────────────────────────────────────────────
   const totalSpend=sumN(ads,"spend");
@@ -1868,26 +1905,59 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
       <div style={{flex:1,position:"relative",overflow:"hidden"}}>{renderSlide()}</div>
       {/* Navigation bar */}
       <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:12,padding:"14px 40px",background:"rgba(0,0,0,0.58)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
-        <button onClick={prev} disabled={slide===0}
-          style={{width:36,height:36,borderRadius:10,background:slide===0?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===0?0.22:1,flexShrink:0}}>
-          <ChevronLeft className="w-5 h-5 text-white"/>
-        </button>
+
+        {/* Viewer: LIVE badge — Presenter: prev button */}
+        {viewOnly ? (
+          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+            <span style={{width:7,height:7,borderRadius:"50%",background:"#EF4444",display:"inline-block",boxShadow:"0 0 8px #EF4444"}}/>
+            <span style={{fontSize:10,fontWeight:700,color:"#EF4444",letterSpacing:"0.12em",textTransform:"uppercase"}}>LIVE</span>
+          </div>
+        ) : (
+          <button onClick={prev} disabled={slide===0}
+            style={{width:36,height:36,borderRadius:10,background:slide===0?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===0?0.22:1,flexShrink:0}}>
+            <ChevronLeft className="w-5 h-5 text-white"/>
+          </button>
+        )}
+
+        {/* Slide dots */}
         <div style={{flex:1,display:"flex",alignItems:"flex-end",justifyContent:"center",gap:8}}>
           {SLIDE_NAMES.map((nm,i)=>(
-            <button key={i} onClick={()=>setSlide(i)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",padding:"4px 2px"}}>
+            <button key={i} onClick={()=>!viewOnly&&setSlide(i)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"none",border:"none",cursor:viewOnly?"default":"pointer",padding:"4px 2px"}}>
               <span style={{fontSize:9,color:"rgba(255,255,255,0.35)",visibility:slide===i?"visible":"hidden",whiteSpace:"nowrap",fontFamily:"inherit"}}>{nm}</span>
               <div style={{height:3,borderRadius:2,transition:"all 0.25s ease",width:slide===i?28:8,background:slide===i?ACC:"rgba(255,255,255,0.2)"}}/>
             </button>
           ))}
         </div>
+
         <span style={{fontSize:11,color:"rgba(255,255,255,0.22)",fontFamily:"monospace",minWidth:36,textAlign:"center",flexShrink:0}}>{slide+1}/{TOTAL}</span>
-        <button onClick={next} disabled={slide===TOTAL-1}
-          style={{width:36,height:36,borderRadius:10,background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===TOTAL-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===TOTAL-1?0.22:1,flexShrink:0}}>
-          <ChevronRight className="w-5 h-5 text-white"/>
-        </button>
-        <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.45,marginLeft:6,flexShrink:0}}>
-          <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.6)"}}/>
-        </button>
+
+        {/* Presenter: next + share + close — Viewer: nothing */}
+        {!viewOnly&&(<>
+          <button onClick={next} disabled={slide===TOTAL-1}
+            style={{width:36,height:36,borderRadius:10,background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===TOTAL-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===TOTAL-1?0.22:1,flexShrink:0}}>
+            <ChevronRight className="w-5 h-5 text-white"/>
+          </button>
+
+          {/* Share Live button */}
+          <button onClick={handleShare} disabled={shareCreating}
+            title={shareId?"คัดลอก Link อีกครั้ง":"สร้าง Link สำหรับผู้ชม"}
+            style={{
+              height:32,paddingLeft:12,paddingRight:12,borderRadius:10,border:"none",cursor:"pointer",flexShrink:0,
+              display:"flex",alignItems:"center",gap:6,fontSize:11,fontWeight:700,
+              background:copied?"rgba(29,158,117,0.3)":shareId?"rgba(29,158,117,0.2)":"rgba(127,119,221,0.25)",
+              color:copied?"#1D9E75":shareId?"#5DCAA5":"rgba(255,255,255,0.7)",
+              transition:"all 0.2s",
+            }}>
+            {shareCreating
+              ? <span style={{width:12,height:12,borderRadius:"50%",border:"2px solid rgba(255,255,255,0.5)",borderTopColor:"white",display:"inline-block",animation:"spin 0.7s linear infinite"}}/>
+              : copied ? "✓ คัดลอกแล้ว" : shareId ? "🔗 คัดลอก Link" : "🔗 Share Live"
+            }
+          </button>
+
+          <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.45,marginLeft:6,flexShrink:0}}>
+            <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.6)"}}/>
+          </button>
+        </>)}
       </div>
       {/* Hidden file input for campaign image upload */}
       <input ref={campImgInput} type="file" accept="image/*" style={{display:"none"}} onChange={handleCampImg}/>
@@ -1895,6 +1965,11 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose}:{
   );
 }
 
+
+// ── Public viewer wrapper (used by PresentView.tsx via React.lazy) ───────────
+export function PresentationModeViewer(props: Parameters<typeof PresentationMode>[0]) {
+  return <PresentationMode {...props} />;
+}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdsReport(){
