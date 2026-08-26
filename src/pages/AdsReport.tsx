@@ -1324,10 +1324,14 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
   },[viewOnly,externalSlide]);
 
   // ── Presenter: sync slide to Supabase when it changes ────────────────────
+  // sessionId = prop passed from outside (viewer mode)
+  // shareId   = created inside this component when presenter clicks Share
+  // ต้องใช้ shareId ด้วยเพราะ presenter ไม่ได้รับ sessionId prop
   useEffect(()=>{
-    if(sessionId&&!viewOnly){updatePresentSlide(sessionId,slide);}
+    const sid=sessionId??shareId;
+    if(sid&&!viewOnly){updatePresentSlide(sid,slide);}
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[slide,sessionId]);
+  },[slide,sessionId,shareId]);
 
   // ── Share Live state ─────────────────────────────────────────────────────
   const[shareId,setShareId]=useState<string|null>(null);
