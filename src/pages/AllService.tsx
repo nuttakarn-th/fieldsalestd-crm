@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, Fragment } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
-import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye } from "lucide-react";
+import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye, BarChart2 } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import type { ExcelField } from "@/lib/excelUtils";
 import { logActivity, getDeptFromRole } from "@/lib/activityLog";
 import { supabase } from "@/lib/supabase";
 import { ShareDialog } from "@/components/ShareDialog";
+import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts } from "@/lib/shortLink";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
@@ -489,6 +490,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   // ── Share dialog ──
   const [shareDialogTourId, setShareDialogTourId] = useState<string | null>(null);
+  const [eventStatsOpen, setEventStatsOpen] = useState(false);
 
   // ── program sort state ──
   type TourSortKey = "name" | "code" | "date" | "added";
@@ -1796,6 +1798,10 @@ ${catBlocks}
         </div>
         <div className="flex items-center gap-2">
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} canImport={canEdit} />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEventStatsOpen(true)} title="ดูสถิติ View ตาม Event/Channel">
+            <BarChart2 className="w-4 h-4 text-primary" />
+            <span className="hidden sm:inline">Event Views</span>
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={exportStockPDF} title="Export PDF รายงาน Stock">
             <FileText className="w-4 h-4 text-red-500" />
             <span className="hidden sm:inline">PDF</span>
@@ -4285,6 +4291,12 @@ ${catBlocks}
           />
         );
       })()}
+
+      <EventAnalyticsDialog
+        open={eventStatsOpen}
+        onClose={() => setEventStatsOpen(false)}
+        tours={tours}
+      />
     </div>
   );
 }

@@ -89,6 +89,48 @@ export async function getAllViewCounts(): Promise<Record<string, number>> {
   return map;
 }
 
+// ── Event Analytics ───────────────────────────────────────────────────────────
+
+export interface ProgramStat {
+  pkg_id: string;
+  views: number;
+}
+
+export interface EventStat {
+  source: string;
+  totalViews: number;
+  programs: ProgramStat[];
+}
+
+/**
+ * โหลดทุก short_links แล้วจัด group ตาม source (= channel / event)
+ * Returns array เรียงตาม totalViews DESC
+ */
+export async function getEventAnalytics(): Promise<EventStat[]> {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("short_links")
+    .select("source, pkg_id, view_count");
+  if (!data) return [];
+
+  const map = new Map<string, Map<string, number>>();
+  for (const row of data as { source: string; pkg_id: string; view_count: number }[]) {
+    if (!map.has(row.source)) map.set(row.source, new Map());
+    const prog = map.get(row.source)!;
+    prog.set(row.pkg_id, (prog.get(row.pkg_id) ?? 0) + row.view_count);
+  }
+
+  const result: EventStat[] = [];
+  for (const [source, programs] of map) {
+    const programList = [...programs.entries()]
+      .map(([pkg_id, views]) => ({ pkg_id, views }))
+      .sort((a, b) => b.views - a.views);
+    const totalViews = programList.reduce((s, p) => s + p.views, 0);
+    result.push({ source, totalViews, programs: programList });
+  }
+  return result.sort((a, b) => b.totalViews - a.totalViews);
+}
+
 /** ลบ short link (code = PK) */
 export async function deleteShortLink(code: string): Promise<void> {
   if (!supabase) return;
