@@ -25,7 +25,7 @@ interface Props {
 function tourName(pkg_id: string, tours: TourItem[]): string {
   const tourId = pkg_id.replace(/^tour_/, "").replace(/^d_tour_/, "");
   const t = tours.find((t) => t.id === tourId);
-  return t?.name ?? pkg_id;
+  return t?.title ?? t?.city ?? pkg_id;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
