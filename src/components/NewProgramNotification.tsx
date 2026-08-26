@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { Sparkles, ExternalLink, Calendar, MapPin } from "lucide-react";
 import { useServices } from "@/store/serviceStore";
+import { useAuth } from "@/store/authStore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 
@@ -99,6 +100,16 @@ function daysAgoLabel(n: number) {
 export function NewProgramNotification({ collapsed }: { collapsed: boolean }) {
   const items = useNewPrograms();
   const navigate = useNavigate();
+  const users = useAuth((s) => s.users);
+
+  /** resolve user_id หรือ full_name → แสดงชื่อจริงเสมอ */
+  function resolveUserName(createdBy: string): string {
+    const byId = users.find((u) => u.user_id === createdBy);
+    if (byId) return byId.full_name;
+    const byName = users.find((u) => u.full_name === createdBy || u.username === createdBy);
+    if (byName) return byName.full_name;
+    return createdBy; // fallback — แสดงค่าเดิมถ้าหาไม่เจอ
+  }
   const [open, setOpen] = useState(false);
 
   const todayCount = items.filter((i) => i.daysAgo === 0).length;
@@ -208,7 +219,7 @@ export function NewProgramNotification({ collapsed }: { collapsed: boolean }) {
                 {item.createdBy && (
                   <div className="text-right shrink-0">
                     <p className="text-[9px] text-muted-foreground">สร้างโดย</p>
-                    <p className="text-[10px] font-semibold text-foreground">{item.createdBy}</p>
+                    <p className="text-[10px] font-semibold text-foreground">{resolveUserName(item.createdBy)}</p>
                   </div>
                 )}
               </div>
