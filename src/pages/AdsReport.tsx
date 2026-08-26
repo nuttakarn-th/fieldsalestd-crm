@@ -1332,6 +1332,27 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
     import("@/lib/presentSession").then(({updatePresentSlide})=>updatePresentSlide(sid,slide));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[slide,sessionId,shareId,viewOnly]);
+
+  // ── Presenter: heartbeat ping every 30 s while Live ─────────────────────
+  useEffect(()=>{
+    const sid=sessionId??shareId;
+    if(!sid||viewOnly)return;
+    const iv=setInterval(()=>{
+      import("@/lib/presentSession").then(({pingPresentSession})=>pingPresentSession(sid));
+    },30_000);
+    return()=>clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sessionId,shareId,viewOnly]);
+
+  // ── Presenter: end the session ───────────────────────────────────────────
+  async function handleEndLive(){
+    const sid=sessionId??shareId;
+    if(!sid)return;
+    const{endPresentSession}=await import("@/lib/presentSession");
+    await endPresentSession(sid);
+    setShareId(null);
+  }
+
   async function handleShare(){
     if(shareId){copyLink();return;}
     setShareCreating(true);
@@ -1955,6 +1976,20 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
               : copied ? "✓ คัดลอกแล้ว" : shareId ? "🔗 คัดลอก Link" : "🔗 Share Live"
             }
           </button>
+
+          {/* End Live button — only when a live session is active */}
+          {shareId&&(
+            <button onClick={handleEndLive}
+              title="สิ้นสุดการแชร์ Live"
+              style={{
+                height:32,paddingLeft:12,paddingRight:12,borderRadius:10,border:"none",cursor:"pointer",flexShrink:0,
+                background:"rgba(239,68,68,0.25)",backdropFilter:"blur(6px)",
+                fontSize:13,fontWeight:600,letterSpacing:"0.01em",color:"#FCA5A5",
+                transition:"all 0.2s",
+              }}>
+              ⏹ จบ Live
+            </button>
+          )}
 
           <button onClick={onClose} style={{width:36,height:36,borderRadius:10,background:"transparent",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.45,marginLeft:6,flexShrink:0}}>
             <X className="w-5 h-5" style={{color:"rgba(255,255,255,0.6)"}}/>

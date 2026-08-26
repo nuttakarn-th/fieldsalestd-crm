@@ -33,6 +33,8 @@ export interface PresentSession {
   snapshot: PresentSessionSnapshot;
   created_at: string;
   expires_at: string;
+  status: "live" | "ended";
+  last_ping_at: string;
 }
 
 // ── ID generator ──────────────────────────────────────────────────────────────
@@ -101,15 +103,41 @@ export async function getPresentSession(
 }
 
 /**
- * Viewer: subscribe to slide changes via Supabase Realtime.
+ * Presenter: mark the session as ended.
+ * Realtime broadcasts to all viewers — they show "สิ้นสุดการรายงาน" immediately.
+ */
+export async function endPresentSession(sessionId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase
+    .from("presentation_sessions")
+    .update({ status: "ended" })
+    .eq("id", sessionId);
+}
+
+/**
+ * Presenter: heartbeat ping — updates last_ping_at every 30 s.
+ * Viewers detect stale ping (> 60 s) and show "ended" automatically.
+ */
+export async function pingPresentSession(sessionId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase
+    .from("presentation_sessions")
+    .update({ last_ping_at: new Date().toISOString() })
+    .eq("id", sessionId);
+}
+
+/**
+ * Viewer: subscribe to slide changes AND status changes via Supabase Realtime.
  * Returns an unsubscribe function — call it on component unmount.
  *
  * @param sessionId  — session to watch
  * @param onSlide    — called with new slide number whenever presenter changes
+ * @param onEnded    — called when presenter ends the session
  */
 export function subscribePresentSlide(
   sessionId: string,
-  onSlide: (slide: number) => void
+  onSlide: (slide: number) => void,
+  onEnded?: () => void
 ): () => void {
   if (!supabase) return () => {};
 
@@ -124,8 +152,14 @@ export function subscribePresentSlide(
         filter: `id=eq.${sessionId}`,
       },
       (payload) => {
-        const newSlide = (payload.new as { current_slide: number }).current_slide;
-        if (typeof newSlide === "number") onSlide(newSlide);
+        const row = payload.new as { current_slide: number; status: string; last_ping_at: string };
+        // session ended — notify viewer
+        if (row.status === "ended") {
+          onEnded?.();
+          return;
+        }
+        // slide changed
+        if (typeof row.current_slide === "number") onSlide(row.current_slide);
       }
     )
     .subscribe();

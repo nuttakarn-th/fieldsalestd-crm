@@ -6,6 +6,7 @@
  * - No login required
  * - Loads report snapshot from Supabase
  * - Subscribes to Realtime → follows presenter's slide in real time
+ * - Shows "สิ้นสุดการรายงาน" when presenter ends the session
  */
 
 import { useEffect, useState } from "react";
@@ -15,10 +16,6 @@ import {
   subscribePresentSlide,
   type PresentSession,
 } from "@/lib/presentSession";
-
-// Re-use PresentationMode (viewOnly mode) — import it from AdsReport.
-// We need to lazy-import the component since AdsReport is a large file.
-// Instead we inline a lightweight viewer shell + dynamic import.
 
 // ── Types matching AdsReport internals ───────────────────────────────────────
 
@@ -41,19 +38,42 @@ interface ReportData {
 }
 
 // ── Lazy PresentationMode (avoids full AdsReport bundle) ─────────────────────
-// We dynamically import AdsReport and pull out the component.
-// Since PresentationMode is not exported we use React.lazy on a tiny wrapper.
 
 import React, { lazy, Suspense } from "react";
 
-// Wrapper page that PresentationMode can be forwarded through.
-// We create a minimal thin wrapper component exported from AdsReport.
-// (We will add that export below and use it here.)
 const LazyPresentSlides = lazy(() =>
   import("@/pages/AdsReport").then((mod) => ({
     default: mod.PresentationModeViewer,
   }))
 );
+
+// ── Ended Screen ──────────────────────────────────────────────────────────────
+
+function EndedScreen() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#09080e]">
+      <div className="text-center flex flex-col items-center gap-6">
+        <div style={{
+          width:80,height:80,borderRadius:"50%",
+          background:"rgba(239,68,68,0.15)",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          fontSize:36,
+        }}>⏹</div>
+        <div>
+          <p className="text-white font-bold text-xl mb-2">สิ้นสุดการรายงานแล้ว</p>
+          <p className="text-white/40 text-sm">ผู้นำเสนอได้ปิดการแสดงผล Live</p>
+        </div>
+        <div style={{
+          padding:"10px 20px",borderRadius:10,
+          background:"rgba(255,255,255,0.06)",
+          fontSize:13,color:"rgba(255,255,255,0.4)",
+        }}>
+          {new Date().toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"})}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -61,7 +81,8 @@ export default function PresentView() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [session, setSession] = useState<PresentSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expired, setExpired] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [ended, setEnded] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Load session on mount
@@ -69,7 +90,9 @@ export default function PresentView() {
     if (!sessionId) return;
     getPresentSession(sessionId).then((s) => {
       if (!s) {
-        setExpired(true);
+        setNotFound(true);
+      } else if (s.status === "ended") {
+        setEnded(true);
       } else {
         setSession(s);
         setCurrentSlide(s.current_slide);
@@ -78,14 +101,30 @@ export default function PresentView() {
     });
   }, [sessionId]);
 
-  // Subscribe to Realtime slide updates
+  // Subscribe to Realtime — slide changes AND ended status
   useEffect(() => {
     if (!sessionId || !session) return;
-    const unsubscribe = subscribePresentSlide(sessionId, (slide) => {
-      setCurrentSlide(slide);
-    });
+    const unsubscribe = subscribePresentSlide(
+      sessionId,
+      (slide) => setCurrentSlide(slide),
+      () => setEnded(true)     // onEnded callback
+    );
     return unsubscribe;
   }, [sessionId, session]);
+
+  // ── Heartbeat staleness check — if presenter goes silent > 90 s → ended ──
+  useEffect(() => {
+    if (!session || ended) return;
+    const iv = setInterval(() => {
+      getPresentSession(session.id).then((s) => {
+        if (!s) return;
+        if (s.status === "ended") { setEnded(true); return; }
+        const age = Date.now() - new Date(s.last_ping_at).getTime();
+        if (age > 90_000) setEnded(true);
+      });
+    }, 30_000);
+    return () => clearInterval(iv);
+  }, [session, ended]);
 
   // ── Build ReportData from snapshot ────────────────────────────────────────
   const reportData: ReportData | null = session
@@ -109,7 +148,9 @@ export default function PresentView() {
     );
   }
 
-  if (expired || !session || !reportData) {
+  if (ended) return <EndedScreen />;
+
+  if (notFound || !session || !reportData) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-[#09080e]">
         <div className="text-center">
