@@ -24,6 +24,11 @@ import {
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
+import {
+  updatePresentSlide,
+  createPresentSession,
+  presentUrl,
+} from "@/lib/presentSession";
 
 // ── Group color palette ────────────────────────────────────────────────────────
 const GROUP_COLORS = [
@@ -1319,11 +1324,8 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
   },[viewOnly,externalSlide]);
 
   // ── Presenter: sync slide to Supabase when it changes ────────────────────
-  const{updatePresentSlide:syncSlide,createPresentSession,presentUrl}=
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    require("@/lib/presentSession") as typeof import("@/lib/presentSession");
   useEffect(()=>{
-    if(sessionId&&!viewOnly){syncSlide(sessionId,slide);}
+    if(sessionId&&!viewOnly){updatePresentSlide(sessionId,slide);}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[slide,sessionId]);
 
@@ -1999,6 +2001,14 @@ export default function AdsReport(){
     setLoadingList(true);
     sbLoadReports().then(list=>{setReports(list);setLoadingList(false);});
   },[]);
+
+  // Auto-select most recent report when list first loads (and no report is active)
+  useEffect(()=>{
+    if(reports.length>0&&!activeReport&&!loadingReport){
+      selectReport(reports[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[reports]);
 
   const selectReport=async(meta:ReportMeta,forCompare=false)=>{
     setLoadingReport(true);const data=await sbLoadData(meta.id);setLoadingReport(false);
