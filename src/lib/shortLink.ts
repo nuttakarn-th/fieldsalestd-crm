@@ -131,6 +131,49 @@ export async function getEventAnalytics(): Promise<EventStat[]> {
   return result.sort((a, b) => b.totalViews - a.totalViews);
 }
 
+// ── Snapshot / Baseline ───────────────────────────────────────────────────────
+
+export interface EventSnapshot {
+  id: string;
+  channel: string;
+  snapshot_name: string | null;
+  snapped_at: string;
+  baselines: Record<string, number>; // { link_code → view_count }
+}
+
+/**
+ * บันทึก snapshot ณ ตอนนี้ สำหรับ channel นั้น
+ * baselines = { code: view_count } ของทุก link ใน channel นั้น
+ */
+export async function saveSnapshot(
+  channel: string,
+  links: ShortLink[],
+  snapshotName?: string,
+): Promise<boolean> {
+  if (!supabase) return false;
+  const baselines: Record<string, number> = {};
+  for (const l of links) baselines[l.code] = l.view_count;
+  const { error } = await supabase.from("event_snapshots").insert({
+    channel,
+    snapshot_name: snapshotName ?? null,
+    baselines,
+  });
+  return !error;
+}
+
+/** โหลด snapshot ล่าสุดของ channel นี้ */
+export async function getLatestSnapshot(channel: string): Promise<EventSnapshot | null> {
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("event_snapshots")
+    .select("*")
+    .eq("channel", channel)
+    .order("snapped_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as EventSnapshot | null;
+}
+
 /** ลบ short link (code = PK) */
 export async function deleteShortLink(code: string): Promise<void> {
   if (!supabase) return;
