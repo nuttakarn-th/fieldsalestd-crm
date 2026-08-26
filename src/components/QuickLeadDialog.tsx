@@ -32,11 +32,13 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
   const addLead     = useCRM((s) => s.addLead);
   const currentRep  = useCRM((s) => s.currentRep);
   const user        = useCurrentUser();
+  const isOB        = user?.role === "OB Co-ordinator" || user?.role === "OB Manager";
 
   const [name,      setName]      = useState("");
   const [phone,     setPhone]     = useState("");
   const [buType,    setBuType]    = useState<BUType>("ทัวร์ต่างประเทศ");
-  const [source,    setSource]    = useState<Source>("Field Sale");
+  const defaultSource: Source     = isOB ? "FB" : "Field Sale";
+  const [source,    setSource]    = useState<Source>(defaultSource);
   const [travelMonth, setTravelMonth] = useState("");
   const [pax,       setPax]       = useState("2");
   const [tags,      setTags]      = useState<string[]>([]);
@@ -63,7 +65,7 @@ export function QuickLeadDialog({ open, onOpenChange }: QuickLeadDialogProps) {
 
   const reset = () => {
     setName(""); setPhone(""); setBuType("ทัวร์ต่างประเทศ");
-    setTags([]); setSource("Field Sale"); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false); setTravelMonth(""); setPax("2");
+    setTags([]); setSource(defaultSource); setUrgency("Cold"); setNote(""); setFollowup(addDays(7)); setNoPhone(false); setSaving(false); setTravelMonth(""); setPax("2");
   };
 
   const handleClose = () => { reset(); onOpenChange(false); };
