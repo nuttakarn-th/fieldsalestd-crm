@@ -14,6 +14,7 @@ import { useParams } from "react-router-dom";
 import {
   getPresentSession,
   subscribePresentSlide,
+  trackViewerPresence,
   type PresentSession,
 } from "@/lib/presentSession";
 
@@ -111,6 +112,12 @@ export default function PresentView() {
     );
     return unsubscribe;
   }, [sessionId, session]);
+
+  // Track viewer presence so presenter can see online count
+  useEffect(() => {
+    if (!sessionId || !session || ended) return;
+    return trackViewerPresence(sessionId);
+  }, [sessionId, session, ended]);
 
   // ── Heartbeat staleness check — if presenter goes silent > 90 s → ended ──
   useEffect(() => {

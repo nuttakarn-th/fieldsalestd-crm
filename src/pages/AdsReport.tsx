@@ -1319,6 +1319,7 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
   const[shareId,setShareId]=useState<string|null>(null);
   const[shareCreating,setShareCreating]=useState(false);
   const[copied,setCopied]=useState(false);
+  const[viewerCount,setViewerCount]=useState(0);
 
   // ── Viewer: follow external slide (Realtime-driven) ───────────────────────
   useEffect(()=>{
@@ -1341,6 +1342,18 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
       import("@/lib/presentSession").then(({pingPresentSession})=>pingPresentSession(sid));
     },30_000);
     return()=>clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sessionId,shareId,viewOnly]);
+
+  // ── Presenter: subscribe to viewer count ─────────────────────────────────
+  useEffect(()=>{
+    const sid=sessionId??shareId;
+    if(!sid||viewOnly)return;
+    let unsub:()=>void=()=>{};
+    import("@/lib/presentSession").then(({subscribeViewerCount})=>{
+      unsub=subscribeViewerCount(sid,setViewerCount);
+    });
+    return()=>{unsub();setViewerCount(0);};
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[sessionId,shareId,viewOnly]);
 
@@ -1960,6 +1973,19 @@ function PresentationMode({report,ads,cm,groupColorMap,onClose,sessionId,viewOnl
             style={{width:36,height:36,borderRadius:10,background:slide===TOTAL-1?"transparent":"rgba(127,119,221,0.2)",border:"none",cursor:slide===TOTAL-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",opacity:slide===TOTAL-1?0.22:1,flexShrink:0}}>
             <ChevronRight className="w-5 h-5 text-white"/>
           </button>
+
+          {/* Viewer count badge — shown when live session is active */}
+          {shareId&&(
+            <div style={{
+              height:32,paddingLeft:12,paddingRight:12,borderRadius:10,
+              background:"rgba(255,255,255,0.08)",backdropFilter:"blur(6px)",
+              display:"flex",alignItems:"center",gap:6,flexShrink:0,
+              fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.75)",
+            }}>
+              <span style={{fontSize:15}}>👁</span>
+              {viewerCount} {viewerCount===1?"คน":"คน"}
+            </div>
+          )}
 
           {/* Share Live button */}
           <button onClick={handleShare} disabled={shareCreating}

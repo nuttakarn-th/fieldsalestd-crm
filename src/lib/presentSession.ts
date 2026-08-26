@@ -169,6 +169,46 @@ export function subscribePresentSlide(
   };
 }
 
+/**
+ * Viewer: join the Realtime Presence channel so the presenter can count
+ * active viewers. Each viewer browser tab counts as 1.
+ * Returns unsubscribe — call on component unmount.
+ */
+export function trackViewerPresence(sessionId: string): () => void {
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel(`presence:${sessionId}`)
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ role: "viewer", ts: Date.now() });
+      }
+    });
+  return () => { supabase?.removeChannel(channel); };
+}
+
+/**
+ * Presenter: subscribe to Presence sync on the viewer channel.
+ * onCount is called with the number of active viewers whenever someone
+ * joins or leaves. Returns unsubscribe — call on component unmount.
+ */
+export function subscribeViewerCount(
+  sessionId: string,
+  onCount: (count: number) => void
+): () => void {
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel(`presence:${sessionId}`)
+    .on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<{ role: string }>();
+      const count = Object.values(state)
+        .flat()
+        .filter((p) => p.role === "viewer").length;
+      onCount(count);
+    })
+    .subscribe();
+  return () => { supabase?.removeChannel(channel); };
+}
+
 /** Public URL for a session */
 export function presentUrl(sessionId: string): string {
   return `${window.location.origin}/present/${sessionId}`;
