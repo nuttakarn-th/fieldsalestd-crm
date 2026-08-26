@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { BarChart2, Eye, Camera, Clock, TrendingUp, Info } from "lucide-react";
+import { BarChart2, Eye, Camera, Clock, TrendingUp, Info, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
   getLinksForPkg,
   saveSnapshot,
   getLatestSnapshot,
+  clearChannelViews,
   type EventStat,
   type EventSnapshot,
 } from "@/lib/shortLink";
@@ -73,6 +74,9 @@ export function EventAnalyticsDialog({ open, onClose, tours }: Props) {
 
   // View mode
   const [mode, setMode] = useState<"total" | "event">("total");
+
+  // Clear state
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -131,6 +135,26 @@ export function EventAnalyticsDialog({ open, onClose, tours }: Props) {
   const maxDisplayViews = Math.max(...displayPrograms.map((p) => p.displayV), 1);
   const totalDisplayViews = displayPrograms.reduce((s, p) => s + p.displayV, 0);
   const totalAllViews = events.reduce((s, e) => s + e.totalViews, 0);
+
+  async function handleClearViews() {
+    if (!selected) return;
+    const confirmed = window.confirm(
+      `⚠️ รีเซ็ต View Count ของ "${sourceLabel(selected)}" ให้เป็น 0 ทุกโปรแกรม?\n\nข้อมูลจะหายถาวร — ทำเฉพาะก่อนงานจริงเท่านั้น`
+    );
+    if (!confirmed) return;
+    setClearing(true);
+    const ok = await clearChannelViews(selected);
+    if (ok) {
+      toast.success("รีเซ็ต View เรียบร้อย");
+      // Reload analytics
+      const data = await getEventAnalytics();
+      setEvents(data);
+      setMode("total");
+    } else {
+      toast.error("รีเซ็ตล้มเหลว");
+    }
+    setClearing(false);
+  }
 
   async function handleSnapshot() {
     if (!selected || !selectedEvent) return;
@@ -256,42 +280,61 @@ export function EventAnalyticsDialog({ open, onClose, tours }: Props) {
                       )}
                     </div>
 
-                    {/* Snapshot info or button */}
-                    {selectedSnap ? (
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5">
-                        <Camera className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span className="flex-1 truncate">
-                          Baseline: <strong className="text-emerald-700 dark:text-emerald-400">{selectedSnap.snapshot_name ?? "ไม่ระบุชื่อ"}</strong>
-                          {" · "}<Clock className="w-2.5 h-2.5 inline" /> {fmtTime(selectedSnap.snapped_at)}
-                        </span>
-                        <button
-                          onClick={() => setShowSnapInput(true)}
-                          className="shrink-0 text-[10px] text-primary hover:underline"
-                        >อัปเดต</button>
+                    {/* Snapshot + Clear row */}
+                    <div className="flex gap-2">
+                      {/* Snapshot info or button */}
+                      <div className="flex-1 min-w-0">
+                        {selectedSnap ? (
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5">
+                            <Camera className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span className="flex-1 truncate">
+                              Baseline: <strong className="text-emerald-700 dark:text-emerald-400">{selectedSnap.snapshot_name ?? "ไม่ระบุชื่อ"}</strong>
+                              {" · "}<Clock className="w-2.5 h-2.5 inline" /> {fmtTime(selectedSnap.snapped_at)}
+                            </span>
+                            <button
+                              onClick={() => setShowSnapInput(true)}
+                              className="shrink-0 text-[10px] text-primary hover:underline"
+                            >อัปเดต</button>
+                          </div>
+                        ) : showSnapInput ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              placeholder="ชื่อ snapshot เช่น ก่อนงาน TITF"
+                              value={snapName}
+                              onChange={(e) => setSnapName(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handleSnapshot()}
+                              className="h-7 text-xs flex-1"
+                            />
+                            <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0" onClick={handleSnapshot} disabled={snapping}>
+                              {snapping ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "บันทึก"}
+                            </Button>
+                            <button onClick={() => setShowSnapInput(false)} className="text-muted-foreground text-xs shrink-0">ยกเลิก</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setShowSnapInput(true)}
+                            className="flex items-center gap-1.5 text-[11px] text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg px-3 py-1.5 transition-colors w-full"
+                          >
+                            <Camera className="w-3 h-3 shrink-0" />
+                            📸 บันทึก Baseline ก่อนงาน
+                          </button>
+                        )}
                       </div>
-                    ) : showSnapInput ? (
-                      <div className="flex gap-2 items-center">
-                        <Input
-                          placeholder="ชื่อ snapshot เช่น ก่อนงาน TITF"
-                          value={snapName}
-                          onChange={(e) => setSnapName(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleSnapshot()}
-                          className="h-7 text-xs flex-1"
-                        />
-                        <Button size="sm" className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0" onClick={handleSnapshot} disabled={snapping}>
-                          {snapping ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "บันทึก"}
-                        </Button>
-                        <button onClick={() => setShowSnapInput(false)} className="text-muted-foreground text-xs shrink-0">ยกเลิก</button>
-                      </div>
-                    ) : (
+
+                      {/* Clear Views button */}
                       <button
-                        onClick={() => setShowSnapInput(true)}
-                        className="flex items-center gap-1.5 text-[11px] text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg px-3 py-1.5 transition-colors w-full"
+                        onClick={handleClearViews}
+                        disabled={clearing}
+                        title="รีเซ็ต View Count ทุกโปรแกรมใน channel นี้ให้เป็น 0"
+                        className="shrink-0 flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-2.5 py-1.5 transition-colors disabled:opacity-50"
                       >
-                        <Camera className="w-3 h-3 shrink-0" />
-                        📸 บันทึก Baseline ก่อนงาน — นับ view เฉพาะช่วงงาน
+                        {clearing
+                          ? <span className="w-3 h-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                          : <Trash2 className="w-3 h-3 shrink-0" />
+                        }
+                        Clear
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   {/* Program list */}

@@ -174,6 +174,19 @@ export async function getLatestSnapshot(channel: string): Promise<EventSnapshot 
   return data as EventSnapshot | null;
 }
 
+/**
+ * รีเซ็ต view_count = 0 ทุก link ใน channel นั้น
+ * ข้อมูลก่อนหน้าหายถาวร — ใช้ก่อนงานจริงเท่านั้น
+ */
+export async function clearChannelViews(channel: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("short_links")
+    .update({ view_count: 0 })
+    .eq("source", channel);
+  return !error;
+}
+
 /** ลบ short link (code = PK) */
 export async function deleteShortLink(code: string): Promise<void> {
   if (!supabase) return;
