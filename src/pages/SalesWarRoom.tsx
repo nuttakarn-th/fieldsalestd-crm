@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useServiceStore } from "@/store/serviceStore";
+import { useServices } from "@/store/serviceStore";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function timeAgo(iso: string): string {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SalesWarRoom() {
-  const tours = useServiceStore(s => s.tours);
+  const tours = useServices(s => s.tours);
   const [filter, setFilter]     = useState<Filter>("today");
   const [events, setEvents]     = useState<EnrichedEvent[]>([]);
   const [loading, setLoading]   = useState(true);
