@@ -18,6 +18,7 @@ type Filter = "today" | "week" | "month";
 interface BookingEvent {
   entity_id: string;
   entity_name: string;
+  event_type: string;
   meta: { delta?: number; period_id?: string } | null;
   created_at: string;
 }
@@ -78,10 +79,11 @@ function timeAgo(iso: string): string {
 
 export default function SalesWarRoom() {
   const tours = useServices(s => s.tours);
-  const [filter, setFilter]     = useState<Filter>("today");
-  const [events, setEvents]     = useState<EnrichedEvent[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [now, setNow]           = useState(new Date());
+  const [filter, setFilter]         = useState<Filter>("today");
+  const [events, setEvents]         = useState<EnrichedEvent[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [now, setNow]               = useState(new Date());
+  const [showAllRanks, setShowAllRanks] = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   // Clock tick every minute
@@ -95,13 +97,17 @@ export default function SalesWarRoom() {
     const tour   = tours.find(t => t.id === ev.entity_id);
     const period = tour?.periods?.find(p => p.period_id === ev.meta?.period_id);
     const price  = period?.price_per_seat ?? tour?.price_per_seat ?? 0;
-    const seats  = Math.abs(Number(ev.meta?.delta) || 0);
+    // delta < 0 = จอง (seat_booked), delta > 0 = คืน (seat_released)
+    const rawDelta = Number(ev.meta?.delta) || 0;
+    const seats    = Math.abs(rawDelta);
+    // seat_released → revenue ติดลบ (หัก)
+    const sign     = ev.event_type === "seat_released" ? -1 : 1;
     return {
       tourId:    ev.entity_id,
       tourName:  ev.entity_name ?? "ไม่ระบุโปรแกรม",
-      seats,
+      seats:     seats * sign,
       price,
-      revenue:   price * seats,
+      revenue:   price * seats * sign,
       createdAt: ev.created_at,
     };
   }, [tours]);
@@ -113,8 +119,8 @@ export default function SalesWarRoom() {
     const start = getStartDate(f).toISOString();
     const { data, error } = await supabase
       .from("activity_log")
-      .select("entity_id, entity_name, meta, created_at")
-      .eq("event_type", "seat_booked")
+      .select("entity_id, entity_name, event_type, meta, created_at")
+      .in("event_type", ["seat_booked", "seat_released"])
       .gte("created_at", start)
       .order("created_at", { ascending: false });
 
@@ -135,8 +141,8 @@ export default function SalesWarRoom() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "activity_log" },
         (payload) => {
-          const row = payload.new as BookingEvent & { event_type: string };
-          if (row.event_type !== "seat_booked") return;
+          const row = payload.new as BookingEvent;
+          if (!["seat_booked", "seat_released"].includes(row.event_type)) return;
           const rowDate = new Date(row.created_at);
           if (rowDate < getStartDate(filter)) return;
           const enriched = enrich(row);
@@ -159,15 +165,17 @@ export default function SalesWarRoom() {
     if (!byTour[e.tourId]) byTour[e.tourId] = [];
     byTour[e.tourId].push(e);
   });
-  const leaderboard: LeaderRow[] = Object.entries(byTour)
+  const allLeaderboard: LeaderRow[] = Object.entries(byTour)
     .map(([tourId, evs]) => ({
       tourId,
       tourName: evs[0].tourName,
       seats:    evs.reduce((s, e) => s + e.seats,   0),
       revenue:  evs.reduce((s, e) => s + e.revenue, 0),
     }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
+    .filter(r => r.revenue > 0)   // ซ่อนโปรแกรมที่ถูกยกเลิกทั้งหมด (net ≤ 0)
+    .sort((a, b) => b.revenue - a.revenue);
+
+  const leaderboard = showAllRanks ? allLeaderboard : allLeaderboard.slice(0, 5);
 
   const maxRevenue = leaderboard[0]?.revenue ?? 1;
 
@@ -267,7 +275,7 @@ export default function SalesWarRoom() {
               <span style={{flex:1,height:"0.5px",background:"#1a1a2e"}}/>
             </div>
 
-            {leaderboard.length === 0 ? (
+            {allLeaderboard.length === 0 ? (
               <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"32px 0"}}>
                 ยังไม่มีการจองใน{filterLabel(filter)}
               </div>
@@ -308,6 +316,25 @@ export default function SalesWarRoom() {
                   );
                 })}
               </div>
+            )}
+
+            {/* Show more / less */}
+            {allLeaderboard.length > 5 && (
+              <button
+                onClick={() => setShowAllRanks(v => !v)}
+                style={{
+                  marginTop:10, width:"100%", padding:"7px 0",
+                  border:"0.5px solid #1a1a2e", borderRadius:8,
+                  background:"transparent", color:"#555",
+                  fontSize:12, cursor:"pointer", transition:"color .15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.color="#a0a0ff")}
+                onMouseLeave={e => (e.currentTarget.style.color="#555")}
+              >
+                {showAllRanks
+                  ? `▲ ย่อ (แสดง 5 อันดับ)`
+                  : `▼ ดูทั้งหมด ${allLeaderboard.length} โปรแกรม`}
+              </button>
             )}
           </div>
 
