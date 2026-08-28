@@ -175,29 +175,12 @@ export default function SalesWarRoom() {
   const tickerItems = events.slice(0, 8);
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const S = {
-    screen:  { background:"#07070f", minHeight:"100vh", display:"flex", flexDirection:"column" as const, fontFamily:"var(--font-sans)", color:"#e0e0f0" },
-    topbar:  { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 24px", borderBottom:"0.5px solid #1a1a2e", flexShrink:0 },
-    ftab:    (active:boolean):React.CSSProperties => ({
-      padding:"5px 18px", borderRadius:6, fontSize:13, fontWeight:500,
-      border:"0.5px solid "+(active?"#4a4a8a":"#1e1e30"),
-      background: active?"#1a1a30":"transparent",
-      color: active?"#a0a0ff":"#555", cursor:"pointer", transition:"all .15s",
-    }),
-    main:    { display:"grid", gridTemplateColumns:"1fr 1fr", flex:1, minHeight:0 },
-    left:    { padding:"32px 28px", display:"flex", flexDirection:"column" as const, justifyContent:"center", borderRight:"0.5px solid #1a1a2e" },
-    right:   { padding:"24px 24px", display:"flex", flexDirection:"column" as const },
-    heroLbl: { fontSize:11, fontWeight:500, color:"#555", letterSpacing:"0.12em", textTransform:"uppercase" as const, marginBottom:8 },
-    heroNum: { fontSize:60, fontWeight:600, lineHeight:1, letterSpacing:"-0.02em", color:"#F5C842", marginBottom:8 },
-    heroSub: { fontSize:13, color:"#4a4a6a" },
-    stats:   { display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:22 },
-    card:    { background:"#0d0d1e", border:"0.5px solid #1a1a2e", borderRadius:10, padding:"12px 14px" },
-    cardLbl: { fontSize:11, color:"#555", textTransform:"uppercase" as const, letterSpacing:"0.08em", marginBottom:4 },
-    cardVal: { fontSize:22, fontWeight:500, color:"#c0c0e0" },
-    secLbl:  { fontSize:11, color:"#444", letterSpacing:"0.10em", textTransform:"uppercase" as const, marginBottom:14, display:"flex", alignItems:"center", gap:8 },
-    rankRow: { display:"flex", alignItems:"center", gap:10, paddingTop:9, paddingBottom:9, borderBottom:"0.5px solid #10101e" },
-    ticker:  { background:"#04040c", borderTop:"0.5px solid #1a1a2e", padding:"9px 24px", overflow:"hidden", whiteSpace:"nowrap" as const, flexShrink:0 },
-  };
+  const ftab = (active:boolean):React.CSSProperties => ({
+    padding:"5px 18px", borderRadius:6, fontSize:13, fontWeight:500,
+    border:"0.5px solid "+(active?"#4a4a8a":"#1e1e30"),
+    background: active?"#1a1a30":"transparent",
+    color: active?"#a0a0ff":"#555", cursor:"pointer", transition:"all .15s",
+  });
 
   const badgeColors: Array<{bg:string;color:string}> = [
     {bg:"#3d2e00",color:"#F5C842"},
@@ -208,11 +191,11 @@ export default function SalesWarRoom() {
   ];
 
   return (
-    <div style={S.screen}>
+    <div style={{background:"#07070f",minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:"var(--font-sans)",color:"#e0e0f0"}}>
+
       {/* ── Topbar ── */}
-      <div style={S.topbar}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          {/* Live dot */}
           <span style={{width:8,height:8,borderRadius:"50%",background:"#22c55e",display:"inline-block",animation:"pulse-dot 1.8s ease-in-out infinite"}}/>
           <span style={{fontSize:13,fontWeight:500,color:"#22c55e",letterSpacing:"0.06em"}}>LIVE SALES BOARD</span>
           <span style={{fontSize:12,color:"#333",marginLeft:4}}>
@@ -220,22 +203,15 @@ export default function SalesWarRoom() {
             {" · "}{filterLabel(filter)}
           </span>
         </div>
-
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {(["today","week","month"] as Filter[]).map(f=>(
-            <button key={f} style={S.ftab(filter===f)} onClick={()=>setFilter(f)}>
-              {filterLabel(f)}
-            </button>
+            <button key={f} style={ftab(filter===f)} onClick={()=>setFilter(f)}>{filterLabel(f)}</button>
           ))}
-          <button
-            onClick={()=>window.location.reload()}
-            title="รีเฟรช"
-            style={{...S.ftab(false),padding:"5px 10px",marginLeft:4}}
-          >↻</button>
+          <button onClick={()=>window.location.reload()} title="รีเฟรช" style={{...ftab(false),padding:"5px 10px",marginLeft:4}}>↻</button>
         </div>
       </div>
 
-      {/* ── Main grid ── */}
+      {/* ── Body ── */}
       {loading ? (
         <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
@@ -244,90 +220,102 @@ export default function SalesWarRoom() {
           </div>
         </div>
       ) : (
-        <div style={S.main}>
-          {/* ── Left: hero + stats ── */}
-          <div style={S.left}>
-            <div style={S.heroLbl}>ยอดขายรวม{" "}
-              <span style={{color:"#333",fontWeight:400}}>({filterLabel(filter)})</span>
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 40px",gap:28}}>
+
+          {/* ── Hero Revenue ── */}
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:11,fontWeight:500,color:"#555",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>
+              ยอดขายรวม · {filterLabel(filter)}
             </div>
-            <div style={S.heroNum}>
+            <div style={{
+              fontSize:"clamp(72px,10vw,140px)",fontWeight:700,lineHeight:1,
+              letterSpacing:"-0.03em",color:"#F5C842",
+              textShadow:"0 0 80px rgba(245,200,66,0.35)",
+            }}>
               ฿{fmt(totalRevenue)}
             </div>
-            <div style={S.heroSub}>
-              {totalTransactions} รายการ · {totalSeats} ที่นั่ง
-            </div>
-
-            <div style={S.stats}>
-              <div style={S.card}>
-                <div style={S.cardLbl}>ที่นั่งที่จอง</div>
-                <div style={S.cardVal}>{fmt(totalSeats)}<span style={{fontSize:13,color:"#555",marginLeft:4}}>ที่นั่ง</span></div>
-              </div>
-              <div style={S.card}>
-                <div style={S.cardLbl}>Transactions</div>
-                <div style={S.cardVal}>{fmt(totalTransactions)}<span style={{fontSize:13,color:"#555",marginLeft:4}}>รายการ</span></div>
-              </div>
-              <div style={S.card}>
-                <div style={S.cardLbl}>เฉลี่ย/รายการ</div>
-                <div style={S.cardVal}>฿{fmt(Math.round(avgPerTx))}</div>
-              </div>
-              <div style={S.card}>
-                <div style={S.cardLbl}>โปรแกรมที่ขาย</div>
-                <div style={S.cardVal}>{Object.keys(byTour).length}<span style={{fontSize:13,color:"#555",marginLeft:4}}>โปรแกรม</span></div>
-              </div>
+            <div style={{fontSize:14,color:"#3a3a5a",marginTop:12,letterSpacing:"0.04em"}}>
+              {totalTransactions} รายการ &nbsp;·&nbsp; {totalSeats} ที่นั่ง
             </div>
           </div>
 
-          {/* ── Right: leaderboard ── */}
-          <div style={S.right}>
-            <div style={S.secLbl}>
+          {/* ── Stats Row ── */}
+          <div style={{display:"flex",gap:12,flexWrap:"wrap" as const,justifyContent:"center"}}>
+            {[
+              {label:"ที่นั่งที่จอง",  value:`${fmt(totalSeats)}`, unit:"ที่นั่ง"},
+              {label:"Transactions",   value:`${fmt(totalTransactions)}`, unit:"รายการ"},
+              {label:"เฉลี่ย/รายการ", value:`฿${fmt(Math.round(avgPerTx))}`, unit:""},
+              {label:"โปรแกรมที่ขาย", value:`${Object.keys(byTour).length}`, unit:"โปรแกรม"},
+            ].map(c=>(
+              <div key={c.label} style={{
+                background:"#0d0d1e",border:"0.5px solid #1a1a2e",borderRadius:12,
+                padding:"14px 22px",minWidth:130,textAlign:"center",
+              }}>
+                <div style={{fontSize:10,color:"#555",textTransform:"uppercase" as const,letterSpacing:"0.10em",marginBottom:6}}>{c.label}</div>
+                <div style={{fontSize:26,fontWeight:600,color:"#c0c0e0",lineHeight:1}}>
+                  {c.value}
+                  {c.unit && <span style={{fontSize:12,color:"#555",marginLeft:4}}>{c.unit}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Leaderboard ── */}
+          <div style={{width:"100%",maxWidth:720}}>
+            <div style={{fontSize:10,color:"#444",letterSpacing:"0.12em",textTransform:"uppercase" as const,marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
               อันดับโปรแกรม
               <span style={{flex:1,height:"0.5px",background:"#1a1a2e"}}/>
             </div>
 
             {leaderboard.length === 0 ? (
-              <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",color:"#333",fontSize:13}}>
+              <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"32px 0"}}>
                 ยังไม่มีการจองใน{filterLabel(filter)}
               </div>
-            ) : leaderboard.map((row, i) => {
-              const bc = badgeColors[i] ?? badgeColors[3];
-              const barPct = maxRevenue > 0 ? (row.revenue/maxRevenue)*100 : 0;
-              return (
-                <div key={row.tourId} style={S.rankRow}>
-                  <div style={{
-                    width:24,height:24,borderRadius:6,flexShrink:0,
-                    background:bc.bg,color:bc.color,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontSize:11,fontWeight:700,
-                  }}>{i+1}</div>
-                  <div style={{flex:1,overflow:"hidden"}}>
-                    <div style={{fontSize:13,color:"#b8b8d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                      {row.tourName}
-                    </div>
-                    <div style={{height:3,background:"#0d0d1e",borderRadius:2,marginTop:5}}>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column" as const,gap:0}}>
+                {leaderboard.map((row, i) => {
+                  const bc = badgeColors[i] ?? badgeColors[3];
+                  const barPct = maxRevenue > 0 ? (row.revenue/maxRevenue)*100 : 0;
+                  return (
+                    <div key={row.tourId} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:"0.5px solid #10101e"}}>
                       <div style={{
-                        height:3,borderRadius:2,
-                        background: i===0?"#F5C842":"#4a4a9a",
-                        width:`${barPct}%`,transition:"width .4s",
-                      }}/>
+                        width:28,height:28,borderRadius:8,flexShrink:0,
+                        background:bc.bg,color:bc.color,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:12,fontWeight:700,
+                      }}>{i+1}</div>
+                      <div style={{flex:1,overflow:"hidden"}}>
+                        <div style={{fontSize:14,color:"#b8b8d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const,marginBottom:6}}>
+                          {row.tourName}
+                        </div>
+                        <div style={{height:4,background:"#0d0d1e",borderRadius:2}}>
+                          <div style={{
+                            height:4,borderRadius:2,
+                            background: i===0?"linear-gradient(90deg,#F5C842,#e0a800)":"#2a2a6a",
+                            width:`${barPct}%`,transition:"width .5s",
+                          }}/>
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right" as const,flexShrink:0,minWidth:90}}>
+                        <div style={{fontSize:15,color:i===0?"#F5C842":"#7070c0",fontWeight:600}}>
+                          ฿{fmt(row.revenue)}
+                        </div>
+                        <div style={{fontSize:11,color:"#444",marginTop:2}}>
+                          {row.seats} ที่นั่ง
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:13,color:i===0?"#F5C842":"#7070c0",fontWeight:500}}>
-                      ฿{fmt(row.revenue)}
-                    </div>
-                    <div style={{fontSize:11,color:"#444",marginTop:1}}>
-                      {row.seats} ที่นั่ง
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </div>
       )}
 
       {/* ── Live Ticker ── */}
-      <div style={S.ticker} ref={tickerRef}>
+      <div ref={tickerRef} style={{background:"#04040c",borderTop:"0.5px solid #1a1a2e",padding:"9px 24px",overflow:"hidden",whiteSpace:"nowrap" as const,flexShrink:0}}>
         {tickerItems.length === 0 ? (
           <span style={{fontSize:12,color:"#333"}}>รอการจองใหม่…</span>
         ) : (
