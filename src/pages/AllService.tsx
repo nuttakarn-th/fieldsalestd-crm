@@ -29,6 +29,7 @@ import { supabase } from "@/lib/supabase";
 import { ShareDialog } from "@/components/ShareDialog";
 import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts } from "@/lib/shortLink";
+import { BookingLeadDialog } from "@/components/BookingLeadDialog";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -446,6 +447,34 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   // ── inline quota pending edit (per period_id) ──
   const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
+
+  // ── Booking Lead Dialog ───────────────────────────────────────────────────
+  const [bookingDialog, setBookingDialog] = useState<{
+    tourId: string; tourName: string;
+    periodId: string; periodLabel: string; seats: number;
+  } | null>(null);
+
+  /** ปิด pendingQuota + call adjustPeriodQuota + trigger booking dialog ถ้า delta < 0 */
+  const handleSaveQuota = (
+    tourId: string, tourName: string,
+    pid: string, periodStart: string | undefined | null,
+    newQ: number, currentQ: number,
+  ) => {
+    const delta = newQ - currentQ;
+    if (delta === 0) return;
+    adjustPeriodQuota(tourId, pid, delta, actorName);
+    setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
+    toast.success("อัปเดตโควต้าแล้ว");
+    if (delta < 0) {
+      setBookingDialog({
+        tourId,
+        tourName,
+        periodId: pid,
+        periodLabel: periodStart ?? "",
+        seats: Math.abs(delta),
+      });
+    }
+  };
 
   // ── footnote expand (per period_id) ──
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(new Set());
@@ -2580,7 +2609,7 @@ ${catBlocks}
                                       ><Plus className="w-4 h-4" /></button>
                                       {hasPending && (
                                         <>
-                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName); setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; }); toast.success("อัปเดตโควต้าแล้ว"); }}
+                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota); }}
                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-green-400 border border-green-500/20 bg-card"
                                           ><Save className="w-4 h-4" /></button>
                                           <button onClick={() => setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; })}
@@ -2925,9 +2954,7 @@ ${catBlocks}
                                           onClick={() => {
                                             const newQ = pendingQuota[pid];
                                             if (newQ === undefined) return;
-                                            adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName);
-                                            setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
-                                            toast.success("อัปเดตโควต้าแล้ว");
+                                            handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota);
                                           }}
                                         ><Save className="w-3.5 h-3.5" /></button>
                                         <button
@@ -3141,9 +3168,7 @@ ${catBlocks}
                                       onClick={() => {
                                         const newQ = pendingQuota[pid];
                                         if (newQ === undefined) return;
-                                        adjustPeriodQuota(t.id, pid, newQ - p.quota, actorName);
-                                        setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
-                                        toast.success("อัปเดตโควต้าแล้ว");
+                                        handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota);
                                       }}
                                     ><Save className="w-3.5 h-3.5" /></button>
                                   ) : <div className="w-7" />}
@@ -4297,6 +4322,20 @@ ${catBlocks}
         onClose={() => setEventStatsOpen(false)}
         tours={tours}
       />
+
+      {/* ── Booking Lead Dialog ── */}
+      {bookingDialog && (
+        <BookingLeadDialog
+          open={!!bookingDialog}
+          onClose={() => setBookingDialog(null)}
+          tourId={bookingDialog.tourId}
+          tourName={bookingDialog.tourName}
+          periodId={bookingDialog.periodId}
+          periodLabel={bookingDialog.periodLabel}
+          seats={bookingDialog.seats}
+          actorName={actorName}
+        />
+      )}
     </div>
   );
 }
