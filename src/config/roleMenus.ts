@@ -23,6 +23,7 @@ import {
   CalendarRange,
   TrendingUp,
   Trophy,
+  Tv2,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -57,6 +58,7 @@ const adminMenu: RoleMenu = {
       items: [
         { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true },
         { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3 },
+        { title: "Sales War Room", url: "/war-room", icon: Tv2, tone: "gold" as MenuTone },
       ],
     },
     {
@@ -96,6 +98,7 @@ const salesManagerMenu: RoleMenu = {
       items: [
         { title: "Executive Dashboard", url: "/app/executive", icon: BarChart3 },
         { title: "Dashboard", url: "/app", icon: LayoutDashboard, end: true },
+        { title: "Sales War Room", url: "/war-room", icon: Tv2, tone: "gold" as MenuTone },
       ],
     },
     {
