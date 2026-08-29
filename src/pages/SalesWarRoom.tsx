@@ -515,7 +515,7 @@ export default function SalesWarRoom() {
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0}}>
               <div>
                 <div style={{fontSize:14,fontWeight:600,color:"#c0c0e0"}}>📋 ประวัติการจอง</div>
-                <div style={{fontSize:11,color:"#444",marginTop:2}}>{label} · {events.filter(e=>e.eventType==="seat_booked").length} รายการจอง</div>
+                <div style={{fontSize:11,color:"#444",marginTop:2}}>{label} · {allLeaderboard.length} รายการจอง</div>
               </div>
               <button onClick={()=>setShowHistory(false)} style={{background:"transparent",border:"none",color:"#555",fontSize:18,cursor:"pointer",lineHeight:1}}>✕</button>
             </div>
@@ -525,48 +525,54 @@ export default function SalesWarRoom() {
               {events.length === 0 ? (
                 <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"40px 0"}}>ไม่มีรายการ</div>
               ) : (
-                [...events].filter(e => e.eventType === "seat_booked").sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .map((ev, i) => {
-                    const isBooked   = ev.eventType === "seat_booked";
-                    const seatAbs    = Math.abs(ev.seats);
-                    const dt         = new Date(ev.createdAt);
-                    const dateStr    = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
-                    const timeStr    = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
-                    return (
-                      <div key={i} style={{
-                        display:"flex",alignItems:"flex-start",gap:14,
-                        padding:"12px 20px",borderBottom:"0.5px solid #10101e",
-                      }}>
-                        {/* Icon */}
-                        <div style={{
-                          width:32,height:32,borderRadius:8,flexShrink:0,
-                          background: isBooked?"#0e2a0e":"#2a0e0e",
-                          display:"flex",alignItems:"center",justifyContent:"center",
-                          fontSize:14,marginTop:1,
+                (() => {
+                  // Group by tourId+periodId → net seats/revenue, latest timestamp
+                  const groups: Record<string, {
+                    tourName: string; periodLabel: string;
+                    netSeats: number; netRevenue: number; latestAt: string;
+                  }> = {};
+                  events.forEach(e => {
+                    const key = `${e.tourId}::${e.periodId}`;
+                    if (!groups[key]) groups[key] = { tourName: e.tourName, periodLabel: e.periodLabel, netSeats: 0, netRevenue: 0, latestAt: e.createdAt };
+                    groups[key].netSeats   += e.seats;
+                    groups[key].netRevenue += e.revenue;
+                    if (e.createdAt > groups[key].latestAt) groups[key].latestAt = e.createdAt;
+                  });
+                  return Object.values(groups)
+                    .filter(g => g.netSeats > 0)
+                    .sort((a,b) => new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime())
+                    .map((g, i) => {
+                      const dt      = new Date(g.latestAt);
+                      const dateStr = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
+                      const timeStr = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
+                      return (
+                        <div key={i} style={{
+                          display:"flex",alignItems:"flex-start",gap:14,
+                          padding:"12px 20px",borderBottom:"0.5px solid #10101e",
                         }}>
-                          {isBooked ? "🎟️" : "↩️"}
-                        </div>
-                        {/* Content */}
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,color:"#c0c0e0",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
-                            {ev.tourName}
+                          <div style={{
+                            width:32,height:32,borderRadius:8,flexShrink:0,
+                            background:"#0e2a0e",display:"flex",alignItems:"center",
+                            justifyContent:"center",fontSize:14,marginTop:1,
+                          }}>🎟️</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,color:"#c0c0e0",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                              {g.tourName}
+                            </div>
+                            <div style={{fontSize:11,color:"#555",marginTop:3,display:"flex",gap:8,flexWrap:"wrap" as const}}>
+                              {g.periodLabel && <span style={{color:"#4a4a6a"}}>📅 {g.periodLabel}</span>}
+                              <span style={{color:"#22c55e"}}>+{g.netSeats} ที่นั่ง</span>
+                              <span style={{color:"#F5C842"}}>฿{fmt(Math.round(g.netRevenue))}</span>
+                            </div>
                           </div>
-                          <div style={{fontSize:11,color:"#555",marginTop:3,display:"flex",gap:8,flexWrap:"wrap" as const}}>
-                            {ev.periodLabel && <span style={{color:"#4a4a6a"}}>📅 {ev.periodLabel}</span>}
-                            <span style={{color: isBooked?"#22c55e":"#f87171"}}>
-                              {isBooked ? `+${seatAbs} ที่นั่ง` : `-${seatAbs} ที่นั่ง (คืน)`}
-                            </span>
-                            <span style={{color:"#F5C842"}}>฿{fmt(Math.abs(ev.revenue))}</span>
+                          <div style={{textAlign:"right" as const,flexShrink:0,fontSize:11,color:"#444"}}>
+                            <div>{dateStr}</div>
+                            <div style={{marginTop:2,color:"#333"}}>{timeStr}</div>
                           </div>
                         </div>
-                        {/* Time */}
-                        <div style={{textAlign:"right" as const,flexShrink:0,fontSize:11,color:"#444"}}>
-                          <div>{dateStr}</div>
-                          <div style={{marginTop:2,color:"#333"}}>{timeStr}</div>
-                        </div>
-                      </div>
-                    );
-                  })
+                      );
+                    });
+                })()
               )}
             </div>
 
