@@ -258,6 +258,9 @@ export function CustomerLeadDialog({
   const [nextFollowUp, setNextFollowUp]   = useState(new Date().toISOString().split("T")[0]);
   const [meetingNote, setMeetingNote]     = useState("");
 
+  // ── Skip quota adjust (ป้องกันตัด Stock ซ้ำ) ─────────────────────────────────
+  const [skipQuota, setSkipQuota] = useState(false);
+
   // ── Smart Status ─────────────────────────────────────────────────────────────
   const smartStatus = useMemo<LeadStatus>(() => {
     if (isOB) return "ตอบแล้ว";
@@ -337,6 +340,7 @@ export function CustomerLeadDialog({
     setProvince(""); setCompany(""); setBirthday("");
     setNextFollowUp(new Date().toISOString().split("T")[0]);
     setMeetingNote(""); setStatusOverride("__auto__");
+    setSkipQuota(false);
   };
 
   // ── Submit ───────────────────────────────────────────────────────────────────
@@ -410,7 +414,7 @@ export function CustomerLeadDialog({
       quoted_price: calcPrice,
       closed_price: finalStatus === "จองแล้ว" ? calcPrice : undefined,
       status: finalStatus,
-    });
+    }, { skipQuotaAdjust: skipQuota });
 
     toast.success(isInquiry ? "บันทึก Quick Inquiry แล้ว (⚠️ ยังไม่มีข้อมูลติดต่อ)" : "สร้าง Lead สำเร็จ");
 
@@ -726,6 +730,26 @@ export function CustomerLeadDialog({
 
           {/* Period (filtered by month selected above) */}
           {tourId && <PeriodSelector />}
+
+          {/* Skip quota checkbox — แสดงเฉพาะเมื่อเลือก Tour + Period แล้ว */}
+          {tourId && periodId && (
+            <label className="flex items-start gap-2.5 cursor-pointer group select-none">
+              <input
+                type="checkbox"
+                checked={skipQuota}
+                onChange={(e) => setSkipQuota(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-gray-300 accent-amber-500 cursor-pointer flex-shrink-0"
+              />
+              <span className="text-sm leading-snug">
+                <span className="font-medium text-amber-700 dark:text-amber-400">
+                  ✅ quota ถูกตัดจาก Stock แล้ว — ไม่ต้องตัดซ้ำ
+                </span>
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  ติ๊กเมื่อมีการจองที่นั่งไว้แล้ว แต่ยังไม่ได้บันทึก Lead (ป้องกัน Stock ลดซ้ำ)
+                </span>
+              </span>
+            </label>
+          )}
 
           <div>
             <Label>ความเร่งด่วน</Label>
