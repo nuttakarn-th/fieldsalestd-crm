@@ -344,6 +344,80 @@ const blankPeriodForm = () => ({
   tags: [] as string[],
 });
 
+// ── DeleteConfirmDialog ───────────────────────────────────────────────────────
+interface DeleteTarget {
+  type: "tour" | "period";
+  tourId: string;
+  periodId?: string;
+  name: string;
+  bookedSeats: number;
+}
+
+function DeleteConfirmDialog({
+  target,
+  onConfirm,
+  onCancel,
+}: {
+  target: DeleteTarget | null;
+  onConfirm: (t: DeleteTarget) => void;
+  onCancel: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const label = target?.type === "tour" ? "โปรแกรม" : "Period";
+  const canConfirm = typed.trim() === "ลบ";
+
+  useEffect(() => { if (target) setTyped(""); }, [target]);
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => { if (!o) onCancel(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="w-4 h-4" /> ยืนยันการลบ{label}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            คุณกำลังจะลบ <span className="font-semibold text-foreground">"{target?.name}"</span>
+          </p>
+          {(target?.bookedSeats ?? 0) > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-destructive text-xs leading-relaxed">
+                มีที่นั่งถูกจองแล้ว <strong>{target!.bookedSeats} ที่</strong><br />
+                การลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้
+              </p>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <p className="text-muted-foreground text-xs">
+              พิมพ์ <strong className="text-foreground font-mono">ลบ</strong> เพื่อยืนยัน
+            </p>
+            <Input
+              autoFocus
+              placeholder='พิมพ์ "ลบ"'
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              className={canConfirm ? "border-destructive focus-visible:ring-destructive" : ""}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 pt-1">
+          <Button variant="ghost" size="sm" onClick={onCancel}>ยกเลิก</Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={!canConfirm}
+            onClick={() => { if (target) onConfirm(target); }}
+          >
+            ลบ{label}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TourSection({ canEdit }: { canEdit: boolean }) {
   const tours                  = useServices((s) => s.tours);
   const isLoadingTours         = useServices((s) => s.isLoadingTours);
@@ -367,6 +441,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
   const role                   = currentUser?.role ?? "";
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+
+  function handleDeleteConfirm(target: DeleteTarget) {
+    if (target.type === "tour") {
+      deleteTour(target.tourId);
+      logActivity({ event_type: "tour_deleted", actor: actorName, detail: target.name, department: getDeptFromRole(role) });
+      toast.success("ลบโปรแกรมแล้ว");
+    } else {
+      deletePeriod(target.tourId, target.periodId!);
+      logActivity({ event_type: "period_deleted", actor: actorName, detail: target.name, department: getDeptFromRole(role) });
+      toast.success("ลบ Period แล้ว");
+    }
+    setDeleteTarget(null);
+  }
 
   // ── Subscribe Supabase Realtime เมื่อ component mount ──
   useEffect(() => {
@@ -2386,7 +2474,7 @@ ${catBlocks}
                           )}
                           <Button size="icon" variant="ghost" className="h-7 w-7" disabled={!t.pdf_url} title={t.is_published ? "ซ่อนจากเว็บ (กดเพื่อปิด)" : "แสดงบนเว็บ (กดเพื่อเปิด)"} onClick={() => { togglePublish(t.id, !t.is_published); toast.success(t.is_published ? "ซ่อนแล้ว" : "แสดงแล้ว"); }}>{t.is_published ? <Globe className="w-3.5 h-3.5 text-green-600" /> : <GlobeLock className="w-3.5 h-3.5 text-muted-foreground/50" />}</Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7" title="แก้ไขโปรแกรม" onClick={() => openEdit(t.id)}><Pencil className="w-3.5 h-3.5" /></Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบโปรแกรม" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ โปรแกรมนี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบโปรแกรมนี้หรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="ลบโปรแกรม" onClick={() => { const booked = t.total_seats - t.quota; setDeleteTarget({ type: "tour", tourId: t.id, name: t.name, bookedSeats: booked }); }}><Trash2 className="w-3.5 h-3.5 text-destructive/70" /></Button>
                         </div>
                       )}
                     </div>
@@ -2522,7 +2610,7 @@ ${catBlocks}
                                   <Archive className="w-3.5 h-3.5 mr-2 text-slate-400" /> Archive โปรแกรม
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { const booked = t.total_seats - t.quota; const ok = booked > 0 ? confirm(`⚠️ มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด\n\nยืนยันการลบหรือไม่?`) : confirm("ลบโปรแกรมทัวร์นี้?"); if (ok) { deleteTour(t.id); toast.success("ลบแล้ว"); } }}>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { const booked = t.total_seats - t.quota; setDeleteTarget({ type: "tour", tourId: t.id, name: t.name, bookedSeats: booked }); }}>
                                 <Trash2 className="w-3.5 h-3.5 mr-2" /> ลบโปรแกรม
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -2866,10 +2954,7 @@ ${catBlocks}
                                         </Button>
                                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
                                           const booked = p.total_seats - p.quota;
-                                          const ok = booked > 0
-                                            ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด\n\nยืนยันการลบ Period นี้หรือไม่?`)
-                                            : confirm("ลบ Period นี้?");
-                                          if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
+                                          setDeleteTarget({ type: "period", tourId: t.id, periodId: p.period_id, name: `${t.name} (${p.start_date})`, bookedSeats: booked });
                                         }}>
                                           <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
                                         </Button>
@@ -3209,10 +3294,7 @@ ${catBlocks}
                                       </Button>
                                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
                                         const booked = p.total_seats - p.quota;
-                                        const ok = booked > 0
-                                          ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`)
-                                          : confirm("ลบ Period นี้?");
-                                        if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); }
+                                        setDeleteTarget({ type: "period", tourId: t.id, periodId: p.period_id, name: `${t.name} (${p.start_date})`, bookedSeats: booked });
                                       }}>
                                         <Trash2 className="w-3 h-3 text-destructive/70" />
                                       </Button>
@@ -4321,6 +4403,13 @@ ${catBlocks}
         open={eventStatsOpen}
         onClose={() => setEventStatsOpen(false)}
         tours={tours}
+      />
+
+      {/* ── Delete Confirm Dialog ── */}
+      <DeleteConfirmDialog
+        target={deleteTarget}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
       />
 
       {/* ── Booking Lead Dialog ── */}
