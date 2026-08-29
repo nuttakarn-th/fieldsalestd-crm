@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
+
+// ── ป้องกัน Race condition: customer FK ยังไม่ commit ก่อน lead insert ──
+// เก็บ Promise ของ Supabase customer insert เพื่อให้ addLead await ได้
+const _pendingCustomerInserts = new Map<string, Promise<void>>();
 import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
 import { logActivity, getDeptFromRole } from "@/lib/activityLog";
@@ -1317,10 +1321,14 @@ export const useCRM = create<CRMState>()(
       teamNotifications: [notif, ...get().teamNotifications],
     });
     // Fire-and-forget persist to Supabase (ไม่ block UI)
+    // บันทึก Promise ไว้ใน map เพื่อให้ addLead สามารถ await ก่อน insert lead
     if (SUPABASE_ENABLED && supabase) {
-      supabase.from("customers").insert(newC).then(({ error }) => {
+      const customerInsertPromise = supabase.from("customers").insert(newC).then(({ error }) => {
         if (error) console.error("[supabase] เพิ่มลูกค้าล้มเหลว:", error);
+      }).finally(() => {
+        _pendingCustomerInserts.delete(id);
       });
+      _pendingCustomerInserts.set(id, customerInsertPromise);
       supabase.from("team_notifications").insert(notif).then(({ error }) => {
         if (error) console.error("[supabase] insert notification ล้มเหลว:", error);
       });
@@ -1429,7 +1437,7 @@ export const useCRM = create<CRMState>()(
     if (isWon && closedPrice == null) {
       if (l.tour_id && l.period_id) {
         const periods = useServices.getState().tours
-          .find((t) => t.tour_id === l.tour_id)?.periods ?? [];
+          .find((t) => t.id === l.tour_id)?.periods ?? [];
         const period = periods.find((p) => p.period_id === l.period_id);
         if (period?.price_per_seat) closedPrice = period.price_per_seat * l.pax_count;
       }
@@ -1481,9 +1489,17 @@ export const useCRM = create<CRMState>()(
     }
 
     if (SUPABASE_ENABLED && supabase) {
-      supabase.from("leads").insert(newL).then(({ error }) => {
-        if (error) console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);
-      });
+      // await customer insert ก่อน เพื่อป้องกัน FK race condition
+      const pendingCustomer = _pendingCustomerInserts.get(l.customer_id);
+      const doLeadInsert = async () => {
+        if (pendingCustomer) await pendingCustomer;
+        const { error } = await supabase.from("leads").insert(newL);
+        if (error) {
+          console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);
+          toast.error("บันทึก Lead ล้มเหลว — กรุณาลองใหม่");
+        }
+      };
+      void doLeadInsert();
     }
     const cust = get().customers.find((c) => c.customer_id === l.customer_id);
     {
