@@ -27,6 +27,8 @@ interface EnrichedEvent {
   tourId: string;
   tourName: string;
   periodId: string;
+  periodLabel: string;
+  eventType: string;
   seats: number;
   price: number;
   revenue: number;
@@ -101,6 +103,7 @@ export default function SalesWarRoom() {
   const [loading, setLoading]       = useState(true);
   const [now, setNow]               = useState(new Date());
   const [showAllRanks, setShowAllRanks] = useState(false);
+  const [showHistory,  setShowHistory]  = useState(false);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   // Clock tick every minute
@@ -122,15 +125,21 @@ export default function SalesWarRoom() {
     const rawDelta = Number(ev.meta?.delta) || 0;
     const seats    = Math.abs(rawDelta);
     // seat_released → revenue ติดลบ (หัก)
-    const sign     = ev.event_type === "seat_released" ? -1 : 1;
+    const sign = ev.event_type === "seat_released" ? -1 : 1;
+    // Period label: try start_date → travel_date → periodId
+    const periodLabel = period?.start_date
+      ? new Date(period.start_date).toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"2-digit" })
+      : (period?.travel_date ?? ev.meta?.period_id ?? "");
     return {
-      tourId:    ev.entity_id,
-      tourName:  ev.entity_name ?? "ไม่ระบุโปรแกรม",
-      periodId:  ev.meta?.period_id ?? "",
-      seats:     seats * sign,
+      tourId:      ev.entity_id,
+      tourName:    ev.entity_name ?? "ไม่ระบุโปรแกรม",
+      periodId:    ev.meta?.period_id ?? "",
+      periodLabel,
+      eventType:   ev.event_type,
+      seats:       seats * sign,
       price,
-      revenue:   price * seats * sign,
-      createdAt: ev.created_at,
+      revenue:     price * seats * sign,
+      createdAt:   ev.created_at,
     };
   }, [tours]);
 
@@ -268,6 +277,9 @@ export default function SalesWarRoom() {
             title="เลือกวันเอง"
           >
             📅{filter==="custom" ? ` ${customFrom === customTo ? customFrom : `${customFrom}…`}` : ""}
+          </button>
+          <button onClick={()=>setShowHistory(true)} title="ประวัติการจอง" style={{...ftab(false),padding:"5px 14px",marginLeft:4}}>
+            📋 ประวัติ
           </button>
           <button onClick={()=>window.location.reload()} title="รีเฟรช" style={{...ftab(false),padding:"5px 10px",marginLeft:4}}>↻</button>
         </div>
@@ -480,6 +492,95 @@ export default function SalesWarRoom() {
           </div>
         )}
       </div>
+
+      {/* ── History Modal ── */}
+      {showHistory && (
+        <div
+          onClick={() => setShowHistory(false)}
+          style={{
+            position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            zIndex:9999,padding:24,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:"#0d0d1e",border:"0.5px solid #2a2a4a",borderRadius:16,
+              width:"100%",maxWidth:600,maxHeight:"80vh",display:"flex",flexDirection:"column" as const,
+              overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.6)",
+            }}
+          >
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:"#c0c0e0"}}>📋 ประวัติการจอง</div>
+                <div style={{fontSize:11,color:"#444",marginTop:2}}>{label} · {events.length} รายการทั้งหมด</div>
+              </div>
+              <button onClick={()=>setShowHistory(false)} style={{background:"transparent",border:"none",color:"#555",fontSize:18,cursor:"pointer",lineHeight:1}}>✕</button>
+            </div>
+
+            {/* List */}
+            <div style={{overflowY:"auto" as const,flex:1}}>
+              {events.length === 0 ? (
+                <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"40px 0"}}>ไม่มีรายการ</div>
+              ) : (
+                [...events].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map((ev, i) => {
+                    const isBooked   = ev.eventType === "seat_booked";
+                    const seatAbs    = Math.abs(ev.seats);
+                    const dt         = new Date(ev.createdAt);
+                    const dateStr    = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
+                    const timeStr    = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
+                    return (
+                      <div key={i} style={{
+                        display:"flex",alignItems:"flex-start",gap:14,
+                        padding:"12px 20px",borderBottom:"0.5px solid #10101e",
+                      }}>
+                        {/* Icon */}
+                        <div style={{
+                          width:32,height:32,borderRadius:8,flexShrink:0,
+                          background: isBooked?"#0e2a0e":"#2a0e0e",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:14,marginTop:1,
+                        }}>
+                          {isBooked ? "🎟️" : "↩️"}
+                        </div>
+                        {/* Content */}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,color:"#c0c0e0",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" as const}}>
+                            {ev.tourName}
+                          </div>
+                          <div style={{fontSize:11,color:"#555",marginTop:3,display:"flex",gap:8,flexWrap:"wrap" as const}}>
+                            {ev.periodLabel && <span style={{color:"#4a4a6a"}}>📅 {ev.periodLabel}</span>}
+                            <span style={{color: isBooked?"#22c55e":"#f87171"}}>
+                              {isBooked ? `+${seatAbs} ที่นั่ง` : `-${seatAbs} ที่นั่ง (คืน)`}
+                            </span>
+                            <span style={{color:"#F5C842"}}>฿{fmt(Math.abs(ev.revenue))}</span>
+                          </div>
+                        </div>
+                        {/* Time */}
+                        <div style={{textAlign:"right" as const,flexShrink:0,fontSize:11,color:"#444"}}>
+                          <div>{dateStr}</div>
+                          <div style={{marginTop:2,color:"#333"}}>{timeStr}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Summary footer */}
+            <div style={{
+              padding:"10px 20px",borderTop:"0.5px solid #1a1a2e",flexShrink:0,
+              display:"flex",gap:20,fontSize:12,color:"#555",
+            }}>
+              <span>รวม <span style={{color:"#F5C842",fontWeight:600}}>฿{fmt(totalRevenue)}</span></span>
+              <span>ที่นั่งสุทธิ <span style={{color:"#c0c0e0",fontWeight:600}}>{totalSeats} ที่นั่ง</span></span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSS keyframes */}
       <style>{`
