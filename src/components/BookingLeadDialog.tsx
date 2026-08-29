@@ -106,6 +106,7 @@ export function BookingLeadDialog({
     });
 
     // 2. Create lead — status = จองแล้ว, linked to tour + period
+    // skipQuotaAdjust = true เพราะ quota ถูกตัดไปแล้วจาก Stock page (AllService.tsx)
     addLead({
       customer_id:        customerId,
       assigned_to:        actorName,
@@ -123,7 +124,7 @@ export function BookingLeadDialog({
       next_followup_date: null,
       quoted_price:       0,
       status:             "จองแล้ว",
-    });
+    }, { skipQuotaAdjust: true });
 
     setSaving(false);
     toast.success(`บันทึกลูกค้า "${fullName.trim()}" เรียบร้อย`);

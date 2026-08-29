@@ -634,7 +634,7 @@ interface CRMState {
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
-  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }) => void;
+  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => void;
   deleteLead: (leadId: string) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
@@ -1418,7 +1418,7 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  addLead: (l) => {
+  addLead: (l, options) => {
     const id = `L${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
     const today = new Date().toISOString().split("T")[0];
     const initStatus = l.status ?? "ใหม่";
@@ -1468,9 +1468,9 @@ export const useCRM = create<CRMState>()(
         total_spend: newSpend,
         customer_tier: calcTier(newTrips, newSpend),
       });
-      // 2. ตัดที่นั่ง period
+      // 2. ตัดที่นั่ง period (ข้ามเมื่อ caller จัดการ quota แล้ว เช่น BookingLeadDialog)
       const isTour = l.bu_type === "ทัวร์ต่างประเทศ" || l.bu_type === "ทัวร์ภายในประเทศ";
-      if (isTour && l.tour_id) {
+      if (isTour && l.tour_id && !options?.skipQuotaAdjust) {
         const { adjustQuota, adjustPeriodQuota } = useServices.getState();
         if (l.period_id) {
           adjustPeriodQuota(l.tour_id, l.period_id, -l.pax_count);
