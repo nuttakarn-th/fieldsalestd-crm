@@ -549,12 +549,18 @@ export default function SalesWarRoom() {
                       const dt      = new Date(g.latestAt);
                       const dateStr = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
                       const timeStr = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
-                      // หาชื่อลูกค้าจาก leads ที่ match tour+period
-                      const matchedLeads = leads.filter(l =>
-                        l.tour_id === g.tourId &&
-                        (l.period_id === g.periodId || (!l.period_id && !g.periodId)) &&
-                        (l.status === "จองแล้ว")
-                      );
+                      // หาชื่อลูกค้าจาก leads ที่ match tour+period ในช่วงวันที่เดียวกัน
+                      const { startIso, endIso } = getQueryRange();
+                      const matchedLeads = leads.filter(l => {
+                        if (l.tour_id !== g.tourId) return false;
+                        if (l.period_id !== g.periodId) return false;
+                        if (l.status !== "จองแล้ว") return false;
+                        const leadDate = l.created_at ? new Date(l.created_at) : null;
+                        if (!leadDate) return false;
+                        if (leadDate < new Date(startIso)) return false;
+                        if (endIso && leadDate > new Date(endIso)) return false;
+                        return true;
+                      });
                       const custNames = matchedLeads.map(l => {
                         const c = customers.find(c => c.customer_id === l.customer_id);
                         return c?.full_name ?? l.customer_id;
