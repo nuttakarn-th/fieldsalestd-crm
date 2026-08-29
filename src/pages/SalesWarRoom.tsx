@@ -3,7 +3,7 @@
  * Real-time Sales Board — fullscreen presentation for event days.
  *
  * Route: /war-room  (standalone, no sidebar)
- * Data : activity_log (seat_booked events) + serviceStore (price lookup)
+ * Data : activity_log (seat_booked / seat_released events) + serviceStore (price fallback)
  * Live : Supabase Realtime subscription on activity_log INSERT
  */
 
@@ -13,13 +13,13 @@ import { supabase } from "@/lib/supabase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Filter = "today" | "week" | "month";
+type Filter = "today" | "week" | "month" | "custom";
 
 interface BookingEvent {
   entity_id: string;
   entity_name: string;
   event_type: string;
-  meta: { delta?: number; period_id?: string } | null;
+  meta: { delta?: number; period_id?: string; price_per_seat?: number } | null;
   created_at: string;
 }
 
@@ -41,26 +41,35 @@ interface LeaderRow {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getStartDate(filter: Filter): Date {
+function getPresetRange(filter: Filter): { start: Date; end: Date } {
   const now = new Date();
   if (filter === "today") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0),
+      end:   new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59),
+    };
   }
   if (filter === "week") {
     const d = new Date(now);
-    const day = d.getDay(); // 0=Sun
+    const day = d.getDay();
     d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
     d.setHours(0, 0, 0, 0);
-    return d;
+    return { start: d, end: now };
   }
   // month
-  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  return {
+    start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0),
+    end:   now,
+  };
 }
 
-function filterLabel(f: Filter): string {
+function filterLabel(f: Filter, from?: string, to?: string): string {
   if (f === "today") return "วันนี้";
   if (f === "week")  return "สัปดาห์นี้";
-  return "เดือนนี้";
+  if (f === "month") return "เดือนนี้";
+  if (from && to)    return `${from} – ${to}`;
+  if (from)          return `ตั้งแต่ ${from}`;
+  return "กำหนดเอง";
 }
 
 function fmt(n: number): string {
@@ -75,11 +84,18 @@ function timeAgo(iso: string): string {
   return `${h} ชั่วโมงที่แล้ว`;
 }
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SalesWarRoom() {
   const tours = useServices(s => s.tours);
   const [filter, setFilter]         = useState<Filter>("today");
+  const [customFrom, setCustomFrom] = useState<string>(todayIso());
+  const [customTo,   setCustomTo]   = useState<string>(todayIso());
+  const [showCalendar, setShowCalendar] = useState(false);
   const [events, setEvents]         = useState<EnrichedEvent[]>([]);
   const [loading, setLoading]       = useState(true);
   const [now, setNow]               = useState(new Date());
@@ -92,12 +108,16 @@ export default function SalesWarRoom() {
     return () => clearInterval(iv);
   }, []);
 
-  // ── Enrich raw event with price from serviceStore ─────────────────────────
+  // ── Enrich raw event with price ───────────────────────────────────────────
+  // Priority: meta.price_per_seat (stored at booking time) → special_price → price_per_seat
   const enrich = useCallback((ev: BookingEvent): EnrichedEvent => {
     const tour   = tours.find(t => t.id === ev.entity_id);
     const period = tour?.periods?.find(p => p.period_id === ev.meta?.period_id);
-    const price  = period?.price_per_seat ?? tour?.price_per_seat ?? 0;
-    // delta < 0 = จอง (seat_booked), delta > 0 = คืน (seat_released)
+    const price  = ev.meta?.price_per_seat
+      ?? period?.special_price
+      ?? period?.price_per_seat
+      ?? tour?.price_per_seat
+      ?? 0;
     const rawDelta = Number(ev.meta?.delta) || 0;
     const seats    = Math.abs(rawDelta);
     // seat_released → revenue ติดลบ (หัก)
@@ -112,29 +132,44 @@ export default function SalesWarRoom() {
     };
   }, [tours]);
 
+  // ── Compute date range for query ─────────────────────────────────────────
+  const getQueryRange = useCallback((): { startIso: string; endIso: string | null } => {
+    if (filter === "custom") {
+      return {
+        startIso: new Date(customFrom + "T00:00:00").toISOString(),
+        endIso:   new Date(customTo   + "T23:59:59").toISOString(),
+      };
+    }
+    const { start, end } = getPresetRange(filter);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
+  }, [filter, customFrom, customTo]);
+
   // ── Fetch from Supabase ───────────────────────────────────────────────────
-  const fetchEvents = useCallback(async (f: Filter) => {
+  const fetchEvents = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
-    const start = getStartDate(f).toISOString();
-    const { data, error } = await supabase
+    const { startIso, endIso } = getQueryRange();
+    let q = supabase
       .from("activity_log")
       .select("entity_id, entity_name, event_type, meta, created_at")
       .in("event_type", ["seat_booked", "seat_released"])
-      .gte("created_at", start)
+      .gte("created_at", startIso)
       .order("created_at", { ascending: false });
+    if (endIso) q = q.lte("created_at", endIso);
 
+    const { data, error } = await q;
     if (!error && data) {
       setEvents((data as BookingEvent[]).map(enrich));
     }
     setLoading(false);
-  }, [enrich]);
+  }, [getQueryRange, enrich]);
 
-  useEffect(() => { fetchEvents(filter); }, [filter, fetchEvents]);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
   // ── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
     if (!supabase) return;
+    const { startIso, endIso } = getQueryRange();
     const channel = supabase
       .channel("war-room-realtime")
       .on(
@@ -144,14 +179,15 @@ export default function SalesWarRoom() {
           const row = payload.new as BookingEvent;
           if (!["seat_booked", "seat_released"].includes(row.event_type)) return;
           const rowDate = new Date(row.created_at);
-          if (rowDate < getStartDate(filter)) return;
+          if (rowDate < new Date(startIso)) return;
+          if (endIso && rowDate > new Date(endIso)) return;
           const enriched = enrich(row);
           setEvents(prev => [enriched, ...prev]);
         }
       )
       .subscribe();
     return () => { supabase?.removeChannel(channel); };
-  }, [filter, enrich]);
+  }, [filter, customFrom, customTo, enrich, getQueryRange]);
 
   // ── Compute totals ────────────────────────────────────────────────────────
   const totalRevenue      = events.reduce((s, e) => s + e.revenue, 0);
@@ -172,18 +208,17 @@ export default function SalesWarRoom() {
       seats:    evs.reduce((s, e) => s + e.seats,   0),
       revenue:  evs.reduce((s, e) => s + e.revenue, 0),
     }))
-    .filter(r => r.revenue > 0)   // ซ่อนโปรแกรมที่ถูกยกเลิกทั้งหมด (net ≤ 0)
+    .filter(r => r.revenue > 0)
     .sort((a, b) => b.revenue - a.revenue);
 
   const leaderboard = showAllRanks ? allLeaderboard : allLeaderboard.slice(0, 5);
-
-  const maxRevenue = leaderboard[0]?.revenue ?? 1;
+  const maxRevenue  = allLeaderboard[0]?.revenue ?? 1;
 
   // ── Ticker items (latest 8) ───────────────────────────────────────────────
   const tickerItems = events.slice(0, 8);
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const ftab = (active:boolean):React.CSSProperties => ({
+  const ftab = (active: boolean): React.CSSProperties => ({
     padding:"5px 18px", borderRadius:6, fontSize:13, fontWeight:500,
     border:"0.5px solid "+(active?"#4a4a8a":"#1e1e30"),
     background: active?"#1a1a30":"transparent",
@@ -198,26 +233,107 @@ export default function SalesWarRoom() {
     {bg:"#0f0f1e",color:"#505070"},
   ];
 
+  const label = filterLabel(filter, filter === "custom" ? customFrom : undefined, filter === "custom" ? customTo : undefined);
+
   return (
     <div style={{background:"#07070f",minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:"var(--font-sans)",color:"#e0e0f0"}}>
 
       {/* ── Topbar ── */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 24px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0,flexWrap:"wrap" as const,gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <span style={{width:8,height:8,borderRadius:"50%",background:"#22c55e",display:"inline-block",animation:"pulse-dot 1.8s ease-in-out infinite"}}/>
           <span style={{fontSize:13,fontWeight:500,color:"#22c55e",letterSpacing:"0.06em"}}>LIVE SALES BOARD</span>
           <span style={{fontSize:12,color:"#333",marginLeft:4}}>
             {now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})}
-            {" · "}{filterLabel(filter)}
+            {" · "}{label}
           </span>
         </div>
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap" as const}}>
           {(["today","week","month"] as Filter[]).map(f=>(
-            <button key={f} style={ftab(filter===f)} onClick={()=>setFilter(f)}>{filterLabel(f)}</button>
+            <button key={f} style={ftab(filter===f)} onClick={()=>{setFilter(f);setShowCalendar(false);}}>
+              {filterLabel(f)}
+            </button>
           ))}
+          {/* Calendar toggle */}
+          <button
+            style={{...ftab(filter==="custom"), padding:"5px 12px"}}
+            onClick={()=>{
+              setShowCalendar(v => !v);
+              if (filter !== "custom") setFilter("custom");
+            }}
+            title="เลือกวันเอง"
+          >
+            📅{filter==="custom" ? ` ${customFrom === customTo ? customFrom : `${customFrom}…`}` : ""}
+          </button>
           <button onClick={()=>window.location.reload()} title="รีเฟรช" style={{...ftab(false),padding:"5px 10px",marginLeft:4}}>↻</button>
         </div>
       </div>
+
+      {/* ── Calendar Picker Panel ── */}
+      {showCalendar && (
+        <div style={{
+          background:"#0d0d1e",borderBottom:"0.5px solid #1a1a2e",
+          padding:"12px 24px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap" as const,
+        }}>
+          <span style={{fontSize:12,color:"#555"}}>ช่วงวันที่:</span>
+          <label style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:12,color:"#777"}}>ตั้งแต่</span>
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo}
+              onChange={e => setCustomFrom(e.target.value)}
+              style={{
+                background:"#111128",border:"0.5px solid #2a2a4a",borderRadius:6,
+                color:"#a0a0ff",fontSize:12,padding:"4px 8px",cursor:"pointer",
+              }}
+            />
+          </label>
+          <label style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:12,color:"#777"}}>ถึง</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom}
+              max={todayIso()}
+              onChange={e => setCustomTo(e.target.value)}
+              style={{
+                background:"#111128",border:"0.5px solid #2a2a4a",borderRadius:6,
+                color:"#a0a0ff",fontSize:12,padding:"4px 8px",cursor:"pointer",
+              }}
+            />
+          </label>
+          {/* Quick presets */}
+          {[
+            {label:"เมื่อวาน", action:()=>{
+              const d = new Date(); d.setDate(d.getDate()-1);
+              const iso = d.toISOString().slice(0,10);
+              setCustomFrom(iso); setCustomTo(iso);
+            }},
+            {label:"7 วันล่าสุด", action:()=>{
+              const d = new Date(); d.setDate(d.getDate()-6);
+              setCustomFrom(d.toISOString().slice(0,10)); setCustomTo(todayIso());
+            }},
+            {label:"เดือนที่แล้ว", action:()=>{
+              const now2 = new Date();
+              const first = new Date(now2.getFullYear(), now2.getMonth()-1, 1);
+              const last  = new Date(now2.getFullYear(), now2.getMonth(), 0);
+              setCustomFrom(first.toISOString().slice(0,10));
+              setCustomTo(last.toISOString().slice(0,10));
+            }},
+          ].map(p=>(
+            <button key={p.label} onClick={p.action} style={{
+              fontSize:11,padding:"3px 10px",borderRadius:5,
+              border:"0.5px solid #2a2a4a",background:"transparent",
+              color:"#666",cursor:"pointer",
+            }}>{p.label}</button>
+          ))}
+          <button
+            onClick={()=>setShowCalendar(false)}
+            style={{marginLeft:"auto",fontSize:11,color:"#444",background:"transparent",border:"none",cursor:"pointer"}}
+          >✕ ปิด</button>
+        </div>
+      )}
 
       {/* ── Body ── */}
       {loading ? (
@@ -233,7 +349,7 @@ export default function SalesWarRoom() {
           {/* ── Hero Revenue ── */}
           <div style={{textAlign:"center"}}>
             <div style={{fontSize:11,fontWeight:500,color:"#555",letterSpacing:"0.14em",textTransform:"uppercase",marginBottom:12}}>
-              ยอดขายรวม · {filterLabel(filter)}
+              ยอดขายรวม · {label}
             </div>
             <div style={{
               fontSize:"clamp(72px,10vw,140px)",fontWeight:700,lineHeight:1,
@@ -250,10 +366,10 @@ export default function SalesWarRoom() {
           {/* ── Stats Row ── */}
           <div style={{display:"flex",gap:12,flexWrap:"wrap" as const,justifyContent:"center"}}>
             {[
-              {label:"ที่นั่งที่จอง",  value:`${fmt(totalSeats)}`, unit:"ที่นั่ง"},
-              {label:"Transactions",   value:`${fmt(totalTransactions)}`, unit:"รายการ"},
-              {label:"เฉลี่ย/รายการ", value:`฿${fmt(Math.round(avgPerTx))}`, unit:""},
-              {label:"โปรแกรมที่ขาย", value:`${Object.keys(byTour).length}`, unit:"โปรแกรม"},
+              {label:"ที่นั่งที่จอง",  value:`${fmt(totalSeats)}`,                    unit:"ที่นั่ง"},
+              {label:"Transactions",   value:`${fmt(totalTransactions)}`,              unit:"รายการ"},
+              {label:"เฉลี่ย/รายการ", value:`฿${fmt(Math.round(avgPerTx))}`,          unit:""},
+              {label:"โปรแกรมที่ขาย", value:`${Object.keys(byTour).length}`,          unit:"โปรแกรม"},
             ].map(c=>(
               <div key={c.label} style={{
                 background:"#0d0d1e",border:"0.5px solid #1a1a2e",borderRadius:12,
@@ -277,7 +393,7 @@ export default function SalesWarRoom() {
 
             {allLeaderboard.length === 0 ? (
               <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"32px 0"}}>
-                ยังไม่มีการจองใน{filterLabel(filter)}
+                ยังไม่มีการจองใน{label}
               </div>
             ) : (
               <div style={{display:"flex",flexDirection:"column" as const,gap:0}}>
@@ -352,7 +468,7 @@ export default function SalesWarRoom() {
                 <span style={{width:6,height:6,borderRadius:"50%",background:"#22c55e",flexShrink:0}}/>
                 <span>เพิ่งจอง:</span>
                 <span style={{color:"#8888cc"}}>{ev.tourName}</span>
-                <span style={{color:"#F5C842"}}>+{ev.seats} ที่นั่ง</span>
+                <span style={{color:"#F5C842"}}>+{Math.abs(ev.seats)} ที่นั่ง</span>
                 <span style={{color:"#3a3a5a"}}>·</span>
                 <span>{timeAgo(ev.createdAt)}</span>
               </span>
@@ -366,6 +482,7 @@ export default function SalesWarRoom() {
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
         @keyframes spin { to{transform:rotate(360deg)} }
         @keyframes ticker-scroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.4) sepia(1) saturate(2) hue-rotate(200deg); cursor:pointer; }
       `}</style>
     </div>
   );

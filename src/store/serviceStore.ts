@@ -473,7 +473,7 @@ export const useServices = create<ServiceState>()(
             entity_name:  aqTour.title || aqTour.country || aqTour.code,
             program_name: aqTour.title || aqTour.country || aqTour.code,
             tour_code:    aqTour.code,
-            meta:         { delta, period_id: periodId },
+            meta:         { delta, period_id: periodId, price_per_seat: aqPeriod.special_price ?? aqPeriod.price_per_seat },
           });
 
           // ⚡ Threshold alert — Period ใกล้เต็ม (fill rate ข้าม 80%)
