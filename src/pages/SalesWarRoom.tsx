@@ -515,7 +515,7 @@ export default function SalesWarRoom() {
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"0.5px solid #1a1a2e",flexShrink:0}}>
               <div>
                 <div style={{fontSize:14,fontWeight:600,color:"#c0c0e0"}}>📋 ประวัติการจอง</div>
-                <div style={{fontSize:11,color:"#444",marginTop:2}}>{label} · {events.length} รายการทั้งหมด</div>
+                <div style={{fontSize:11,color:"#444",marginTop:2}}>{label} · {events.filter(e=>e.eventType==="seat_booked").length} รายการจอง</div>
               </div>
               <button onClick={()=>setShowHistory(false)} style={{background:"transparent",border:"none",color:"#555",fontSize:18,cursor:"pointer",lineHeight:1}}>✕</button>
             </div>
@@ -525,7 +525,7 @@ export default function SalesWarRoom() {
               {events.length === 0 ? (
                 <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"40px 0"}}>ไม่มีรายการ</div>
               ) : (
-                [...events].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                [...events].filter(e => e.eventType === "seat_booked").sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .map((ev, i) => {
                     const isBooked   = ev.eventType === "seat_booked";
                     const seatAbs    = Math.abs(ev.seats);
