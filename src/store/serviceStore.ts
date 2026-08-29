@@ -305,6 +305,7 @@ export const useServices = create<ServiceState>()(
             entity_name:  tour.title || tour.country || tour.code,
             program_name: tour.title || tour.country || tour.code,
             tour_code:    tour.code,
+            snapshot:     tour as unknown as Record<string, unknown>,
           });
         }
       },
@@ -403,6 +404,8 @@ export const useServices = create<ServiceState>()(
       },
 
       deletePeriod: (tourId, periodId) => {
+        const tour = get().tours.find((t) => t.id === tourId);
+        const periodSnap = tour?.periods?.find((p) => p.period_id === periodId);
         const newTours = get().tours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = (t.periods ?? []).filter((x) => x.period_id !== periodId);
@@ -413,6 +416,20 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+        if (tour && periodSnap) {
+          logActivity({
+            event_type:   "period_deleted",
+            actor:        periodSnap.updated_by ?? periodSnap.created_by ?? "ระบบ",
+            subject:      "ลบ Period",
+            detail:       `${tour.title || tour.code} (${periodSnap.start_date})`,
+            entity_type:  "period",
+            entity_id:    periodId,
+            entity_name:  tour.title || tour.code,
+            program_name: tour.title || tour.code,
+            tour_code:    tour.code,
+            snapshot:     { ...periodSnap as unknown as Record<string, unknown>, _tourId: tourId, _tourTitle: tour.title, _tourCode: tour.code, _tourCountry: tour.country, _tourContinent: tour.continent, _tourCategory: tour.category, _tourDuration: tour.duration, _tourPeriod: tour.period },
+          });
+        }
       },
 
       clearPeriods: (tourId) => {

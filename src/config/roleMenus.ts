@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Trophy,
   Tv2,
+  History,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -85,6 +86,12 @@ const adminMenu: RoleMenu = {
       items: [
         { title: "Financial Report", url: "/app/financial-report", icon: BarChart3 },
         { title: "Payment / Invoice", url: "/app/payment", icon: Wallet },
+      ],
+    },
+    {
+      category: "ADMIN",
+      items: [
+        { title: "Audit Log & Restore", url: "/app/audit-log", icon: History },
       ],
     },
   ],

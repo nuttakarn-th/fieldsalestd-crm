@@ -55,6 +55,7 @@ export interface ActivityEntry {
   program_name?: string;      // ชื่อโปรแกรมทัวร์ที่อ่านได้ เช่น "เกาหลีใต้ 5D4N" หรือ tour.title
   tour_code?: string;         // รหัสทัวร์ เช่น "HQO-CKG04-PN" — เก็บแยกสำหรับ reference
   meta?:        Record<string, unknown>;
+  snapshot?:    Record<string, unknown>; // full object snapshot ก่อนลบ (สำหรับ restore)
 }
 
 // ── Role → Department helper ──────────────────────────────────────────────────
@@ -105,6 +106,7 @@ export function logActivity(entry: ActivityEntry): void {
       entity_id:   entry.entity_id   ?? "",
       entity_name: entry.entity_name ?? "",
       meta:        entry.meta        ?? {},
+      snapshot:    entry.snapshot    ?? null,
       created_at,
     })
     .then(({ error }) => {

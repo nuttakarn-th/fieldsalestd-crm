@@ -66,6 +66,7 @@ import AudienceLineExport from "./pages/audience/AudienceLineExport.tsx";
 import AudienceFacebook from "./pages/audience/AudienceFacebook.tsx";
 import AudienceBirthday from "./pages/audience/AudienceBirthday.tsx";
 import AudienceColdLead from "./pages/audience/AudienceColdLead.tsx";
+import AdminAuditLog from "./pages/AdminAuditLog.tsx";
 import AudienceVIPList from "./pages/audience/AudienceVIPList.tsx";
 import AudienceInterestSegment from "./pages/audience/AudienceInterestSegment.tsx";
 import Gallery from "./pages/Gallery.tsx";
@@ -214,6 +215,7 @@ const App = () => (
             <Route path="quotation/new/:type" element={<QuotationForm />} />
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />
             <Route path="login-banner" element={<RouteGuard allowedRoles={["Admin"]}><LoginBannerManagement /></RouteGuard>} />
+            <Route path="audit-log" element={<RouteGuard allowedRoles={["Admin"]}><AdminAuditLog /></RouteGuard>} />
             <Route path="profile" element={<Navigate to="/profile" replace />} />
             <Route path="all-service" element={<AllService />} />
             <Route path="campaigns" element={<CampaignManagement />} />

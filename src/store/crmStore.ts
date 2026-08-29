@@ -1389,6 +1389,7 @@ export const useCRM = create<CRMState>()(
         entity_id:   id,
         entity_name: cust.full_name,
         department:  getDeptFromRole(_delUser?.role),
+        snapshot:    cust as unknown as Record<string, unknown>,
       });
     }
   },
@@ -1543,6 +1544,21 @@ export const useCRM = create<CRMState>()(
         else adjustQuota(lead.tour_id, +lead.pax_count);
       }
     }
+    // Log activity with full snapshot before deletion
+    const { currentUserId, users: _leadDelUsers } = useAuth.getState();
+    const _leadDelUser = currentUserId ? _leadDelUsers.find((u) => u.user_id === currentUserId) : null;
+    const cust = get().customers.find((c) => c.customer_id === lead.customer_id);
+    logActivity({
+      event_type:  "lead_deleted",
+      actor:       _leadDelUser?.full_name ?? lead.sales_rep ?? "ระบบ",
+      subject:     "ลบ Lead",
+      detail:      `${cust?.full_name ?? lead.customer_id} · ${lead.bu_type} · ${lead.pax_count} pax`,
+      entity_type: "lead",
+      entity_id:   leadId,
+      entity_name: cust?.full_name ?? lead.customer_id,
+      department:  getDeptFromRole(_leadDelUser?.role),
+      snapshot:    lead as unknown as Record<string, unknown>,
+    });
     if (SUPABASE_ENABLED && supabase) {
       const snapLeadsForLead = get().leads; // snapshot หลัง set แล้ว ใช้ restore ถ้า fail
       supabase.from("leads").delete().eq("lead_id", leadId).then(({ error }) => {
