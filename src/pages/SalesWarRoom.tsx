@@ -373,7 +373,7 @@ export default function SalesWarRoom() {
               {label:"ที่นั่งที่จอง",  value:`${fmt(totalSeats)}`,                    unit:"ที่นั่ง"},
               {label:"Transactions",   value:`${fmt(totalTransactions)}`,              unit:"รายการ"},
               {label:"เฉลี่ย/รายการ", value:`฿${fmt(Math.round(avgPerTx))}`,          unit:""},
-              {label:"โปรแกรมที่ขาย", value:`${Object.keys(byTour).length}`,          unit:"โปรแกรม"},
+              {label:"โปรแกรมที่ขาย", value:`${allLeaderboard.length}`,               unit:"โปรแกรม"},
             ].map(c=>(
               <div key={c.label} style={{
                 background:"#0d0d1e",border:"0.5px solid #1a1a2e",borderRadius:12,
