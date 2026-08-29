@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 git add -A
-git commit -m "feat: Admin Audit Log + Restore — snapshot on all deletes + AdminAuditLog.tsx + route + menu"
+git commit -m "feat: AdminAuditLog v2 — compact rows + pagination 20/50/100 + page nav"
 git push
 echo Done!
 pause
