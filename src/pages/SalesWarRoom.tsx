@@ -26,6 +26,7 @@ interface BookingEvent {
 interface EnrichedEvent {
   tourId: string;
   tourName: string;
+  periodId: string;
   seats: number;
   price: number;
   revenue: number;
@@ -125,6 +126,7 @@ export default function SalesWarRoom() {
     return {
       tourId:    ev.entity_id,
       tourName:  ev.entity_name ?? "ไม่ระบุโปรแกรม",
+      periodId:  ev.meta?.period_id ?? "",
       seats:     seats * sign,
       price,
       revenue:   price * seats * sign,
@@ -190,9 +192,11 @@ export default function SalesWarRoom() {
   }, [filter, customFrom, customTo, enrich, getQueryRange]);
 
   // ── Compute totals ────────────────────────────────────────────────────────
-  const totalRevenue      = events.reduce((s, e) => s + e.revenue, 0);
-  const totalSeats        = events.reduce((s, e) => s + e.seats,   0);
-  const totalTransactions = events.length;
+  const totalRevenue = events.reduce((s, e) => s + e.revenue, 0);
+  const totalSeats   = events.reduce((s, e) => s + e.seats,   0);
+  // 1 Transaction = 1 unique Tour+Period (ไม่ว่าจะบันทึกกี่ครั้ง)
+  const uniqueBookings    = new Set(events.map(e => `${e.tourId}::${e.periodId}`)).size;
+  const totalTransactions = uniqueBookings;
   const avgPerTx          = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
   // ── Leaderboard ───────────────────────────────────────────────────────────
