@@ -9,6 +9,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useServices } from "@/store/serviceStore";
+import { useCRM } from "@/store/crmStore";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -94,7 +95,9 @@ function todayIso(): string {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SalesWarRoom() {
-  const tours = useServices(s => s.tours);
+  const tours     = useServices(s => s.tours);
+  const leads     = useCRM(s => s.leads);
+  const customers = useCRM(s => s.customers);
   const [filter, setFilter]         = useState<Filter>("today");
   const [customFrom, setCustomFrom] = useState<string>(todayIso());
   const [customTo,   setCustomTo]   = useState<string>(todayIso());
@@ -528,12 +531,13 @@ export default function SalesWarRoom() {
                 (() => {
                   // Group by tourId+periodId → net seats/revenue, latest timestamp
                   const groups: Record<string, {
+                    tourId: string; periodId: string;
                     tourName: string; periodLabel: string;
                     netSeats: number; netRevenue: number; latestAt: string;
                   }> = {};
                   events.forEach(e => {
                     const key = `${e.tourId}::${e.periodId}`;
-                    if (!groups[key]) groups[key] = { tourName: e.tourName, periodLabel: e.periodLabel, netSeats: 0, netRevenue: 0, latestAt: e.createdAt };
+                    if (!groups[key]) groups[key] = { tourId: e.tourId, periodId: e.periodId, tourName: e.tourName, periodLabel: e.periodLabel, netSeats: 0, netRevenue: 0, latestAt: e.createdAt };
                     groups[key].netSeats   += e.seats;
                     groups[key].netRevenue += e.revenue;
                     if (e.createdAt > groups[key].latestAt) groups[key].latestAt = e.createdAt;
@@ -545,6 +549,16 @@ export default function SalesWarRoom() {
                       const dt      = new Date(g.latestAt);
                       const dateStr = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
                       const timeStr = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
+                      // หาชื่อลูกค้าจาก leads ที่ match tour+period
+                      const matchedLeads = leads.filter(l =>
+                        l.tour_id === g.tourId &&
+                        (l.period_id === g.periodId || (!l.period_id && !g.periodId)) &&
+                        (l.status === "จองแล้ว")
+                      );
+                      const custNames = matchedLeads.map(l => {
+                        const c = customers.find(c => c.customer_id === l.customer_id);
+                        return c?.full_name ?? l.customer_id;
+                      }).filter(Boolean);
                       return (
                         <div key={i} style={{
                           display:"flex",alignItems:"flex-start",gap:14,
@@ -564,6 +578,11 @@ export default function SalesWarRoom() {
                               <span style={{color:"#22c55e"}}>+{g.netSeats} ที่นั่ง</span>
                               <span style={{color:"#F5C842"}}>฿{fmt(Math.round(g.netRevenue))}</span>
                             </div>
+                            {custNames.length > 0 && (
+                              <div style={{fontSize:11,color:"#7878aa",marginTop:4}}>
+                                👤 {custNames.join(" · ")}
+                              </div>
+                            )}
                           </div>
                           <div style={{textAlign:"right" as const,flexShrink:0,fontSize:11,color:"#444"}}>
                             <div>{dateStr}</div>
