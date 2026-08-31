@@ -13,6 +13,7 @@ import { TrendingUp, Users2, Users, Target, ChevronDown, Award, Activity, Layers
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCRM, isClosedStatus, isLostStatus, formatTHB, type Lead, type BUType } from "@/store/crmStore";
 import { useActiveOBNames } from "@/store/authStore";
+import { useServices } from "@/store/serviceStore";
 import { supabase } from "@/lib/supabase";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
@@ -243,6 +244,7 @@ export default function MarketingDashboardPage() {
   const obNames    = useActiveOBNames();
   const allLeads   = useCRM((s) => s.leads);
   const allTargets = useCRM((s) => s.targets);
+  const tours      = useServices((s) => s.tours);
 
   const months     = useMemo(monthOptions, []);
   const [month, setMonth]   = useState(months[0].key);
@@ -265,24 +267,32 @@ export default function MarketingDashboardPage() {
 
     supabase
       .from("activity_log")
-      .select("actor, event_type, meta")
+      .select("actor, event_type, meta, entity_id")
       .in("event_type", ["seat_booked", "seat_released"])
       .gte("created_at", startIso)
       .lt("created_at", endIso)
       .then(({ data }) => {
         let ob = 0, sales = 0;
         (data ?? []).forEach((row) => {
-          const meta  = row.meta as { delta?: number; price_per_seat?: number } | null;
-          const delta = Number(meta?.delta) || 0;
-          const price = Number(meta?.price_per_seat) || 0;
-          const seats = Math.abs(delta);
-          const sign  = row.event_type === "seat_released" ? -1 : 1;
-          const rev   = price * seats * sign;
+          const meta     = row.meta as { delta?: number; price_per_seat?: number; period_id?: string } | null;
+          const delta    = Number(meta?.delta) || 0;
+          const seats    = Math.abs(delta);
+          const sign     = row.event_type === "seat_released" ? -1 : 1;
+          // ใช้ price fallback เหมือน War Room:
+          // meta.price_per_seat → period.special_price → period.price_per_seat → tour.price_per_seat
+          const tour     = tours.find((t) => t.id === row.entity_id);
+          const period   = tour?.periods?.find((p) => p.period_id === meta?.period_id);
+          const price    = meta?.price_per_seat
+            ?? period?.special_price
+            ?? period?.price_per_seat
+            ?? tour?.price_per_seat
+            ?? 0;
+          const rev      = Number(price) * seats * sign;
           if (obSet.has(row.actor)) ob += rev; else sales += rev;
         });
         setActRev({ ob, sales });
       });
-  }, [month, obSet]);
+  }, [month, obSet, tours]);
 
   // Separate leads by team (all-time pool, filter by month inside compute)
   const obLeads    = useMemo(() => allLeads.filter((l) => obSet.has(l.assigned_to)), [allLeads, obSet]);
