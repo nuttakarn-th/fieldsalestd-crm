@@ -30,7 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 // ── Navigation config ────────────────────────────────────────────────────────
 
-interface NavItem { label: string; icon: typeof Home; to: string; end?: boolean }
+interface NavItem { label: string; icon: typeof Home; to: string; end?: boolean; newTab?: boolean }
 interface NavSection { category: string; items: NavItem[]; defaultCollapsed?: boolean }
 
 const NAV_SECTIONS: NavSection[] = [
@@ -44,7 +44,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     category: "LIVE SALES",
     items: [
-      { label: "Live Sales Board",  icon: Radio,         to: "/war-room"                          },
+      { label: "Live Sales Board",  icon: Radio,         to: "/war-room",  newTab: true           },
     ],
   },
   {
@@ -139,14 +139,29 @@ function SideNavItem({ item, collapsed }: { item: NavItem; collapsed: boolean })
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link to={item.to} className={`${cls} w-8 h-8 justify-center mx-auto`}>
-            <Icon className="w-4.5 h-4.5 w-[18px] h-[18px] shrink-0" />
-          </Link>
+          {item.newTab ? (
+            <a href={item.to} target="_blank" rel="noopener noreferrer" className={`${cls} w-8 h-8 justify-center mx-auto`}>
+              <Icon className="w-4.5 h-4.5 w-[18px] h-[18px] shrink-0" />
+            </a>
+          ) : (
+            <Link to={item.to} className={`${cls} w-8 h-8 justify-center mx-auto`}>
+              <Icon className="w-4.5 h-4.5 w-[18px] h-[18px] shrink-0" />
+            </Link>
+          )}
         </TooltipTrigger>
         <TooltipContent side="right" className="text-xs font-medium">
           {item.label}
         </TooltipContent>
       </Tooltip>
+    );
+  }
+
+  if (item.newTab) {
+    return (
+      <a href={item.to} target="_blank" rel="noopener noreferrer" className={`${cls} gap-2 px-3 py-1.5 text-sm`}>
+        <Icon className="w-4 h-4 shrink-0" />
+        <span className="truncate">{item.label}</span>
+      </a>
     );
   }
 
