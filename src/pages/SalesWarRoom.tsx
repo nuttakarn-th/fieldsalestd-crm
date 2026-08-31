@@ -120,6 +120,9 @@ export default function SalesWarRoom() {
   const [showHistory,  setShowHistory]  = useState(false);
   const [showChart,    setShowChart]    = useState(false);
   const [chartSub,     setChartSub]     = useState<"hourly" | "program">("hourly");
+  const [chartTooltip, setChartTooltip] = useState<{
+    x: number; y: number; prog: string; val: number; color: string; groupLabel: string;
+  } | null>(null);
   const tickerRef = useRef<HTMLDivElement>(null);
 
   // Clock tick every minute
@@ -537,21 +540,37 @@ export default function SalesWarRoom() {
                       const bw  = Math.min(gap * 0.6, 48);
                       const cx  = PL + gi * gap + gap / 2;
                       let yOff  = PT + cH;
+                      const rects: React.ReactNode[] = [];
+                      chartTours.forEach((t, ti) => {
+                        const v = g.byTour[t.tourId] ?? 0;
+                        if (v <= 0) return;
+                        const bh = (v / niceMax) * cH;
+                        yOff -= bh;
+                        const capturedY = yOff;
+                        const capturedV = v;
+                        rects.push(
+                          <rect key={t.tourId}
+                            x={cx-bw/2} y={capturedY}
+                            width={bw} height={bh}
+                            fill={CHART_COLORS[ti]} opacity={0.85} rx={2}
+                            style={{cursor:"default"}}
+                            onMouseEnter={(e) => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setChartTooltip({ x: r.left+r.width/2, y: r.top, prog: t.tourName, val: capturedV, color: CHART_COLORS[ti], groupLabel: g.label });
+                            }}
+                            onMouseLeave={() => setChartTooltip(null)}
+                          />
+                        );
+                      });
+                      const totalV = chartTours.reduce((s, t) => s + (g.byTour[t.tourId] ?? 0), 0);
                       return (
                         <g key={gi}>
-                          {chartTours.map((t,ti)=>{
-                            const v  = g.byTour[t.tourId] ?? 0;
-                            if (v <= 0) return null;
-                            const bh = (v / niceMax) * cH;
-                            yOff -= bh;
-                            return (
-                              <rect key={t.tourId}
-                                x={cx-bw/2} y={yOff}
-                                width={bw} height={bh}
-                                fill={CHART_COLORS[ti]} opacity={0.85} rx={2}
-                              />
-                            );
-                          })}
+                          {rects}
+                          {totalV > 0 && (
+                            <text x={cx} y={yOff - 4} textAnchor="middle" fontSize={9} fill="#666">
+                              {fmtRevenue(totalV)}
+                            </text>
+                          )}
                           <text x={cx} y={PT+cH+18} textAnchor="middle" fontSize={9} fill="#555">
                             {g.label}
                           </text>
@@ -658,6 +677,35 @@ export default function SalesWarRoom() {
           </div>
         )}
       </div>
+
+      {/* ── Chart Tooltip ── */}
+      {chartTooltip && (
+        <div style={{
+          position:"fixed",
+          left: chartTooltip.x,
+          top:  chartTooltip.y - 10,
+          transform:"translate(-50%,-100%)",
+          background:"#1a1a2e",
+          border:"0.5px solid #2a2a4a",
+          borderRadius:8,
+          padding:"7px 11px",
+          fontSize:11,
+          color:"#ccc",
+          pointerEvents:"none",
+          zIndex:9999,
+          minWidth:130,
+          boxShadow:"0 6px 24px rgba(0,0,0,0.6)",
+        }}>
+          <div style={{color:"#555",marginBottom:4,fontSize:10}}>{chartTooltip.groupLabel}</div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:chartTooltip.color,flexShrink:0}}/>
+            <span style={{color:"#a0a0cc",flex:1}}>
+              {chartTooltip.prog.length>22 ? chartTooltip.prog.slice(0,22)+"…" : chartTooltip.prog}
+            </span>
+            <span style={{color:"#F5C842",fontWeight:700,marginLeft:8}}>{fmtRevenue(chartTooltip.val)}</span>
+          </div>
+        </div>
+      )}
 
       {/* ── History Modal ── */}
       {showHistory && (
