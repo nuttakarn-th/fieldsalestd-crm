@@ -257,9 +257,9 @@ export default function SalesWarRoom() {
   const toThaiHour = (iso: string): number =>
     new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).getUTCHours();
 
+  // รวม seat_released (revenue ลบ) ด้วย → net ตรงกับ hero number
   const byDate: Record<string, Record<string, number>> = {};
   events.forEach(e => {
-    if (e.revenue <= 0) return;
     const dk = toThaiDate(e.createdAt);
     if (!byDate[dk]) byDate[dk] = {};
     byDate[dk][e.tourId] = (byDate[dk][e.tourId] ?? 0) + e.revenue;
@@ -268,7 +268,6 @@ export default function SalesWarRoom() {
 
   const byHour: Record<number, Record<string, number>> = {};
   events.forEach(e => {
-    if (e.revenue <= 0) return;
     const h = toThaiHour(e.createdAt);
     if (!byHour[h]) byHour[h] = {};
     byHour[h][e.tourId] = (byHour[h][e.tourId] ?? 0) + e.revenue;
@@ -467,7 +466,8 @@ export default function SalesWarRoom() {
             const maxStacked = isProg
               ? (chartTours[0]?.revenue ?? 1)
               : groups.reduce((mx, g) => {
-                  const total = chartTours.reduce((s, t) => s + (g.byTour[t.tourId] ?? 0), 0);
+                  // ใช้ max(0,v) เพื่อรับมือ net ติดลบ (seat_released > seat_booked ในช่วงนั้น)
+                  const total = chartTours.reduce((s, t) => s + Math.max(0, g.byTour[t.tourId] ?? 0), 0);
                   return Math.max(mx, total);
                 }, 0);
             const niceMax = Math.ceil(maxStacked / 100_000) * 100_000 || 1;
@@ -568,7 +568,7 @@ export default function SalesWarRoom() {
                           />
                         );
                       });
-                      const totalV = chartTours.reduce((s, t) => s + (g.byTour[t.tourId] ?? 0), 0);
+                      const totalV = chartTours.reduce((s, t) => s + Math.max(0, g.byTour[t.tourId] ?? 0), 0);
                       return (
                         <g key={gi}>
                           {rects}
