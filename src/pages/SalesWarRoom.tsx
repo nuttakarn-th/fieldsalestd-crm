@@ -466,8 +466,8 @@ export default function SalesWarRoom() {
             const maxStacked = isProg
               ? (chartTours[0]?.revenue ?? 1)
               : groups.reduce((mx, g) => {
-                  // ใช้ max(0,v) เพื่อรับมือ net ติดลบ (seat_released > seat_booked ในช่วงนั้น)
-                  const total = chartTours.reduce((s, t) => s + Math.max(0, g.byTour[t.tourId] ?? 0), 0);
+                  // รวมทุกโปรแกรม (ไม่ใช่แค่ top 5) เพื่อให้ scale ถูกต้อง
+                  const total = Object.values(g.byTour).reduce((s, v) => s + Math.max(0, v), 0);
                   return Math.max(mx, total);
                 }, 0);
             const niceMax = Math.ceil(maxStacked / 100_000) * 100_000 || 1;
@@ -504,6 +504,13 @@ export default function SalesWarRoom() {
                       {t.tourName.length>22 ? t.tourName.slice(0,22)+"…" : t.tourName}
                     </div>
                   ))}
+                  {/* อื่นๆ — แสดงเมื่อมีโปรแกรมนอก top 5 */}
+                  {allLeaderboard.length > chartTours.length && (
+                    <div style={{display:"flex",alignItems:"center",gap:5,fontSize:10,color:"#666"}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:"#3a3a5c",flexShrink:0}}/>
+                      อื่นๆ
+                    </div>
+                  )}
                 </div>
 
                 {/* SVG */}
@@ -568,7 +575,32 @@ export default function SalesWarRoom() {
                           />
                         );
                       });
-                      const totalV = chartTours.reduce((s, t) => s + Math.max(0, g.byTour[t.tourId] ?? 0), 0);
+                      // segment "อื่นๆ" — โปรแกรมนอก top 5
+                      const top5Ids = new Set(chartTours.map(t => t.tourId));
+                      const othersV = Object.entries(g.byTour)
+                        .filter(([id]) => !top5Ids.has(id))
+                        .reduce((s, [, v]) => s + Math.max(0, v), 0);
+                      if (othersV > 0) {
+                        const bh = (othersV / niceMax) * cH;
+                        yOff -= bh;
+                        const capturedY = yOff;
+                        const capturedOthers = othersV;
+                        rects.push(
+                          <rect key="__others__"
+                            x={cx-bw/2} y={capturedY}
+                            width={bw} height={bh}
+                            fill="#3a3a5c" opacity={0.7} rx={2}
+                            style={{cursor:"default"}}
+                            onMouseEnter={(e) => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setChartTooltip({ x: r.left+r.width/2, y: r.top, prog: "โปรแกรมอื่นๆ", val: capturedOthers, color: "#3a3a5c", groupLabel: g.label });
+                            }}
+                            onMouseLeave={() => setChartTooltip(null)}
+                          />
+                        );
+                      }
+                      // label แสดงยอดรวมทุกโปรแกรม (ตรงกับ hero number)
+                      const totalV = Object.values(g.byTour).reduce((s, v) => s + Math.max(0, v), 0);
                       return (
                         <g key={gi}>
                           {rects}
