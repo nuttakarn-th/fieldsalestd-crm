@@ -12,7 +12,7 @@ import { MessageSquare, ChevronDown, ChevronRight, ChevronLeft, ChevronRight as 
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
-  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus,
+  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus, Radio,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -39,6 +39,12 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Home",              icon: Home,          to: "/marketing",              end: true },
       { label: "Dashboard",         icon: BarChart3,     to: "/marketing/dashboard"               },
+    ],
+  },
+  {
+    category: "LIVE SALES",
+    items: [
+      { label: "Live Sales Board",  icon: Radio,         to: "/war-room"                          },
     ],
   },
   {
@@ -92,8 +98,9 @@ const NAV_SECTIONS: NavSection[] = [
 
 // Category label colors
 function catColor(category: string) {
-  if (category === "OVERVIEW")  return "text-violet-400/80";
-  if (category === "LEADS")     return "text-purple-400/80";
+  if (category === "OVERVIEW")    return "text-violet-400/80";
+  if (category === "LIVE SALES")  return "text-rose-400/90";
+  if (category === "LEADS")       return "text-purple-400/80";
   if (category === "CAMPAIGNS") return "text-fuchsia-400/75";
   if (category === "CONTENT")   return "text-violet-400/70";
   if (category === "STOCK")     return "text-purple-400/70";
