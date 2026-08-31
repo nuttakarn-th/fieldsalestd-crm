@@ -254,7 +254,8 @@ export default function SalesWarRoom() {
   const byDate: Record<string, Record<string, number>> = {};
   events.forEach(e => {
     if (e.revenue <= 0) return;
-    const dk = e.createdAt.slice(0, 10);
+    // ใช้ local date (Thai UTC+7) ไม่ใช่ UTC slice เพื่อป้องกัน timezone shift
+    const dk = new Date(e.createdAt).toLocaleDateString("en-CA"); // "YYYY-MM-DD" local TZ
     if (!byDate[dk]) byDate[dk] = {};
     byDate[dk][e.tourId] = (byDate[dk][e.tourId] ?? 0) + e.revenue;
   });
