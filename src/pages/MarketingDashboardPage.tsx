@@ -71,7 +71,7 @@ function computeTeamStats(
     return d.startsWith(month);
   });
 
-  const wonRevenue  = monthLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.value ?? 0), 0);
+  const wonRevenue  = monthLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price ?? l.quoted_price ?? 0), 0);
   const wonPax      = monthLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.pax_count ?? 0), 0);
   const wonCount    = monthLeads.filter((l) => isClosedStatus(l.status)).length;
   const lostCount   = monthLeads.filter((l) => isLostStatus(l.status)).length;
@@ -186,6 +186,20 @@ function TeamBlock({ title, badge, members, stats, color }: TeamBlockProps) {
         </span>
       </div>
 
+      {/* Warning: OB members not configured */}
+      {members === 0 && color === "purple" && (
+        <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>ยังไม่มีสมาชิกทีม OB ใน User Management — Lead OB จะถูกนับรวมกับ Sales จนกว่าจะเพิ่มบัญชีผู้ใช้ OB</span>
+        </div>
+      )}
+      {/* Warning: no target set */}
+      {stats.target === 0 && (
+        <div className="flex items-start gap-2 rounded-lg bg-muted/60 border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+          <Target className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>ยังไม่ได้ตั้งเป้าหมายยอดขายสำหรับทีมนี้ — ตั้งเป้าได้ที่หน้า Revenue Dashboard</span>
+        </div>
+      )}
       {/* Progress bar */}
       <ProgressBar value={stats.wonRevenue} max={stats.target} color={color} />
 
