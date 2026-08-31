@@ -251,11 +251,16 @@ export default function SalesWarRoom() {
   const CHART_COLORS = ["#F5C842","#6366f1","#10b981","#f97316","#ec4899","#06b6d4"] as const;
   const chartTours = allLeaderboard.slice(0, 5);
 
+  // แปลง UTC → เวลาไทย (UTC+7) แบบ fixed offset — ไม่ขึ้นกับ timezone เครื่อง
+  const toThaiDate = (iso: string): string =>
+    new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const toThaiHour = (iso: string): number =>
+    new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).getUTCHours();
+
   const byDate: Record<string, Record<string, number>> = {};
   events.forEach(e => {
     if (e.revenue <= 0) return;
-    // ใช้ local date (Thai UTC+7) ไม่ใช่ UTC slice เพื่อป้องกัน timezone shift
-    const dk = new Date(e.createdAt).toLocaleDateString("en-CA"); // "YYYY-MM-DD" local TZ
+    const dk = toThaiDate(e.createdAt);
     if (!byDate[dk]) byDate[dk] = {};
     byDate[dk][e.tourId] = (byDate[dk][e.tourId] ?? 0) + e.revenue;
   });
@@ -264,7 +269,7 @@ export default function SalesWarRoom() {
   const byHour: Record<number, Record<string, number>> = {};
   events.forEach(e => {
     if (e.revenue <= 0) return;
-    const h = new Date(e.createdAt).getHours();
+    const h = toThaiHour(e.createdAt);
     if (!byHour[h]) byHour[h] = {};
     byHour[h][e.tourId] = (byHour[h][e.tourId] ?? 0) + e.revenue;
   });
