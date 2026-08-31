@@ -8,11 +8,12 @@
  * เป็นข้อมูล aggregate ของทีม ไม่แสดงรายหัว
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { TrendingUp, Users2, Users, Target, ChevronDown, Award, Activity, Layers, Zap, Clock, AlertTriangle, BarChart3 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCRM, isClosedStatus, isLostStatus, formatTHB, type Lead, type BUType } from "@/store/crmStore";
 import { useActiveOBNames } from "@/store/authStore";
+import { supabase } from "@/lib/supabase";
 import { DateRangeFilter, resolveRange, inRange, type RangePreset } from "@/components/DateRangeFilter";
 import type { DateRange } from "react-day-picker";
 
@@ -155,13 +156,15 @@ function ProgressBar({ value, max, color }: ProgressBarProps) {
 }
 
 interface TeamBlockProps {
-  title:   string;
-  badge:   string;
-  members: number;
-  stats:   TeamStats;
-  color:   "purple" | "blue";
+  title:            string;
+  badge:            string;
+  members:          number;
+  stats:            TeamStats;
+  color:            "purple" | "blue";
+  revenueOverride?: number; // ยอดจาก activity_log (seat_booked) แทน lead.closed_price
 }
-function TeamBlock({ title, badge, members, stats, color }: TeamBlockProps) {
+function TeamBlock({ title, badge, members, stats, color, revenueOverride }: TeamBlockProps) {
+  const rev = revenueOverride ?? stats.wonRevenue;
   const borderCls  = color === "purple" ? "border-violet-300/60 dark:border-violet-700/40" : "border-blue-300/60 dark:border-blue-700/40";
   const badgeCls   = color === "purple"
     ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
@@ -201,13 +204,13 @@ function TeamBlock({ title, badge, members, stats, color }: TeamBlockProps) {
         </div>
       )}
       {/* Progress bar */}
-      <ProgressBar value={stats.wonRevenue} max={stats.target} color={color} />
+      <ProgressBar value={rev} max={stats.target} color={color} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
           <p className="text-[11px] text-muted-foreground">ยอดขาย</p>
-          <p className={`text-sm font-semibold ${wonCls}`}>{formatTHB(stats.wonRevenue)}</p>
+          <p className={`text-sm font-semibold ${wonCls}`}>{formatTHB(rev)}</p>
         </div>
         <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
           <p className="text-[11px] text-muted-foreground">Pax จอง</p>
@@ -250,6 +253,37 @@ export default function MarketingDashboardPage() {
 
   const obSet = useMemo(() => new Set(obNames), [obNames]);
 
+  // ── Revenue จาก activity_log (seat_booked / seat_released) ───────────────────
+  // ยึดตาม Stock system แทน lead.closed_price เพื่อให้ตรงกับ War Room
+  const [actRev, setActRev] = useState<{ ob: number; sales: number }>({ ob: 0, sales: 0 });
+
+  useEffect(() => {
+    if (!supabase) return;
+    const [y, m] = month.split("-").map(Number);
+    const startIso = new Date(y, m - 1, 1).toISOString();
+    const endIso   = new Date(y, m, 1).toISOString();
+
+    supabase
+      .from("activity_log")
+      .select("actor, event_type, meta")
+      .in("event_type", ["seat_booked", "seat_released"])
+      .gte("created_at", startIso)
+      .lt("created_at", endIso)
+      .then(({ data }) => {
+        let ob = 0, sales = 0;
+        (data ?? []).forEach((row) => {
+          const meta  = row.meta as { delta?: number; price_per_seat?: number } | null;
+          const delta = Number(meta?.delta) || 0;
+          const price = Number(meta?.price_per_seat) || 0;
+          const seats = Math.abs(delta);
+          const sign  = row.event_type === "seat_released" ? -1 : 1;
+          const rev   = price * seats * sign;
+          if (obSet.has(row.actor)) ob += rev; else sales += rev;
+        });
+        setActRev({ ob, sales });
+      });
+  }, [month, obSet]);
+
   // Separate leads by team (all-time pool, filter by month inside compute)
   const obLeads    = useMemo(() => allLeads.filter((l) => obSet.has(l.assigned_to)), [allLeads, obSet]);
   const salesLeads = useMemo(() => allLeads.filter((l) => !obSet.has(l.assigned_to)), [allLeads, obSet]);
@@ -266,16 +300,16 @@ export default function MarketingDashboardPage() {
   const obStats    = useMemo(() => computeTeamStats(obLeads, allTargets,    obSet,     month, "OB Team"), [obLeads,    allTargets, obSet,     month]);
   const salesStats = useMemo(() => computeTeamStats(salesLeads, allTargets, salesReps, month), [salesLeads, allTargets, salesReps, month]);
 
-  // Combined KPI
+  // Combined KPI — revenue จาก activity_log (ตรงกับ War Room)
   const combined = useMemo(() => ({
-    revenue:  obStats.wonRevenue  + salesStats.wonRevenue,
+    revenue:  actRev.ob + actRev.sales,
     pax:      obStats.wonPax      + salesStats.wonPax,
     leads:    obStats.totalLeads  + salesStats.totalLeads,
     winRate:  (obStats.wonCount + salesStats.wonCount + obStats.lostCount + salesStats.lostCount) > 0
       ? Math.round((obStats.wonCount + salesStats.wonCount) / (obStats.wonCount + salesStats.wonCount + obStats.lostCount + salesStats.lostCount) * 100)
       : 0,
     target: obStats.target + salesStats.target,
-  }), [obStats, salesStats]);
+  }), [obStats, salesStats, actRev]);
 
   // ── Marketing Insights ───────────────────────────────────────────────────────
 
@@ -511,8 +545,8 @@ export default function MarketingDashboardPage() {
             </div>
           )}
 
-          <TeamBlock title="ทีม Outbound (OB)" badge="OB Team" members={obNames.length} stats={obStats} color="purple" />
-          <TeamBlock title="ทีม Sales" badge="Sales Team" members={salesReps.size} stats={salesStats} color="blue" />
+          <TeamBlock title="ทีม Outbound (OB)" badge="OB Team" members={obNames.length} stats={obStats} color="purple" revenueOverride={actRev.ob} />
+          <TeamBlock title="ทีม Sales" badge="Sales Team" members={salesReps.size} stats={salesStats} color="blue" revenueOverride={actRev.sales} />
         </div>
       )}
 
