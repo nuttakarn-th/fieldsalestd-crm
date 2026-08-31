@@ -92,6 +92,17 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function shortDateLabel(iso: string): string {
+  const d = new Date(iso + "T12:00:00");
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+function fmtRevenue(v: number): string {
+  if (v >= 1_000_000) return `฿${(v/1_000_000).toFixed(1)}M`;
+  if (v >= 1_000)     return `฿${Math.round(v/1_000)}K`;
+  return `฿${v}`;
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SalesWarRoom() {
@@ -107,6 +118,8 @@ export default function SalesWarRoom() {
   const [now, setNow]               = useState(new Date());
   const [showAllRanks, setShowAllRanks] = useState(false);
   const [showHistory,  setShowHistory]  = useState(false);
+  const [showChart,    setShowChart]    = useState(false);
+  const [chartSub,     setChartSub]     = useState<"hourly" | "program">("hourly");
   const tickerRef = useRef<HTMLDivElement>(null);
 
   // Clock tick every minute
@@ -230,6 +243,29 @@ export default function SalesWarRoom() {
   const leaderboard = showAllRanks ? allLeaderboard : allLeaderboard.slice(0, 5);
   const maxRevenue  = allLeaderboard[0]?.revenue ?? 1;
 
+  // ── Chart data ────────────────────────────────────────────────────────────
+  const isSingleDay = filter === "today" || (filter === "custom" && customFrom === customTo);
+  const CHART_COLORS = ["#F5C842","#6366f1","#10b981","#f97316","#ec4899","#06b6d4"] as const;
+  const chartTours = allLeaderboard.slice(0, 5);
+
+  const byDate: Record<string, Record<string, number>> = {};
+  events.forEach(e => {
+    if (e.revenue <= 0) return;
+    const dk = e.createdAt.slice(0, 10);
+    if (!byDate[dk]) byDate[dk] = {};
+    byDate[dk][e.tourId] = (byDate[dk][e.tourId] ?? 0) + e.revenue;
+  });
+  const dateKeys = Object.keys(byDate).sort();
+
+  const byHour: Record<number, Record<string, number>> = {};
+  events.forEach(e => {
+    if (e.revenue <= 0) return;
+    const h = new Date(e.createdAt).getHours();
+    if (!byHour[h]) byHour[h] = {};
+    byHour[h][e.tourId] = (byHour[h][e.tourId] ?? 0) + e.revenue;
+  });
+  const hourKeys = Object.keys(byHour).map(Number).sort((a, b) => a - b);
+
   // ── Ticker items (latest 8) ───────────────────────────────────────────────
   const tickerItems = events.slice(0, 8);
 
@@ -283,6 +319,9 @@ export default function SalesWarRoom() {
           </button>
           <button onClick={()=>setShowHistory(true)} title="ประวัติการจอง" style={{...ftab(false),padding:"5px 14px",marginLeft:4}}>
             📋 ประวัติ
+          </button>
+          <button onClick={()=>setShowChart(v=>!v)} title="ดูกราฟ" style={{...ftab(showChart),padding:"5px 14px",marginLeft:4}}>
+            📊 กราฟ
           </button>
           <button onClick={()=>window.location.reload()} title="รีเฟรช" style={{...ftab(false),padding:"5px 10px",marginLeft:4}}>↻</button>
         </div>
@@ -402,6 +441,130 @@ export default function SalesWarRoom() {
               </div>
             ))}
           </div>
+
+          {/* ── Chart Panel ── */}
+          {showChart && events.length > 0 && (() => {
+            const W=700, H=190;
+            const PL=58, PB=30, PT=8, PR=14;
+            const cW=W-PL-PR, cH=H-PB-PT;
+
+            const isProg = isSingleDay && chartSub === "program";
+            const isHourly = isSingleDay && chartSub === "hourly";
+
+            const groups = isHourly
+              ? hourKeys.map(h => ({ label: `${h}:00`, byTour: byHour[h] }))
+              : dateKeys.map(dk => ({ label: shortDateLabel(dk), byTour: byDate[dk] }));
+
+            const maxStacked = isProg
+              ? (chartTours[0]?.revenue ?? 1)
+              : groups.reduce((mx, g) => {
+                  const total = chartTours.reduce((s, t) => s + (g.byTour[t.tourId] ?? 0), 0);
+                  return Math.max(mx, total);
+                }, 0);
+            const niceMax = Math.ceil(maxStacked / 100_000) * 100_000 || 1;
+            const ticks = [0,1,2,3,4].map(i => ({ v:(i/4)*niceMax, y:PT+cH-(i/4)*cH }));
+
+            return (
+              <div style={{width:"100%",maxWidth:720,background:"#0d0d1e",border:"0.5px solid #1a1a2e",borderRadius:14,padding:"16px 20px 14px",marginBottom:4}}>
+                {/* Header */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{fontSize:10,color:"#555",letterSpacing:"0.12em",textTransform:"uppercase" as const}}>
+                    {isSingleDay
+                      ? (chartSub === "program" ? "ยอดตามโปรแกรม" : "ยอดตามช่วงเวลา (รายชั่วโมง)")
+                      : `ยอดรายวัน (${dateKeys.length} วัน)`}
+                  </div>
+                  {isSingleDay && (
+                    <div style={{display:"flex",gap:4}}>
+                      {(["hourly","program"] as const).map(tab=>(
+                        <button key={tab} onClick={()=>setChartSub(tab)} style={{
+                          padding:"3px 10px",borderRadius:5,fontSize:11,cursor:"pointer",
+                          background:chartSub===tab?"#1d3461":"#111128",
+                          border:`0.5px solid ${chartSub===tab?"#2563eb":"#1a1a30"}`,
+                          color:chartSub===tab?"#60a5fa":"#555",
+                        }}>{tab==="hourly"?"รายชั่วโมง":"ตามโปรแกรม"}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Legend */}
+                <div style={{display:"flex",gap:12,flexWrap:"wrap" as const,marginBottom:12}}>
+                  {chartTours.map((t,i)=>(
+                    <div key={t.tourId} style={{display:"flex",alignItems:"center",gap:5,fontSize:10,color:"#666"}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:CHART_COLORS[i],flexShrink:0}}/>
+                      {t.tourName.length>22 ? t.tourName.slice(0,22)+"…" : t.tourName}
+                    </div>
+                  ))}
+                </div>
+
+                {/* SVG */}
+                {isProg ? (
+                  // Horizontal bar by program
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}}>
+                    {chartTours.map((t,i)=>{
+                      const rowH = cH / chartTours.length;
+                      const bw = (t.revenue / niceMax) * cW;
+                      const y = PT + i * rowH;
+                      return (
+                        <g key={t.tourId}>
+                          <text x={PL-6} y={y+rowH/2+4} textAnchor="end" fontSize={9} fill="#555">
+                            {t.tourName.length>18?t.tourName.slice(0,18)+"…":t.tourName}
+                          </text>
+                          <rect x={PL} y={y+rowH*0.2} width={cW} height={rowH*0.6} fill="#111128" rx={4}/>
+                          <rect x={PL} y={y+rowH*0.2} width={bw} height={rowH*0.6} fill={CHART_COLORS[i]} opacity={0.85} rx={4}/>
+                          <text x={PL+bw+5} y={y+rowH/2+4} fontSize={9} fill={CHART_COLORS[i]} fontWeight="bold">
+                            {fmtRevenue(t.revenue)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                ) : groups.length > 0 ? (
+                  // Stacked bar (hourly or multi-day)
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:"block"}}>
+                    {/* Grid + Y labels */}
+                    {ticks.map((tk,i)=>(
+                      <g key={i}>
+                        <line x1={PL} y1={tk.y} x2={PL+cW} y2={tk.y} stroke="#141420" strokeWidth={1}/>
+                        <text x={PL-5} y={tk.y+3} textAnchor="end" fontSize={9} fill="#444">
+                          {fmtRevenue(tk.v)}
+                        </text>
+                      </g>
+                    ))}
+                    {/* Bars */}
+                    {groups.map((g, gi)=>{
+                      const gap = cW / groups.length;
+                      const bw  = Math.min(gap * 0.6, 48);
+                      const cx  = PL + gi * gap + gap / 2;
+                      let yOff  = PT + cH;
+                      return (
+                        <g key={gi}>
+                          {chartTours.map((t,ti)=>{
+                            const v  = g.byTour[t.tourId] ?? 0;
+                            if (v <= 0) return null;
+                            const bh = (v / niceMax) * cH;
+                            yOff -= bh;
+                            return (
+                              <rect key={t.tourId}
+                                x={cx-bw/2} y={yOff}
+                                width={bw} height={bh}
+                                fill={CHART_COLORS[ti]} opacity={0.85} rx={2}
+                              />
+                            );
+                          })}
+                          <text x={cx} y={PT+cH+18} textAnchor="middle" fontSize={9} fill="#555">
+                            {g.label}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                ) : (
+                  <div style={{textAlign:"center",color:"#333",fontSize:12,padding:"32px 0"}}>ไม่มีข้อมูลกราฟ</div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Leaderboard ── */}
           <div style={{width:"100%",maxWidth:720}}>
