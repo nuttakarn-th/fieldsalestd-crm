@@ -331,9 +331,10 @@ export const useServices = create<ServiceState>()(
         const newTours = get().tours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = [...(t.periods ?? []), period];
-          // aggregate top-level quota/total_seats จาก periods ทั้งหมด
-          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
-          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          // aggregate top-level quota/total_seats จาก active periods เท่านั้น
+          const activePeriods = periods.filter((x) => !x.cancelled);
+          const totalSeats = activePeriods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = activePeriods.reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, total_seats: totalSeats, quota };
         });
         set({ tours: newTours });
@@ -366,8 +367,10 @@ export const useServices = create<ServiceState>()(
           const periods = (t.periods ?? []).map((x) =>
             x.period_id === periodId ? { ...x, ...p } : x
           );
-          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
-          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          // Exclude cancelled periods from aggregate to prevent quota > total_seats violation
+          const activePeriods = periods.filter((x) => !x.cancelled);
+          const totalSeats = activePeriods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = activePeriods.reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, total_seats: totalSeats, quota };
         });
         set({ tours: newTours }); // optimistic update
@@ -435,8 +438,9 @@ export const useServices = create<ServiceState>()(
         const newTours = get().tours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = (t.periods ?? []).filter((x) => x.period_id !== periodId);
-          const totalSeats = periods.reduce((s, x) => s + x.total_seats, 0);
-          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          const activePeriods = periods.filter((x) => !x.cancelled);
+          const totalSeats = activePeriods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = activePeriods.reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, total_seats: totalSeats, quota };
         });
         set({ tours: newTours });
