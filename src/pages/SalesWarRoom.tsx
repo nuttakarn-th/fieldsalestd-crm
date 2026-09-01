@@ -3,9 +3,11 @@
  * Real-time Sales Board — fullscreen presentation for event days.
  *
  * Route: /war-room  (standalone, no sidebar)
- * Data : bookings table (Booking Ledger) — revenue accounted by booked_at date
- *         Cancellations deduct from original booking date (not cancel date)
- * Live : Supabase Realtime subscription on bookings INSERT/UPDATE
+ * Data : Dual-source merge —
+ *   • bookings table (Ledger): new bookings from v277+, accounting by booked_at
+ *   • activity_log (legacy): old seat_booked/released events before Ledger existed
+ *   Per tour+period: if bookings data exists → use it; else fall back to activity_log
+ * Live : Supabase Realtime on bookings INSERT/UPDATE + activity_log INSERT
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -27,6 +29,15 @@ interface BookingRow {
   booked_at: string;
   status: "active" | "cancelled";
   cancelled_at?: string | null;
+}
+
+// Legacy type — activity_log rows (ข้อมูลก่อน Booking Ledger)
+interface ActivityLogRow {
+  entity_id: string;
+  entity_name: string;
+  event_type: string;
+  meta: { delta?: number; period_id?: string; price_per_seat?: number } | null;
+  created_at: string;
 }
 
 interface EnrichedEvent {
@@ -167,6 +178,36 @@ export default function SalesWarRoom() {
     };
   }, [tours]);
 
+  // ── Enrich legacy activity_log row (fallback สำหรับข้อมูลก่อน Ledger) ──────
+  const enrichLegacy = useCallback((ev: ActivityLogRow): EnrichedEvent => {
+    const tour   = tours.find(t => t.id === ev.entity_id);
+    const period = tour?.periods?.find(p => p.period_id === ev.meta?.period_id);
+    const price  = ev.meta?.price_per_seat
+      ?? period?.special_price
+      ?? period?.price_per_seat
+      ?? tour?.price_per_seat
+      ?? 0;
+    const rawDelta = Number(ev.meta?.delta) || 0;
+    const seats    = Math.abs(rawDelta);
+    const sign = ev.event_type === "seat_released" ? -1 : 1;
+    const periodLabel = period?.start_date
+      ? new Date(period.start_date).toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"2-digit" })
+      : (period?.travel_date ?? ev.meta?.period_id ?? "");
+    return {
+      id:          `log::${ev.entity_id}::${ev.meta?.period_id}::${ev.created_at}`,
+      tourId:      ev.entity_id,
+      tourName:    ev.entity_name ?? "ไม่ระบุโปรแกรม",
+      periodId:    ev.meta?.period_id ?? "",
+      periodLabel,
+      customerName: "—",
+      seats:       seats * sign,
+      price,
+      revenue:     price * seats * sign,
+      bookedAt:    ev.created_at,
+      status:      sign === 1 ? "active" : "cancelled",
+    };
+  }, [tours]);
+
   // ── Compute date range for query ─────────────────────────────────────────
   const getQueryRange = useCallback((): { startIso: string; endIso: string | null } => {
     if (filter === "custom") {
@@ -179,25 +220,56 @@ export default function SalesWarRoom() {
     return { startIso: start.toISOString(), endIso: end.toISOString() };
   }, [filter, customFrom, customTo]);
 
-  // ── Fetch from Supabase ───────────────────────────────────────────────────
+  // ── Fetch from Supabase — dual-source merge ───────────────────────────────
   const fetchEvents = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
     const { startIso, endIso } = getQueryRange();
-    // Query bookings by booked_at (the accounting date)
-    let q = supabase
+
+    // 1. Bookings table (new — accounting by booked_at)
+    let bq = supabase
       .from("bookings")
       .select("id, tour_id, period_id, customer_name, seats, price_per_seat, booked_by, booked_at, status, cancelled_at")
       .gte("booked_at", startIso)
       .order("booked_at", { ascending: false });
-    if (endIso) q = q.lte("booked_at", endIso);
+    if (endIso) bq = bq.lte("booked_at", endIso);
 
-    const { data, error } = await q;
-    if (!error && data) {
-      setEvents((data as BookingRow[]).map(enrich));
-    }
+    // 2. Activity log (legacy — seat_booked/released before Ledger)
+    let aq = supabase
+      .from("activity_log")
+      .select("entity_id, entity_name, event_type, meta, created_at")
+      .in("event_type", ["seat_booked", "seat_released"])
+      .gte("created_at", startIso)
+      .order("created_at", { ascending: false });
+    if (endIso) aq = aq.lte("created_at", endIso);
+
+    const [bRes, aRes] = await Promise.all([bq, aq]);
+
+    // 3. Enrich bookings
+    const bookingEvents: EnrichedEvent[] = !bRes.error && bRes.data
+      ? (bRes.data as BookingRow[]).map(enrich)
+      : [];
+
+    // 4. Set of tour+period pairs already covered by bookings table
+    //    → suppress matching activity_log entries to avoid double-counting
+    const coveredPairs = new Set(
+      bookingEvents.map(e => `${e.tourId}::${e.periodId}`)
+    );
+
+    // 5. Legacy events for pairs NOT in bookings table
+    const legacyEvents: EnrichedEvent[] = !aRes.error && aRes.data
+      ? (aRes.data as ActivityLogRow[])
+          .filter(ev => !coveredPairs.has(`${ev.entity_id}::${ev.meta?.period_id ?? ""}`))
+          .map(enrichLegacy)
+      : [];
+
+    // 6. Merge and sort by bookedAt desc
+    const merged = [...bookingEvents, ...legacyEvents].sort(
+      (a, b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()
+    );
+    setEvents(merged);
     setLoading(false);
-  }, [getQueryRange, enrich]);
+  }, [getQueryRange, enrich, enrichLegacy]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
@@ -206,34 +278,50 @@ export default function SalesWarRoom() {
     if (!supabase) return;
     const { startIso, endIso } = getQueryRange();
     const channel = supabase
-      .channel("war-room-bookings-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "bookings" },
-        (payload) => {
-          const row = payload.new as BookingRow;
-          const rowDate = new Date(row.booked_at);
-          if (rowDate < new Date(startIso)) return;
-          if (endIso && rowDate > new Date(endIso)) return;
-          const enriched = enrich(row);
-          setEvents(prev => [enriched, ...prev.filter(e => e.id !== enriched.id)]);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "bookings" },
-        (payload) => {
-          const row = payload.new as BookingRow;
-          // Update the event in place (e.g., status active → cancelled)
-          const enriched = enrich(row);
-          setEvents(prev =>
-            prev.map(e => e.id === enriched.id ? enriched : e)
-          );
-        }
-      )
+      .channel("war-room-realtime-v2")
+      // bookings INSERT — new booking created
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bookings" }, (payload) => {
+        const row = payload.new as BookingRow;
+        const rowDate = new Date(row.booked_at);
+        if (rowDate < new Date(startIso)) return;
+        if (endIso && rowDate > new Date(endIso)) return;
+        const enriched = enrich(row);
+        // Remove legacy log entry for same tour+period if exists (avoid double-count)
+        setEvents(prev => [
+          enriched,
+          ...prev.filter(e =>
+            e.id !== enriched.id &&
+            !(e.id.startsWith("log::") && e.tourId === enriched.tourId && e.periodId === enriched.periodId)
+          ),
+        ]);
+      })
+      // bookings UPDATE — e.g. active → cancelled
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "bookings" }, (payload) => {
+        const row = payload.new as BookingRow;
+        const enriched = enrich(row);
+        setEvents(prev => prev.map(e => e.id === enriched.id ? enriched : e));
+      })
+      // activity_log INSERT — legacy seat_booked/released event (ก่อน Ledger)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_log" }, (payload) => {
+        const row = payload.new as ActivityLogRow;
+        if (!["seat_booked", "seat_released"].includes(row.event_type)) return;
+        const rowDate = new Date(row.created_at);
+        if (rowDate < new Date(startIso)) return;
+        if (endIso && rowDate > new Date(endIso)) return;
+        const enriched = enrichLegacy(row);
+        const pairKey = `${enriched.tourId}::${enriched.periodId}`;
+        // Only add if bookings table doesn't already cover this tour+period
+        setEvents(prev => {
+          const alreadyCovered = prev.some(e => !e.id.startsWith("log::") && e.tourId === enriched.tourId && e.periodId === enriched.periodId);
+          if (alreadyCovered) return prev;
+          return [enriched, ...prev.filter(e => e.id !== enriched.id)];
+        });
+        // suppress unused variable warning
+        void pairKey;
+      })
       .subscribe();
     return () => { supabase?.removeChannel(channel); };
-  }, [filter, customFrom, customTo, enrich, getQueryRange]);
+  }, [filter, customFrom, customTo, enrich, enrichLegacy, getQueryRange]);
 
   // ── Compute totals ────────────────────────────────────────────────────────
   const totalRevenue = events.reduce((s, e) => s + e.revenue, 0);
