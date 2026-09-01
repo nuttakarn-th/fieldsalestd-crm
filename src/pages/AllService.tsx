@@ -900,7 +900,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   const submitPeriod = async () => {
     if (!pForm.start_date) { toast.error("ระบุวันที่เดินทาง"); return; }
-    if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
+    // ข้าม validation ราคา/ที่นั่งเมื่อยกเลิก period (ข้อมูลเก่าอาจเป็น 0)
+    if (!pForm.cancelled && (!pForm.price_per_seat || !pForm.total_seats)) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
     const seats = Number(pForm.total_seats || 0);
     const travelDate = genTravelDate(pForm.start_date, pForm.end_date, pForm.days, pForm.nights);
     const now = new Date().toISOString();
@@ -916,7 +917,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      quota: pEditId ? (existingPeriod?.quota ?? seats) : seats,
+      // cancelled → quota=0; edit → clamp quota ไม่ให้เกิน seats ใหม่; create → seats
+      quota: pForm.cancelled ? 0 : (pEditId ? Math.min(existingPeriod?.quota ?? seats, seats) : seats),
       airline_code: pForm.airline_code || undefined,
       departure_city: pForm.departure_city || undefined,
       project: pForm.project || undefined,
@@ -957,7 +959,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── Wizard: บันทึก Period แล้วปิด main dialog ──
   const submitPeriodWizard = () => {
     if (!pForm.start_date) { toast.error("ระบุวันที่เดินทาง"); return; }
-    if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
+    if (!pForm.cancelled && (!pForm.price_per_seat || !pForm.total_seats)) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
     const seats = Number(pForm.total_seats || 0);
     const travelDate = genTravelDate(pForm.start_date, pForm.end_date, pForm.days, pForm.nights);
     const now = new Date().toISOString();

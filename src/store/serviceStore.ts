@@ -376,10 +376,8 @@ export const useServices = create<ServiceState>()(
         set({ tours: newTours }); // optimistic update
         const updated = newTours.find((t) => t.id === tourId);
 
-        // สำหรับ cancel / restore — await และ revert ถ้าล้มเหลว
-        const patchCancelledVal = (p as { cancelled?: boolean }).cancelled;
-        const isCancelToggle = typeof patchCancelledVal === "boolean";
-        if (isCancelToggle && updated) {
+        // ทุก updatePeriod ใช้ await + revert เพื่อให้แสดง error เมื่อ Supabase reject
+        if (updated) {
           const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
           if (error) {
             set({ tours: preTours }); // rollback
@@ -389,8 +387,6 @@ export const useServices = create<ServiceState>()(
                 : "บันทึกไม่สำเร็จ กรุณาลองใหม่"
             );
           }
-        } else {
-          if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
         }
 
         // Phase 2: log event
