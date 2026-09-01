@@ -108,10 +108,44 @@ async function restoreEntry(
 ): Promise<{ ok: boolean; message: string }> {
   if (!SUPABASE_ENABLED || !supabase)
     return { ok: false, message: "Supabase ไม่พร้อมใช้งาน" };
-  const snap = entry.snapshot;
-  if (!snap) return { ok: false, message: "ไม่มี snapshot — ไม่สามารถ Restore ได้" };
 
   try {
+    // ── period_cancelled: un-cancel โดยไม่ต้องใช้ snapshot ──────────────────
+    if (entry.event_type === "period_cancelled") {
+      const tourId   = entry.entity_id;
+      const meta     = entry.meta as { period_id?: string; start_date?: string } | null;
+      const periodId = meta?.period_id;
+      const startDate = meta?.start_date ?? entry.detail;
+      if (!tourId) return { ok: false, message: "ไม่พบ tourId ใน log" };
+
+      const { data: tourRow, error: fetchErr } = await supabase
+        .from("tours").select("id, periods").eq("id", tourId).single();
+      if (fetchErr || !tourRow) throw fetchErr ?? new Error("ไม่พบ Tour ในระบบ");
+
+      const currentPeriods: Record<string, unknown>[] =
+        Array.isArray(tourRow.periods) ? tourRow.periods : [];
+
+      // หา period ด้วย period_id ก่อน ถ้าไม่มีให้ fallback ด้วย start_date
+      const updatedPeriods = currentPeriods.map((p) => {
+        const matchById   = periodId && p.period_id === periodId;
+        const matchByDate = !periodId && startDate && p.start_date === startDate;
+        if (matchById || matchByDate) return { ...p, cancelled: false };
+        return p;
+      });
+      const changed = updatedPeriods.some(
+        (p, i) => p.cancelled !== currentPeriods[i].cancelled,
+      );
+      if (!changed) return { ok: false, message: "ไม่พบ Period ที่ตรงกัน หรือ Period ไม่ได้ถูกยกเลิก" };
+
+      const { error: updErr } = await supabase
+        .from("tours").update({ periods: updatedPeriods }).eq("id", tourId);
+      if (updErr) throw updErr;
+
+    // ── Delete events: ต้องมี snapshot ──────────────────────────────────────
+    } else {
+      const snap = entry.snapshot;
+      if (!snap) return { ok: false, message: "ไม่มี snapshot — ไม่สามารถ Restore ได้" };
+
     if (entry.event_type === "tour_deleted") {
       const { id, ...rest } = snap as Record<string, unknown>;
       const { error } = await supabase.from("tours").insert({ id: id ?? snap.id, ...rest });
@@ -148,6 +182,7 @@ async function restoreEntry(
     } else {
       return { ok: false, message: `ไม่รองรับ Restore: ${entry.event_type}` };
     }
+    } // closes the outer else (delete events branch)
 
     await supabase
       .from("activity_log")
@@ -396,6 +431,7 @@ export default function AdminAuditLog() {
 
             {paginated.map((entry, idx) => {
               const isDeleted = DELETE_EVENTS.has(entry.event_type);
+              const isCancelled = entry.event_type === "period_cancelled";
               const hasSnapshot = !!entry.snapshot;
               const isRestored = !!entry.restored_at;
               const isExpanded = expandedId === entry.id;
@@ -408,7 +444,7 @@ export default function AdminAuditLog() {
                     className={`
                       grid grid-cols-[24px_130px_1fr_90px_80px_100px] gap-2 px-3 py-1.5 items-center
                       ${!isLast || isExpanded ? "border-b border-gray-100 dark:border-gray-800" : ""}
-                      ${isDeleted && !isRestored ? "bg-red-50/40 dark:bg-red-950/10" : "hover:bg-gray-50 dark:hover:bg-gray-800/30"}
+                      ${(isDeleted || isCancelled) && !isRestored ? "bg-red-50/40 dark:bg-red-950/10" : "hover:bg-gray-50 dark:hover:bg-gray-800/30"}
                       transition-colors
                     `}
                   >
@@ -466,7 +502,7 @@ export default function AdminAuditLog() {
                           }
                         </button>
                       )}
-                      {isDeleted && hasSnapshot && !isRestored && (
+                      {((isDeleted && hasSnapshot) || isCancelled) && !isRestored && (
                         <Button
                           size="sm"
                           variant="outline"

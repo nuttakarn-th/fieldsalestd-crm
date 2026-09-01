@@ -398,6 +398,7 @@ export const useServices = create<ServiceState>()(
               entity_name:  updatedTour.title || updatedTour.country || updatedTour.code,
               program_name: updatedTour.title || updatedTour.country || updatedTour.code,
               tour_code:    updatedTour.code,
+              meta:         { period_id: periodId, start_date: updatedPeriod.start_date ?? null },
             });
           }
         }
