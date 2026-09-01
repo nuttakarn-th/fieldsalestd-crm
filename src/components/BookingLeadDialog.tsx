@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useCRM, type Source, type Segment } from "@/store/crmStore";
+import { useBookingLedger } from "@/store/bookingLedgerStore";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ export interface BookingLeadDialogProps {
   periodId: string;
   periodLabel: string; // start_date string e.g. "2026-10-08"
   seats: number;
+  pricePerSeat?: number; // ราคา/ที่นั่ง สำหรับ booking ledger
   actorName: string;
 }
 
@@ -54,10 +56,11 @@ function formatPeriodLabel(label: string): string {
 
 export function BookingLeadDialog({
   open, onClose,
-  tourId, tourName, periodId, periodLabel, seats, actorName,
+  tourId, tourName, periodId, periodLabel, seats, pricePerSeat = 0, actorName,
 }: BookingLeadDialogProps) {
-  const addCustomer = useCRM((s) => s.addCustomer);
-  const addLead     = useCRM((s) => s.addLead);
+  const addCustomer  = useCRM((s) => s.addCustomer);
+  const addLead      = useCRM((s) => s.addLead);
+  const addBooking   = useBookingLedger((s) => s.addBooking);
 
   const [step, setStep] = useState<"choice" | "form">("choice");
 
@@ -81,8 +84,15 @@ export function BookingLeadDialog({
   }
 
   function handleLater() {
+    // บันทึก booking record แบบ anonymous (ไม่มีชื่อลูกค้า)
+    addBooking({
+      tour_id: tourId, period_id: periodId,
+      lead_id: null, customer_name: null, customer_phone: null,
+      seats, price_per_seat: pricePerSeat,
+      booked_by: actorName, booked_at: new Date().toISOString(), notes: null,
+    });
     handleClose();
-    toast.info("สามารถเพิ่มข้อมูลลูกค้าได้ภายหลังที่หน้า Leads");
+    toast.info("บันทึกที่นั่งแล้ว — สามารถเพิ่มข้อมูลลูกค้าได้ภายหลัง");
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -107,7 +117,7 @@ export function BookingLeadDialog({
 
     // 2. Create lead — status = จองแล้ว, linked to tour + period
     // skipQuotaAdjust = true เพราะ quota ถูกตัดไปแล้วจาก Stock page (AllService.tsx)
-    addLead({
+    const leadId = addLead({
       customer_id:        customerId,
       assigned_to:        actorName,
       bu_type:            "ทัวร์ต่างประเทศ",
@@ -125,6 +135,17 @@ export function BookingLeadDialog({
       quoted_price:       0,
       status:             "จองแล้ว",
     }, { skipQuotaAdjust: true });
+
+    // 3. บันทึก Booking Ledger record พร้อม lead_id
+    addBooking({
+      tour_id: tourId, period_id: periodId,
+      lead_id: leadId ?? null,
+      customer_name: fullName.trim(),
+      customer_phone: phone.trim() || null,
+      seats, price_per_seat: pricePerSeat,
+      booked_by: actorName, booked_at: new Date().toISOString(),
+      notes: note.trim() || null,
+    });
 
     setSaving(false);
     toast.success(`บันทึกลูกค้า "${fullName.trim()}" เรียบร้อย`);

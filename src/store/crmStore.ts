@@ -638,7 +638,7 @@ interface CRMState {
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
-  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => void;
+  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => string;
   deleteLead: (leadId: string) => void;
   updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
@@ -1517,6 +1517,7 @@ export const useCRM = create<CRMState>()(
         department:  getDeptFromRole(_addLeadUser?.role),
       });
     }
+    return id;
   },
 
   deleteLead: (leadId) => {

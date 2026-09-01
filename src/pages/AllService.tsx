@@ -30,6 +30,7 @@ import { ShareDialog } from "@/components/ShareDialog";
 import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts } from "@/lib/shortLink";
 import { BookingLeadDialog } from "@/components/BookingLeadDialog";
+import { CancelBookingDialog } from "@/components/CancelBookingDialog";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -539,27 +540,45 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── Booking Lead Dialog ───────────────────────────────────────────────────
   const [bookingDialog, setBookingDialog] = useState<{
     tourId: string; tourName: string;
-    periodId: string; periodLabel: string; seats: number;
+    periodId: string; periodLabel: string; seats: number; pricePerSeat: number;
   } | null>(null);
 
-  /** ปิด pendingQuota + call adjustPeriodQuota + trigger booking dialog ถ้า delta < 0 */
+  // ── Cancel Booking Dialog ─────────────────────────────────────────────────
+  const [cancelDialog, setCancelDialog] = useState<{
+    tourId: string; tourName: string;
+    periodId: string; periodLabel: string; seatsToRelease: number;
+  } | null>(null);
+
+  /** ปิด pendingQuota + call adjustPeriodQuota (booking) หรือ open cancelDialog (release) */
   const handleSaveQuota = (
     tourId: string, tourName: string,
     pid: string, periodStart: string | undefined | null,
     newQ: number, currentQ: number,
+    pricePerSeat: number = 0,
   ) => {
     const delta = newQ - currentQ;
     if (delta === 0) return;
-    adjustPeriodQuota(tourId, pid, delta, actorName);
     setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
-    toast.success("อัปเดตโควต้าแล้ว");
+
     if (delta < 0) {
+      // ── จองที่นั่ง: ตัด quota ทันที แล้ว popup บันทึกลูกค้า ──
+      adjustPeriodQuota(tourId, pid, delta, actorName);
+      toast.success("อัปเดตโควต้าแล้ว");
       setBookingDialog({
-        tourId,
-        tourName,
+        tourId, tourName,
         periodId: pid,
         periodLabel: periodStart ?? "",
         seats: Math.abs(delta),
+        pricePerSeat,
+      });
+    } else {
+      // ── คืนที่นั่ง: เปิด CancelBookingDialog ให้เลือก Booking ที่จะยกเลิก ──
+      // (CancelBookingDialog จะเรียก adjustPeriodQuota เอง เมื่อยืนยัน)
+      setCancelDialog({
+        tourId, tourName,
+        periodId: pid,
+        periodLabel: periodStart ?? "",
+        seatsToRelease: delta,
       });
     }
   };
@@ -2704,7 +2723,7 @@ ${catBlocks}
                                       ><Plus className="w-4 h-4" /></button>
                                       {hasPending && (
                                         <>
-                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota); }}
+                                          <button onClick={() => { const newQ = pendingQuota[pid]; if (newQ === undefined) return; handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota, p.price_per_seat); }}
                                             className="w-8 h-8 flex items-center justify-center rounded-lg text-green-400 border border-green-500/20 bg-card"
                                           ><Save className="w-4 h-4" /></button>
                                           <button onClick={() => setPendingQuota((prev) => { const n = {...prev}; delete n[pid]; return n; })}
@@ -3046,7 +3065,7 @@ ${catBlocks}
                                           onClick={() => {
                                             const newQ = pendingQuota[pid];
                                             if (newQ === undefined) return;
-                                            handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota);
+                                            handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota, p.price_per_seat);
                                           }}
                                         ><Save className="w-3.5 h-3.5" /></button>
                                         <button
@@ -3260,7 +3279,7 @@ ${catBlocks}
                                       onClick={() => {
                                         const newQ = pendingQuota[pid];
                                         if (newQ === undefined) return;
-                                        handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota);
+                                        handleSaveQuota(t.id, t.title, pid, p.start_date, newQ, p.quota, p.price_per_seat);
                                       }}
                                     ><Save className="w-3.5 h-3.5" /></button>
                                   ) : <div className="w-7" />}
@@ -4429,6 +4448,21 @@ ${catBlocks}
           periodId={bookingDialog.periodId}
           periodLabel={bookingDialog.periodLabel}
           seats={bookingDialog.seats}
+          pricePerSeat={bookingDialog.pricePerSeat}
+          actorName={actorName}
+        />
+      )}
+
+      {/* ── Cancel Booking Dialog ── */}
+      {cancelDialog && (
+        <CancelBookingDialog
+          open={!!cancelDialog}
+          onClose={() => setCancelDialog(null)}
+          tourId={cancelDialog.tourId}
+          tourName={cancelDialog.tourName}
+          periodId={cancelDialog.periodId}
+          periodLabel={cancelDialog.periodLabel}
+          seatsToRelease={cancelDialog.seatsToRelease}
           actorName={actorName}
         />
       )}

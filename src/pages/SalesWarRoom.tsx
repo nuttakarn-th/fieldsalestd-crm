@@ -3,37 +3,44 @@
  * Real-time Sales Board — fullscreen presentation for event days.
  *
  * Route: /war-room  (standalone, no sidebar)
- * Data : activity_log (seat_booked / seat_released events) + serviceStore (price fallback)
- * Live : Supabase Realtime subscription on activity_log INSERT
+ * Data : bookings table (Booking Ledger) — revenue accounted by booked_at date
+ *         Cancellations deduct from original booking date (not cancel date)
+ * Live : Supabase Realtime subscription on bookings INSERT/UPDATE
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useServices } from "@/store/serviceStore";
-import { useCRM } from "@/store/crmStore";
 import { supabase } from "@/lib/supabase";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Filter = "today" | "week" | "month" | "custom";
 
-interface BookingEvent {
-  entity_id: string;
-  entity_name: string;
-  event_type: string;
-  meta: { delta?: number; period_id?: string; price_per_seat?: number } | null;
-  created_at: string;
+interface BookingRow {
+  id: string;
+  tour_id: string;
+  period_id: string;
+  customer_name?: string | null;
+  seats: number;
+  price_per_seat: number;
+  booked_by?: string | null;
+  booked_at: string;
+  status: "active" | "cancelled";
+  cancelled_at?: string | null;
 }
 
 interface EnrichedEvent {
+  id: string;
   tourId: string;
   tourName: string;
   periodId: string;
   periodLabel: string;
-  eventType: string;
+  customerName: string;
   seats: number;
   price: number;
-  revenue: number;
-  createdAt: string;
+  revenue: number;   // negative if cancelled
+  bookedAt: string;  // always booked_at — for date grouping
+  status: "active" | "cancelled";
 }
 
 interface LeaderRow {
@@ -106,9 +113,7 @@ function fmtRevenue(v: number): string {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function SalesWarRoom() {
-  const tours     = useServices(s => s.tours);
-  const leads     = useCRM(s => s.leads);
-  const customers = useCRM(s => s.customers);
+  const tours = useServices(s => s.tours);
   const [filter, setFilter]         = useState<Filter>("today");
   const [customFrom, setCustomFrom] = useState<string>(todayIso());
   const [customTo,   setCustomTo]   = useState<string>(todayIso());
@@ -131,34 +136,34 @@ export default function SalesWarRoom() {
     return () => clearInterval(iv);
   }, []);
 
-  // ── Enrich raw event with price ───────────────────────────────────────────
-  // Priority: meta.price_per_seat (stored at booking time) → special_price → price_per_seat
-  const enrich = useCallback((ev: BookingEvent): EnrichedEvent => {
-    const tour   = tours.find(t => t.id === ev.entity_id);
-    const period = tour?.periods?.find(p => p.period_id === ev.meta?.period_id);
-    const price  = ev.meta?.price_per_seat
-      ?? period?.special_price
-      ?? period?.price_per_seat
-      ?? tour?.price_per_seat
-      ?? 0;
-    const rawDelta = Number(ev.meta?.delta) || 0;
-    const seats    = Math.abs(rawDelta);
-    // seat_released → revenue ติดลบ (หัก)
-    const sign = ev.event_type === "seat_released" ? -1 : 1;
-    // Period label: try start_date → travel_date → periodId
+  // ── Enrich booking row ───────────────────────────────────────────────────
+  // Revenue is booked at booked_at date; cancelled bookings carry negative revenue
+  // so that cancellations always net against the original booking date.
+  const enrich = useCallback((row: BookingRow): EnrichedEvent => {
+    const tour   = tours.find(t => t.id === row.tour_id);
+    const period = tour?.periods?.find(p => p.period_id === row.period_id);
+    // Price: stored in bookings table (priority) → fall back to current period data
+    const price = row.price_per_seat
+      || period?.special_price
+      || period?.price_per_seat
+      || tour?.price_per_seat
+      || 0;
+    const sign = row.status === "cancelled" ? -1 : 1;
     const periodLabel = period?.start_date
       ? new Date(period.start_date).toLocaleDateString("th-TH", { day:"numeric", month:"short", year:"2-digit" })
-      : (period?.travel_date ?? ev.meta?.period_id ?? "");
+      : (period?.travel_date ?? row.period_id ?? "");
     return {
-      tourId:      ev.entity_id,
-      tourName:    ev.entity_name ?? "ไม่ระบุโปรแกรม",
-      periodId:    ev.meta?.period_id ?? "",
+      id:          row.id,
+      tourId:      row.tour_id,
+      tourName:    tour?.title ?? "ไม่ระบุโปรแกรม",
+      periodId:    row.period_id,
       periodLabel,
-      eventType:   ev.event_type,
-      seats:       seats * sign,
+      customerName: row.customer_name ?? "ไม่ระบุชื่อ",
+      seats:       row.seats * sign,
       price,
-      revenue:     price * seats * sign,
-      createdAt:   ev.created_at,
+      revenue:     price * row.seats * sign,
+      bookedAt:    row.booked_at,
+      status:      row.status,
     };
   }, [tours]);
 
@@ -179,17 +184,17 @@ export default function SalesWarRoom() {
     if (!supabase) return;
     setLoading(true);
     const { startIso, endIso } = getQueryRange();
+    // Query bookings by booked_at (the accounting date)
     let q = supabase
-      .from("activity_log")
-      .select("entity_id, entity_name, event_type, meta, created_at")
-      .in("event_type", ["seat_booked", "seat_released"])
-      .gte("created_at", startIso)
-      .order("created_at", { ascending: false });
-    if (endIso) q = q.lte("created_at", endIso);
+      .from("bookings")
+      .select("id, tour_id, period_id, customer_name, seats, price_per_seat, booked_by, booked_at, status, cancelled_at")
+      .gte("booked_at", startIso)
+      .order("booked_at", { ascending: false });
+    if (endIso) q = q.lte("booked_at", endIso);
 
     const { data, error } = await q;
     if (!error && data) {
-      setEvents((data as BookingEvent[]).map(enrich));
+      setEvents((data as BookingRow[]).map(enrich));
     }
     setLoading(false);
   }, [getQueryRange, enrich]);
@@ -201,18 +206,29 @@ export default function SalesWarRoom() {
     if (!supabase) return;
     const { startIso, endIso } = getQueryRange();
     const channel = supabase
-      .channel("war-room-realtime")
+      .channel("war-room-bookings-realtime")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "activity_log" },
+        { event: "INSERT", schema: "public", table: "bookings" },
         (payload) => {
-          const row = payload.new as BookingEvent;
-          if (!["seat_booked", "seat_released"].includes(row.event_type)) return;
-          const rowDate = new Date(row.created_at);
+          const row = payload.new as BookingRow;
+          const rowDate = new Date(row.booked_at);
           if (rowDate < new Date(startIso)) return;
           if (endIso && rowDate > new Date(endIso)) return;
           const enriched = enrich(row);
-          setEvents(prev => [enriched, ...prev]);
+          setEvents(prev => [enriched, ...prev.filter(e => e.id !== enriched.id)]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "bookings" },
+        (payload) => {
+          const row = payload.new as BookingRow;
+          // Update the event in place (e.g., status active → cancelled)
+          const enriched = enrich(row);
+          setEvents(prev =>
+            prev.map(e => e.id === enriched.id ? enriched : e)
+          );
         }
       )
       .subscribe();
@@ -257,10 +273,10 @@ export default function SalesWarRoom() {
   const toThaiHour = (iso: string): number =>
     new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).getUTCHours();
 
-  // รวม seat_released (revenue ลบ) ด้วย → net ตรงกับ hero number
+  // กลุ่มตาม booked_at (accounting date) → net ตรงกับ hero number
   const byDate: Record<string, Record<string, number>> = {};
   events.forEach(e => {
-    const dk = toThaiDate(e.createdAt);
+    const dk = toThaiDate(e.bookedAt);
     if (!byDate[dk]) byDate[dk] = {};
     byDate[dk][e.tourId] = (byDate[dk][e.tourId] ?? 0) + e.revenue;
   });
@@ -268,7 +284,7 @@ export default function SalesWarRoom() {
 
   const byHour: Record<number, Record<string, number>> = {};
   events.forEach(e => {
-    const h = toThaiHour(e.createdAt);
+    const h = toThaiHour(e.bookedAt);
     if (!byHour[h]) byHour[h] = {};
     byHour[h][e.tourId] = (byHour[h][e.tourId] ?? 0) + e.revenue;
   });
@@ -709,7 +725,7 @@ export default function SalesWarRoom() {
                 <span style={{color:"#8888cc"}}>{ev.tourName}</span>
                 <span style={{color:"#F5C842"}}>+{Math.abs(ev.seats)} ที่นั่ง</span>
                 <span style={{color:"#3a3a5a"}}>·</span>
-                <span>{timeAgo(ev.createdAt)}</span>
+                <span>{timeAgo(ev.bookedAt)}</span>
               </span>
             ))}
           </div>
@@ -778,18 +794,23 @@ export default function SalesWarRoom() {
                 <div style={{textAlign:"center",color:"#333",fontSize:13,padding:"40px 0"}}>ไม่มีรายการ</div>
               ) : (
                 (() => {
-                  // Group by tourId+periodId → net seats/revenue, latest timestamp
+                  // Group by tourId+periodId → net seats/revenue, latest timestamp, customer names
                   const groups: Record<string, {
                     tourId: string; periodId: string;
                     tourName: string; periodLabel: string;
                     netSeats: number; netRevenue: number; latestAt: string;
+                    custNames: string[];
                   }> = {};
                   events.forEach(e => {
                     const key = `${e.tourId}::${e.periodId}`;
-                    if (!groups[key]) groups[key] = { tourId: e.tourId, periodId: e.periodId, tourName: e.tourName, periodLabel: e.periodLabel, netSeats: 0, netRevenue: 0, latestAt: e.createdAt };
+                    if (!groups[key]) groups[key] = { tourId: e.tourId, periodId: e.periodId, tourName: e.tourName, periodLabel: e.periodLabel, netSeats: 0, netRevenue: 0, latestAt: e.bookedAt, custNames: [] };
                     groups[key].netSeats   += e.seats;
                     groups[key].netRevenue += e.revenue;
-                    if (e.createdAt > groups[key].latestAt) groups[key].latestAt = e.createdAt;
+                    if (e.bookedAt > groups[key].latestAt) groups[key].latestAt = e.bookedAt;
+                    // ใช้ชื่อลูกค้าจาก booking record โดยตรง
+                    if (e.status === "active" && e.customerName && e.customerName !== "ไม่ระบุชื่อ") {
+                      if (!groups[key].custNames.includes(e.customerName)) groups[key].custNames.push(e.customerName);
+                    }
                   });
                   return Object.values(groups)
                     .filter(g => g.netSeats > 0)
@@ -798,22 +819,7 @@ export default function SalesWarRoom() {
                       const dt      = new Date(g.latestAt);
                       const dateStr = dt.toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit"});
                       const timeStr = dt.toLocaleTimeString("th-TH", {hour:"2-digit",minute:"2-digit"});
-                      // หาชื่อลูกค้าจาก leads ที่ match tour+period ในช่วงวันที่เดียวกัน
-                      const { startIso, endIso } = getQueryRange();
-                      const matchedLeads = leads.filter(l => {
-                        if (l.tour_id !== g.tourId) return false;
-                        if (l.period_id !== g.periodId) return false;
-                        if (l.status !== "จองแล้ว") return false;
-                        const leadDate = l.created_at ? new Date(l.created_at) : null;
-                        if (!leadDate) return false;
-                        if (leadDate < new Date(startIso)) return false;
-                        if (endIso && leadDate > new Date(endIso)) return false;
-                        return true;
-                      });
-                      const custNames = matchedLeads.map(l => {
-                        const c = customers.find(c => c.customer_id === l.customer_id);
-                        return c?.full_name ?? l.customer_id;
-                      }).filter(Boolean);
+                      const custNames = g.custNames;
                       return (
                         <div key={i} style={{
                           display:"flex",alignItems:"flex-start",gap:14,
