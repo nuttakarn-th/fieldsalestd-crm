@@ -131,8 +131,8 @@ interface ServiceState {
   // ── Period CRUD ──
   /** เพิ่ม period ใหม่ให้โปรแกรม */
   addPeriod: (tourId: string, p: Omit<TourPeriod, "period_id">) => void;
-  /** แก้ไข period ที่มีอยู่ */
-  updatePeriod: (tourId: string, periodId: string, p: Partial<Omit<TourPeriod, "period_id">>) => void;
+  /** แก้ไข period ที่มีอยู่ — คืน Promise (throw ถ้า cancel/restore fail ใน Supabase) */
+  updatePeriod: (tourId: string, periodId: string, p: Partial<Omit<TourPeriod, "period_id">>) => Promise<void>;
   /** ลบ period */
   deletePeriod: (tourId: string, periodId: string) => void;
   /** ลบ periods ทั้งหมดของโปรแกรม (ใช้ก่อน re-import เพื่อ replace) */
@@ -186,6 +186,13 @@ function sbUpdate(table: string, id: string, patch: object) {
   supabase.from(table).update(patch).eq("id", id).then(({ error }) => {
     if (error) console.error(`[supabase] update ${table} ล้มเหลว:`, error);
   });
+}
+/** Awaitable version — คืน error object (null = สำเร็จ) */
+async function sbUpdateAsync(table: string, id: string, patch: object): Promise<{ error: unknown }> {
+  if (!SUPABASE_ENABLED || !supabase) return { error: null };
+  const { error } = await supabase.from(table).update(patch).eq("id", id);
+  if (error) console.error(`[supabase] update ${table} ล้มเหลว:`, error);
+  return { error: error ?? null };
 }
 function sbDelete(table: string, id: string) {
   if (!SUPABASE_ENABLED || !supabase) return;
@@ -352,8 +359,9 @@ export const useServices = create<ServiceState>()(
         }
       },
 
-      updatePeriod: (tourId, periodId, p) => {
-        const newTours = get().tours.map((t) => {
+      updatePeriod: async (tourId, periodId, p) => {
+        const preTours = get().tours; // snapshot สำหรับ rollback
+        const newTours = preTours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = (t.periods ?? []).map((x) =>
             x.period_id === periodId ? { ...x, ...p } : x
@@ -362,9 +370,26 @@ export const useServices = create<ServiceState>()(
           const quota = periods.reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, total_seats: totalSeats, quota };
         });
-        set({ tours: newTours });
+        set({ tours: newTours }); // optimistic update
         const updated = newTours.find((t) => t.id === tourId);
-        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+
+        // สำหรับ cancel / restore — await และ revert ถ้าล้มเหลว
+        const patchCancelledVal = (p as { cancelled?: boolean }).cancelled;
+        const isCancelToggle = typeof patchCancelledVal === "boolean";
+        if (isCancelToggle && updated) {
+          const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+          if (error) {
+            set({ tours: preTours }); // rollback
+            throw new Error(
+              typeof error === "object" && error !== null && "message" in error
+                ? String((error as { message: string }).message)
+                : "บันทึกไม่สำเร็จ กรุณาลองใหม่"
+            );
+          }
+        } else {
+          if (updated) sbUpdate("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
+        }
+
         // Phase 2: log event
         const updatedTour = get().tours.find((t) => t.id === tourId);
         const updatedPeriod = updatedTour?.periods?.find((x) => x.period_id === periodId);

@@ -879,7 +879,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     return `${label}${dur}`;
   };
 
-  const submitPeriod = () => {
+  const submitPeriod = async () => {
     if (!pForm.start_date) { toast.error("ระบุวันที่เดินทาง"); return; }
     if (!pForm.price_per_seat || !pForm.total_seats) { toast.error("ระบุราคาและจำนวนที่นั่ง"); return; }
     const seats = Number(pForm.total_seats || 0);
@@ -919,13 +919,20 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       created_at: pEditId ? (existingPeriod?.created_at ?? now) : now,
     };
     if (pEditId) {
-      updatePeriod(pTourId, pEditId, payload);
-      toast.success("อัปเดต period แล้ว");
+      try {
+        await updatePeriod(pTourId, pEditId, payload);
+        toast.success("อัปเดต period แล้ว");
+        setPOpen(false);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "บันทึกไม่สำเร็จ กรุณาลองใหม่";
+        toast.error(`❌ ${msg}`);
+        // ไม่ปิด dialog — ให้ผู้ใช้ลองใหม่
+      }
     } else {
       addPeriod(pTourId, payload);
       toast.success("เพิ่ม period ใหม่แล้ว");
+      setPOpen(false);
     }
-    setPOpen(false);
   };
 
   // ── Wizard: บันทึก Period แล้วปิด main dialog ──
