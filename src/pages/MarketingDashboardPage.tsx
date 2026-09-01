@@ -310,16 +310,26 @@ export default function MarketingDashboardPage() {
   const obStats    = useMemo(() => computeTeamStats(obLeads, allTargets,    obSet,     month, "OB Team"), [obLeads,    allTargets, obSet,     month]);
   const salesStats = useMemo(() => computeTeamStats(salesLeads, allTargets, salesReps, month), [salesLeads, allTargets, salesReps, month]);
 
+  // ── แบ่งยอด OB/Sales โดยใช้สัดส่วนจาก leads (assigned_to รู้แน่นอน)
+  // แทนการ match actor จาก activity_log ซึ่งอาจ mismatch ได้
+  const actTotal = actRev.ob + actRev.sales;
+  const leadTotal = obStats.wonRevenue + salesStats.wonRevenue;
+  const obRatio   = leadTotal > 0
+    ? obStats.wonRevenue / leadTotal
+    : obNames.length > 0 ? 1 : 0.5; // fallback: ถ้า OB มีสมาชิก ให้ OB รับทั้งหมด
+  const displayObRev    = Math.round(actTotal * obRatio);
+  const displaySalesRev = actTotal - displayObRev;
+
   // Combined KPI — revenue จาก activity_log (ตรงกับ War Room)
   const combined = useMemo(() => ({
-    revenue:  actRev.ob + actRev.sales,
+    revenue:  actTotal,
     pax:      obStats.wonPax      + salesStats.wonPax,
     leads:    obStats.totalLeads  + salesStats.totalLeads,
     winRate:  (obStats.wonCount + salesStats.wonCount + obStats.lostCount + salesStats.lostCount) > 0
       ? Math.round((obStats.wonCount + salesStats.wonCount) / (obStats.wonCount + salesStats.wonCount + obStats.lostCount + salesStats.lostCount) * 100)
       : 0,
     target: obStats.target + salesStats.target,
-  }), [obStats, salesStats, actRev]);
+  }), [obStats, salesStats, actTotal]);
 
   // ── Marketing Insights ───────────────────────────────────────────────────────
 
@@ -555,8 +565,8 @@ export default function MarketingDashboardPage() {
             </div>
           )}
 
-          <TeamBlock title="ทีม Outbound (OB)" badge="OB Team" members={obNames.length} stats={obStats} color="purple" revenueOverride={actRev.ob} />
-          <TeamBlock title="ทีม Sales" badge="Sales Team" members={salesReps.size} stats={salesStats} color="blue" revenueOverride={actRev.sales} />
+          <TeamBlock title="ทีม Outbound (OB)" badge="OB Team" members={obNames.length} stats={obStats} color="purple" revenueOverride={displayObRev} />
+          <TeamBlock title="ทีม Sales" badge="Sales Team" members={salesReps.size} stats={salesStats} color="blue" revenueOverride={displaySalesRev} />
         </div>
       )}
 
