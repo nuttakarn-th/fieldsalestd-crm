@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCRM, isClosedStatus, isLostStatus, type Customer, type Lead } from "@/store/crmStore";
+import { useServices } from "@/store/serviceStore";
 import { useActiveOBNames } from "@/store/authStore";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -161,6 +162,8 @@ interface DetailPanelProps {
 }
 
 function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
+  const tours = useServices((s) => s.tours);
+
   if (!customer) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground p-8">
@@ -257,6 +260,11 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
               {leads.map((l) => {
                 const lm = statusMeta(l.status);
                 const lv = l.closed_price || l.quoted_price;
+                // ── Lookup period travel_date จาก serviceStore ──────────────
+                const period = l.tour_id && l.period_id
+                  ? tours.find((t) => t.id === l.tour_id)?.periods?.find((p) => p.period_id === l.period_id)
+                  : null;
+                const travelDate = period?.travel_date || l.travel_month;
                 return (
                   <div key={l.lead_id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
                     {/* Status bar */}
@@ -269,7 +277,14 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
-                        {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
+                        {travelDate && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span className={period?.travel_date ? "text-violet-600 dark:text-violet-400 font-medium" : ""}>
+                              {travelDate}
+                            </span>
+                          </span>
+                        )}
                         {l.assigned_to && <span className="flex items-center gap-1"><User className="w-3 h-3" />{l.assigned_to}</span>}
                       </div>
                     </div>
