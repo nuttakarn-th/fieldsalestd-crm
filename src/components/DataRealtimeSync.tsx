@@ -1,18 +1,25 @@
 /**
  * DataRealtimeSync.tsx
- * Subscribe to Supabase Realtime channels for customers, leads, team_notifications,
- * and customer_delete_requests.
+ * Subscribe to Supabase Realtime channels for:
+ *   - customers, leads, team_notifications, customer_delete_requests
+ *   - route_plans, route_stops
+ *   - tours (global — ไม่ต้องรอเปิดหน้า AllService)
+ *   - bookings (update quota ทันที)
  * Keeps all open tabs/browsers in sync without a manual refresh.
+ *
+ * Tab Visibility: refetch tours + customers เมื่อ user switch กลับมาที่ tab นี้
  *
  * v98 performance: throttle UPDATE events 500ms
  * — batch หลาย UPDATE เป็น setState เดียว ลด re-render เมื่อ Mission ทำงานเร็ว
  * — INSERT / DELETE ยังคง immediate (ผู้ใช้ต้องเห็นทันที)
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCRM, type Customer, type Lead, type RouteStop, type StopStatus, type RoutePlan } from "@/store/crmStore";
 import { useDeleteRequests, type DeleteRequest } from "@/store/deleteRequestStore";
 import { useAuth } from "@/store/authStore";
+import { useServices } from "@/store/serviceStore";
+import { useBookingLedger } from "@/store/bookingLedgerStore";
 import { toast } from "sonner";
 
 export function DataRealtimeSync() {
@@ -27,6 +34,49 @@ export function DataRealtimeSync() {
     const u = s.users.find((u) => u.user_id === s.currentUserId);
     return u?.full_name ?? null;
   });
+  const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
+  const loadBookings           = useBookingLedger((s) => s.loadBookings);
+  const loadCustomers          = useCRM((s) => s.loadCustomersFromSupabase);
+  const loadAll                = useCRM((s) => s.loadAllFromSupabase);
+  const loadServices           = useServices((s) => s.loadFromSupabase);
+
+  // ── Tab Visibility: refetch เมื่อ user switch กลับมา ────────────────────
+  const lastVisibleRef = useRef<number>(Date.now());
+  useEffect(() => {
+    const STALE_MS = 2 * 60 * 1000; // reload ถ้า tab ห่างไป > 2 นาที
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      const staleness = Date.now() - lastVisibleRef.current;
+      if (staleness > STALE_MS) {
+        // ข้อมูลอาจเก่า — reload แบบ silent (ไม่แสดง loading)
+        loadServices().catch(() => {});
+        loadAll().catch(() => {});
+        loadBookings().catch(() => {});
+      }
+      lastVisibleRef.current = Date.now();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [loadServices, loadAll, loadBookings]);
+
+  // ── Tours Realtime (global — ครอบคลุมทุกหน้า ไม่ใช่แค่ AllService) ─────
+  useEffect(() => {
+    const unsub = subscribeToursRealtime();
+    return unsub;
+  }, [subscribeToursRealtime]);
+
+  // ── Bookings Realtime ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    const bookingsChannel = supabase
+      .channel("bookings_realtime_global")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => {
+        // reload bookings เพื่อให้ quota badge ใน AllService อัปเดต
+        loadBookings().catch(() => {});
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(bookingsChannel); };
+  }, [loadBookings]);
 
   useEffect(() => {
     if (!SUPABASE_ENABLED || !supabase) return;

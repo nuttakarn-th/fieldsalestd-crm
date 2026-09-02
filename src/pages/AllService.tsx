@@ -435,10 +435,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const adjustPeriodQuota      = useServices((s) => s.adjustPeriodQuota);
   const archiveTour            = useServices((s) => s.archiveTour);
   const restoreTour            = useServices((s) => s.restoreTour);
-  const archivePeriod          = useServices((s) => s.archivePeriod);
-  const restorePeriod          = useServices((s) => s.restorePeriod);
-  const subscribeToursRealtime = useServices((s) => s.subscribeToursRealtime);
-  const currentUser            = useCurrentUser();
+  const archivePeriod           = useServices((s) => s.archivePeriod);
+  const restorePeriod           = useServices((s) => s.restorePeriod);
+  const externallyUpdatedAt     = useServices((s) => s.externallyUpdatedAt);
+  const clearExternalUpdate     = useServices((s) => s.clearExternalUpdate);
+  const currentUser             = useCurrentUser();
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
   const role                   = currentUser?.role ?? "";
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -457,11 +458,18 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setDeleteTarget(null);
   }
 
-  // ── Subscribe Supabase Realtime เมื่อ component mount ──
+  // ── Conflict detection: แจ้งเตือนเมื่อมีคนอื่น update ขณะเราเปิด dialog ──
   useEffect(() => {
-    const unsub = subscribeToursRealtime();
-    return unsub;
-  }, [subscribeToursRealtime]);
+    if (!externallyUpdatedAt) return;
+    // dialog Period เปิดอยู่ → แสดง warning toast
+    if (pOpen) {
+      toast.warning("⚠️ มีการอัปเดตข้อมูลโปรแกรม", {
+        description: "ผู้ใช้คนอื่นแก้ไขข้อมูลนี้ขณะคุณกำลังแก้ไขอยู่ — กรุณาตรวจสอบก่อนบันทึก",
+        duration: 6000,
+      });
+    }
+    clearExternalUpdate();
+  }, [externallyUpdatedAt, pOpen, clearExternalUpdate]);
 
   // ── Backfill OG covers สำหรับ serviceStore tours (ครั้งแรกที่เปิดหน้านี้) ──
   useEffect(() => {

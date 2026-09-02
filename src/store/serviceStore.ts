@@ -117,6 +117,8 @@ interface ServiceState {
   visas: VisaItem[];
   insurances: InsuranceItem[];
   isLoadingTours: boolean;
+  /** ISO timestamp เมื่อมี Realtime update มาจาก user อื่น — ใช้ detect conflict ใน dialog */
+  externallyUpdatedAt: string | null;
 
   addTour: (t: Omit<TourItem, "id">) => string;
   updateTour: (id: string, p: Partial<TourItem>) => void;
@@ -171,6 +173,8 @@ interface ServiceState {
   loadFromSupabase: () => Promise<void>;
   /** Subscribe Supabase Realtime สำหรับ tours table — คืน unsubscribe fn */
   subscribeToursRealtime: () => () => void;
+  /** เคลียร์ externallyUpdatedAt หลังจาก conflict toast แสดงแล้ว */
+  clearExternalUpdate: () => void;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -230,6 +234,7 @@ export const useServices = create<ServiceState>()(
       visas: [],
       insurances: [],
       isLoadingTours: false,
+      externallyUpdatedAt: null,
 
       // ── Tour ──
       addTour: (t) => {
@@ -752,8 +757,10 @@ export const useServices = create<ServiceState>()(
           .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => {
             // debounce 600ms เพื่อไม่ให้ reload ซ้ำเร็วเกินไปเมื่อมีหลาย event
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-              get().loadFromSupabase();
+            debounceTimer = setTimeout(async () => {
+              await get().loadFromSupabase();
+              // แจ้ง component ที่กำลัง edit dialog ว่ามี external update
+              set({ externallyUpdatedAt: new Date().toISOString() });
             }, 600);
           })
           .subscribe((status) => {
@@ -764,6 +771,7 @@ export const useServices = create<ServiceState>()(
           supabase.removeChannel(channel);
         };
       },
+      clearExternalUpdate: () => set({ externallyUpdatedAt: null }),
     }),
     { name: "stdtour-services-v4" },
   ),
