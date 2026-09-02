@@ -445,6 +445,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
+  // ── period dialog — moved up so conflict-detection useEffect can reference pOpen ──
+  const [pOpen, setPOpen]         = useState(false);
+  const [pTourId, setPTourId]     = useState<string>("");
+  const [pEditId, setPEditId]     = useState<string | null>(null);
+  const [pForm, setPForm]         = useState(blankPeriodForm());
+
   function handleDeleteConfirm(target: DeleteTarget) {
     if (target.type === "tour") {
       deleteTour(target.tourId);
@@ -527,11 +533,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const [dialogStep, setDialogStep] = useState<"tour" | "period">("tour");
   const [wizardTourId, setWizardTourId] = useState<string>("");
 
-  // ── period dialog ──
-  const [pOpen, setPOpen]         = useState(false);
-  const [pTourId, setPTourId]     = useState<string>("");
-  const [pEditId, setPEditId]     = useState<string | null>(null); // period_id
-  const [pForm, setPForm]         = useState(blankPeriodForm());
+  // ── period dialog — state declarations moved up (before conflict-detection useEffect) ──
 
   // ── expanded programs ──
   const [expanded, setExpanded]   = useState<Set<string>>(new Set());
