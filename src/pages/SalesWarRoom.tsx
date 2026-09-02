@@ -703,13 +703,13 @@ export default function SalesWarRoom() {
                           />
                         );
                       }
-                      // label แสดงยอดรวมทุกโปรแกรม (ตรงกับ hero number)
-                      const totalV = Object.values(g.byTour).reduce((s, v) => s + Math.max(0, v), 0);
+                      // label แสดงยอดสุทธิตรงกับ hero number (รวม negative จาก net-cancel tour)
+                      const totalV = Object.values(g.byTour).reduce((s, v) => s + v, 0);
                       return (
                         <g key={gi}>
                           {rects}
-                          {totalV > 0 && (
-                            <text x={cx} y={yOff - 4} textAnchor="middle" fontSize={9} fill="#666">
+                          {totalV !== 0 && (
+                            <text x={cx} y={yOff - 4} textAnchor="middle" fontSize={9} fill="#9090c0">
                               {fmtRevenue(totalV)}
                             </text>
                           )}
