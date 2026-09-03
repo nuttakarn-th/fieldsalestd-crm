@@ -126,9 +126,24 @@ function SupabaseSync() {
   return null;
 }
 
+// Remove ?_r=1 marker added by og-page API redirect (cleanup after SPA boots)
+function OGRedirectCleanup() {
+  useEffect(() => {
+    if (window.location.search.includes("_r=")) {
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + window.location.hash,
+      );
+    }
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <OGRedirectCleanup />
       <SupabaseSync />
       <ChatRealtimeSync />
       <DataRealtimeSync />

@@ -14,6 +14,13 @@
     { "source": "/8:rest", "destination": "/api/s?c=8:rest" },
     { "source": "/9:rest", "destination": "/api/s?c=9:rest" },
     { "source": "/s/:code", "destination": "/api/s?c=:code" },
+
+    { "source": "/catalog",           "missing": [{ "type": "query", "key": "_r" }], "destination": "/api/og-page?path=catalog" },
+    { "source": "/war-room",          "missing": [{ "type": "query", "key": "_r" }], "destination": "/api/og-page?path=war-room" },
+    { "source": "/tour-packages",     "missing": [{ "type": "query", "key": "_r" }], "destination": "/api/og-page?path=tour-packages" },
+    { "source": "/tour-presentation", "missing": [{ "type": "query", "key": "_r" }], "destination": "/api/og-page?path=tour-presentation" },
+    { "source": "/present/:id",       "missing": [{ "type": "query", "key": "_r" }], "destination": "/api/og-page?path=present&id=:id" },
+
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }
