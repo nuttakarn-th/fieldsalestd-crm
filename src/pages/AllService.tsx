@@ -1952,6 +1952,19 @@ ${catBlocks}
           <p className="hidden sm:block text-xs text-muted-foreground mt-0.5">🎯 โควต้าตัดอัตโนมัติเมื่อปิดดีล Closed Won · คืนอัตโนมัติเมื่อยกเลิก</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            title="แชร์หน้าแคตตาล็อกสาธารณะ (ไม่ต้อง login)"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.origin + "/catalog");
+              toast.success("คัดลอกลิงค์แล้ว — ส่งให้ทีมอื่นได้เลย");
+            }}
+          >
+            <Share2 className="w-4 h-4 text-blue-500" />
+            <span className="hidden sm:inline">แชร์หน้าโปรแกรม</span>
+          </Button>
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} canImport={canEdit} />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEventStatsOpen(true)} title="ดูสถิติ View ตาม Event/Channel">
             <BarChart2 className="w-4 h-4 text-primary" />
