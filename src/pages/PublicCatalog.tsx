@@ -309,7 +309,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
       }}
     >
       {/* Destination hero header */}
-      <div className="relative h-16 flex items-end pb-2.5 px-4 overflow-hidden"
+      <div className="relative h-20 flex items-end pb-3 px-4 overflow-hidden"
            style={{ background: isFull ? "linear-gradient(135deg,#9ca3af,#6b7280)" : cat.grad }}>
         {/* subtle highlight overlay */}
         <div className="absolute inset-0 opacity-10" style={{
