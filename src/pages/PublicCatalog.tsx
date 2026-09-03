@@ -530,7 +530,7 @@ export default function PublicCatalog() {
   const hasAdvanced = stFilter !== "all" || sortBy !== "date";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
