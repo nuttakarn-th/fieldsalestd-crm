@@ -1,30 +1,25 @@
 /**
- * PublicCatalog.tsx — v2 (Flat Table)
- * แต่ละแถว = 1 Period
- * Filter: search · category · status · เดือนเดินทาง · ที่นั่งว่าง ≥ X
- * ไม่ต้อง Login · Read-only · Realtime
+ * PublicCatalog.tsx — v3 (Accordion + INT/DOM sections)
+ * แสดงชื่อโปรแกรม → กดขยายดู Period ทั้งหมด
+ * แยก INT / DOM / INC section | Filter + Sort | ไม่ต้อง Login
  */
 import { useEffect, useState, useMemo, useRef } from "react";
-import { Search, RefreshCw, Share2, FileText } from "lucide-react";
+import {
+  Search, RefreshCw, Share2, FileText,
+  ChevronDown, ChevronRight, Globe, MapPin,
+} from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import type { TourItem } from "@/store/serviceStore";
 
-// ── Category colors ───────────────────────────────────────────────────────────
-const CAT = {
-  "International Tour": { label: "INT", bg: "#dcfce7", text: "#15803d", strip: "#22c55e" },
-  "Domestic":           { label: "DOM", bg: "#fff7ed", text: "#c2410c", strip: "#f97316" },
-  "Incentive":          { label: "INC", bg: "#f3e8ff", text: "#7c3aed", strip: "#a855f7" },
-} as const;
+// ── Category config ───────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { key: "International Tour", label: "INT", short: "INT",   bg: "#dcfce7", text: "#15803d", strip: "#22c55e", headerBg: "#f0fdf4", icon: Globe  },
+  { key: "Domestic",           label: "DOM", short: "DOM",   bg: "#fff7ed", text: "#c2410c", strip: "#f97316", headerBg: "#fff7ed", icon: MapPin },
+  { key: "Incentive",          label: "INC", short: "INC",   bg: "#f3e8ff", text: "#7c3aed", strip: "#a855f7", headerBg: "#faf5ff", icon: Globe  },
+] as const;
 
 function getCat(cat: string) {
-  return CAT[cat as keyof typeof CAT] ?? CAT["Incentive"];
-}
-
-// ── Period status ─────────────────────────────────────────────────────────────
-function pStatus(quota: number, total: number): "full" | "low" | "ok" {
-  if (quota <= 0) return "full";
-  if (total > 0 && quota / total <= 0.2) return "low";
-  return "ok";
+  return CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[2];
 }
 
 // ── Thai date ─────────────────────────────────────────────────────────────────
@@ -36,62 +31,22 @@ function fmtDate(iso: string): string {
   if (isNaN(d.getTime())) return iso;
   return `${d.getDate()} ${TH_M[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
-
 function monthKey(iso: string): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-
 function monthLabel(key: string): string {
   const [y, m] = key.split("-");
   return `${TH_M[parseInt(m) - 1]} ${parseInt(y) + 543}`;
 }
 
-// ── Flat row type ─────────────────────────────────────────────────────────────
-interface FlatRow {
-  tourId: string;
-  code: string;
-  title: string;
-  city: string;
-  country: string;
-  category: string;
-  duration: string;
-  pdfUrl: string | null;
-  periodId: string;
-  startDate: string;
-  endDate: string;
-  travelDate: string;
-  quota: number;
-  totalSeats: number;
-}
-
-function flatten(tours: TourItem[]): FlatRow[] {
-  const rows: FlatRow[] = [];
-  for (const t of tours) {
-    for (const p of t.periods ?? []) {
-      if (p.cancelled) continue;
-      rows.push({
-        tourId:     t.id,
-        code:       t.code,
-        title:      t.title ?? t.city,
-        city:       t.city,
-        country:    t.country,
-        category:   t.category,
-        duration:   t.duration ?? "",
-        pdfUrl:     t.pdf_url ?? null,
-        periodId:   p.period_id,
-        startDate:  p.start_date ?? p.travel_date ?? "",
-        endDate:    p.end_date ?? "",
-        travelDate: p.travel_date ?? p.start_date ?? "",
-        quota:      p.quota ?? 0,
-        totalSeats: p.total_seats ?? t.total_seats ?? 0,
-      });
-    }
-  }
-  rows.sort((a, b) => (a.startDate > b.startDate ? 1 : -1));
-  return rows;
+// ── Period helpers ────────────────────────────────────────────────────────────
+function pStatus(quota: number, total: number): "full" | "low" | "ok" {
+  if (quota <= 0) return "full";
+  if (total > 0 && quota / total <= 0.2) return "low";
+  return "ok";
 }
 
 // ── Seat bar ──────────────────────────────────────────────────────────────────
@@ -101,24 +56,23 @@ function SeatBar({ quota, total }: { quota: number; total: number }) {
   const pct = Math.round(((total - quota) / total) * 100);
   const color = st === "full" ? "#ef4444" : st === "low" ? "#f97316" : "#22c55e";
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden flex-1" style={{ minWidth: 48 }}>
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden" style={{ width: 56 }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span className="text-xs tabular-nums text-gray-500 whitespace-nowrap shrink-0">{quota}/{total}</span>
+      <span className="text-xs tabular-nums text-gray-600 whitespace-nowrap">{quota}/{total}</span>
     </div>
   );
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ quota, total }: { quota: number; total: number }) {
   const st = pStatus(quota, total);
-  if (st === "full") return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600">เต็มแล้ว</span>;
-  if (st === "low")  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-600">ใกล้เต็ม</span>;
-  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700">ว่าง</span>;
+  if (st === "full") return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 whitespace-nowrap">เต็มแล้ว</span>;
+  if (st === "low")  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-600 whitespace-nowrap">ใกล้เต็ม</span>;
+  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>;
 }
 
-// ── Chip button ───────────────────────────────────────────────────────────────
+// ── Filter chip ───────────────────────────────────────────────────────────────
 function Chip({ active, onClick, children, activeBg = "#d1fae5", activeText = "#065f46" }: {
   active: boolean; onClick: () => void; children: React.ReactNode;
   activeBg?: string; activeText?: string;
@@ -128,47 +82,274 @@ function Chip({ active, onClick, children, activeBg = "#d1fae5", activeText = "#
       className="px-3 py-1 rounded-full text-xs font-semibold border transition-all whitespace-nowrap"
       style={active
         ? { background: activeBg, color: activeText, borderColor: "transparent" }
-        : { background: "transparent", color: "#6b7280", borderColor: "#e5e7eb" }}>
+        : { background: "white", color: "#6b7280", borderColor: "#e5e7eb" }}>
       {children}
     </button>
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Period sub-table (expanded) ───────────────────────────────────────────────
+interface PeriodRow {
+  period_id: string;
+  start_date: string;
+  end_date: string;
+  travel_date: string;
+  quota: number;
+  total_seats: number;
+  cancelled: boolean;
+}
+
+function PeriodSubTable({
+  tour, periods, monthFilter, stFilter,
+}: {
+  tour: TourItem; periods: PeriodRow[]; monthFilter: string; stFilter: string;
+}) {
+  const cat = getCat(tour.category);
+  const visible = periods.filter(p => {
+    if (p.cancelled) return false;
+    const sd = p.start_date ?? p.travel_date ?? "";
+    if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
+    if (stFilter !== "all" && pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) !== stFilter) return false;
+    return true;
+  });
+
+  if (visible.length === 0) return (
+    <div className="px-8 py-3 text-xs text-gray-400 border-t border-gray-100">ไม่มี Period ที่ตรงเงื่อนไข</div>
+  );
+
+  return (
+    <div className="border-t border-gray-100">
+      {/* Sub-header */}
+      <div className="grid text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-50 px-6 py-1.5"
+        style={{ gridTemplateColumns: "1fr 80px 160px 100px 52px" }}>
+        <span>วันเดินทาง</span>
+        <span>ระยะเวลา</span>
+        <span>ที่นั่งว่าง</span>
+        <span>สถานะ</span>
+        <span className="text-center">PDF</span>
+      </div>
+
+      {visible.map((p, i) => {
+        const total = p.total_seats ?? tour.total_seats ?? 0;
+        const sd = p.start_date ?? p.travel_date ?? "";
+        const ed = p.end_date ?? "";
+        return (
+          <div key={p.period_id}
+            className="grid items-center px-6 py-2 border-t border-gray-50 hover:bg-blue-50/30 transition-colors"
+            style={{ gridTemplateColumns: "1fr 80px 160px 100px 52px", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+
+            <div className="text-sm text-gray-800">
+              {sd && ed
+                ? <>{fmtDate(sd)}<span className="text-gray-400 mx-1">–</span>{fmtDate(ed)}</>
+                : fmtDate(sd)}
+            </div>
+
+            <div className="text-xs text-gray-500">{tour.duration ?? "-"}</div>
+
+            <SeatBar quota={p.quota} total={total} />
+
+            <StatusBadge quota={p.quota} total={total} />
+
+            <div className="flex justify-center">
+              {tour.pdf_url ? (
+                <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
+                  className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="ดู PDF">
+                  <FileText className="w-3.5 h-3.5" />
+                </a>
+              ) : (
+                <span className="p-1 text-gray-200"><FileText className="w-3.5 h-3.5" /></span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Left color strip accent */}
+      <style>{`.period-strip-${tour.id} { border-left: 3px solid ${cat.strip}; }`}</style>
+    </div>
+  );
+}
+
+// ── Program row ───────────────────────────────────────────────────────────────
+function ProgramRow({
+  tour, expanded, onToggle, monthFilter, stFilter,
+}: {
+  tour: TourItem; expanded: boolean; onToggle: () => void;
+  monthFilter: string; stFilter: string;
+}) {
+  const cat = getCat(tour.category);
+  const periods: PeriodRow[] = (tour.periods ?? []) as PeriodRow[];
+
+  // Compute visible period stats (respecting filters)
+  const visiblePeriods = periods.filter(p => {
+    if (p.cancelled) return false;
+    const sd = p.start_date ?? p.travel_date ?? "";
+    if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
+    if (stFilter !== "all") {
+      const total = p.total_seats ?? tour.total_seats ?? 0;
+      if (pStatus(p.quota, total) !== stFilter) return false;
+    }
+    return true;
+  });
+
+  const totalQuota = visiblePeriods.reduce((s, p) => s + (p.quota ?? 0), 0);
+  const availCount = visiblePeriods.filter(p => {
+    const t = p.total_seats ?? tour.total_seats ?? 0;
+    return pStatus(p.quota, t) !== "full";
+  }).length;
+
+  // Overall row status: if any low → low, if any ok → ok, else full
+  const hasOk  = visiblePeriods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "ok");
+  const hasLow = visiblePeriods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "low");
+  const rowSt: "ok" | "low" | "full" = hasOk ? "ok" : hasLow ? "low" : "full";
+
+  return (
+    <div className="border-b border-gray-100 last:border-0">
+      {/* Program header row */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group"
+      >
+        {/* Expand icon */}
+        <span className="text-gray-400 group-hover:text-gray-600 transition-colors shrink-0">
+          {expanded
+            ? <ChevronDown className="w-4 h-4" />
+            : <ChevronRight className="w-4 h-4" />}
+        </span>
+
+        {/* Color strip */}
+        <div className="w-0.5 h-8 rounded-full shrink-0" style={{ background: cat.strip }} />
+
+        {/* Program name + code */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{tour.title ?? tour.city}</p>
+          <p className="text-[11px] text-gray-400 leading-tight truncate">
+            {tour.code}
+            {tour.city ? ` · ${tour.city}` : ""}
+            {tour.country ? `, ${tour.country}` : ""}
+          </p>
+        </div>
+
+        {/* Duration */}
+        <span className="hidden sm:block text-xs text-gray-500 shrink-0 w-20 text-right">{tour.duration ?? "-"}</span>
+
+        {/* Period count */}
+        <span className="hidden md:flex items-center gap-1 text-xs text-gray-500 shrink-0 w-20 justify-end">
+          <span className="font-semibold text-gray-700">{visiblePeriods.length}</span> Period
+        </span>
+
+        {/* Available */}
+        <span className="text-xs shrink-0 w-24 text-right hidden sm:block"
+          style={{ color: rowSt === "ok" ? "#15803d" : rowSt === "low" ? "#c2410c" : "#dc2626" }}>
+          ว่าง {availCount} Period
+        </span>
+
+        {/* Status */}
+        <span className="shrink-0 hidden sm:block">
+          {rowSt === "ok"   && <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700">ว่าง</span>}
+          {rowSt === "low"  && <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-600">ใกล้เต็ม</span>}
+          {rowSt === "full" && <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600">เต็มแล้ว</span>}
+        </span>
+
+        {/* PDF icon */}
+        <span className="shrink-0">
+          {tour.pdf_url
+            ? <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors block" title="ดู PDF">
+                <FileText className="w-4 h-4" />
+              </a>
+            : <span className="p-1.5 block text-gray-200"><FileText className="w-4 h-4" /></span>}
+        </span>
+      </button>
+
+      {/* Expanded period table */}
+      {expanded && (
+        <PeriodSubTable
+          tour={tour}
+          periods={periods}
+          monthFilter={monthFilter}
+          stFilter={stFilter}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Category section ──────────────────────────────────────────────────────────
+function CategorySection({
+  catKey, tours, expandedIds, onToggle, monthFilter, stFilter,
+}: {
+  catKey: string;
+  tours: TourItem[];
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  monthFilter: string;
+  stFilter: string;
+}) {
+  const cfg = getCat(catKey);
+  const Icon = cfg.icon;
+  if (tours.length === 0) return null;
+  return (
+    <div className="mb-4">
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-4 py-2 rounded-t-xl border-b-2"
+        style={{ background: cfg.headerBg, borderColor: cfg.strip }}>
+        <Icon className="w-4 h-4" style={{ color: cfg.text }} />
+        <span className="font-bold text-sm" style={{ color: cfg.text }}>{cfg.label}</span>
+        <span className="text-xs font-medium" style={{ color: cfg.text }}>— {catKey}</span>
+        <span className="ml-auto text-xs font-semibold" style={{ color: cfg.text }}>{tours.length} โปรแกรม</span>
+      </div>
+
+      {/* Program rows */}
+      <div className="bg-white border border-t-0 rounded-b-xl overflow-hidden border-gray-200"
+        style={{ borderTop: `2px solid ${cfg.strip}` }}>
+        {tours.map(t => (
+          <ProgramRow
+            key={t.id}
+            tour={t}
+            expanded={expandedIds.has(t.id)}
+            onToggle={() => onToggle(t.id)}
+            monthFilter={monthFilter}
+            stFilter={stFilter}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function PublicCatalog() {
   const [tours, setTours]             = useState<TourItem[]>([]);
   const [loading, setLoading]         = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [copied, setCopied]           = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const [search, setSearch]           = useState("");
   const [catFilter, setCatFilter]     = useState("all");
   const [stFilter, setStFilter]       = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
-  const [seatMin, setSeatMin]         = useState(0);
+  const [sortBy, setSortBy]           = useState<"name" | "date" | "seats">("date");
 
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
   async function fetchTours() {
     if (!SUPABASE_ENABLED || !supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("tours")
       .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published")
       .order("code", { ascending: true });
-    if (data) {
-      setTours(data as TourItem[]);
-      setLastUpdated(new Date());
-    }
+    if (data) { setTours(data as TourItem[]); setLastUpdated(new Date()); }
     setLoading(false);
   }
 
-  // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchTours();
     if (!SUPABASE_ENABLED || !supabase) return;
     const ch = supabase
-      .channel("public-catalog-rt")
+      .channel("public-catalog-v3")
       .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => fetchTours())
       .subscribe();
     channelRef.current = ch;
@@ -176,33 +357,88 @@ export default function PublicCatalog() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Flatten + filter ───────────────────────────────────────────────────────
-  const rows = useMemo(() => flatten(tours), [tours]);
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
 
+  // Available months from all periods
   const months = useMemo(() => {
     const s = new Set<string>();
-    for (const r of rows) { const k = monthKey(r.startDate); if (k) s.add(k); }
-    return Array.from(s).sort();
-  }, [rows]);
-
-  const filtered = useMemo(() => rows.filter(r => {
-    if (catFilter !== "all" && r.category !== catFilter) return false;
-    if (stFilter !== "all" && pStatus(r.quota, r.totalSeats) !== stFilter) return false;
-    if (monthFilter !== "all" && monthKey(r.startDate) !== monthFilter) return false;
-    if (seatMin > 0 && r.quota < seatMin) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!r.code.toLowerCase().includes(q) && !r.title.toLowerCase().includes(q) &&
-          !r.city.toLowerCase().includes(q) && !r.country.toLowerCase().includes(q)) return false;
+    for (const t of tours) {
+      for (const p of (t.periods ?? []) as { start_date?: string; travel_date?: string; cancelled?: boolean }[]) {
+        if (p.cancelled) continue;
+        const k = monthKey(p.start_date ?? p.travel_date ?? "");
+        if (k) s.add(k);
+      }
     }
-    return true;
-  }), [rows, catFilter, stFilter, monthFilter, seatMin, search]);
+    return Array.from(s).sort();
+  }, [tours]);
 
-  // Stats
-  const statOk   = filtered.filter(r => pStatus(r.quota, r.totalSeats) === "ok").length;
-  const statLow  = filtered.filter(r => pStatus(r.quota, r.totalSeats) === "low").length;
-  const statFull = filtered.filter(r => pStatus(r.quota, r.totalSeats) === "full").length;
-  const uniquePgm = new Set(filtered.map(r => r.tourId)).size;
+  // Filter + sort tours
+  const filteredTours = useMemo(() => {
+    return tours
+      .filter(t => {
+        // Category
+        if (catFilter !== "all" && t.category !== catFilter) return false;
+
+        // Search
+        if (search) {
+          const q = search.toLowerCase();
+          if (!t.code.toLowerCase().includes(q) &&
+              !(t.title ?? "").toLowerCase().includes(q) &&
+              !t.city.toLowerCase().includes(q) &&
+              !t.country.toLowerCase().includes(q)) return false;
+        }
+
+        // Status + month filter — must have at least 1 matching period
+        const periods = (t.periods ?? []) as { start_date?: string; travel_date?: string; quota: number; total_seats?: number; cancelled?: boolean }[];
+        const matchPeriods = periods.filter(p => {
+          if (p.cancelled) return false;
+          const sd = p.start_date ?? p.travel_date ?? "";
+          if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
+          if (stFilter !== "all") {
+            const total = p.total_seats ?? t.total_seats ?? 0;
+            if (pStatus(p.quota, total) !== stFilter) return false;
+          }
+          return true;
+        });
+        if (matchPeriods.length === 0) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "name") return (a.title ?? a.city).localeCompare(b.title ?? b.city, "th");
+        if (sortBy === "seats") {
+          const qa = (a.periods ?? []).reduce((s: number, p: { quota?: number }) => s + (p.quota ?? 0), 0);
+          const qb = (b.periods ?? []).reduce((s: number, p: { quota?: number }) => s + (p.quota ?? 0), 0);
+          return qb - qa;
+        }
+        // date: earliest upcoming period
+        const getMin = (t: TourItem) => {
+          const dates = (t.periods ?? [])
+            .filter((p: { cancelled?: boolean }) => !p.cancelled)
+            .map((p: { start_date?: string; travel_date?: string }) => p.start_date ?? p.travel_date ?? "")
+            .filter(Boolean);
+          return dates.length ? dates.sort()[0] : "9999";
+        };
+        return getMin(a).localeCompare(getMin(b));
+      });
+  }, [tours, catFilter, search, monthFilter, stFilter, sortBy]);
+
+  // Group by category
+  const grouped = useMemo(() => {
+    const map = new Map<string, TourItem[]>();
+    for (const cat of CATEGORIES) map.set(cat.key, []);
+    for (const t of filteredTours) {
+      if (!map.has(t.category)) map.set(t.category, []);
+      map.get(t.category)!.push(t);
+    }
+    return map;
+  }, [filteredTours]);
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href);
@@ -210,7 +446,6 @@ export default function PublicCatalog() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
 
@@ -253,7 +488,6 @@ export default function PublicCatalog() {
       {/* ── Filter bar ── */}
       <div className="bg-white border-b border-gray-100 sticky top-[57px] z-10">
         <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex flex-wrap items-center gap-2">
-
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -276,13 +510,10 @@ export default function PublicCatalog() {
           <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
           {/* Status */}
-          <Chip active={stFilter === "all"} onClick={() => setStFilter("all")}>ทุกสถานะ</Chip>
-          <Chip active={stFilter === "ok"} onClick={() => setStFilter("ok")}
-            activeBg="#f0fdf4" activeText="#15803d">ว่าง</Chip>
-          <Chip active={stFilter === "low"} onClick={() => setStFilter("low")}
-            activeBg="#fff7ed" activeText="#c2410c">ใกล้เต็ม</Chip>
-          <Chip active={stFilter === "full"} onClick={() => setStFilter("full")}
-            activeBg="#fef2f2" activeText="#dc2626">เต็ม</Chip>
+          <Chip active={stFilter === "all"}  onClick={() => setStFilter("all")}>ทุกสถานะ</Chip>
+          <Chip active={stFilter === "ok"}   onClick={() => setStFilter("ok")}  activeBg="#f0fdf4" activeText="#15803d">ว่าง</Chip>
+          <Chip active={stFilter === "low"}  onClick={() => setStFilter("low")} activeBg="#fff7ed" activeText="#c2410c">ใกล้เต็ม</Chip>
+          <Chip active={stFilter === "full"} onClick={() => setStFilter("full")} activeBg="#fef2f2" activeText="#dc2626">เต็ม</Chip>
 
           <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
@@ -293,141 +524,62 @@ export default function PublicCatalog() {
             {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
 
-          {/* Min seats */}
-          <select value={seatMin} onChange={e => setSeatMin(Number(e.target.value))}
+          {/* Sort */}
+          <select value={sortBy} onChange={e => setSortBy(e.target.value as "name" | "date" | "seats")}
             className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none text-gray-600">
-            <option value={0}>💺 ที่นั่งว่าง: ทั้งหมด</option>
-            <option value={1}>มีที่นั่ง (1+)</option>
-            <option value={5}>5+ ที่นั่ง</option>
-            <option value={10}>10+ ที่นั่ง</option>
+            <option value="date">เรียงตาม: วันเดินทาง</option>
+            <option value="name">เรียงตาม: ชื่อโปรแกรม</option>
+            <option value="seats">เรียงตาม: ที่นั่งว่างมากสุด</option>
           </select>
         </div>
       </div>
 
-      {/* ── Stats strip ── */}
+      {/* ── Stats ── */}
       <div className="max-w-screen-xl mx-auto w-full px-4 pt-3 pb-1">
         <p className="text-[12px] text-gray-500">
-          <span className="font-semibold text-gray-700">{uniquePgm}</span> โปรแกรม ·{" "}
-          <span className="font-semibold text-gray-700">{filtered.length}</span> Period ·{" "}
-          <span className="font-semibold text-green-600">{statOk} ว่าง</span> ·{" "}
-          <span className="font-semibold text-orange-500">{statLow} ใกล้เต็ม</span> ·{" "}
-          <span className="font-semibold text-red-500">{statFull} เต็ม</span>
+          <span className="font-semibold text-gray-700">{filteredTours.length}</span> โปรแกรม
+          {CATEGORIES.map(c => {
+            const n = grouped.get(c.key)?.length ?? 0;
+            if (!n) return null;
+            return <span key={c.key}> · <span className="font-semibold" style={{ color: c.text }}>{n} {c.short}</span></span>;
+          })}
         </p>
       </div>
 
-      {/* ── Table ── */}
+      {/* ── Content ── */}
       <div className="max-w-screen-xl mx-auto w-full px-4 pb-10 flex-1">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-gray-400 gap-2">
             <RefreshCw className="w-5 h-5 animate-spin" /> กำลังโหลด...
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filteredTours.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
             <Search className="w-8 h-8" />
-            <p className="text-sm">ไม่พบ Period ที่ตรงเงื่อนไข</p>
+            <p className="text-sm">ไม่พบโปรแกรมที่ตรงเงื่อนไข</p>
+          </div>
+        ) : catFilter !== "all" ? (
+          // Single category mode: show programs directly (no section header)
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm mt-2">
+            {(grouped.get(catFilter) ?? []).map(t => (
+              <ProgramRow key={t.id} tour={t}
+                expanded={expandedIds.has(t.id)} onToggle={() => toggleExpand(t.id)}
+                monthFilter={monthFilter} stFilter={stFilter} />
+            ))}
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
-            {/* Head */}
-            <div className="hidden md:grid text-[11px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-50 border-b border-gray-200"
-              style={{ gridTemplateColumns: "72px 1fr 170px 72px 160px 100px 48px", padding: "8px 16px" }}>
-              <span>ประเภท</span>
-              <span>โปรแกรม</span>
-              <span>วันเดินทาง</span>
-              <span>ระยะ</span>
-              <span>ที่นั่งว่าง</span>
-              <span>สถานะ</span>
-              <span className="text-center">PDF</span>
-            </div>
-
-            {/* Rows */}
-            {filtered.map((r, i) => {
-              const cat = getCat(r.category);
-              return (
-                <div key={`${r.tourId}-${r.periodId}`}
-                  className="border-b border-gray-100 last:border-0 hover:bg-blue-50/30 transition-colors"
-                  style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-
-                  {/* Desktop row */}
-                  <div className="hidden md:grid items-center py-2.5 px-4"
-                    style={{ gridTemplateColumns: "72px 1fr 170px 72px 160px 100px 48px" }}>
-
-                    {/* Category */}
-                    <span className="inline-flex w-fit px-2 py-0.5 rounded text-[11px] font-bold"
-                      style={{ background: cat.bg, color: cat.text }}>{cat.label}</span>
-
-                    {/* Name */}
-                    <div className="min-w-0 flex items-center gap-2 pr-2">
-                      <div className="w-0.5 h-7 rounded-full shrink-0" style={{ background: cat.strip }} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate leading-tight">{r.title}</p>
-                        <p className="text-[11px] text-gray-400 leading-tight truncate">
-                          {r.code}{r.city ? ` · ${r.city}` : ""}{r.country ? `, ${r.country}` : ""}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Date */}
-                    <div className="text-xs text-gray-700">
-                      {r.startDate && r.endDate
-                        ? <>{fmtDate(r.startDate)}<span className="text-gray-400"> – </span>{fmtDate(r.endDate)}</>
-                        : fmtDate(r.travelDate)}
-                    </div>
-
-                    {/* Duration */}
-                    <div className="text-xs text-gray-500">{r.duration || "-"}</div>
-
-                    {/* Seat bar */}
-                    <SeatBar quota={r.quota} total={r.totalSeats} />
-
-                    {/* Status */}
-                    <StatusBadge quota={r.quota} total={r.totalSeats} />
-
-                    {/* PDF */}
-                    <div className="flex justify-center">
-                      {r.pdfUrl ? (
-                        <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors" title="ดู PDF">
-                          <FileText className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <span className="p-1.5 text-gray-200 cursor-default" title="ไม่มี PDF">
-                          <FileText className="w-4 h-4" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Mobile card */}
-                  <div className="md:hidden p-3 flex items-start gap-3">
-                    <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: cat.strip }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: cat.bg, color: cat.text }}>{cat.label}</span>
-                        <span className="text-xs font-semibold text-gray-900 truncate">{r.title}</span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 mb-1">{r.code}{r.city ? ` · ${r.city}` : ""}</p>
-                      <p className="text-xs text-gray-700 mb-1">
-                        {r.startDate && r.endDate
-                          ? `${fmtDate(r.startDate)} – ${fmtDate(r.endDate)}`
-                          : fmtDate(r.travelDate)}
-                        {r.duration ? ` · ${r.duration}` : ""}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <SeatBar quota={r.quota} total={r.totalSeats} />
-                        <StatusBadge quota={r.quota} total={r.totalSeats} />
-                        {r.pdfUrl && (
-                          <a href={r.pdfUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-red-400 hover:text-red-600">
-                            <FileText className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          // All categories: grouped sections
+          <div className="mt-2">
+            {CATEGORIES.map(c => (
+              <CategorySection
+                key={c.key}
+                catKey={c.key}
+                tours={grouped.get(c.key) ?? []}
+                expandedIds={expandedIds}
+                onToggle={toggleExpand}
+                monthFilter={monthFilter}
+                stFilter={stFilter}
+              />
+            ))}
           </div>
         )}
       </div>
