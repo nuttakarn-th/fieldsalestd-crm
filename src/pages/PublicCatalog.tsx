@@ -267,27 +267,48 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
     : null;
 
   const flag = getFlag(tour.country ?? "");
+  const isFull = rowSt === "full";
 
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
-      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)" }}
+      className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
+      style={{
+        background: isFull ? "#f3f4f6" : "#ffffff",
+        opacity: isFull ? 0.75 : 1,
+        boxShadow: isFull
+          ? "0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06)"
+          : "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
+      }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)";
+        if (!isFull) {
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
+          (e.currentTarget as HTMLDivElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)";
+        }
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLDivElement).style.transform = "";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)";
+        (e.currentTarget as HTMLDivElement).style.boxShadow = isFull
+          ? "0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.06)"
+          : "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)";
       }}
     >
       {/* Destination hero header */}
-      <div className="relative h-24 flex items-end pb-3 px-4 overflow-hidden" style={{ background: cat.grad }}>
-        {/* subtle pattern overlay */}
+      <div className="relative h-24 flex items-end pb-3 px-4 overflow-hidden"
+           style={{ background: isFull ? "linear-gradient(135deg,#9ca3af,#6b7280)" : cat.grad }}>
+        {/* subtle highlight overlay */}
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6) 0%, transparent 60%)",
         }} />
+
+        {/* FULL: centered "เต็มแล้ว" overlay */}
+        {isFull && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/20">
+            <span className="text-2xl leading-none">🔒</span>
+            <span className="text-white font-bold text-base tracking-wide drop-shadow">เต็มทุกรอบแล้ว</span>
+          </div>
+        )}
+
         {/* Duration badge — top left */}
         {tour.duration && (
           <div className="absolute top-3 left-3">
@@ -300,10 +321,10 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         <div className="absolute top-3 right-3">
           {rowSt === "ok"   && <span className="text-[11px] font-bold text-green-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ว่าง</span>}
           {rowSt === "low"  && <span className="text-[11px] font-bold text-orange-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ใกล้เต็ม</span>}
-          {rowSt === "full" && <span className="text-[11px] font-bold text-red-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">เต็มแล้ว</span>}
+          {rowSt === "full" && <span className="text-[11px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">เต็มแล้ว</span>}
         </div>
         {/* Flag + city */}
-        <div className="relative flex items-end gap-2 min-w-0">
+        <div className={`relative flex items-end gap-2 min-w-0 ${isFull ? "opacity-40" : ""}`}>
           <span className="text-5xl leading-none drop-shadow">{flag || "✈️"}</span>
           <div className="min-w-0 pb-0.5">
             <p className="text-white font-bold text-sm leading-tight truncate drop-shadow-sm">
@@ -317,10 +338,10 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
       </div>
 
       {/* Card body */}
-      <div className="p-4">
+      <div className={`p-4 ${isFull ? "opacity-50" : ""}`}>
         {/* Program name + code */}
         <div className="mb-3">
-          <p className="font-bold text-gray-900 text-base leading-tight line-clamp-2 group-hover:text-green-800 transition-colors">
+          <p className={`font-bold text-base leading-tight line-clamp-2 transition-colors ${isFull ? "text-gray-500" : "text-gray-900 group-hover:text-green-800"}`}>
             {tour.title ?? tour.city}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">{tour.code}</p>
@@ -329,7 +350,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         {/* Booking meter */}
         {totalSeats > 0 && (
           <div className="mb-3">
-            <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-1.5">
+            <div className="h-2 rounded-full bg-gray-200 overflow-hidden mb-1.5">
               <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
             </div>
             <div className="flex justify-between text-[11px]">
@@ -363,12 +384,12 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         )}
 
         {/* Bottom action row */}
-        <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
           <button
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold transition-colors text-white"
-            style={{ background: cat.grad }}>
-            ดูรอบเดินทาง
-            <ChevronRight className="w-4 h-4" />
+            style={{ background: isFull ? "#9ca3af" : cat.grad }}>
+            {isFull ? "เต็มแล้ว" : "ดูรอบเดินทาง"}
+            {!isFull && <ChevronRight className="w-4 h-4" />}
           </button>
           {tour.pdf_url && (
             <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
