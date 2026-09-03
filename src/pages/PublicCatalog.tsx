@@ -36,17 +36,33 @@ const CATEGORIES = [
 
 function getCat(cat: string) { return CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[2]; }
 
-// ── Country flags ────────────────────────────────────────────────────────────
-const FLAGS: Record<string, string> = {
-  "จีน":"🇨🇳","ญี่ปุ่น":"🇯🇵","เกาหลี":"🇰🇷","ไต้หวัน":"🇹🇼","ฮ่องกง":"🇭🇰",
-  "สิงคโปร์":"🇸🇬","เวียดนาม":"🇻🇳","มาเลเซีย":"🇲🇾","อินโดนีเซีย":"🇮🇩",
-  "กัมพูชา":"🇰🇭","พม่า":"🇲🇲","อิตาลี":"🇮🇹","ฝรั่งเศส":"🇫🇷",
-  "สวิตเซอร์แลนด์":"🇨🇭","อังกฤษ":"🇬🇧","เยอรมนี":"🇩🇪","สเปน":"🇪🇸",
-  "ดูไบ":"🇦🇪","ตุรกี":"🇹🇷","ออสเตรเลีย":"🇦🇺","ไทย":"🇹🇭","จอร์เจีย":"🇬🇪",
+// ── Country flag images (flagcdn.com) ────────────────────────────────────────
+const FLAG_CODES: Record<string, string> = {
+  "จีน":"cn","ญี่ปุ่น":"jp","เกาหลี":"kr","ไต้หวัน":"tw","ฮ่องกง":"hk",
+  "สิงคโปร์":"sg","เวียดนาม":"vn","มาเลเซีย":"my","อินโดนีเซีย":"id",
+  "กัมพูชา":"kh","พม่า":"mm","อิตาลี":"it","ฝรั่งเศส":"fr",
+  "สวิตเซอร์แลนด์":"ch","อังกฤษ":"gb","เยอรมนี":"de","สเปน":"es",
+  "ดูไบ":"ae","ตุรกี":"tr","ออสเตรเลีย":"au","ไทย":"th","จอร์เจีย":"ge",
+  "นิวซีแลนด์":"nz","อินเดีย":"in","เนปาล":"np","ภูฏาน":"bt",
+  "ฟิลิปปินส์":"ph","บรูไน":"bn","ลาว":"la","ศรีลังกา":"lk",
 };
-function getFlag(country: string): string {
-  for (const [k, v] of Object.entries(FLAGS)) if (country?.includes(k)) return v;
-  return "🌍";
+function getFlagCode(country: string): string | null {
+  for (const [k, v] of Object.entries(FLAG_CODES)) if (country?.includes(k)) return v;
+  return null;
+}
+function FlagImg({ country, size = 40 }: { country: string; size?: number }) {
+  const code = getFlagCode(country);
+  if (!code) return <span className="text-4xl leading-none">✈️</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/w${size}/${code}.png`}
+      srcSet={`https://flagcdn.com/w${size * 2}/${code}.png 2x`}
+      alt={country}
+      width={size} height={Math.round(size * 0.67)}
+      className="rounded-sm object-cover drop-shadow-md"
+      onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
 }
 
 // ── Thai date ────────────────────────────────────────────────────────────────
@@ -131,7 +147,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                   </div>
                   <p className="font-bold text-gray-900 text-lg leading-tight">{tour.title ?? tour.city}</p>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {getFlag(tour.country ?? "")} {tour.city}{tour.country ? `, ${tour.country}` : ""}
+                    {tour.city}{tour.country ? `, ${tour.country}` : ""}
                     {" · "}{tour.code}
                   </p>
                 </div>
@@ -266,7 +282,6 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
     : rowSt === "low" ? "⚡ ใกล้เต็มแล้ว"
     : null;
 
-  const flag = getFlag(tour.country ?? "");
   const isFull = rowSt === "full";
 
   return (
@@ -325,7 +340,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         </div>
         {/* Flag + city */}
         <div className={`relative flex items-end gap-2 min-w-0 ${isFull ? "opacity-40" : ""}`}>
-          <span className="text-5xl leading-none drop-shadow">{flag || "✈️"}</span>
+          <FlagImg country={tour.country ?? ""} size={40} />
           <div className="min-w-0 pb-0.5">
             <p className="text-white font-bold text-sm leading-tight truncate drop-shadow-sm">
               {tour.city || tour.country || "—"}
@@ -361,6 +376,17 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
             </div>
           </div>
         )}
+
+        {/* Price row */}
+        {(tour as TourItem & { price_per_seat?: number }).price_per_seat
+          ? (
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] text-gray-400">ราคาเริ่มต้น/ท่าน</span>
+              <span className={`font-bold text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
+                ฿{((tour as TourItem & { price_per_seat?: number }).price_per_seat ?? 0).toLocaleString("th-TH")}
+              </span>
+            </div>
+          ) : null}
 
         {/* Info row */}
         <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
@@ -456,7 +482,7 @@ export default function PublicCatalog() {
     if (!SUPABASE_ENABLED || !supabase) { setLoading(false); return; }
     const { data } = await supabase
       .from("tours")
-      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published")
+      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published,price_per_seat")
       .order("code", { ascending: true });
     if (data) { setTours(data as TourItem[]); setLastUpdated(new Date()); }
     setLoading(false);
