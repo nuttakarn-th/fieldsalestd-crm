@@ -1,17 +1,13 @@
 /**
- * PublicCatalog.tsx — v4 (UX-friendly)
- * + Hero strip อธิบาย context
- * + Filter ซ่อน advanced ไว้ด้านหลัง toggle
- * + Section header ชื่อเต็ม (ไม่ใช่แค่ INT/DOM)
- * + "รอบเดินทาง" แทน "Period"
- * + Row affordance ชัดขึ้น
- * + Footer CTA
+ * PublicCatalog.tsx — v5 (Modern Card Grid + Urgency + Drawer)
+ * Klook-style card grid · urgency cues · period side-drawer
  */
 import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Search, RefreshCw, Share2, FileText,
-  ChevronDown, ChevronRight, Globe, MapPin,
-  Phone, MessageCircle, SlidersHorizontal, X,
+  ChevronDown, Globe, MapPin, Phone, MessageCircle,
+  SlidersHorizontal, X, Calendar, Users, Flame, ArrowRight,
+  ChevronRight,
 } from "lucide-react";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import type { TourItem } from "@/store/serviceStore";
@@ -19,52 +15,51 @@ import type { TourItem } from "@/store/serviceStore";
 // ── Category config ───────────────────────────────────────────────────────────
 const CATEGORIES = [
   {
-    key:      "International Tour",
-    label:    "ทัวร์ต่างประเทศ",
-    sublabel: "International Tour",
-    short:    "INT",
-    chipLabel:"✈️ ต่างประเทศ",
+    key: "International Tour", label: "ทัวร์ต่างประเทศ", sublabel: "International",
+    short: "INT", chipLabel: "✈️ ต่างประเทศ",
     bg: "#dcfce7", text: "#15803d", strip: "#22c55e", headerBg: "#f0fdf4",
-    icon: Globe,
+    grad: "linear-gradient(135deg,#22c55e,#16a34a)", icon: Globe,
   },
   {
-    key:      "Domestic",
-    label:    "ทัวร์ในประเทศ",
-    sublabel: "Domestic Tour",
-    short:    "DOM",
-    chipLabel:"🏔️ ในประเทศ",
+    key: "Domestic", label: "ทัวร์ในประเทศ", sublabel: "Domestic",
+    short: "DOM", chipLabel: "🏔️ ในประเทศ",
     bg: "#fff7ed", text: "#c2410c", strip: "#f97316", headerBg: "#fff7ed",
-    icon: MapPin,
+    grad: "linear-gradient(135deg,#f97316,#ea580c)", icon: MapPin,
   },
   {
-    key:      "Incentive",
-    label:    "ทัวร์ Incentive",
-    sublabel: "Incentive & Group Tour",
-    short:    "INC",
-    chipLabel:"🌟 Incentive",
+    key: "Incentive", label: "ทัวร์ Incentive", sublabel: "Incentive",
+    short: "INC", chipLabel: "🌟 Incentive",
     bg: "#f3e8ff", text: "#7c3aed", strip: "#a855f7", headerBg: "#faf5ff",
-    icon: Globe,
+    grad: "linear-gradient(135deg,#a855f7,#9333ea)", icon: Globe,
   },
 ] as const;
 
-function getCat(cat: string) {
-  return CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[2];
+function getCat(cat: string) { return CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[2]; }
+
+// ── Country flags ────────────────────────────────────────────────────────────
+const FLAGS: Record<string, string> = {
+  "จีน":"🇨🇳","ญี่ปุ่น":"🇯🇵","เกาหลี":"🇰🇷","ไต้หวัน":"🇹🇼","ฮ่องกง":"🇭🇰",
+  "สิงคโปร์":"🇸🇬","เวียดนาม":"🇻🇳","มาเลเซีย":"🇲🇾","อินโดนีเซีย":"🇮🇩",
+  "กัมพูชา":"🇰🇭","พม่า":"🇲🇲","อิตาลี":"🇮🇹","ฝรั่งเศส":"🇫🇷",
+  "สวิตเซอร์แลนด์":"🇨🇭","อังกฤษ":"🇬🇧","เยอรมนี":"🇩🇪","สเปน":"🇪🇸",
+  "ดูไบ":"🇦🇪","ตุรกี":"🇹🇷","ออสเตรเลีย":"🇦🇺","ไทย":"🇹🇭","จอร์เจีย":"🇬🇪",
+};
+function getFlag(country: string): string {
+  for (const [k, v] of Object.entries(FLAGS)) if (country?.includes(k)) return v;
+  return "🌍";
 }
 
-// ── Thai date ─────────────────────────────────────────────────────────────────
+// ── Thai date ────────────────────────────────────────────────────────────────
 const TH_M = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-
 function fmtDate(iso: string): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
+  if (!iso) return "-"; const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   return `${d.getDate()} ${TH_M[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
 function monthKey(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
+  if (!iso) return ""; const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,"0")}`;
 }
 function monthLabel(key: string): string {
   const [y, m] = key.split("-");
@@ -72,43 +67,26 @@ function monthLabel(key: string): string {
 }
 
 // ── Period helpers ────────────────────────────────────────────────────────────
-function pStatus(quota: number, total: number): "full" | "low" | "ok" {
+type PStatus = "full" | "low" | "ok";
+function pStatus(quota: number, total: number): PStatus {
   if (quota <= 0) return "full";
   if (total > 0 && quota / total <= 0.2) return "low";
   return "ok";
 }
 
-// ── Seat bar ──────────────────────────────────────────────────────────────────
-function SeatBar({ quota, total }: { quota: number; total: number }) {
-  if (!total) return <span className="text-xs text-gray-400">-</span>;
-  const st = pStatus(quota, total);
-  const pct = Math.round(((total - quota) / total) * 100);
-  const color = st === "full" ? "#ef4444" : st === "low" ? "#f97316" : "#22c55e";
-  return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden" style={{ width: 56 }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      <span className="text-xs tabular-nums text-gray-600 whitespace-nowrap">{quota}/{total}</span>
-    </div>
-  );
+interface PeriodRow {
+  period_id: string; start_date: string; end_date: string;
+  travel_date: string; quota: number; total_seats: number; cancelled: boolean;
 }
 
-function StatusBadge({ quota, total }: { quota: number; total: number }) {
-  const st = pStatus(quota, total);
-  if (st === "full") return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 whitespace-nowrap">เต็มแล้ว</span>;
-  if (st === "low")  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-600 whitespace-nowrap">ใกล้เต็ม</span>;
-  return <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 whitespace-nowrap">ว่าง</span>;
-}
-
-// ── Filter chip ───────────────────────────────────────────────────────────────
-function Chip({ active, onClick, children, activeBg = "#d1fae5", activeText = "#065f46" }: {
+// ── Chip ─────────────────────────────────────────────────────────────────────
+function Chip({ active, onClick, children, activeBg="#d1fae5", activeText="#065f46" }: {
   active: boolean; onClick: () => void; children: React.ReactNode;
   activeBg?: string; activeText?: string;
 }) {
   return (
     <button onClick={onClick}
-      className="px-3 py-1 rounded-full text-xs font-semibold border transition-all whitespace-nowrap"
+      className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap"
       style={active
         ? { background: activeBg, color: activeText, borderColor: "transparent" }
         : { background: "white", color: "#6b7280", borderColor: "#e5e7eb" }}>
@@ -117,244 +95,299 @@ function Chip({ active, onClick, children, activeBg = "#d1fae5", activeText = "#
   );
 }
 
-// ── Period sub-table ──────────────────────────────────────────────────────────
-interface PeriodRow {
-  period_id: string;
-  start_date: string;
-  end_date: string;
-  travel_date: string;
-  quota: number;
-  total_seats: number;
-  cancelled: boolean;
-}
-
-function PeriodSubTable({
-  tour, periods, monthFilter, stFilter,
-}: {
-  tour: TourItem; periods: PeriodRow[]; monthFilter: string; stFilter: string;
-}) {
-  const cat = getCat(tour.category);
-  const visible = periods.filter(p => {
-    if (p.cancelled) return false;
-    const sd = p.start_date ?? p.travel_date ?? "";
-    if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
-    if (stFilter !== "all" && pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) !== stFilter) return false;
-    return true;
-  });
-
-  if (visible.length === 0) return (
-    <div className="px-8 py-4 text-xs text-gray-400 border-t border-gray-100 italic">
-      ไม่มีรอบเดินทางที่ตรงเงื่อนไข
-    </div>
-  );
+// ── Period Drawer ─────────────────────────────────────────────────────────────
+function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () => void }) {
+  const cat = tour ? getCat(tour.category) : null;
+  const periods = ((tour?.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled);
 
   return (
-    <div className="border-t border-gray-100" style={{ borderLeft: `3px solid ${cat.strip}` }}>
-      {/* Sub-header */}
-      <div className="grid text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-50/80 px-6 py-2"
-        style={{ gridTemplateColumns: "1fr 90px 180px 100px 52px" }}>
-        <span>วันเดินทาง</span>
-        <span>ระยะเวลา</span>
-        <span>ที่นั่งว่าง</span>
-        <span>สถานะ</span>
-        <span className="text-center">PDF</span>
-      </div>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{ background: tour ? "rgba(0,0,0,0.4)" : "transparent", pointerEvents: tour ? "auto" : "none" }}
+        onClick={onClose}
+      />
 
-      {visible.map((p, i) => {
-        const total = p.total_seats ?? tour.total_seats ?? 0;
-        const sd = p.start_date ?? p.travel_date ?? "";
-        const ed = p.end_date ?? "";
-        const st = pStatus(p.quota, total);
-        return (
-          <div key={p.period_id}
-            className="grid items-center px-6 py-2.5 border-t border-gray-50 hover:bg-green-50/20 transition-colors"
-            style={{ gridTemplateColumns: "1fr 90px 180px 100px 52px", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-
-            <div className="text-sm font-medium text-gray-800">
-              {sd && ed
-                ? <>{fmtDate(sd)}<span className="text-gray-300 mx-1.5">→</span>{fmtDate(ed)}</>
-                : fmtDate(sd)}
-            </div>
-
-            <div className="text-xs text-gray-500">{tour.duration ?? "-"}</div>
-
-            <SeatBar quota={p.quota} total={total} />
-
-            <StatusBadge quota={p.quota} total={total} />
-
-            <div className="flex justify-center">
-              {tour.pdf_url ? (
+      {/* Drawer panel */}
+      <div
+        className="fixed top-0 right-0 h-full z-50 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out"
+        style={{
+          width: "min(480px, 100vw)",
+          transform: tour ? "translateX(0)" : "translateX(100%)",
+        }}
+      >
+        {!tour ? null : (
+          <>
+            {/* Drawer header */}
+            <div className="shrink-0 p-5 border-b border-gray-100" style={{ background: cat!.headerBg }}>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold" style={{ background: cat!.bg, color: cat!.text }}>
+                      {cat!.short}
+                    </span>
+                    <span className="text-xs text-gray-500">{tour.duration ?? ""}</span>
+                  </div>
+                  <p className="font-bold text-gray-900 text-lg leading-tight">{tour.title ?? tour.city}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {getFlag(tour.country ?? "")} {tour.city}{tour.country ? `, ${tour.country}` : ""}
+                    {" · "}{tour.code}
+                  </p>
+                </div>
+                <button onClick={onClose}
+                  className="p-2 rounded-full hover:bg-white/70 text-gray-400 hover:text-gray-700 transition-colors shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              {tour.pdf_url && (
                 <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors"
-                  style={st === "full"
-                    ? { background: "#fef2f2", color: "#dc2626" }
-                    : { background: "#fef9f0", color: "#d97706" }}
-                  title="ดาวน์โหลด PDF">
-                  <FileText className="w-3 h-3" />
-                  <span className="hidden lg:inline">PDF</span>
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors">
+                  <FileText className="w-4 h-4" />
+                  ดาวน์โหลด PDF โปรแกรม
                 </a>
-              ) : (
-                <span className="p-1.5 text-gray-200"><FileText className="w-3.5 h-3.5" /></span>
               )}
             </div>
-          </div>
-        );
-      })}
-    </div>
+
+            {/* Period list */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                  {periods.length} รอบเดินทาง
+                </p>
+              </div>
+
+              {periods.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-gray-400 gap-2">
+                  <Calendar className="w-8 h-8 text-gray-300" />
+                  <p className="text-sm">ไม่มีรอบเดินทาง</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {periods.map(p => {
+                    const total = p.total_seats ?? tour.total_seats ?? 0;
+                    const st = pStatus(p.quota, total);
+                    const pct = total > 0 ? Math.round(((total - p.quota) / total) * 100) : 0;
+                    const barColor = st === "full" ? "#ef4444" : st === "low" ? "#f97316" : "#22c55e";
+                    const sd = p.start_date ?? p.travel_date ?? "";
+                    const ed = p.end_date ?? "";
+                    return (
+                      <div key={p.period_id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                        {/* Date range */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm">
+                              {fmtDate(sd)}
+                              {ed && <><span className="text-gray-300 mx-2">→</span>{fmtDate(ed)}</>}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{tour.duration ?? ""}</p>
+                          </div>
+                          <div className="text-right">
+                            {st === "full" && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600">เต็มแล้ว</span>}
+                            {st === "low"  && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-600">🔥 ใกล้เต็ม</span>}
+                            {st === "ok"   && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700">ว่าง</span>}
+                          </div>
+                        </div>
+
+                        {/* Booking meter */}
+                        {total > 0 && (
+                          <div className="space-y-1">
+                            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+                            </div>
+                            <div className="flex justify-between text-[11px] text-gray-400">
+                              <span>จองแล้ว {total - p.quota}/{total} ที่นั่ง</span>
+                              {st !== "full" && (
+                                <span className="font-semibold" style={{ color: barColor }}>
+                                  ว่าง {p.quota} ที่นั่ง
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Drawer footer CTA */}
+            <div className="shrink-0 p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+              <a href="tel:027370333"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-green-600 text-green-700 font-semibold text-sm hover:bg-green-50 transition-colors">
+                <Phone className="w-4 h-4" /> โทรสอบถาม
+              </a>
+              <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white font-semibold text-sm transition-colors"
+                style={{ background: "#06c755" }}>
+                <MessageCircle className="w-4 h-4" /> LINE สอบถาม
+              </a>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
-// ── Program row ───────────────────────────────────────────────────────────────
-function ProgramRow({
-  tour, expanded, onToggle, monthFilter, stFilter, showHint,
-}: {
-  tour: TourItem; expanded: boolean; onToggle: () => void;
-  monthFilter: string; stFilter: string; showHint?: boolean;
-}) {
+// ── Program Card ──────────────────────────────────────────────────────────────
+function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void }) {
   const cat = getCat(tour.category);
-  const periods: PeriodRow[] = (tour.periods ?? []) as PeriodRow[];
+  const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled);
 
-  const visiblePeriods = periods.filter(p => {
-    if (p.cancelled) return false;
-    const sd = p.start_date ?? p.travel_date ?? "";
-    if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
-    if (stFilter !== "all") {
-      const total = p.total_seats ?? tour.total_seats ?? 0;
-      if (pStatus(p.quota, total) !== stFilter) return false;
-    }
-    return true;
-  });
+  // Aggregated stats
+  const totalQuota = periods.reduce((s, p) => s + (p.quota ?? 0), 0);
+  const totalSeats = periods.reduce((s, p) => s + (p.total_seats ?? tour.total_seats ?? 0), 0);
+  const minQuota   = periods.length ? Math.min(...periods.map(p => p.quota ?? 0)) : 0;
+  const hasOk  = periods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "ok");
+  const hasLow = periods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "low");
+  const rowSt: PStatus = hasOk ? "ok" : hasLow ? "low" : "full";
+  const pct = totalSeats > 0 ? Math.round(((totalSeats - totalQuota) / totalSeats) * 100) : 0;
+  const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#22c55e";
 
-  const availCount = visiblePeriods.filter(p => {
-    const t = p.total_seats ?? tour.total_seats ?? 0;
-    return pStatus(p.quota, t) !== "full";
-  }).length;
+  // Next departure
+  const upcoming = periods
+    .filter(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) !== "full")
+    .map(p => p.start_date ?? p.travel_date ?? "")
+    .filter(Boolean).sort();
+  const nextDate = upcoming[0];
 
-  const hasOk  = visiblePeriods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "ok");
-  const hasLow = visiblePeriods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "low");
-  const rowSt: "ok" | "low" | "full" = hasOk ? "ok" : hasLow ? "low" : "full";
+  // Urgency
+  const urgency = rowSt === "full" ? null
+    : minQuota <= 3 && minQuota > 0 ? `🔥 เหลือ ${minQuota} ที่นั่ง!`
+    : rowSt === "low" ? "⚡ ใกล้เต็มแล้ว"
+    : null;
 
-  const rowStColor = rowSt === "ok" ? "#15803d" : rowSt === "low" ? "#c2410c" : "#dc2626";
+  const flag = getFlag(tour.country ?? "");
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors group"
-        style={{ background: expanded ? "#f8fffe" : undefined }}
-        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background = "#f9fafb"; }}
-        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = ""; }}
-      >
-        {/* Expand icon */}
-        <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-all"
-          style={{ background: expanded ? cat.bg : "#f3f4f6", color: expanded ? cat.text : "#9ca3af" }}>
-          {expanded
-            ? <ChevronDown className="w-3 h-3" />
-            : <ChevronRight className="w-3 h-3" />}
-        </span>
+    <div
+      onClick={onClick}
+      className="bg-white rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
+      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)" }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.transform = "";
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)";
+      }}
+    >
+      {/* Top gradient bar */}
+      <div className="h-1.5 w-full" style={{ background: cat.grad }} />
 
-        {/* Color strip */}
-        <div className="w-0.5 h-9 rounded-full shrink-0" style={{ background: cat.strip }} />
-
-        {/* Program name + code */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate leading-tight group-hover:text-green-800 transition-colors">
-            {tour.title ?? tour.city}
-          </p>
-          <p className="text-[11px] text-gray-400 leading-tight truncate mt-0.5">
-            {tour.code}
-            {tour.city ? ` · ${tour.city}` : ""}
-            {tour.country ? `, ${tour.country}` : ""}
-            {showHint && !expanded && (
-              <span className="ml-2 text-green-500 font-medium">กดเพื่อดูรอบเดินทาง ›</span>
+      {/* Card body */}
+      <div className="p-4">
+        {/* Top row: category badge + status */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ background: cat.bg, color: cat.text }}>
+              {cat.short}
+            </span>
+            {tour.duration && (
+              <span className="text-[11px] text-gray-400 font-medium">{tour.duration}</span>
             )}
-          </p>
+          </div>
+          {rowSt === "ok"   && <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">ว่าง</span>}
+          {rowSt === "low"  && <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">ใกล้เต็ม</span>}
+          {rowSt === "full" && <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">เต็มแล้ว</span>}
         </div>
 
-        {/* Duration */}
-        <span className="hidden sm:block text-xs text-gray-500 shrink-0 w-20 text-right">{tour.duration ?? "-"}</span>
+        {/* Program name */}
+        <p className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-2 group-hover:text-green-800 transition-colors">
+          {tour.title ?? tour.city}
+        </p>
 
-        {/* Period count */}
-        <span className="hidden md:flex items-center gap-1 text-xs shrink-0 w-28 justify-end">
-          <span className="font-semibold text-gray-700">{visiblePeriods.length}</span>
-          <span className="text-gray-400">รอบเดินทาง</span>
-        </span>
+        {/* Location */}
+        <p className="text-sm text-gray-500 mb-3 flex items-center gap-1.5">
+          <span className="text-base">{flag}</span>
+          <span className="truncate">{tour.city}{tour.country ? `, ${tour.country}` : ""}</span>
+        </p>
 
-        {/* Available */}
-        <span className="text-xs shrink-0 w-28 text-right hidden sm:block font-medium"
-          style={{ color: rowStColor }}>
-          ว่าง {availCount} รอบ
-        </span>
+        {/* Booking meter */}
+        {totalSeats > 0 && (
+          <div className="mb-3">
+            <div className="h-2 rounded-full bg-gray-100 overflow-hidden mb-1.5">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+            </div>
+            <div className="flex justify-between text-[11px]">
+              <span className="text-gray-400">จองแล้ว {pct}%</span>
+              <span className="font-semibold" style={{ color: barColor }}>
+                {rowSt !== "full" ? `ว่าง ${totalQuota} ที่นั่ง` : "เต็มทุกรอบ"}
+              </span>
+            </div>
+          </div>
+        )}
 
-        {/* Status badge */}
-        <span className="shrink-0 hidden sm:block">
-          {rowSt === "ok"   && <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-100">ว่าง</span>}
-          {rowSt === "low"  && <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-100">ใกล้เต็ม</span>}
-          {rowSt === "full" && <span className="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 border border-red-100">เต็มแล้ว</span>}
-        </span>
+        {/* Info row */}
+        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+            {periods.length} รอบเดินทาง
+          </span>
+          {nextDate && rowSt !== "full" && (
+            <span className="flex items-center gap-1 text-green-600 font-medium">
+              <ArrowRight className="w-3 h-3" />
+              รอบแรก {fmtDate(nextDate)}
+            </span>
+          )}
+        </div>
 
-        {/* PDF */}
-        <span className="shrink-0 ml-1">
-          {tour.pdf_url
-            ? <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 text-red-500 hover:bg-red-100 transition-colors text-[11px] font-medium"
-                title="ดาวน์โหลด PDF">
-                <FileText className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline">PDF</span>
-              </a>
-            : <span className="p-1.5 block text-gray-200"><FileText className="w-4 h-4" /></span>}
-        </span>
-      </button>
+        {/* Urgency banner */}
+        {urgency && (
+          <div className="mb-3 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-100">
+            <p className="text-xs font-bold text-orange-700">{urgency}</p>
+          </div>
+        )}
 
-      {expanded && (
-        <PeriodSubTable
-          tour={tour}
-          periods={periods}
-          monthFilter={monthFilter}
-          stFilter={stFilter}
-        />
-      )}
+        {/* Bottom action row */}
+        <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+          <button
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold transition-colors text-white"
+            style={{ background: cat.grad }}>
+            ดูรอบเดินทาง
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          {tour.pdf_url && (
+            <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+              title="ดาวน์โหลด PDF">
+              <FileText className="w-4 h-4" />
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Category section ──────────────────────────────────────────────────────────
+// ── Category Section ──────────────────────────────────────────────────────────
 function CategorySection({
-  catKey, tours, expandedIds, onToggle, monthFilter, stFilter,
-}: {
-  catKey: string; tours: TourItem[];
-  expandedIds: Set<string>; onToggle: (id: string) => void;
-  monthFilter: string; stFilter: string;
-}) {
+  catKey, tours, onSelect,
+}: { catKey: string; tours: TourItem[]; onSelect: (t: TourItem) => void }) {
   const cfg = getCat(catKey);
   const Icon = cfg.icon;
   if (tours.length === 0) return null;
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-3 px-5 py-3 rounded-t-xl"
-        style={{ background: cfg.headerBg, borderBottom: `2px solid ${cfg.strip}` }}>
-        <Icon className="w-4 h-4 shrink-0" style={{ color: cfg.text }} />
-        <div className="flex-1 min-w-0">
-          <span className="font-bold text-sm" style={{ color: cfg.text }}>{cfg.label}</span>
-          <span className="ml-2 text-xs font-normal opacity-70" style={{ color: cfg.text }}>{cfg.sublabel}</span>
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: cfg.grad }}>
+          <Icon className="w-4 h-4 text-white" />
         </div>
-        <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: cfg.bg, color: cfg.text }}>
+        <div>
+          <p className="font-bold text-gray-900">{cfg.label}</p>
+          <p className="text-xs text-gray-400">{cfg.sublabel}</p>
+        </div>
+        <span className="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: cfg.bg, color: cfg.text }}>
           {tours.length} โปรแกรม
         </span>
       </div>
-      <div className="bg-white border border-t-0 rounded-b-xl overflow-hidden shadow-sm border-gray-200">
-        {tours.map((t, i) => (
-          <ProgramRow
-            key={t.id}
-            tour={t}
-            expanded={expandedIds.has(t.id)}
-            onToggle={() => onToggle(t.id)}
-            monthFilter={monthFilter}
-            stFilter={stFilter}
-            showHint={i === 0 && expandedIds.size === 0}
-          />
+      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+        {tours.map(t => (
+          <ProgramCard key={t.id} tour={t} onClick={() => onSelect(t)} />
         ))}
       </div>
     </div>
@@ -363,11 +396,11 @@ function CategorySection({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function PublicCatalog() {
-  const [tours, setTours]             = useState<TourItem[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [copied, setCopied]           = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [tours, setTours]               = useState<TourItem[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [lastUpdated, setLastUpdated]   = useState<Date | null>(null);
+  const [copied, setCopied]             = useState(false);
+  const [selectedTour, setSelectedTour] = useState<TourItem | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [search, setSearch]           = useState("");
@@ -392,7 +425,7 @@ export default function PublicCatalog() {
     fetchTours();
     if (!SUPABASE_ENABLED || !supabase) return;
     const ch = supabase
-      .channel("public-catalog-v4")
+      .channel("public-catalog-v5")
       .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => fetchTours())
       .subscribe();
     channelRef.current = ch;
@@ -400,13 +433,12 @@ export default function PublicCatalog() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function toggleExpand(id: string) {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
+  // Close drawer on Escape
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedTour(null); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, []);
 
   const months = useMemo(() => {
     const s = new Set<string>();
@@ -426,13 +458,11 @@ export default function PublicCatalog() {
         if (catFilter !== "all" && t.category !== catFilter) return false;
         if (search) {
           const q = search.toLowerCase();
-          if (!t.code.toLowerCase().includes(q) &&
-              !(t.title ?? "").toLowerCase().includes(q) &&
-              !t.city.toLowerCase().includes(q) &&
-              !t.country.toLowerCase().includes(q)) return false;
+          if (!t.code.toLowerCase().includes(q) && !(t.title ?? "").toLowerCase().includes(q) &&
+              !t.city.toLowerCase().includes(q) && !t.country.toLowerCase().includes(q)) return false;
         }
         const periods = (t.periods ?? []) as { start_date?: string; travel_date?: string; quota: number; total_seats?: number; cancelled?: boolean }[];
-        const matchPeriods = periods.filter(p => {
+        const matchP = periods.filter(p => {
           if (p.cancelled) return false;
           const sd = p.start_date ?? p.travel_date ?? "";
           if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
@@ -442,8 +472,7 @@ export default function PublicCatalog() {
           }
           return true;
         });
-        if (matchPeriods.length === 0) return false;
-        return true;
+        return matchP.length > 0;
       })
       .sort((a, b) => {
         if (sortBy === "name") return (a.title ?? a.city).localeCompare(b.title ?? b.city, "th");
@@ -475,17 +504,16 @@ export default function PublicCatalog() {
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
 
-  const hasAdvancedFilter = stFilter !== "all" || sortBy !== "date";
+  const hasAdvanced = stFilter !== "all" || sortBy !== "date";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
 
       {/* ── Header ── */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <img src="/logo-icon.png" alt="Standard Tour"
@@ -497,19 +525,12 @@ export default function PublicCatalog() {
             </div>
             <span className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700 border border-green-200">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              อัปเดต Real-time
+              Real-time
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {lastUpdated && (
-              <span className="hidden lg:block text-[11px] text-gray-400">
-                ล่าสุด {lastUpdated.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-            <button onClick={fetchTours}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors" title="รีเฟรช">
-              <RefreshCw className="w-4 h-4" />
-            </button>
+            {lastUpdated && <span className="hidden lg:block text-[11px] text-gray-400">ล่าสุด {lastUpdated.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span>}
+            <button onClick={fetchTours} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"><RefreshCw className="w-4 h-4" /></button>
             <button onClick={copyLink}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-colors"
               style={{ background: copied ? "#059669" : "#16a34a" }}>
@@ -520,114 +541,91 @@ export default function PublicCatalog() {
         </div>
       </header>
 
-      {/* ── Hero strip ── */}
-      <div style={{ background: "linear-gradient(135deg, #16a34a 0%, #059669 100%)" }}>
-        <div className="max-w-screen-xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <div className="text-white min-w-0">
-            <p className="font-bold text-base leading-tight">ค้นหาโปรแกรมทัวร์ Standard Tour</p>
-            <p className="text-sm text-green-100 leading-tight mt-0.5">
-              ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก
-            </p>
+      {/* ── Hero ── */}
+      <div style={{ background: "linear-gradient(135deg,#16a34a,#059669)" }}>
+        <div className="max-w-screen-xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="text-white">
+            <p className="font-bold text-xl leading-tight">ค้นหาโปรแกรมทัวร์ Standard Tour</p>
+            <p className="text-green-100 text-sm mt-1">ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <a href="tel:027370333"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium transition-colors">
-              <Phone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">โทรสอบถาม</span>
+            <a href="tel:027370333" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors">
+              <Phone className="w-3.5 h-3.5" /> โทรสอบถาม
             </a>
             <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-green-700 text-sm font-bold transition-colors hover:bg-green-50">
-              <MessageCircle className="w-3.5 h-3.5" />
-              LINE
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-green-700 text-sm font-bold hover:bg-green-50 transition-colors">
+              <MessageCircle className="w-3.5 h-3.5" /> LINE
             </a>
           </div>
         </div>
       </div>
 
       {/* ── Filter bar ── */}
-      <div className="bg-white border-b border-gray-100 sticky top-[57px] z-10 shadow-sm">
-        {/* Basic filters (always visible) */}
+      <div className="bg-white border-b border-gray-100 sticky top-[57px] z-20 shadow-sm">
         <div className="max-w-screen-xl mx-auto px-4 pt-2.5 pb-2 flex flex-wrap items-center gap-2">
-          {/* Search */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="ค้นหาชื่อโปรแกรม เมือง ประเทศ..."
-              className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-green-100" />
-            {search && (
-              <button onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+              className="pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl w-56 focus:outline-none focus:ring-2 focus:ring-green-100" />
+            {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
           </div>
 
           <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
-          {/* Category */}
           <Chip active={catFilter === "all"} onClick={() => setCatFilter("all")}>🗺️ ทั้งหมด</Chip>
           {CATEGORIES.map(c => (
-            <Chip key={c.key} active={catFilter === c.key} onClick={() => setCatFilter(c.key)}
-              activeBg={c.bg} activeText={c.text}>
+            <Chip key={c.key} active={catFilter === c.key} onClick={() => setCatFilter(c.key)} activeBg={c.bg} activeText={c.text}>
               {c.chipLabel}
             </Chip>
           ))}
 
           <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
-          {/* Month */}
           <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none text-gray-600">
-            <option value="all">📅 เดือนเดินทาง: ทั้งหมด</option>
+            className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white focus:outline-none text-gray-600">
+            <option value="all">📅 ทุกเดือน</option>
             {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
 
-          {/* Advanced toggle */}
-          <button
-            onClick={() => setShowAdvanced(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ml-auto"
-            style={showAdvanced || hasAdvancedFilter
+          <button onClick={() => setShowAdvanced(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ml-auto"
+            style={showAdvanced || hasAdvanced
               ? { background: "#eff6ff", color: "#2563eb", borderColor: "#bfdbfe" }
               : { background: "white", color: "#6b7280", borderColor: "#e5e7eb" }}>
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            ตัวกรองเพิ่มเติม
-            {hasAdvancedFilter && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+            ตัวกรอง
+            {hasAdvanced && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
           </button>
         </div>
 
-        {/* Advanced filters (collapsible) */}
         {showAdvanced && (
           <div className="max-w-screen-xl mx-auto px-4 pb-2.5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">สถานะ:</span>
+            <span className="text-[11px] font-bold text-gray-400 uppercase">สถานะ:</span>
             <Chip active={stFilter === "all"}  onClick={() => setStFilter("all")}>ทุกสถานะ</Chip>
             <Chip active={stFilter === "ok"}   onClick={() => setStFilter("ok")}  activeBg="#f0fdf4" activeText="#15803d">✅ ว่าง</Chip>
             <Chip active={stFilter === "low"}  onClick={() => setStFilter("low")} activeBg="#fff7ed" activeText="#c2410c">⚠️ ใกล้เต็ม</Chip>
-            <Chip active={stFilter === "full"} onClick={() => setStFilter("full")} activeBg="#fef2f2" activeText="#dc2626">🔴 เต็มแล้ว</Chip>
-
+            <Chip active={stFilter === "full"} onClick={() => setStFilter("full")} activeBg="#fef2f2" activeText="#dc2626">🔴 เต็ม</Chip>
             <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">เรียงตาม:</span>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as "name" | "date" | "seats")}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none text-gray-600">
+            <span className="text-[11px] font-bold text-gray-400 uppercase">เรียง:</span>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as "name"|"date"|"seats")}
+              className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white text-gray-600 focus:outline-none">
               <option value="date">วันเดินทางใกล้สุด</option>
               <option value="name">ชื่อโปรแกรม A-Z</option>
               <option value="seats">ที่นั่งว่างมากสุด</option>
             </select>
-
-            {hasAdvancedFilter && (
+            {hasAdvanced && (
               <button onClick={() => { setStFilter("all"); setSortBy("date"); }}
-                className="text-xs text-red-500 hover:text-red-700 underline ml-1">
-                ล้างตัวกรอง
-              </button>
+                className="text-xs text-red-500 hover:text-red-700 underline">ล้าง</button>
             )}
           </div>
         )}
       </div>
 
-      {/* ── Stats strip ── */}
-      <div className="max-w-screen-xl mx-auto w-full px-4 pt-3 pb-1">
-        <p className="text-[12px] text-gray-500">
-          พบ <span className="font-semibold text-gray-700">{filteredTours.length}</span> โปรแกรม
+      {/* ── Stats ── */}
+      <div className="max-w-screen-xl mx-auto w-full px-4 pt-4 pb-2">
+        <p className="text-sm text-gray-500">
+          พบ <span className="font-bold text-gray-800">{filteredTours.length}</span> โปรแกรม
           {CATEGORIES.map(c => {
             const n = grouped.get(c.key)?.length ?? 0;
             if (!n) return null;
@@ -637,29 +635,26 @@ export default function PublicCatalog() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-screen-xl mx-auto w-full px-4 pb-10 flex-1">
+      <div className="max-w-screen-xl mx-auto w-full px-4 pb-12 flex-1">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-green-400" />
-            <p className="text-sm">กำลังโหลดข้อมูลโปรแกรมทัวร์...</p>
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-gray-400">
+            <RefreshCw className="w-7 h-7 animate-spin text-green-400" />
+            <p className="text-sm">กำลังโหลดโปรแกรมทัวร์...</p>
           </div>
         ) : filteredTours.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
-            <Search className="w-10 h-10 text-gray-300" />
-            <p className="text-sm font-medium text-gray-500">ไม่พบโปรแกรมที่ตรงเงื่อนไข</p>
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-gray-400">
+            <Search className="w-12 h-12 text-gray-200" />
+            <p className="text-base font-semibold text-gray-500">ไม่พบโปรแกรมที่ตรงเงื่อนไข</p>
             <button onClick={() => { setSearch(""); setCatFilter("all"); setStFilter("all"); setMonthFilter("all"); setSortBy("date"); }}
-              className="text-sm text-green-600 hover:text-green-800 underline">
-              ล้าง filter ทั้งหมด
-            </button>
+              className="text-sm text-green-600 hover:text-green-800 underline">ล้าง filter ทั้งหมด</button>
           </div>
         ) : catFilter !== "all" ? (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm mt-2">
-            {(grouped.get(catFilter) ?? []).map((t, i) => (
-              <ProgramRow key={t.id} tour={t}
-                expanded={expandedIds.has(t.id)} onToggle={() => toggleExpand(t.id)}
-                monthFilter={monthFilter} stFilter={stFilter}
-                showHint={i === 0 && expandedIds.size === 0} />
-            ))}
+          <div className="mt-2">
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+              {(grouped.get(catFilter) ?? []).map(t => (
+                <ProgramCard key={t.id} tour={t} onClick={() => setSelectedTour(t)} />
+              ))}
+            </div>
           </div>
         ) : (
           <div className="mt-2">
@@ -668,10 +663,7 @@ export default function PublicCatalog() {
                 key={c.key}
                 catKey={c.key}
                 tours={grouped.get(c.key) ?? []}
-                expandedIds={expandedIds}
-                onToggle={toggleExpand}
-                monthFilter={monthFilter}
-                stFilter={stFilter}
+                onSelect={t => setSelectedTour(t)}
               />
             ))}
           </div>
@@ -682,20 +674,18 @@ export default function PublicCatalog() {
       <footer className="bg-white border-t border-gray-200">
         <div className="max-w-screen-xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
-            <p className="font-bold text-gray-800 text-sm">สนใจจองโปรแกรมทัวร์?</p>
+            <p className="font-bold text-gray-800">สนใจจองโปรแกรมทัวร์?</p>
             <p className="text-xs text-gray-500 mt-0.5">ทีมงานพร้อมให้คำแนะนำและดูแลทุกขั้นตอน</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex gap-3">
             <a href="tel:027370333"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-green-600 text-green-700 font-semibold text-sm hover:bg-green-50 transition-colors">
-              <Phone className="w-4 h-4" />
-              02-737-0333
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-green-600 text-green-700 font-semibold text-sm hover:bg-green-50 transition-colors">
+              <Phone className="w-4 h-4" /> 02-737-0333
             </a>
             <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-white font-semibold text-sm transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-semibold text-sm"
               style={{ background: "#06c755" }}>
-              <MessageCircle className="w-4 h-4" />
-              LINE @standardtour
+              <MessageCircle className="w-4 h-4" /> LINE @standardtour
             </a>
           </div>
         </div>
@@ -703,6 +693,9 @@ export default function PublicCatalog() {
           ข้อมูลอัปเดต Real-time · ไม่แสดงราคา/รายได้ · Standard Tour Hub
         </div>
       </footer>
+
+      {/* ── Period Drawer ── */}
+      <PeriodDrawer tour={selectedTour} onClose={() => setSelectedTour(null)} />
     </div>
   );
 }
