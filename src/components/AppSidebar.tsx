@@ -7,6 +7,7 @@ import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { ReadyToTravelNotification } from "@/components/ReadyToTravelNotification";
 import { WatchlistNotification } from "@/components/WatchlistNotification";
+import { PromoReadyNotification } from "@/components/PromoReadyNotification";
 import { DepartingBanner } from "@/components/DepartingBanner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -128,6 +129,11 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <div className="px-1">
                   <WatchlistNotification collapsed={collapsed} />
+                </div>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <div className="px-1">
+                  <PromoReadyNotification collapsed={collapsed} />
                 </div>
               </SidebarMenuItem>
               {(effectiveRole === "OB Co-ordinator" || effectiveRole === "OB Manager") && (

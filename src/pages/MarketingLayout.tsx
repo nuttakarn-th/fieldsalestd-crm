@@ -24,6 +24,7 @@ import { StandyWidget, StandyBtn } from "@/components/StandyWidget";
 import { NewProgramNotification } from "@/components/NewProgramNotification";
 import { AtRiskNotification } from "@/components/AtRiskNotification";
 import { WatchlistNotification } from "@/components/WatchlistNotification";
+import { PromoReadyNotification } from "@/components/PromoReadyNotification";
 import { ReadyToTravelNotification } from "@/components/ReadyToTravelNotification";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -321,6 +322,7 @@ export default function MarketingLayout() {
           <NewProgramNotification collapsed={sidebarCollapsed} />
           <AtRiskNotification collapsed={sidebarCollapsed} />
           <WatchlistNotification collapsed={sidebarCollapsed} />
+          <PromoReadyNotification collapsed={sidebarCollapsed} campaignUrl="/marketing/campaign-management" />
           <ReadyToTravelNotification collapsed={sidebarCollapsed} stockUrl="/marketing/all-service" />
         </div>
 
