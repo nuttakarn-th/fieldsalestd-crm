@@ -113,8 +113,7 @@ export default function PublicCatalog() {
     if (!SUPABASE_ENABLED || !supabase) return;
     const { data } = await supabase
       .from("tours")
-      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published,archived")
-      .eq("archived", false)
+      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published")
       .order("code", { ascending: true });
     if (data) {
       setTours(data as TourItem[]);
@@ -141,7 +140,6 @@ export default function PublicCatalog() {
   // ── Filter ─────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return tours.filter(t => {
-      if (t.archived) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (statusFilter !== "all" && tourAggStatus(t) !== statusFilter) return false;
       if (search) {
