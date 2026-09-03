@@ -26,12 +26,6 @@ const CATEGORIES = [
     bg: "#fff7ed", text: "#c2410c", strip: "#f97316", headerBg: "#fff7ed",
     grad: "linear-gradient(135deg,#f97316,#ea580c)", icon: MapPin,
   },
-  {
-    key: "Incentive", label: "ทัวร์ Incentive", sublabel: "Incentive",
-    short: "INC", chipLabel: "🌟 Incentive",
-    bg: "#f3e8ff", text: "#7c3aed", strip: "#a855f7", headerBg: "#faf5ff",
-    grad: "linear-gradient(135deg,#a855f7,#9333ea)", icon: Globe,
-  },
 ] as const;
 
 function getCat(cat: string) { return CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[2]; }
