@@ -165,7 +165,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
               ) : (
                 <div className="divide-y divide-gray-50">
                   {periods.map(p => {
-                    const total = p.total_seats ?? tour.total_seats ?? 0;
+                    const total = p.total_seats > 0 ? p.total_seats : (tour.total_seats ?? 0);
                     const st = pStatus(p.quota, total);
                     const pct = total > 0 ? Math.round(((total - p.quota) / total) * 100) : 0;
                     const barColor = st === "full" ? "#ef4444" : st === "low" ? "#f97316" : "#22c55e";
@@ -236,20 +236,27 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
   const cat = getCat(tour.category);
   const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled);
 
-  // Aggregated stats
-  const totalQuota = periods.reduce((s, p) => s + (p.quota ?? 0), 0);
-  const totalSeats = periods.reduce((s, p) => s + (p.total_seats ?? tour.total_seats ?? 0), 0);
-  const minQuota   = periods.length ? Math.min(...periods.map(p => p.quota ?? 0)) : 0;
-  const hasOk  = periods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "ok");
-  const hasLow = periods.some(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) === "low");
+  // Normalize: period total_seats=0 means "use tour.total_seats"
+  const effPeriods = periods.map(p => ({
+    quota: p.quota ?? 0,
+    total: p.total_seats > 0 ? p.total_seats : (tour.total_seats ?? 0),
+    date:  p.start_date ?? p.travel_date ?? "",
+  }));
+
+  // Aggregated stats (correct denominator)
+  const totalQuota = effPeriods.reduce((s, p) => s + p.quota, 0);
+  const totalSeats = effPeriods.reduce((s, p) => s + p.total, 0);
+  const minQuota   = effPeriods.length ? Math.min(...effPeriods.map(p => p.quota)) : 0;
+  const hasOk  = effPeriods.some(p => pStatus(p.quota, p.total) === "ok");
+  const hasLow = effPeriods.some(p => pStatus(p.quota, p.total) === "low");
   const rowSt: PStatus = hasOk ? "ok" : hasLow ? "low" : "full";
   const pct = totalSeats > 0 ? Math.round(((totalSeats - totalQuota) / totalSeats) * 100) : 0;
   const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#22c55e";
 
   // Next departure
-  const upcoming = periods
-    .filter(p => pStatus(p.quota, p.total_seats ?? tour.total_seats ?? 0) !== "full")
-    .map(p => p.start_date ?? p.travel_date ?? "")
+  const upcoming = effPeriods
+    .filter(p => pStatus(p.quota, p.total) !== "full")
+    .map(p => p.date)
     .filter(Boolean).sort();
   const nextDate = upcoming[0];
 
@@ -275,36 +282,49 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         (e.currentTarget as HTMLDivElement).style.boxShadow = "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)";
       }}
     >
-      {/* Top gradient bar */}
-      <div className="h-1.5 w-full" style={{ background: cat.grad }} />
+      {/* Destination hero header */}
+      <div className="relative h-24 flex items-end pb-3 px-4 overflow-hidden" style={{ background: cat.grad }}>
+        {/* subtle pattern overlay */}
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6) 0%, transparent 60%)",
+        }} />
+        {/* Duration badge — top left */}
+        {tour.duration && (
+          <div className="absolute top-3 left-3">
+            <span className="text-[11px] font-semibold text-white bg-black/20 px-2 py-0.5 rounded-full">
+              {tour.duration}
+            </span>
+          </div>
+        )}
+        {/* Status badge — top right */}
+        <div className="absolute top-3 right-3">
+          {rowSt === "ok"   && <span className="text-[11px] font-bold text-green-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ว่าง</span>}
+          {rowSt === "low"  && <span className="text-[11px] font-bold text-orange-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ใกล้เต็ม</span>}
+          {rowSt === "full" && <span className="text-[11px] font-bold text-red-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">เต็มแล้ว</span>}
+        </div>
+        {/* Flag + city */}
+        <div className="relative flex items-end gap-2 min-w-0">
+          <span className="text-5xl leading-none drop-shadow">{flag || "✈️"}</span>
+          <div className="min-w-0 pb-0.5">
+            <p className="text-white font-bold text-sm leading-tight truncate drop-shadow-sm">
+              {tour.city || tour.country || "—"}
+            </p>
+            {tour.country && tour.country !== tour.city && (
+              <p className="text-white/75 text-xs leading-tight">{tour.country}</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Card body */}
       <div className="p-4">
-        {/* Top row: category badge + status */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ background: cat.bg, color: cat.text }}>
-              {cat.short}
-            </span>
-            {tour.duration && (
-              <span className="text-[11px] text-gray-400 font-medium">{tour.duration}</span>
-            )}
-          </div>
-          {rowSt === "ok"   && <span className="text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">ว่าง</span>}
-          {rowSt === "low"  && <span className="text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">ใกล้เต็ม</span>}
-          {rowSt === "full" && <span className="text-[11px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">เต็มแล้ว</span>}
+        {/* Program name + code */}
+        <div className="mb-3">
+          <p className="font-bold text-gray-900 text-base leading-tight line-clamp-2 group-hover:text-green-800 transition-colors">
+            {tour.title ?? tour.city}
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">{tour.code}</p>
         </div>
-
-        {/* Program name */}
-        <p className="font-bold text-gray-900 text-base leading-tight mb-1 line-clamp-2 group-hover:text-green-800 transition-colors">
-          {tour.title ?? tour.city}
-        </p>
-
-        {/* Location */}
-        <p className="text-sm text-gray-500 mb-3 flex items-center gap-1.5">
-          <span className="text-base">{flag}</span>
-          <span className="truncate">{tour.city}{tour.country ? `, ${tour.country}` : ""}</span>
-        </p>
 
         {/* Booking meter */}
         {totalSeats > 0 && (
