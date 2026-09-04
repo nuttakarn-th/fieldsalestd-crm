@@ -32,7 +32,7 @@ const defaultRows = (): PriceRow[] => OTA_PLATFORMS.map((pl) => ({ platform: pl,
 interface ImportError { row: number; message: string }
 
 export default function OTAPackages() {
-  const { packages, addPackage, updatePackage, deletePackage, getPackageByCode } = useOTAStore();
+  const { packages, addPackage, updatePackage, deletePackage, getPackageByCode, seedDefaultPackages } = useOTAStore();
   const importRef = useRef<HTMLInputElement>(null);
 
   const [showForm, setShowForm]         = useState(false);
@@ -201,7 +201,17 @@ export default function OTAPackages() {
           </thead>
           <tbody>
             {packages.length === 0 ? (
-              <tr><td colSpan={4} className="text-center py-12 text-muted-foreground">ยังไม่มี Package</td></tr>
+              <tr>
+                <td colSpan={4} className="text-center py-12">
+                  <p className="text-muted-foreground mb-3">ยังไม่มี Package</p>
+                  <button
+                    onClick={async () => { await seedDefaultPackages(); toast.success("โหลด Default Packages สำเร็จ"); }}
+                    className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  >
+                    โหลด Default Packages
+                  </button>
+                </td>
+              </tr>
             ) : (
               packages.map((pkg) => (
                 <tr key={pkg.id} className="border-t border-border hover:bg-muted/30 transition-colors">

@@ -66,6 +66,7 @@ interface OTAState {
 
   // Supabase loaders
   loadFromSupabase: () => Promise<void>;
+  seedDefaultPackages: () => Promise<void>; // เพิ่ม packages เริ่มต้นด้วยมือ
 
   // Orders
   addOrder: (o: Omit<OTAOrder, "id" | "created_at">) => Promise<string>;
@@ -212,14 +213,7 @@ export const useOTAStore = create<OTAState>()(
           console.error("[ota] load packages error:", pkgErr);
         } else {
           const pkgs = (pkgData ?? []).map(rowToPackage);
-          // ถ้า DB ว่าง ให้ seed
-          if (pkgs.length === 0) {
-            await seedPackages();
-            const { data: seeded } = await supabase.from("ota_packages").select("*").order("created_at");
-            set({ packages: (seeded ?? []).map(rowToPackage) });
-          } else {
-            set({ packages: pkgs });
-          }
+          set({ packages: pkgs });
         }
 
         // Orders
@@ -232,6 +226,18 @@ export const useOTAStore = create<OTAState>()(
           console.error("[ota] load orders error:", ordErr);
         } else {
           set({ orders: (ordData ?? []).map(rowToOrder), loaded: true });
+        }
+      },
+
+      // ── Seed default packages manually ────────────────────────────────────
+
+      seedDefaultPackages: async () => {
+        await seedPackages();
+        if (SUPABASE_ENABLED && supabase) {
+          const { data } = await supabase.from("ota_packages").select("*").order("created_at");
+          if (data) set({ packages: data.map(rowToPackage) });
+        } else {
+          set({ packages: SEED_PACKAGES });
         }
       },
 
@@ -367,6 +373,10 @@ export const useOTAStore = create<OTAState>()(
     }),
     {
       name: "ota-store-v2",
+      // version 2: ลบ auto-seed — DB is source of truth
+      // เพิ่ม version ทุกครั้งที่ต้องการ clear localStorage cache
+      version: 2,
+      migrate: () => ({ orders: [], packages: [], loaded: false }),
     }
   )
 );
