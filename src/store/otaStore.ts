@@ -14,6 +14,14 @@ import { toast } from "sonner";
 
 export type OTAPlatform = "Trip.com" | "KKday" | "Agent Offline" | "GetYourGuide" | "Viator" | "Airbnb";
 
+export interface OTAPlatformConfig {
+  id: string;
+  platform: string;        // platform name (OTAPlatform or custom)
+  commission_pct: number;  // e.g. 20 for 20%
+  notes: string;
+  created_at: string;
+}
+
 export const OTA_PLATFORMS: OTAPlatform[] = [
   "Trip.com",
   "KKday",
@@ -62,6 +70,7 @@ export interface OTAPackage {
 interface OTAState {
   orders: OTAOrder[];
   packages: OTAPackage[];
+  platformConfigs: OTAPlatformConfig[];
   loaded: boolean; // ป้องกัน seed ทับข้อมูลจาก DB
 
   // Supabase loaders
@@ -78,9 +87,15 @@ interface OTAState {
   updatePackage: (id: string, patch: Partial<OTAPackage>) => Promise<void>;
   deletePackage: (id: string) => Promise<void>;
 
+  // Platform Configs
+  addPlatformConfig: (p: Omit<OTAPlatformConfig, "id" | "created_at">) => Promise<string>;
+  updatePlatformConfig: (id: string, patch: Partial<OTAPlatformConfig>) => Promise<void>;
+  deletePlatformConfig: (id: string) => Promise<void>;
+
   // Helpers
   getOrdersByMonth: (year: number, month: number) => OTAOrder[];
   getPackageByCode: (code: string) => OTAPackage | undefined;
+  getPlatformConfig: (platform: string) => OTAPlatformConfig | undefined;
 }
 
 function uid() {
@@ -173,6 +188,16 @@ function rowToOrder(r: Record<string, unknown>): OTAOrder {
   };
 }
 
+function rowToPlatformConfig(r: Record<string, unknown>): OTAPlatformConfig {
+  return {
+    id:             String(r.id),
+    platform:       String(r.platform ?? ""),
+    commission_pct: Number(r.commission_pct ?? 0),
+    notes:          String(r.notes ?? ""),
+    created_at:     String(r.created_at ?? new Date().toISOString()),
+  };
+}
+
 function rowToPackage(r: Record<string, unknown>): OTAPackage {
   let pp: PlatformPrice[] = [];
   try {
@@ -194,9 +219,10 @@ function rowToPackage(r: Record<string, unknown>): OTAPackage {
 export const useOTAStore = create<OTAState>()(
   persist(
     (set, get) => ({
-      orders:   [],
-      packages: SEED_PACKAGES,
-      loaded:   false,
+      orders:          [],
+      packages:        SEED_PACKAGES,
+      platformConfigs: [],
+      loaded:          false,
 
       // ── Load from Supabase ─────────────────────────────────────────────────
 
@@ -226,6 +252,18 @@ export const useOTAStore = create<OTAState>()(
           console.error("[ota] load orders error:", ordErr);
         } else {
           set({ orders: (ordData ?? []).map(rowToOrder), loaded: true });
+        }
+
+        // Platform Configs
+        const { data: cfgData, error: cfgErr } = await supabase
+          .from("ota_platform_configs")
+          .select("*")
+          .order("platform", { ascending: true });
+
+        if (cfgErr) {
+          console.error("[ota] load platform configs error:", cfgErr);
+        } else {
+          set({ platformConfigs: (cfgData ?? []).map(rowToPlatformConfig) });
         }
       },
 
@@ -361,6 +399,56 @@ export const useOTAStore = create<OTAState>()(
         set((s) => ({ packages: s.packages.filter((p) => p.id !== id) }));
       },
 
+      // ── Platform Configs ──────────────────────────────────────────────────
+
+      addPlatformConfig: async (p) => {
+        const id = uid();
+        const cfg: OTAPlatformConfig = { ...p, id, created_at: new Date().toISOString() };
+
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_platform_configs").insert({
+            id:             cfg.id,
+            platform:       cfg.platform,
+            commission_pct: cfg.commission_pct,
+            notes:          cfg.notes ?? "",
+          });
+          if (error) {
+            console.error("[ota] addPlatformConfig error:", error);
+            toast.error(`บันทึก Platform ไม่สำเร็จ — ${error.message}`);
+            return id;
+          }
+        }
+
+        set((s) => ({ platformConfigs: [...s.platformConfigs, cfg] }));
+        return id;
+      },
+
+      updatePlatformConfig: async (id, patch) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_platform_configs").update(patch).eq("id", id);
+          if (error) {
+            console.error("[ota] updatePlatformConfig error:", error);
+            toast.error(`แก้ไข Platform ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
+        set((s) => ({
+          platformConfigs: s.platformConfigs.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        }));
+      },
+
+      deletePlatformConfig: async (id) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_platform_configs").delete().eq("id", id);
+          if (error) {
+            console.error("[ota] deletePlatformConfig error:", error);
+            toast.error(`ลบ Platform ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
+        set((s) => ({ platformConfigs: s.platformConfigs.filter((c) => c.id !== id) }));
+      },
+
       // ── Helpers ──────────────────────────────────────────────────────────────
 
       getOrdersByMonth: (year, month) => {
@@ -370,13 +458,15 @@ export const useOTAStore = create<OTAState>()(
 
       getPackageByCode: (code) =>
         get().packages.find((p) => p.code.toUpperCase() === code.toUpperCase()),
+
+      getPlatformConfig: (platform) =>
+        get().platformConfigs.find((c) => c.platform === platform),
     }),
     {
-      name: "ota-store-v2",
-      // version 2: ลบ auto-seed — DB is source of truth
-      // เพิ่ม version ทุกครั้งที่ต้องการ clear localStorage cache
-      version: 2,
-      migrate: () => ({ orders: [], packages: [], loaded: false }),
+      name: "ota-store-v3",
+      // version 3: เพิ่ม platformConfigs state
+      version: 3,
+      migrate: () => ({ orders: [], packages: [], platformConfigs: [], loaded: false }),
     }
   )
 );

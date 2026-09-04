@@ -180,7 +180,7 @@ const EXPORT_HEADERS = [
 interface ImportError { row: number; message: string }
 
 export default function OTAOrderEntry() {
-  const { orders, packages, addOrder, updateOrder, deleteOrder, getPackageByCode } = useOTAStore();
+  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, getPackageByCode } = useOTAStore();
   const currentUser = useCurrentUser();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -532,7 +532,13 @@ export default function OTAOrderEntry() {
                       value={form.platform}
                       onChange={(v) => {
                         const price = selectedPkg?.platform_prices.find((pp) => pp.platform === v)?.price ?? 0;
-                        setForm((f) => ({ ...f, platform: v as OTAPlatform, gross_price: price }));
+                        const cfg = platformConfigs.find((c) => c.platform === v);
+                        setForm((f) => ({
+                          ...f,
+                          platform: v as OTAPlatform,
+                          gross_price: price > 0 ? price : f.gross_price,
+                          commission_pct: cfg !== undefined ? cfg.commission_pct : f.commission_pct,
+                        }));
                       }}
                       options={[
                         { value: "", label: "", sublabel: "Platforms" },

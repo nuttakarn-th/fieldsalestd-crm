@@ -27,6 +27,7 @@ import {
   History,
   ClipboardList,
   Package,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -360,11 +361,13 @@ const accountingMenu: RoleMenu = {
 const otaMenu: RoleMenu = {
   sections: [
     {
+      category: "OTA",
       items: [
         { title: "Order Entry", url: "/ota/order-entry", icon: ClipboardList },
         { title: "Dashboard",   url: "/ota/dashboard",   icon: BarChart3 },
         { title: "Calendar",    url: "/ota/calendar",    icon: CalendarDays },
         { title: "Packages",    url: "/ota/packages",    icon: Package },
+        { title: "Platforms",   url: "/ota/platforms",   icon: Settings2 },
       ],
     },
   ],
