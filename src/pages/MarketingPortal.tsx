@@ -15,7 +15,7 @@ import {
   TrendingUp, Megaphone, Users, BarChart3, Zap,
   Target, LayoutGrid, ChevronRight, Flame,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
-  Search, X, Images, BookOpen, Phone, AlertTriangle,
+  Search, X, Images, BookOpen, Phone, AlertTriangle, Globe,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useMarketingSignals } from "./MarketingHub";
@@ -101,12 +101,12 @@ const CATEGORIES: CategoryItem[] = [
     to: "/marketing/marketing-report",
   },
   {
-    label: "Team",
-    desc: "ทีม Marketing, โครงสร้างองค์กร",
-    icon: Users,
-    gradient: "from-orange-500 to-amber-500",
-    count: 2,
-    to: "/team-resources/team",
+    label: "OTA",
+    desc: "Order Entry, Dashboard, Calendar, จัดการ Package ราคา Platform",
+    icon: Globe,
+    gradient: "from-violet-500 to-purple-700",
+    count: 4,
+    to: "/ota/order-entry",
   },
 ];
 
