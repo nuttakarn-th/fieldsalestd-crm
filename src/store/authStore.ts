@@ -190,12 +190,17 @@ export const useAuth = create<AuthState>()(
           tel: u.tel?.trim() || "",
           created_at: new Date().toISOString(),
         };
-        set({ users: [...users, newUser] });
+        // ── บันทึกลง Supabase ก่อน (await) — ถ้าล้มเหลวให้แจ้ง error ทันที ────
         if (SUPABASE_ENABLED && supabase) {
           const { password, ...rest } = newUser;
-          supabase.from("app_users").insert({ ...rest, password_hash: passwordHash, plain_password: plainPwd }).then(({ error }) => {
-            if (error) console.error("[supabase] เพิ่ม user ล้มเหลว:", error);
-          });
+          const { error: insertErr } = await supabase
+            .from("app_users")
+            .insert({ ...rest, password_hash: passwordHash, plain_password: plainPwd });
+          if (insertErr) {
+            console.error("[supabase] เพิ่ม user ล้มเหลว:", insertErr);
+            toast.error(`บันทึก User ไม่สำเร็จ — ${insertErr.message || "กรุณา Login ใหม่แล้วลองอีกครั้ง"}`);
+            return { ok: false, error: insertErr.message };
+          }
           // sync ชื่อไปยัง sales_reps เพื่อไม่ให้ FK constraint ปฏิเสธ insert ของ customers/leads/routes
           const salesRoles: AppRole[] = ["Sales", "OB Co-ordinator", "Sales Manager", "OB Manager"];
           if (salesRoles.includes(u.role)) {
@@ -212,6 +217,8 @@ export const useAuth = create<AuthState>()(
             });
           }
         }
+        // บันทึก local state หลัง Supabase สำเร็จ (หรือ Supabase ปิดอยู่)
+        set({ users: [...users, newUser] });
         return { ok: true, user_id };
       },
 
