@@ -460,8 +460,18 @@ export const useOTAStore = create<OTAState>()(
         let errors = 0;
 
         if (SUPABASE_ENABLED && supabase) {
+          // Deduplicate ภายใน batch (Order # เดียวกัน 2 แถว → Postgres error)
+          // เก็บแถวสุดท้ายของแต่ละ order_number และนับจำนวน skip
+          const dedupMap = new Map<string, typeof rows[number]>();
+          rows.forEach((r) => dedupMap.set(r.order_number, r));
+          const dedupedRows = [...dedupMap.values()];
+          const internalDups = rows.length - dedupedRows.length;
+          if (internalDups > 0) {
+            console.warn(`[ota] importOrders: ${internalDups} duplicate order_number(s) in batch — kept last occurrence each`);
+          }
+
           // ดึง existing id จาก DB โดยตรง (ไม่พึ่ง local state ที่อาจยังไม่โหลด)
-          const orderNums = rows.map((r) => r.order_number);
+          const orderNums = dedupedRows.map((r) => r.order_number);
           const { data: existing } = await supabase
             .from("ota_orders")
             .select("id, order_number")
@@ -472,7 +482,7 @@ export const useOTAStore = create<OTAState>()(
           );
 
           // Build upsert payload — ใช้ existing id ถ้ามี ไม่งั้นสร้างใหม่
-          const records = rows.map((row) => {
+          const records = dedupedRows.map((row) => {
             const existingId = existingByOrderNum.get(row.order_number);
             return {
               id:              existingId ?? uid(),
@@ -506,7 +516,7 @@ export const useOTAStore = create<OTAState>()(
           }
 
           // นับ inserted vs updated (อ้างอิงจาก DB lookup ที่ทำไว้)
-          rows.forEach((row) => {
+          dedupedRows.forEach((row) => {
             if (existingByOrderNum.has(row.order_number)) updated++;
             else inserted++;
           });
