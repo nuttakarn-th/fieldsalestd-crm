@@ -25,6 +25,8 @@ import {
   Trophy,
   Tv2,
   History,
+  ClipboardList,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -355,6 +357,19 @@ const accountingMenu: RoleMenu = {
   account: [],
 };
 
+const otaMenu: RoleMenu = {
+  sections: [
+    {
+      items: [
+        { title: "Order Entry", url: "/ota/order-entry", icon: ClipboardList },
+        { title: "Dashboard",   url: "/ota/dashboard",   icon: BarChart3 },
+        { title: "Calendar",    url: "/ota/calendar",    icon: CalendarDays },
+        { title: "Packages",    url: "/ota/packages",    icon: Package },
+      ],
+    },
+  ],
+};
+
 export function getMenuForRole(role: AppRole): RoleMenu {
   switch (role) {
     case "Admin": return adminMenu;
@@ -366,6 +381,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
     case "Marketing Manager": return marketingMenu;
     case "Co-Ordinator": return coordinatorMenu;
     case "Accounting": return accountingMenu;
+    case "OTA": return otaMenu;
   }
 }
 
@@ -385,5 +401,6 @@ export function roleBadgeColor(role: AppRole): string {
     case "Marketing Manager": return "from-violet-600 to-purple-700";
     case "Co-Ordinator": return "from-sky-500 to-cyan-600";
     case "Accounting": return "from-emerald-500 to-teal-600";
+    case "OTA": return "from-violet-500 to-purple-700";
   }
 }

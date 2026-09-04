@@ -365,6 +365,8 @@ export default function Hub() {
 
   // ── Marketing role → redirect ไป Marketing Hub Portal ──────────────────────
   if (isMarketing) return <Navigate to="/marketing" replace />;
+  // ── OTA role → redirect ไป OTA Module ──────────────────────────────────────
+  if (effectiveRole === "OTA") return <Navigate to="/ota/order-entry" replace />;
   const sharedTiles = baseTiles.filter((t) => !isMarketing);
   const tiles = [
     ...sharedTiles,

@@ -752,16 +752,34 @@ export const useServices = create<ServiceState>()(
       subscribeToursRealtime: () => {
         if (!SUPABASE_ENABLED || !supabase) return () => {};
         let debounceTimer: ReturnType<typeof setTimeout>;
+
+        // โหลดเฉพาะ tours — ไม่แตะ cars/flights/hotels/visas/insurances
+        async function reloadToursOnly() {
+          const { data } = await supabase!
+            .from("tours")
+            .select("*")
+            .order("code", { ascending: true });
+          if (data) {
+            const mapped = (data as (TourItem & { quota?: number })[]).map((t) => {
+              const periods: TourPeriod[] = Array.isArray(t.periods) ? t.periods : [];
+              const totalSeats = periods.length > 0
+                ? periods.reduce((s, p) => s + p.total_seats, 0)
+                : (t.total_seats > 0 ? t.total_seats : (t.quota ?? 0));
+              const quota = periods.length > 0
+                ? periods.reduce((s, p) => s + p.quota, 0)
+                : (t.quota ?? 0);
+              return { ...t, periods, total_seats: totalSeats, quota };
+            });
+            set({ tours: mapped, externallyUpdatedAt: new Date().toISOString() });
+          }
+        }
+
         const channel = supabase
           .channel("tours-realtime")
           .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => {
             // debounce 600ms เพื่อไม่ให้ reload ซ้ำเร็วเกินไปเมื่อมีหลาย event
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(async () => {
-              await get().loadFromSupabase();
-              // แจ้ง component ที่กำลัง edit dialog ว่ามี external update
-              set({ externallyUpdatedAt: new Date().toISOString() });
-            }, 600);
+            debounceTimer = setTimeout(reloadToursOnly, 600);
           })
           .subscribe((status) => {
             console.info("[supabase] tours realtime:", status);

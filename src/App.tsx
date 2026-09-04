@@ -84,6 +84,11 @@ import PlanReport from "./pages/PlanReport.tsx";
 import CalendarPlan from "./pages/CalendarPlan.tsx";
 import MarketingHub from "./pages/MarketingHub.tsx";
 import MarketingLayout from "./pages/MarketingLayout.tsx";
+import OTALayout from "./pages/ota/OTALayout.tsx";
+import OTAOrderEntry from "./pages/ota/OTAOrderEntry.tsx";
+import OTADashboard from "./pages/ota/OTADashboard.tsx";
+import OTACalendar from "./pages/ota/OTACalendar.tsx";
+import OTAPackages from "./pages/ota/OTAPackages.tsx";
 import MarketingPortal from "./pages/MarketingPortal.tsx";
 import MarketingOBLeads from "./pages/MarketingOBLeads.tsx";
 import MarketingSalesLeads from "./pages/MarketingSalesLeads.tsx";
@@ -207,6 +212,15 @@ const App = () => (
             <Route path="ads-report"        element={<AdsReport />} />
             <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="okr-follower"      element={<OKRFollowerPage />} />
+          </Route>
+
+          {/* ── OTA Module (OTA role + Marketing + Admin) ── */}
+          <Route path="/ota" element={<RouteGuard><OTALayout /></RouteGuard>}>
+            <Route index element={<Navigate to="/ota/order-entry" replace />} />
+            <Route path="order-entry" element={<OTAOrderEntry />} />
+            <Route path="dashboard"   element={<OTADashboard />} />
+            <Route path="calendar"    element={<OTACalendar />} />
+            <Route path="packages"    element={<OTAPackages />} />
           </Route>
 
           <Route path="/team-resources" element={<RouteGuard><TeamResourcesLayout /></RouteGuard>}>

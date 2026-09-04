@@ -924,7 +924,12 @@ export const useCRM = create<CRMState>()(
         "transfer_logs,created_at";
 
       const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(500);
-      const leadsQ = supabase.from("leads").select("*").order("created_at", { ascending: false }).limit(500);
+      const leadsSelect =
+        "lead_id,customer_id,assigned_to,bu_type,lead_category,scope,program,tour_id,period_id," +
+        "pax_count,travel_month,tour_type,budget_range,urgency,next_followup_date,status," +
+        "quoted_price,closed_price,closed_date,lost_reason,status_note,requirement_tags," +
+        "followup_logs,created_at,updated_at,fb_name,tiktok_username,skip_quota,department";
+      const leadsQ = supabase.from("leads").select(leadsSelect).order("created_at", { ascending: false }).limit(500);
       const routesQ = supabase
         .from("route_plans")
         .select("*, route_stops (*)")
