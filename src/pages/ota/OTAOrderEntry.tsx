@@ -3,12 +3,144 @@
  * Mirror: Standard Daycation Database → Order Entry page
  * v2: + Export XLSX + Import XLSX
  */
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle } from "lucide-react";
 import { useOTAStore, OTAPlatform, OTA_PLATFORMS, OTAOrder } from "@/store/otaStore";
 import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+
+// ── Nationality data ──────────────────────────────────────────────────────────
+const TOP_NATIONALITIES = [
+  "China","United States","United Kingdom","Germany","France",
+  "Japan","South Korea","Singapore","Australia","India",
+];
+const MORE_NATIONALITIES = [
+  "Thailand","Russia","UAE","Taiwan","Hong Kong","Malaysia","Indonesia",
+  "Philippines","Vietnam","Brazil","Canada","Italy","Spain","Netherlands",
+  "Sweden","Norway","Denmark","Switzerland","Austria","Poland",
+  "New Zealand","South Africa","Mexico","Argentina","Turkey","Israel",
+  "Egypt","Saudi Arabia","Belgium","Portugal","Greece",
+];
+
+// ── Guide options ─────────────────────────────────────────────────────────────
+const GUIDE_OPTIONS = ["Chinese Guide", "English Guide", "No Guide"];
+
+// ── SearchCombobox ────────────────────────────────────────────────────────────
+interface ComboOption { value: string; label: string; sublabel?: string; group?: string }
+
+function SearchCombobox({
+  value, onChange, options, placeholder = "Select...", searchPlaceholder = "Search...",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: ComboOption[];
+  placeholder?: string;
+  searchPlaceholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = query
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(query.toLowerCase()) ||
+        (o.sublabel?.toLowerCase().includes(query.toLowerCase()))
+      )
+    : options;
+
+  // Group by opt.group
+  const groupOrder: string[] = [];
+  const groups: Record<string, ComboOption[]> = {};
+  filtered.forEach((o) => {
+    const g = o.group ?? "";
+    if (!groupOrder.includes(g)) groupOrder.push(g);
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(o);
+  });
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen((v) => !v); setQuery(""); }}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm bg-background border border-border rounded-lg hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-left transition-colors"
+      >
+        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
+          {selected ? (
+            <span>
+              <span className="font-medium">{selected.label}</span>
+              {selected.sublabel && <span className="ml-1 text-muted-foreground font-normal">{selected.sublabel}</span>}
+            </span>
+          ) : placeholder}
+        </span>
+        <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-[60] top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-2xl overflow-hidden">
+          {/* Search input */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex-1 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+            {query && (
+              <button onClick={() => setQuery("")} className="text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {/* Options list */}
+          <div className="max-h-56 overflow-y-auto py-1">
+            {groupOrder.map((g) => (
+              <div key={g}>
+                {g && (
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{g}</div>
+                )}
+                {groups[g].map((opt) => {
+                  const isSelected = opt.value === value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => { onChange(opt.value); setOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors ${isSelected ? "bg-pink-500 text-white" : "hover:bg-muted"}`}
+                    >
+                      <div className="font-medium leading-tight">{opt.label}</div>
+                      {opt.sublabel && (
+                        <div className={`text-xs leading-tight ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
+                          {opt.sublabel}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-3 py-4 text-sm text-center text-muted-foreground">ไม่พบรายการ</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const PLATFORM_COLORS: Record<OTAPlatform, string> = {
   "Trip.com":     "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
@@ -361,7 +493,7 @@ export default function OTAOrderEntry() {
                   </div>
                 </div>
 
-                {/* Row 3: People | Platform */}
+                {/* Row 3: People | Platform (searchable) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Number of People <span className="text-red-500">*</span></label>
@@ -371,32 +503,37 @@ export default function OTAOrderEntry() {
                   </div>
                   <div>
                     <label className={labelCls}>Platform <span className="text-red-500">*</span></label>
-                    <select value={form.platform}
-                      onChange={(e) => {
-                        const newPlatform = e.target.value as OTAPlatform;
-                        const price = selectedPkg?.platform_prices.find((pp) => pp.platform === newPlatform)?.price ?? 0;
-                        setForm((f) => ({ ...f, platform: newPlatform, gross_price: price }));
+                    <SearchCombobox
+                      value={form.platform}
+                      onChange={(v) => {
+                        const price = selectedPkg?.platform_prices.find((pp) => pp.platform === v)?.price ?? 0;
+                        setForm((f) => ({ ...f, platform: v as OTAPlatform, gross_price: price }));
                       }}
-                      className={inputCls}>
-                      {OTA_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                      options={[
+                        { value: "", label: "", sublabel: "Platforms" },
+                        ...OTA_PLATFORMS.map((p) => ({ value: p, label: p, group: "Platforms" })),
+                      ].filter(o => o.value !== "")}
+                      placeholder="Select platform"
+                      searchPlaceholder="Search or type new platform..."
+                    />
                   </div>
                 </div>
 
-                {/* Row 4: Package Code | Package Details */}
+                {/* Row 4: Package Code (searchable) | Package Details (auto) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Package Code <span className="text-red-500">*</span></label>
-                    <select value={form.package_id}
-                      onChange={(e) => {
-                        const pkg = packages.find((p) => p.id === e.target.value);
+                    <SearchCombobox
+                      value={form.package_id}
+                      onChange={(v) => {
+                        const pkg = packages.find((p) => p.id === v);
                         const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                        setForm((f) => ({ ...f, package_id: e.target.value, gross_price: price }));
+                        setForm((f) => ({ ...f, package_id: v, gross_price: price }));
                       }}
-                      className={inputCls}>
-                      <option value="">Select package</option>
-                      {packages.map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}
-                    </select>
+                      options={packages.map((p) => ({ value: p.id, label: p.code, sublabel: p.name }))}
+                      placeholder="Select package"
+                      searchPlaceholder="Search packages..."
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Package Details</label>
@@ -405,15 +542,28 @@ export default function OTAOrderEntry() {
                   </div>
                 </div>
 
-                {/* Row 5: Nationality | Guide */}
+                {/* Row 5: Nationality (searchable) | Guide (select) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Nationality</label>
-                    <input value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="Select nationality" className={inputCls} />
+                    <SearchCombobox
+                      value={form.nationality}
+                      onChange={(v) => setForm((f) => ({ ...f, nationality: v }))}
+                      options={[
+                        ...TOP_NATIONALITIES.map((n) => ({ value: n, label: n, group: "Top Nationalities" })),
+                        ...MORE_NATIONALITIES.map((n) => ({ value: n, label: n, group: "More" })),
+                      ]}
+                      placeholder="Select nationality"
+                      searchPlaceholder="Search nationality..."
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Guide <span className="text-red-500">*</span></label>
-                    <input value={form.guide_name} onChange={(e) => setForm((f) => ({ ...f, guide_name: e.target.value }))} placeholder="Guide name" className={inputCls} />
+                    <select value={form.guide_name} onChange={(e) => setForm((f) => ({ ...f, guide_name: e.target.value }))}
+                      className={inputCls}>
+                      <option value=""></option>
+                      {GUIDE_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
                   </div>
                 </div>
 
