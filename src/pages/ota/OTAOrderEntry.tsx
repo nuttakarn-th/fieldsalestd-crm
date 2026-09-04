@@ -421,35 +421,43 @@ export default function OTAOrderEntry() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground">
-                {["Booking Date","Usage Date","Order #","Group #","People","Platform","Package","Nationality","Guide","Gross","Comm%","Net Revenue",""].map((h) => (
+                {[
+                  "Booking Date","Usage Date","Order #","Group #","People","Platform",
+                  "Package Code","Package Details","Nationality","Guide","Pickup Hotel",
+                  "Gross Price","Comm %","Comm Amount","Discount","Net Revenue",""
+                ].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={13} className="text-center py-12 text-muted-foreground">ยังไม่มี Order ในเดือนนี้</td></tr>
+                <tr><td colSpan={17} className="text-center py-12 text-muted-foreground">ยังไม่มี Order ในเดือนนี้</td></tr>
               ) : (
                 filtered.map((o) => {
                   const pkg = packages.find((p) => p.id === o.package_id);
+                  const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
                   return (
                     <tr key={o.id} className="border-t border-border hover:bg-muted/30 transition-colors">
-                      <td className="px-3 py-2.5 whitespace-nowrap">{fmtDate(o.booking_date)}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap font-medium">{fmtDate(o.usage_date)}</td>
-                      <td className="px-3 py-2.5">{o.order_number}</td>
-                      <td className="px-3 py-2.5">{o.group_number}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-sm">{fmtDate(o.booking_date)}</td>
+                      <td className="px-3 py-2.5 whitespace-nowrap font-medium text-sm">{fmtDate(o.usage_date)}</td>
+                      <td className="px-3 py-2.5 text-sm">{o.order_number}</td>
+                      <td className="px-3 py-2.5 text-sm">{o.group_number}</td>
                       <td className="px-3 py-2.5 text-center font-semibold">{o.pax}</td>
                       <td className="px-3 py-2.5">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{pkg?.code ?? "-"}</span>
-                        <span className="ml-2 text-muted-foreground text-xs truncate max-w-[120px] inline-block align-middle">{o.package_details}</span>
                       </td>
-                      <td className="px-3 py-2.5">{o.nationality}</td>
-                      <td className="px-3 py-2.5">{o.guide_name}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[160px] truncate">{o.package_details}</td>
+                      <td className="px-3 py-2.5 text-sm">{o.nationality}</td>
+                      <td className="px-3 py-2.5 text-sm whitespace-nowrap">{o.guide_name}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[140px] truncate">{o.pickup_hotel ?? "-"}</td>
                       <td className="px-3 py-2.5 text-right text-sm">{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</td>
                       <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">{o.commission_pct > 0 ? `${o.commission_pct}%` : "-"}</td>
+                      <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</td>
+                      <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{o.discount > 0 ? fmtCurrency(o.discount) : "-"}</td>
                       <td className="px-3 py-2.5 font-semibold text-right text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
