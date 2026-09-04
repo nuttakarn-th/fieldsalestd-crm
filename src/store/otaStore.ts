@@ -39,7 +39,7 @@ export interface OTAOrder {
 }
 
 export interface PlatformPrice {
-  platform: OTAPlatform;
+  platform: string;   // อาจเป็น OTAPlatform หรือ platform อื่นๆ ที่ผู้ใช้เพิ่มเอง
   price: number;
 }
 

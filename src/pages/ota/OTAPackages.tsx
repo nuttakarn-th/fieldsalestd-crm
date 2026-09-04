@@ -1,15 +1,16 @@
 /**
  * OTAPackages.tsx — จัดการ Package master data + Platform Prices
  * Mirror: Standard Daycation Database → Resource Library page
- * v2: + Export XLSX + Import XLSX
+ * v3: dynamic platform rows (+ Add Platform), Export/Import XLSX
  */
 import { useState, useRef } from "react";
 import { Plus, Pencil, Trash2, X, Check, Download, Upload, AlertCircle } from "lucide-react";
-import { useOTAStore, OTAPackage, OTAPlatform, OTA_PLATFORMS, PlatformPrice } from "@/store/otaStore";
+import { useOTAStore, OTAPackage, OTAPlatform, OTA_PLATFORMS } from "@/store/otaStore";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
-const PLATFORM_COLORS: Record<OTAPlatform, string> = {
+// ── Color helpers ─────────────────────────────────────────────────────────────
+const PLATFORM_COLORS: Record<string, string> = {
   "Trip.com":     "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   "KKday":        "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   "Agent Offline":"bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
@@ -17,11 +18,16 @@ const PLATFORM_COLORS: Record<OTAPlatform, string> = {
   "Viator":       "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   "Airbnb":       "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
 };
+const fallbackColor = "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300";
+const getPlatformColor = (p: string) => PLATFORM_COLORS[p] ?? fallbackColor;
 
-// Export/Import columns: Code, Name, then one col per platform
+// ── Export format ─────────────────────────────────────────────────────────────
 const EXPORT_HEADERS = ["Code", "Name", ...OTA_PLATFORMS];
 
-const EMPTY_FORM = { code: "", name: "", platform_prices: [] as PlatformPrice[] };
+// ── Form row type (for dynamic platform list) ─────────────────────────────────
+interface PriceRow { platform: string; price: number }
+
+const defaultRows = (): PriceRow[] => OTA_PLATFORMS.map((pl) => ({ platform: pl, price: 0 }));
 
 interface ImportError { row: number; message: string }
 
@@ -29,40 +35,64 @@ export default function OTAPackages() {
   const { packages, addPackage, updatePackage, deletePackage, getPackageByCode } = useOTAStore();
   const importRef = useRef<HTMLInputElement>(null);
 
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [showForm, setShowForm]         = useState(false);
+  const [editId, setEditId]             = useState<string | null>(null);
+  const [code, setCode]                 = useState("");
+  const [name, setName]                 = useState("");
+  const [rows, setRows]                 = useState<PriceRow[]>(defaultRows());
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
-  const [importStats, setImportStats] = useState({ added: 0, updated: 0, failed: 0 });
+  const [importStats, setImportStats]   = useState({ added: 0, updated: 0, failed: 0 });
 
-  const setPlatformPrice = (platform: OTAPlatform, price: number) =>
-    setForm((f) => ({ ...f, platform_prices: [...f.platform_prices.filter((p) => p.platform !== platform), { platform, price }] }));
-  const getPlatformPrice = (platform: OTAPlatform): number =>
-    form.platform_prices.find((p) => p.platform === platform)?.price ?? 0;
+  // ── Row helpers ──────────────────────────────────────────────────────────────
+  const updateRow = (i: number, field: keyof PriceRow, value: string | number) =>
+    setRows((r) => r.map((row, idx) => idx === i ? { ...row, [field]: value } : row));
+  const removeRow = (i: number) => setRows((r) => r.filter((_, idx) => idx !== i));
+  const addRow    = () => setRows((r) => [...r, { platform: "", price: 0 }]);
 
-  const openAdd = () => { setForm({ ...EMPTY_FORM, platform_prices: [] }); setEditId(null); setShowForm(true); };
-  const openEdit = (pkg: OTAPackage) => {
-    setForm({ code: pkg.code, name: pkg.name, platform_prices: [...pkg.platform_prices] });
-    setEditId(pkg.id); setShowForm(true);
+  // ── Open modal ────────────────────────────────────────────────────────────────
+  const openAdd = () => {
+    setCode(""); setName(""); setRows(defaultRows()); setEditId(null); setShowForm(true);
   };
+  const openEdit = (pkg: OTAPackage) => {
+    setCode(pkg.code); setName(pkg.name);
+    // Merge default platforms + any extra platforms saved in package
+    const saved = pkg.platform_prices;
+    const merged: PriceRow[] = OTA_PLATFORMS.map((pl) => ({
+      platform: pl,
+      price: saved.find((s) => s.platform === pl)?.price ?? 0,
+    }));
+    saved.forEach((s) => {
+      if (!OTA_PLATFORMS.includes(s.platform as OTAPlatform)) {
+        merged.push({ platform: s.platform, price: s.price });
+      }
+    });
+    setRows(merged); setEditId(pkg.id); setShowForm(true);
+  };
+
   const handleSubmit = () => {
-    if (!form.code.trim() || !form.name.trim()) { toast.error("กรุณากรอก Package Code และ Package Name"); return; }
-    const payload = { code: form.code.trim().toUpperCase(), name: form.name.trim(), platform_prices: form.platform_prices.filter((p) => p.price > 0) };
+    if (!code.trim() || !name.trim()) { toast.error("กรุณากรอก Package Code และ Package Name"); return; }
+    const platform_prices = rows
+      .filter((r) => r.platform.trim() && r.price > 0)
+      .map((r) => ({ platform: r.platform.trim(), price: r.price }));
+    const payload = { code: code.trim().toUpperCase(), name: name.trim(), platform_prices };
     if (editId) { updatePackage(editId, payload); toast.success("แก้ไข Package สำเร็จ"); }
     else { addPackage(payload); toast.success("เพิ่ม Package สำเร็จ"); }
     setShowForm(false);
   };
-  const handleDelete = (id: string) => { if (confirm("ลบ Package นี้?")) { deletePackage(id); toast.success("ลบ Package แล้ว"); } };
 
-  // ── Export XLSX ───────────────────────────────────────────────────────────
+  const handleDelete = (id: string) => {
+    if (confirm("ลบ Package นี้?")) { deletePackage(id); toast.success("ลบ Package แล้ว"); }
+  };
+
+  // ── Export XLSX ───────────────────────────────────────────────────────────────
   const handleExport = () => {
-    const rows = packages.map((pkg) => {
+    const exportRows = packages.map((pkg) => {
       const priceMap: Record<string, number> = {};
       pkg.platform_prices.forEach((pp) => { priceMap[pp.platform] = pp.price; });
       return [pkg.code, pkg.name, ...OTA_PLATFORMS.map((pl) => priceMap[pl] ?? 0)];
     });
-    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...exportRows]);
     ws["!cols"] = [10, 40, ...OTA_PLATFORMS.map(() => 14)].map((w) => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Packages");
@@ -70,7 +100,7 @@ export default function OTAPackages() {
     toast.success(`Export ${packages.length} packages สำเร็จ`);
   };
 
-  // ── Download Template ─────────────────────────────────────────────────────
+  // ── Download Template ─────────────────────────────────────────────────────────
   const handleDownloadTemplate = () => {
     const exampleRow = ["CMP", "Chiang Mai Ping River", 1200, 980, 0, 850, 1100, 0];
     const note = ["** ใส่ 0 หรือว่างเปล่า = ไม่มีราคา Platform นั้น"];
@@ -81,7 +111,7 @@ export default function OTAPackages() {
     XLSX.writeFile(wb, "OTA_Packages_Template.xlsx");
   };
 
-  // ── Import XLSX ───────────────────────────────────────────────────────────
+  // ── Import XLSX ───────────────────────────────────────────────────────────────
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -90,23 +120,23 @@ export default function OTAPackages() {
       try {
         const wb = XLSX.read(ev.target?.result, { type: "binary" });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
+        const allRows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const dataRows = allRows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
         const errors: ImportError[] = [];
         let added = 0, updated = 0;
         dataRows.forEach((row, i) => {
           const rowNum = i + 2;
-          const [code, name, ...prices] = row as string[];
-          if (!code || !name) { errors.push({ row: rowNum, message: "Code และ Name ห้ามว่าง" }); return; }
-          const platform_prices: PlatformPrice[] = OTA_PLATFORMS
+          const [pkgCode, pkgName, ...prices] = row as string[];
+          if (!pkgCode || !pkgName) { errors.push({ row: rowNum, message: "Code และ Name ห้ามว่าง" }); return; }
+          const platform_prices = OTA_PLATFORMS
             .map((pl, idx) => ({ platform: pl, price: parseFloat(String(prices[idx])) || 0 }))
             .filter((pp) => pp.price > 0);
-          const existing = getPackageByCode(String(code));
+          const existing = getPackageByCode(String(pkgCode));
           if (existing) {
-            updatePackage(existing.id, { code: String(code).toUpperCase(), name: String(name), platform_prices });
+            updatePackage(existing.id, { code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
             updated++;
           } else {
-            addPackage({ code: String(code).toUpperCase(), name: String(name), platform_prices });
+            addPackage({ code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
             added++;
           }
         });
@@ -182,7 +212,7 @@ export default function OTAPackages() {
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {pkg.platform_prices.map((pp) => (
-                        <span key={pp.platform} className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[pp.platform]}`}>
+                        <span key={pp.platform} className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPlatformColor(pp.platform)}`}>
                           {pp.platform} {fmtB(pp.price)}
                         </span>
                       ))}
@@ -202,38 +232,78 @@ export default function OTAPackages() {
         </table>
       </div>
 
-      {/* ── Add/Edit Modal ──────────────────────────────────────────────────── */}
+      {/* ── Add/Edit Modal ──────────────────────────────────────────────────────── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-border sticky top-0 bg-card">
+            <div className="flex items-center justify-between p-5 border-b border-border sticky top-0 bg-card z-10">
               <h2 className="font-bold text-lg">{editId ? "แก้ไข Package" : "เพิ่ม Package ใหม่"}</h2>
               <button onClick={() => setShowForm(false)} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
+              {/* Code */}
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Package Code *</label>
-                <input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} placeholder="เช่น CMP, CMC"
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น CMP, CMC"
                   className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono uppercase" />
               </div>
+              {/* Name */}
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Package Name *</label>
-                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ชื่อโปรแกรมเต็ม"
-                  className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <label className="text-xs text-muted-foreground mb-1 block">Package Details *</label>
+                <textarea value={name} onChange={(e) => setName(e.target.value)} placeholder="Describe the tour package..."
+                  rows={2}
+                  className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
               </div>
+
+              {/* Platform Prices — dynamic rows */}
               <div>
-                <label className="text-xs text-muted-foreground mb-2 block">Platform Prices (฿ ต่อคน, ใส่ 0 = ไม่มีราคา)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-muted-foreground">Platform Prices</label>
+                  <button onClick={addRow}
+                    className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-2 py-1 rounded-lg transition-colors">
+                    <Plus className="w-3 h-3" /> Add Platform
+                  </button>
+                </div>
+
                 <div className="space-y-2">
-                  {OTA_PLATFORMS.map((pl) => (
-                    <div key={pl} className="flex items-center gap-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full min-w-[110px] text-center ${PLATFORM_COLORS[pl]}`}>{pl}</span>
-                      <input type="number" min={0} value={getPlatformPrice(pl)} onChange={(e) => setPlatformPrice(pl, parseFloat(e.target.value) || 0)}
-                        className="flex-1 px-3 py-1.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  {rows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      {/* Platform name */}
+                      <div className="flex-1">
+                        <label className="text-[10px] text-muted-foreground block mb-0.5">Platform Name</label>
+                        <input
+                          value={row.platform}
+                          onChange={(e) => updateRow(i, "platform", e.target.value)}
+                          placeholder="Platform"
+                          className="w-full px-2.5 py-1.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      {/* Price */}
+                      <div className="w-28">
+                        <label className="text-[10px] text-muted-foreground block mb-0.5">Price</label>
+                        <input
+                          type="number" min={0} value={row.price}
+                          onChange={(e) => updateRow(i, "price", parseFloat(e.target.value) || 0)}
+                          className="w-full px-2.5 py-1.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      {/* Delete row */}
+                      <button onClick={() => removeRow(i)}
+                        className="mt-4 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600 rounded-lg transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
+
+                  {rows.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
+                      กด "+ Add Platform" เพื่อเพิ่มราคา
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
+
             <div className="flex gap-3 p-5 border-t border-border sticky bottom-0 bg-card">
               <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors">ยกเลิก</button>
               <button onClick={handleSubmit} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
@@ -244,7 +314,7 @@ export default function OTAPackages() {
         </div>
       )}
 
-      {/* ── Import Result Modal ──────────────────────────────────────────────── */}
+      {/* ── Import Result Modal ──────────────────────────────────────────────────── */}
       {showImportResult && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
