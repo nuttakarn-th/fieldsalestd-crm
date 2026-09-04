@@ -1,20 +1,7 @@
 @echo off
 cd /d "%~dp0"
-
-REM ลบ lock files ถ้ามี (ป้องกัน HEAD.lock ขัด)
-del /f /q ".git\HEAD.lock" 2>nul
-del /f /q ".git\index.lock" 2>nul
-
-REM Stage ทุก file ที่เปลี่ยนแปลง
+if exist .git\HEAD.lock del /f .git\HEAD.lock
 git add -A
-
-REM ถาม commit message (กด Enter เพื่อใช้ "update")
-set /p MSG="Commit message (Enter = update): "
-if "%MSG%"=="" set MSG=feat: OTA Module — role + store + layout + 4 pages + routing (localStorage, Supabase-ready)
-
-git commit -m "%MSG%"
+git commit -m "feat: OTADashboard v2 — 4 tabs, Revenue/Ops/Markets analytics, MoM badges, RevPAX, YTD, Forecast"
 git push
-
-echo.
-echo Done!
 pause
