@@ -297,31 +297,48 @@ export default function OTAOrderEntry() {
         const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
         const errors: ImportError[] = [];
         let success = 0;
+        const toDate = (v: unknown): string => {
+          if (!v) return today.toISOString().slice(0, 10);
+          if (v instanceof Date) return v.toISOString().slice(0, 10);
+          return String(v).slice(0, 10);
+        };
         dataRows.forEach((row, i) => {
           const rowNum = i + 2;
-          const [bookingDate, usageDate, orderNum, groupNum, pax, platform, pkgCode, pkgDetails, nationality, guide, revenue] = row as string[];
+          // 16 columns: Booking Date | Usage Date | Order # | Group # | People | Platform |
+          //              Package Code | Package Details | Nationality | Guide | Pickup Hotel |
+          //              Gross Price | Commission % | Commission Amount | Discount | Net Revenue
+          const [
+            bookingDate, usageDate, orderNum, groupNum, pax, platform,
+            pkgCode, pkgDetails, nationality, guide, pickupHotel,
+            grossRaw, commRaw, , discountRaw, revenueRaw,
+          ] = row as unknown[];
           // Validate
           if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
-          if (!OTA_PLATFORMS.includes(platform as OTAPlatform)) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง` }); return; }
-          const pkg = getPackageByCode(String(pkgCode));
-          const toDate = (v: unknown): string => {
-            if (!v) return today.toISOString().slice(0, 10);
-            if (v instanceof Date) return v.toISOString().slice(0, 10);
-            return String(v).slice(0, 10);
-          };
+          if (!OTA_PLATFORMS.includes(String(platform) as OTAPlatform)) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง` }); return; }
+          const pkg = getPackageByCode(String(pkgCode ?? ""));
+          const grossPrice    = parseFloat(String(grossRaw ?? 0)) || 0;
+          // Commission อาจเป็น decimal (0.2) หรือ % (20) — normalize เป็น %
+          const commRawNum    = parseFloat(String(commRaw ?? 0)) || 0;
+          const commPct       = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
+          const discount      = parseFloat(String(discountRaw ?? 0)) || 0;
+          const revenue       = parseFloat(String(revenueRaw ?? 0)) || 0;
           void addOrder({
-            booking_date: toDate(bookingDate),
-            usage_date: toDate(usageDate),
-            order_number: String(orderNum),
-            group_number: String(groupNum ?? ""),
-            pax: parseInt(String(pax)) || 1,
-            platform: platform as OTAPlatform,
-            package_id: pkg?.id ?? "",
+            booking_date:    toDate(bookingDate),
+            usage_date:      toDate(usageDate),
+            order_number:    String(orderNum),
+            group_number:    String(groupNum ?? ""),
+            pax:             parseInt(String(pax)) || 1,
+            platform:        String(platform) as OTAPlatform,
+            package_id:      pkg?.id ?? "",
             package_details: String(pkgDetails ?? pkg?.name ?? ""),
-            nationality: String(nationality ?? ""),
-            guide_name: String(guide ?? ""),
-            revenue: parseFloat(String(revenue)) || 0,
-            created_by: currentUser?.full_name ?? "Import",
+            nationality:     String(nationality ?? ""),
+            guide_name:      String(guide ?? ""),
+            pickup_hotel:    String(pickupHotel ?? ""),
+            gross_price:     grossPrice,
+            commission_pct:  commPct,
+            discount:        discount,
+            revenue:         revenue,
+            created_by:      currentUser?.full_name ?? "Import",
           });
           success++;
         });
