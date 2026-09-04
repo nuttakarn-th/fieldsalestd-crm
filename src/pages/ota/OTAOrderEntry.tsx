@@ -317,7 +317,8 @@ export default function OTAOrderEntry() {
 
           // Validate
           if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
-          if (!OTA_PLATFORMS.includes(String(platform) as OTAPlatform)) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง` }); return; }
+          const knownPlatforms = platformConfigs.map((c) => c.platform);
+          if (!knownPlatforms.includes(String(platform))) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง (เพิ่มใน Platforms ก่อน)` }); return; }
 
           const pkg = getPackageByCode(String(pkgCode ?? ""));
           const grossPrice  = parseFloat(String(grossRaw ?? 0)) || 0;
@@ -560,12 +561,9 @@ export default function OTAOrderEntry() {
                           commission_pct: cfg !== undefined ? cfg.commission_pct : f.commission_pct,
                         }));
                       }}
-                      options={[
-                        { value: "", label: "", sublabel: "Platforms" },
-                        ...OTA_PLATFORMS.map((p) => ({ value: p, label: p, group: "Platforms" })),
-                      ].filter(o => o.value !== "")}
+                      options={platformConfigs.map((c) => ({ value: c.platform, label: c.platform, group: "Platforms" }))}
                       placeholder="Select platform"
-                      searchPlaceholder="Search or type new platform..."
+                      searchPlaceholder="Search platform..."
                     />
                   </div>
                 </div>
