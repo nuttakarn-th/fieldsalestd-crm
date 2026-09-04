@@ -472,13 +472,45 @@ export default function PublicCatalog() {
 
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
-  async function fetchTours() {
+  // ── Local cache (reduces Supabase egress) ──────────────────────────────────
+  const CACHE_KEY = "catalog_tours_v1";
+  const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+  async function fetchTours(forceRefresh = false) {
     if (!SUPABASE_ENABLED || !supabase) { setLoading(false); return; }
+
+    // Use cache if fresh (skip Supabase round-trip)
+    if (!forceRefresh) {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const { data: cached, ts } = JSON.parse(raw) as { data: TourItem[]; ts: number };
+          if (Date.now() - ts < CACHE_TTL) {
+            setTours(cached);
+            setLastUpdated(new Date(ts));
+            setLoading(false);
+            return;
+          }
+        }
+      } catch { /* ignore corrupt cache */ }
+    }
+
+    // Fetch from Supabase — only published tours, only needed fields
     const { data } = await supabase
       .from("tours")
-      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,is_published,price_per_seat")
+      .select("id,code,city,country,category,duration,period,total_seats,quota,periods,pdf_url,title,price_per_seat")
+      .eq("is_published", true)
       .order("code", { ascending: true });
-    if (data) { setTours(data as TourItem[]); setLastUpdated(new Date()); }
+
+    if (data) {
+      setTours(data as TourItem[]);
+      const now = new Date();
+      setLastUpdated(now);
+      // Save to cache
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+      } catch { /* localStorage full — skip */ }
+    }
     setLoading(false);
   }
 
@@ -487,7 +519,7 @@ export default function PublicCatalog() {
     if (!SUPABASE_ENABLED || !supabase) return;
     const ch = supabase
       .channel("public-catalog-v5")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => fetchTours())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tours" }, () => fetchTours(true))
       .subscribe();
     channelRef.current = ch;
     return () => { supabase?.removeChannel(ch); };
@@ -591,7 +623,7 @@ export default function PublicCatalog() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {lastUpdated && <span className="hidden lg:block text-[11px] text-gray-400">ล่าสุด {lastUpdated.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span>}
-            <button onClick={fetchTours} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"><RefreshCw className="w-4 h-4" /></button>
+            <button onClick={() => fetchTours(true)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"><RefreshCw className="w-4 h-4" /></button>
             <button onClick={copyLink}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-colors"
               style={{ background: copied ? "#059669" : "#16a34a" }}>
