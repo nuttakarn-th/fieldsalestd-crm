@@ -9,6 +9,7 @@ import { useAuth } from "@/store/authStore";
 import { useSiteSettings } from "@/store/siteSettingsStore";
 import { useServices } from "@/store/serviceStore";
 import { useBookingLedger } from "@/store/bookingLedgerStore";
+import { useOTAStore } from "@/store/otaStore";
 import { ChatRealtimeSync } from "@/components/ChatRealtimeSync";
 import { DataRealtimeSync } from "@/components/DataRealtimeSync";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
@@ -111,22 +112,25 @@ function SupabaseSync() {
   const loadSettings = useSiteSettings((s) => s.loadFromSupabase);
   const loadServices = useServices((s) => s.loadFromSupabase);
   const loadBookings = useBookingLedger((s) => s.loadBookings);
+  const loadOTA = useOTAStore((s) => s.loadFromSupabase);
   // Watch JWT — re-load ข้อมูลทั้งหมดเมื่อ JWT เปลี่ยน (หลัง login หรือหลัง rehydrate)
   // แก้ปัญหา: SupabaseSync วิ่งครั้งเดียวตอน mount → JWT ยังไม่มี → RLS block → ข้อมูลว่าง
   const jwtToken = useAuth((s) => s.jwtToken);
 
-  // Mount: โหลด users + settings + services (ไม่ต้องการ JWT)
+  // Mount: โหลด users + settings + services + OTA packages (ไม่ต้องการ JWT)
   useEffect(() => {
     loadUsers();
     loadSettings();
     loadServices();
     loadBookings();
-  }, [loadUsers, loadSettings, loadServices, loadBookings]);
+    loadOTA();
+  }, [loadUsers, loadSettings, loadServices, loadBookings, loadOTA]);
 
   // JWT เปลี่ยน (ตอน login หรือ restore จาก localStorage) → reload ข้อมูลที่ต้อง auth
   useEffect(() => {
     loadAll();
-  }, [loadAll, jwtToken]);
+    loadOTA();
+  }, [loadAll, loadOTA, jwtToken]);
 
   return null;
 }

@@ -1,12 +1,14 @@
 /**
  * otaStore.ts
  * Zustand store สำหรับ OTA Module
- * ปัจจุบัน: localStorage persistence
- * TODO (Sep 17+): switch to Supabase — tables: ota_orders, ota_packages
+ * v2: Full Supabase sync — ota_orders, ota_packages
+ *     localStorage เป็น fallback/cache ผ่าน persist middleware
  */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,23 +36,23 @@ export interface OTAOrder {
   nationality?: string;
   guide_name?: string;
   pickup_hotel?: string;
-  gross_price: number;     // ราคา Gross จาก Platform
-  commission_pct: number;  // Commission % (เช่น 15)
-  discount: number;        // Discount (บาท)
-  revenue: number;         // Net Revenue = gross_price - commission_amount - discount
+  gross_price: number;
+  commission_pct: number;
+  discount: number;
+  revenue: number;         // Net Revenue
   created_at: string;
   created_by?: string;
 }
 
 export interface PlatformPrice {
-  platform: string;   // อาจเป็น OTAPlatform หรือ platform อื่นๆ ที่ผู้ใช้เพิ่มเอง
+  platform: string;
   price: number;
 }
 
 export interface OTAPackage {
   id: string;
-  code: string;            // เช่น "CMP", "CMC"
-  name: string;            // ชื่อเต็ม
+  code: string;
+  name: string;
   platform_prices: PlatformPrice[];
   created_at: string;
 }
@@ -60,19 +62,23 @@ export interface OTAPackage {
 interface OTAState {
   orders: OTAOrder[];
   packages: OTAPackage[];
+  loaded: boolean; // ป้องกัน seed ทับข้อมูลจาก DB
+
+  // Supabase loaders
+  loadFromSupabase: () => Promise<void>;
 
   // Orders
-  addOrder: (o: Omit<OTAOrder, "id" | "created_at">) => string;
-  updateOrder: (id: string, patch: Partial<OTAOrder>) => void;
-  deleteOrder: (id: string) => void;
+  addOrder: (o: Omit<OTAOrder, "id" | "created_at">) => Promise<string>;
+  updateOrder: (id: string, patch: Partial<OTAOrder>) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
 
   // Packages
-  addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => string;
-  updatePackage: (id: string, patch: Partial<OTAPackage>) => void;
-  deletePackage: (id: string) => void;
+  addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => Promise<string>;
+  updatePackage: (id: string, patch: Partial<OTAPackage>) => Promise<void>;
+  deletePackage: (id: string) => Promise<void>;
 
   // Helpers
-  getOrdersByMonth: (year: number, month: number) => OTAOrder[]; // month 1-12
+  getOrdersByMonth: (year: number, month: number) => OTAOrder[];
   getPackageByCode: (code: string) => OTAPackage | undefined;
 }
 
@@ -80,7 +86,7 @@ function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 }
 
-// ─── Seed packages (Chiang Mai Daycation) ────────────────────────────────────
+// ─── Seed packages (used only when DB is empty) ───────────────────────────────
 
 const SEED_PACKAGES: OTAPackage[] = [
   {
@@ -141,17 +147,97 @@ const SEED_PACKAGES: OTAPackage[] = [
   },
 ];
 
+// ─── Helper: map Supabase row → OTAOrder ─────────────────────────────────────
+
+function rowToOrder(r: Record<string, unknown>): OTAOrder {
+  return {
+    id:              String(r.id),
+    booking_date:    String(r.booking_date ?? "").slice(0, 10),
+    usage_date:      String(r.usage_date ?? "").slice(0, 10),
+    order_number:    String(r.order_number ?? ""),
+    group_number:    String(r.group_number ?? ""),
+    pax:             Number(r.pax ?? 1),
+    platform:        String(r.platform ?? "") as OTAPlatform,
+    package_id:      String(r.package_id ?? ""),
+    package_details: String(r.package_details ?? ""),
+    nationality:     String(r.nationality ?? ""),
+    guide_name:      String(r.guide_name ?? ""),
+    pickup_hotel:    String(r.pickup_hotel ?? ""),
+    gross_price:     Number(r.gross_price ?? 0),
+    commission_pct:  Number(r.commission_pct ?? 0),
+    discount:        Number(r.discount ?? 0),
+    revenue:         Number(r.revenue ?? 0),
+    created_at:      String(r.created_at ?? new Date().toISOString()),
+    created_by:      String(r.created_by ?? ""),
+  };
+}
+
+function rowToPackage(r: Record<string, unknown>): OTAPackage {
+  let pp: PlatformPrice[] = [];
+  try {
+    pp = Array.isArray(r.platform_prices)
+      ? (r.platform_prices as PlatformPrice[])
+      : JSON.parse(String(r.platform_prices ?? "[]"));
+  } catch { pp = []; }
+  return {
+    id:              String(r.id),
+    code:            String(r.code ?? ""),
+    name:            String(r.name ?? ""),
+    platform_prices: pp,
+    created_at:      String(r.created_at ?? new Date().toISOString()),
+  };
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useOTAStore = create<OTAState>()(
   persist(
     (set, get) => ({
-      orders: [],
+      orders:   [],
       packages: SEED_PACKAGES,
+      loaded:   false,
+
+      // ── Load from Supabase ─────────────────────────────────────────────────
+
+      loadFromSupabase: async () => {
+        if (!SUPABASE_ENABLED || !supabase) return;
+
+        // Packages
+        const { data: pkgData, error: pkgErr } = await supabase
+          .from("ota_packages")
+          .select("*")
+          .order("created_at", { ascending: true });
+
+        if (pkgErr) {
+          console.error("[ota] load packages error:", pkgErr);
+        } else {
+          const pkgs = (pkgData ?? []).map(rowToPackage);
+          // ถ้า DB ว่าง ให้ seed
+          if (pkgs.length === 0) {
+            await seedPackages();
+            const { data: seeded } = await supabase.from("ota_packages").select("*").order("created_at");
+            set({ packages: (seeded ?? []).map(rowToPackage) });
+          } else {
+            set({ packages: pkgs });
+          }
+        }
+
+        // Orders
+        const { data: ordData, error: ordErr } = await supabase
+          .from("ota_orders")
+          .select("*")
+          .order("usage_date", { ascending: false });
+
+        if (ordErr) {
+          console.error("[ota] load orders error:", ordErr);
+        } else {
+          set({ orders: (ordData ?? []).map(rowToOrder), loaded: true });
+        }
+      },
 
       // ── Orders ──────────────────────────────────────────────────────────────
 
-      addOrder: (o) => {
+      addOrder: async (o) => {
         const id = uid();
         const order: OTAOrder = {
           gross_price: 0,
@@ -161,36 +247,115 @@ export const useOTAStore = create<OTAState>()(
           id,
           created_at: new Date().toISOString(),
         };
+
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_orders").insert({
+            id:              order.id,
+            booking_date:    order.booking_date,
+            usage_date:      order.usage_date,
+            order_number:    order.order_number,
+            group_number:    order.group_number,
+            pax:             order.pax,
+            platform:        order.platform,
+            package_id:      order.package_id || null,
+            package_details: order.package_details ?? "",
+            nationality:     order.nationality ?? "",
+            guide_name:      order.guide_name ?? "",
+            pickup_hotel:    order.pickup_hotel ?? "",
+            gross_price:     order.gross_price,
+            commission_pct:  order.commission_pct,
+            discount:        order.discount,
+            revenue:         order.revenue,
+            created_by:      order.created_by ?? "",
+          });
+          if (error) {
+            console.error("[ota] addOrder error:", error);
+            toast.error(`บันทึก Order ไม่สำเร็จ — ${error.message}`);
+            return id;
+          }
+        }
+
         set((s) => ({ orders: [order, ...s.orders] }));
         return id;
       },
 
-      updateOrder: (id, patch) =>
+      updateOrder: async (id, patch) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_orders").update(patch).eq("id", id);
+          if (error) {
+            console.error("[ota] updateOrder error:", error);
+            toast.error(`แก้ไข Order ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
         set((s) => ({
           orders: s.orders.map((o) => (o.id === id ? { ...o, ...patch } : o)),
-        })),
+        }));
+      },
 
-      deleteOrder: (id) =>
-        set((s) => ({ orders: s.orders.filter((o) => o.id !== id) })),
+      deleteOrder: async (id) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_orders").delete().eq("id", id);
+          if (error) {
+            console.error("[ota] deleteOrder error:", error);
+            toast.error(`ลบ Order ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
+        set((s) => ({ orders: s.orders.filter((o) => o.id !== id) }));
+      },
 
-      // ── Packages ─────────────────────────────────────────────────────────────
+      // ── Packages ──────────────────────────────────────────────────────────
 
-      addPackage: (p) => {
+      addPackage: async (p) => {
         const id = uid();
         const pkg: OTAPackage = { ...p, id, created_at: new Date().toISOString() };
+
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_packages").insert({
+            id:              pkg.id,
+            code:            pkg.code,
+            name:            pkg.name,
+            platform_prices: pkg.platform_prices,
+          });
+          if (error) {
+            console.error("[ota] addPackage error:", error);
+            toast.error(`บันทึก Package ไม่สำเร็จ — ${error.message}`);
+            return id;
+          }
+        }
+
         set((s) => ({ packages: [...s.packages, pkg] }));
         return id;
       },
 
-      updatePackage: (id, patch) =>
+      updatePackage: async (id, patch) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_packages").update(patch).eq("id", id);
+          if (error) {
+            console.error("[ota] updatePackage error:", error);
+            toast.error(`แก้ไข Package ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
         set((s) => ({
           packages: s.packages.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-        })),
+        }));
+      },
 
-      deletePackage: (id) =>
-        set((s) => ({ packages: s.packages.filter((p) => p.id !== id) })),
+      deletePackage: async (id) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_packages").delete().eq("id", id);
+          if (error) {
+            console.error("[ota] deletePackage error:", error);
+            toast.error(`ลบ Package ไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
+        set((s) => ({ packages: s.packages.filter((p) => p.id !== id) }));
+      },
 
-      // ── Helpers ───────────────────────────────────────────────────────────────
+      // ── Helpers ──────────────────────────────────────────────────────────────
 
       getOrdersByMonth: (year, month) => {
         const prefix = `${year}-${String(month).padStart(2, "0")}`;
@@ -201,7 +366,23 @@ export const useOTAStore = create<OTAState>()(
         get().packages.find((p) => p.code.toUpperCase() === code.toUpperCase()),
     }),
     {
-      name: "ota-store-v1",
+      name: "ota-store-v2",
     }
   )
 );
+
+// ─── Seed helper (run once when DB packages table is empty) ──────────────────
+
+async function seedPackages() {
+  if (!supabase) return;
+  const { error } = await supabase.from("ota_packages").upsert(
+    SEED_PACKAGES.map((p) => ({
+      id:              p.id,
+      code:            p.code,
+      name:            p.name,
+      platform_prices: p.platform_prices,
+    })),
+    { onConflict: "id" }
+  );
+  if (error) console.error("[ota] seed packages error:", error);
+}

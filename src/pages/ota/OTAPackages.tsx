@@ -70,19 +70,19 @@ export default function OTAPackages() {
     setRows(merged); setEditId(pkg.id); setShowForm(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!code.trim() || !name.trim()) { toast.error("กรุณากรอก Package Code และ Package Name"); return; }
     const platform_prices = rows
       .filter((r) => r.platform.trim() && r.price > 0)
       .map((r) => ({ platform: r.platform.trim(), price: r.price }));
     const payload = { code: code.trim().toUpperCase(), name: name.trim(), platform_prices };
-    if (editId) { updatePackage(editId, payload); toast.success("แก้ไข Package สำเร็จ"); }
-    else { addPackage(payload); toast.success("เพิ่ม Package สำเร็จ"); }
+    if (editId) { await updatePackage(editId, payload); toast.success("แก้ไข Package สำเร็จ"); }
+    else { await addPackage(payload); toast.success("เพิ่ม Package สำเร็จ"); }
     setShowForm(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("ลบ Package นี้?")) { deletePackage(id); toast.success("ลบ Package แล้ว"); }
+  const handleDelete = async (id: string) => {
+    if (confirm("ลบ Package นี้?")) { await deletePackage(id); toast.success("ลบ Package แล้ว"); }
   };
 
   // ── Export XLSX ───────────────────────────────────────────────────────────────
@@ -133,10 +133,10 @@ export default function OTAPackages() {
             .filter((pp) => pp.price > 0);
           const existing = getPackageByCode(String(pkgCode));
           if (existing) {
-            updatePackage(existing.id, { code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
+            void updatePackage(existing.id, { code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
             updated++;
           } else {
-            addPackage({ code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
+            void addPackage({ code: String(pkgCode).toUpperCase(), name: String(pkgName), platform_prices });
             added++;
           }
         });

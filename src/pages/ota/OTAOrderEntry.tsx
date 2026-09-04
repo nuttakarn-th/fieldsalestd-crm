@@ -237,16 +237,16 @@ export default function OTAOrderEntry() {
     setEditId(o.id); setShowForm(true);
   };
   const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.usage_date || !form.order_number || !form.package_id) { toast.error("กรุณากรอก Usage Date, Order # และ Package"); return; }
     const pkg = packages.find((p) => p.id === form.package_id);
     const net = computeNet(form.gross_price, form.commission_pct, form.discount);
     const payload = { ...form, package_details: pkg?.name ?? form.package_details, revenue: net, created_by: currentUser?.full_name ?? "" };
-    if (editId) { updateOrder(editId, payload); toast.success("แก้ไข Order สำเร็จ"); }
-    else { addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
+    if (editId) { await updateOrder(editId, payload); toast.success("แก้ไข Order สำเร็จ"); }
+    else { await addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
     setShowForm(false);
   };
-  const handleDelete = (id: string) => { if (confirm("ลบ Order นี้?")) { deleteOrder(id); toast.success("ลบ Order แล้ว"); } };
+  const handleDelete = async (id: string) => { if (confirm("ลบ Order นี้?")) { await deleteOrder(id); toast.success("ลบ Order แล้ว"); } };
 
   // ── Export XLSX ───────────────────────────────────────────────────────────
   const handleExport = () => {
@@ -309,7 +309,7 @@ export default function OTAOrderEntry() {
             if (v instanceof Date) return v.toISOString().slice(0, 10);
             return String(v).slice(0, 10);
           };
-          addOrder({
+          void addOrder({
             booking_date: toDate(bookingDate),
             usage_date: toDate(usageDate),
             order_number: String(orderNum),
