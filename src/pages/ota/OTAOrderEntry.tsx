@@ -317,7 +317,10 @@ export default function OTAOrderEntry() {
 
           // Validate
           if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
-          const knownPlatforms = platformConfigs.map((c) => c.platform);
+          // Platform validation — fallback to OTA_PLATFORMS ถ้า configs ยังไม่โหลด
+          const knownPlatforms = platformConfigs.length > 0
+            ? platformConfigs.map((c) => c.platform)
+            : [...OTA_PLATFORMS];
           if (!knownPlatforms.includes(String(platform))) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง (เพิ่มใน Platforms ก่อน)` }); return; }
 
           const pkg = getPackageByCode(String(pkgCode ?? ""));
@@ -326,7 +329,9 @@ export default function OTAOrderEntry() {
           const commRawNum  = parseFloat(String(commRaw ?? 0)) || 0;
           const commPct     = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
           const discount    = parseFloat(String(discountRaw ?? 0)) || 0;
-          const revenue     = parseFloat(String(revenueRaw ?? 0)) || 0;
+          // Revenue: คำนวณใหม่เสมอ (ไม่ใช้ค่าจากไฟล์ เพราะอาจเป็น formula string)
+          const revenue     = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
+          void revenueRaw; // suppress unused warning
 
           validRows.push({
             booking_date:    toDate(bookingDate),
