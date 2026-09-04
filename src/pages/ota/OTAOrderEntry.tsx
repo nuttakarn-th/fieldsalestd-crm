@@ -180,7 +180,7 @@ const EXPORT_HEADERS = [
 interface ImportError { row: number; message: string }
 
 export default function OTAOrderEntry() {
-  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, getPackageByCode } = useOTAStore();
+  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, getPackageByCode } = useOTAStore();
   const currentUser = useCurrentUser();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -192,7 +192,7 @@ export default function OTAOrderEntry() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
-  const [importStats, setImportStats] = useState({ success: 0, failed: 0 });
+  const [importStats, setImportStats] = useState({ inserted: 0, updated: 0, failed: 0 });
 
   // ── Filtered orders ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -288,7 +288,7 @@ export default function OTAOrderEntry() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const wb = XLSX.read(ev.target?.result, { type: "binary", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -296,12 +296,14 @@ export default function OTAOrderEntry() {
         // Skip header row
         const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
         const errors: ImportError[] = [];
-        let success = 0;
+        const validRows: Omit<OTAOrder, "id" | "created_at">[] = [];
+
         const toDate = (v: unknown): string => {
           if (!v) return today.toISOString().slice(0, 10);
           if (v instanceof Date) return v.toISOString().slice(0, 10);
           return String(v).slice(0, 10);
         };
+
         dataRows.forEach((row, i) => {
           const rowNum = i + 2;
           // 16 columns: Booking Date | Usage Date | Order # | Group # | People | Platform |
@@ -312,17 +314,20 @@ export default function OTAOrderEntry() {
             pkgCode, pkgDetails, nationality, guide, pickupHotel,
             grossRaw, commRaw, , discountRaw, revenueRaw,
           ] = row as unknown[];
+
           // Validate
           if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
           if (!OTA_PLATFORMS.includes(String(platform) as OTAPlatform)) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง` }); return; }
+
           const pkg = getPackageByCode(String(pkgCode ?? ""));
-          const grossPrice    = parseFloat(String(grossRaw ?? 0)) || 0;
+          const grossPrice  = parseFloat(String(grossRaw ?? 0)) || 0;
           // Commission อาจเป็น decimal (0.2) หรือ % (20) — normalize เป็น %
-          const commRawNum    = parseFloat(String(commRaw ?? 0)) || 0;
-          const commPct       = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
-          const discount      = parseFloat(String(discountRaw ?? 0)) || 0;
-          const revenue       = parseFloat(String(revenueRaw ?? 0)) || 0;
-          void addOrder({
+          const commRawNum  = parseFloat(String(commRaw ?? 0)) || 0;
+          const commPct     = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
+          const discount    = parseFloat(String(discountRaw ?? 0)) || 0;
+          const revenue     = parseFloat(String(revenueRaw ?? 0)) || 0;
+
+          validRows.push({
             booking_date:    toDate(bookingDate),
             usage_date:      toDate(usageDate),
             order_number:    String(orderNum),
@@ -340,13 +345,28 @@ export default function OTAOrderEntry() {
             revenue:         revenue,
             created_by:      currentUser?.full_name ?? "Import",
           });
-          success++;
         });
-        setImportStats({ success, failed: errors.length });
+
+        // Batch upsert — gets back inserted/updated/errors count
+        let inserted = 0;
+        let updated = 0;
+        let batchErrors = 0;
+        if (validRows.length > 0) {
+          const result = await importOrders(validRows);
+          inserted = result.inserted;
+          updated  = result.updated;
+          batchErrors = result.errors;
+        }
+
+        const totalFailed = errors.length + batchErrors;
+        setImportStats({ inserted, updated, failed: totalFailed });
         setImportErrors(errors);
         setShowImportResult(true);
-        if (success > 0) toast.success(`Import สำเร็จ ${success} rows`);
-        if (errors.length > 0) toast.error(`${errors.length} rows มีข้อผิดพลาด`);
+
+        if (inserted > 0 || updated > 0) {
+          toast.success(`Import สำเร็จ: เพิ่ม ${inserted} | อัปเดต ${updated} orders`);
+        }
+        if (totalFailed > 0) toast.error(`${totalFailed} rows มีข้อผิดพลาด`);
       } catch {
         toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
       }
@@ -665,10 +685,14 @@ export default function OTAOrderEntry() {
               <button onClick={() => setShowImportResult(false)} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <div className="flex-1 bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600">{importStats.success}</div>
-                  <div className="text-xs text-green-600/80">สำเร็จ</div>
+                  <div className="text-2xl font-bold text-green-600">{importStats.inserted}</div>
+                  <div className="text-xs text-green-600/80">เพิ่มใหม่</div>
+                </div>
+                <div className="flex-1 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{importStats.updated}</div>
+                  <div className="text-xs text-blue-600/80">อัปเดต</div>
                 </div>
                 <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-red-600">{importStats.failed}</div>

@@ -92,6 +92,9 @@ interface OTAState {
   updatePlatformConfig: (id: string, patch: Partial<OTAPlatformConfig>) => Promise<void>;
   deletePlatformConfig: (id: string) => Promise<void>;
 
+  // Bulk import (upsert by order_number)
+  importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number }>;
+
   // Helpers
   getOrdersByMonth: (year: number, month: number) => OTAOrder[];
   getPackageByCode: (code: string) => OTAPackage | undefined;
@@ -447,6 +450,88 @@ export const useOTAStore = create<OTAState>()(
           }
         }
         set((s) => ({ platformConfigs: s.platformConfigs.filter((c) => c.id !== id) }));
+      },
+
+      // ── Bulk Import (upsert by order_number) ────────────────────────────────
+
+      importOrders: async (rows) => {
+        // แยก new vs existing โดยเช็คจาก orders ที่โหลดมาแล้ว
+        const existingByOrderNum = new Map(
+          get().orders.map((o) => [o.order_number, o.id])
+        );
+
+        let inserted = 0;
+        let updated = 0;
+        let errors = 0;
+
+        if (SUPABASE_ENABLED && supabase) {
+          // Build upsert payload — ใช้ existing id ถ้ามี ไม่งั้นสร้างใหม่
+          const records = rows.map((row) => {
+            const existingId = existingByOrderNum.get(row.order_number);
+            return {
+              id:              existingId ?? uid(),
+              booking_date:    row.booking_date,
+              usage_date:      row.usage_date,
+              order_number:    row.order_number,
+              group_number:    row.group_number,
+              pax:             row.pax,
+              platform:        row.platform,
+              package_id:      row.package_id || null,
+              package_details: row.package_details ?? "",
+              nationality:     row.nationality ?? "",
+              guide_name:      row.guide_name ?? "",
+              pickup_hotel:    row.pickup_hotel ?? "",
+              gross_price:     row.gross_price,
+              commission_pct:  row.commission_pct,
+              discount:        row.discount,
+              revenue:         row.revenue,
+              created_by:      row.created_by ?? "",
+            };
+          });
+
+          const { error } = await supabase
+            .from("ota_orders")
+            .upsert(records, { onConflict: "order_number" });
+
+          if (error) {
+            console.error("[ota] importOrders error:", error);
+            return { inserted: 0, updated: 0, errors: rows.length };
+          }
+
+          // นับ inserted vs updated
+          rows.forEach((row) => {
+            if (existingByOrderNum.has(row.order_number)) updated++;
+            else inserted++;
+          });
+
+          // Reload from DB เพื่อให้ state sync
+          const { data } = await supabase
+            .from("ota_orders")
+            .select("*")
+            .order("usage_date", { ascending: false });
+          if (data) set({ orders: data.map(rowToOrder) });
+
+        } else {
+          // Local fallback
+          rows.forEach((row) => {
+            const existingId = existingByOrderNum.get(row.order_number);
+            if (existingId) {
+              set((s) => ({
+                orders: s.orders.map((o) =>
+                  o.id === existingId ? { ...o, ...row } : o
+                ),
+              }));
+              updated++;
+            } else {
+              const id = uid();
+              const order: OTAOrder = { ...row, id, created_at: new Date().toISOString() };
+              set((s) => ({ orders: [order, ...s.orders] }));
+              inserted++;
+            }
+          });
+        }
+
+        return { inserted, updated, errors };
       },
 
       // ── Helpers ──────────────────────────────────────────────────────────────
