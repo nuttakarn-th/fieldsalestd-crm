@@ -455,16 +455,22 @@ export const useOTAStore = create<OTAState>()(
       // ── Bulk Import (upsert by order_number) ────────────────────────────────
 
       importOrders: async (rows) => {
-        // แยก new vs existing โดยเช็คจาก orders ที่โหลดมาแล้ว
-        const existingByOrderNum = new Map(
-          get().orders.map((o) => [o.order_number, o.id])
-        );
-
         let inserted = 0;
         let updated = 0;
         let errors = 0;
 
         if (SUPABASE_ENABLED && supabase) {
+          // ดึง existing id จาก DB โดยตรง (ไม่พึ่ง local state ที่อาจยังไม่โหลด)
+          const orderNums = rows.map((r) => r.order_number);
+          const { data: existing } = await supabase
+            .from("ota_orders")
+            .select("id, order_number")
+            .in("order_number", orderNums);
+
+          const existingByOrderNum = new Map(
+            (existing ?? []).map((r) => [r.order_number as string, r.id as string])
+          );
+
           // Build upsert payload — ใช้ existing id ถ้ามี ไม่งั้นสร้างใหม่
           const records = rows.map((row) => {
             const existingId = existingByOrderNum.get(row.order_number);
@@ -494,11 +500,12 @@ export const useOTAStore = create<OTAState>()(
             .upsert(records, { onConflict: "order_number" });
 
           if (error) {
-            console.error("[ota] importOrders error:", error);
+            console.error("[ota] importOrders error:", error.message, error.details, error.hint);
+            toast.error(`Import ล้มเหลว: ${error.message}`);
             return { inserted: 0, updated: 0, errors: rows.length };
           }
 
-          // นับ inserted vs updated
+          // นับ inserted vs updated (อ้างอิงจาก DB lookup ที่ทำไว้)
           rows.forEach((row) => {
             if (existingByOrderNum.has(row.order_number)) updated++;
             else inserted++;
