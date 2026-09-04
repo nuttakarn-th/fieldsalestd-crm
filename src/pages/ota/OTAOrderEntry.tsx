@@ -31,13 +31,18 @@ const EMPTY_FORM = {
   package_details: "",
   nationality: "",
   guide_name: "",
+  pickup_hotel: "",
+  gross_price: 0,
+  commission_pct: 0,
+  discount: 0,
   revenue: 0,
 };
 
 // Export column headers (match import template)
 const EXPORT_HEADERS = [
   "Booking Date", "Usage Date", "Order #", "Group #", "People",
-  "Platform", "Package Code", "Package Details", "Nationality", "Guide", "Revenue (THB)",
+  "Platform", "Package Code", "Package Details", "Nationality", "Guide",
+  "Pickup Hotel", "Gross Price", "Commission %", "Commission Amount", "Discount", "Net Revenue (THB)",
 ];
 
 interface ImportError { row: number; message: string }
@@ -85,13 +90,26 @@ export default function OTAOrderEntry() {
   // ── Form helpers ──────────────────────────────────────────────────────────
   const openAdd = () => { setForm({ ...EMPTY_FORM }); setEditId(null); setShowForm(true); };
   const openEdit = (o: OTAOrder) => {
-    setForm({ booking_date: o.booking_date, usage_date: o.usage_date, order_number: o.order_number, group_number: o.group_number, pax: o.pax, platform: o.platform, package_id: o.package_id, package_details: o.package_details ?? "", nationality: o.nationality ?? "", guide_name: o.guide_name ?? "", revenue: o.revenue });
+    setForm({
+      booking_date: o.booking_date, usage_date: o.usage_date,
+      order_number: o.order_number, group_number: o.group_number,
+      pax: o.pax, platform: o.platform,
+      package_id: o.package_id, package_details: o.package_details ?? "",
+      nationality: o.nationality ?? "", guide_name: o.guide_name ?? "",
+      pickup_hotel: o.pickup_hotel ?? "",
+      gross_price: o.gross_price ?? 0,
+      commission_pct: o.commission_pct ?? 0,
+      discount: o.discount ?? 0,
+      revenue: o.revenue,
+    });
     setEditId(o.id); setShowForm(true);
   };
+  const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
   const handleSubmit = () => {
     if (!form.usage_date || !form.order_number || !form.package_id) { toast.error("กรุณากรอก Usage Date, Order # และ Package"); return; }
     const pkg = packages.find((p) => p.id === form.package_id);
-    const payload = { ...form, package_details: pkg?.name ?? form.package_details, created_by: currentUser?.full_name ?? "" };
+    const net = computeNet(form.gross_price, form.commission_pct, form.discount);
+    const payload = { ...form, package_details: pkg?.name ?? form.package_details, revenue: net, created_by: currentUser?.full_name ?? "" };
     if (editId) { updateOrder(editId, payload); toast.success("แก้ไข Order สำเร็จ"); }
     else { addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
     setShowForm(false);
@@ -102,15 +120,16 @@ export default function OTAOrderEntry() {
   const handleExport = () => {
     const rows = filtered.map((o) => {
       const pkg = packages.find((p) => p.id === o.package_id);
+      const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
       return [
         o.booking_date, o.usage_date, o.order_number, o.group_number,
         o.pax, o.platform, pkg?.code ?? "", o.package_details ?? "",
-        o.nationality ?? "", o.guide_name ?? "", o.revenue,
+        o.nationality ?? "", o.guide_name ?? "", o.pickup_hotel ?? "",
+        o.gross_price, o.commission_pct, commAmt, o.discount, o.revenue,
       ];
     });
     const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
-    // Column widths
-    ws["!cols"] = [12,12,14,12,8,16,14,30,14,14,14].map((w) => ({ wch: w }));
+    ws["!cols"] = [12,12,14,12,8,16,12,30,14,14,16,12,10,14,10,14].map((w) => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     XLSX.writeFile(wb, `OTA_Orders_${monthName}_${year}.xlsx`);
@@ -253,14 +272,14 @@ export default function OTAOrderEntry() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground">
-                {["Booking Date","Usage Date","Order #","Group #","People","Platform","Package","Nationality","Guide","Revenue",""].map((h) => (
+                {["Booking Date","Usage Date","Order #","Group #","People","Platform","Package","Nationality","Guide","Gross","Comm%","Net Revenue",""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">ยังไม่มี Order ในเดือนนี้</td></tr>
+                <tr><td colSpan={13} className="text-center py-12 text-muted-foreground">ยังไม่มี Order ในเดือนนี้</td></tr>
               ) : (
                 filtered.map((o) => {
                   const pkg = packages.find((p) => p.id === o.package_id);
@@ -272,15 +291,17 @@ export default function OTAOrderEntry() {
                       <td className="px-3 py-2.5">{o.group_number}</td>
                       <td className="px-3 py-2.5 text-center font-semibold">{o.pax}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform]}`}>{o.platform}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{pkg?.code ?? "-"}</span>
-                        <span className="ml-2 text-muted-foreground text-xs truncate max-w-[160px] inline-block align-middle">{o.package_details}</span>
+                        <span className="ml-2 text-muted-foreground text-xs truncate max-w-[120px] inline-block align-middle">{o.package_details}</span>
                       </td>
                       <td className="px-3 py-2.5">{o.nationality}</td>
                       <td className="px-3 py-2.5">{o.guide_name}</td>
-                      <td className="px-3 py-2.5 font-medium text-right">{fmtCurrency(o.revenue)}</td>
+                      <td className="px-3 py-2.5 text-right text-sm">{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</td>
+                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">{o.commission_pct > 0 ? `${o.commission_pct}%` : "-"}</td>
+                      <td className="px-3 py-2.5 font-semibold text-right text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
                           <button onClick={() => openEdit(o)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
@@ -297,90 +318,162 @@ export default function OTAOrderEntry() {
       </div>
 
       {/* ── Add/Edit Modal ───────────────────────────────────────────────────── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
-            <div className="flex items-center justify-between p-5 border-b border-border">
-              <h2 className="font-bold text-lg">{editId ? "แก้ไข Order" : "เพิ่ม Order ใหม่"}</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+      {showForm && (() => {
+        const commissionAmt = +(form.gross_price * form.commission_pct / 100).toFixed(2);
+        const netRevenue    = +(form.gross_price - commissionAmt - form.discount).toFixed(2);
+        const selectedPkg   = packages.find((p) => p.id === form.package_id);
+        const inputCls = "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
+        const labelCls = "block text-xs font-medium text-foreground/70 mb-1";
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-xl shadow-2xl max-h-[95vh] overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Booking Date *</label>
-                  <input type="date" value={form.booking_date} onChange={(e) => setForm((f) => ({ ...f, booking_date: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  <h2 className="font-bold text-lg">{editId ? "Edit Order" : "Add New Order"}</h2>
+                  <p className="text-xs text-muted-foreground">Fill in the details to {editId ? "update" : "create"} a new order.</p>
                 </div>
+                <button onClick={() => setShowForm(false)} className="p-2 hover:bg-muted rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                {/* Row 1: Booking Date | Usage Date */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Booking Date</label>
+                    <input type="date" value={form.booking_date} onChange={(e) => setForm((f) => ({ ...f, booking_date: e.target.value }))} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Usage Date</label>
+                    <input type="date" value={form.usage_date} onChange={(e) => setForm((f) => ({ ...f, usage_date: e.target.value }))} className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Row 2: Order # | Group # */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Order Number <span className="text-red-500">*</span></label>
+                    <input value={form.order_number} onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))} placeholder="ORD-001" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Group Number</label>
+                    <input value={form.group_number} onChange={(e) => setForm((f) => ({ ...f, group_number: e.target.value }))} placeholder="Optional" className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Row 3: People | Platform */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Number of People <span className="text-red-500">*</span></label>
+                    <input type="number" min={1} value={form.pax}
+                      onChange={(e) => setForm((f) => ({ ...f, pax: parseInt(e.target.value) || 1 }))}
+                      className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Platform <span className="text-red-500">*</span></label>
+                    <select value={form.platform}
+                      onChange={(e) => {
+                        const newPlatform = e.target.value as OTAPlatform;
+                        const price = selectedPkg?.platform_prices.find((pp) => pp.platform === newPlatform)?.price ?? 0;
+                        setForm((f) => ({ ...f, platform: newPlatform, gross_price: price }));
+                      }}
+                      className={inputCls}>
+                      {OTA_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Row 4: Package Code | Package Details */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Package Code <span className="text-red-500">*</span></label>
+                    <select value={form.package_id}
+                      onChange={(e) => {
+                        const pkg = packages.find((p) => p.id === e.target.value);
+                        const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                        setForm((f) => ({ ...f, package_id: e.target.value, gross_price: price }));
+                      }}
+                      className={inputCls}>
+                      <option value="">Select package</option>
+                      {packages.map((p) => <option key={p.id} value={p.id}>{p.code}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Package Details</label>
+                    <input readOnly value={selectedPkg?.name ?? ""} placeholder="Auto-populated when package selected"
+                      className={`${inputCls} bg-muted/50 cursor-default text-muted-foreground`} />
+                  </div>
+                </div>
+
+                {/* Row 5: Nationality | Guide */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Nationality</label>
+                    <input value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="Select nationality" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Guide <span className="text-red-500">*</span></label>
+                    <input value={form.guide_name} onChange={(e) => setForm((f) => ({ ...f, guide_name: e.target.value }))} placeholder="Guide name" className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Row 6: Pickup Hotel (full width) */}
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Usage Date *</label>
-                  <input type="date" value={form.usage_date} onChange={(e) => setForm((f) => ({ ...f, usage_date: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  <label className={labelCls}>Pickup Hotel</label>
+                  <input value={form.pickup_hotel} onChange={(e) => setForm((f) => ({ ...f, pickup_hotel: e.target.value }))} placeholder="Hotel name (optional)" className={inputCls} />
+                </div>
+
+                {/* Row 7: Gross Price | Commission % */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Gross Price <span className="text-red-500">*</span></label>
+                    <input type="number" min={0} step="0.01" value={form.gross_price}
+                      onChange={(e) => setForm((f) => ({ ...f, gross_price: parseFloat(e.target.value) || 0 }))}
+                      className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Commission % <span className="text-red-500">*</span></label>
+                    <input type="number" min={0} max={100} step="0.1" value={form.commission_pct}
+                      onChange={(e) => setForm((f) => ({ ...f, commission_pct: parseFloat(e.target.value) || 0 }))}
+                      placeholder="e.g. 15" className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Row 8: Commission Amount (auto) | Discount */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Commission Amount</label>
+                    <input readOnly value={commissionAmt.toFixed(2)}
+                      className={`${inputCls} bg-muted/50 cursor-default text-muted-foreground`} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Discount</label>
+                    <input type="number" min={0} step="0.01" value={form.discount}
+                      onChange={(e) => setForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
+                      className={inputCls} />
+                  </div>
+                </div>
+
+                {/* Row 9: Net Revenue (full width, purple) */}
+                <div>
+                  <label className={labelCls}>Net Revenue</label>
+                  <div className={`${inputCls} bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 font-bold text-purple-600 dark:text-purple-400`}>
+                    {netRevenue.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Order # *</label>
-                  <input value={form.order_number} onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))} placeholder="เลข Order"
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Group #</label>
-                  <input value={form.group_number} onChange={(e) => setForm((f) => ({ ...f, group_number: e.target.value }))} placeholder="เลข Group"
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                </div>
+
+              {/* Footer */}
+              <div className="flex gap-3 px-6 py-4 border-t border-border sticky bottom-0 bg-card">
+                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 text-sm font-medium bg-muted hover:bg-muted/80 rounded-xl transition-colors">Cancel</button>
+                <button onClick={handleSubmit} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors">
+                  <Check className="w-4 h-4" /> {editId ? "Save Changes" : "Create Order"}
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">People (PAX)</label>
-                  <input type="number" min={1} value={form.pax} onChange={(e) => setForm((f) => ({ ...f, pax: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Platform</label>
-                  <select value={form.platform} onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value as OTAPlatform }))}
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    {OTA_PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Package *</label>
-                <select value={form.package_id} onChange={(e) => {
-                  const pkg = packages.find((p) => p.id === e.target.value);
-                  const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                  setForm((f) => ({ ...f, package_id: e.target.value, revenue: price * f.pax }));
-                }} className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
-                  <option value="">-- เลือก Package --</option>
-                  {packages.map((p) => <option key={p.id} value={p.id}>[{p.code}] {p.name}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Nationality</label>
-                  <input value={form.nationality} onChange={(e) => setForm((f) => ({ ...f, nationality: e.target.value }))} placeholder="สัญชาติ"
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Guide</label>
-                  <input value={form.guide_name} onChange={(e) => setForm((f) => ({ ...f, guide_name: e.target.value }))} placeholder="ชื่อ Guide"
-                    className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Revenue (฿)</label>
-                <input type="number" min={0} value={form.revenue} onChange={(e) => setForm((f) => ({ ...f, revenue: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-            </div>
-            <div className="flex gap-3 p-5 border-t border-border">
-              <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors">ยกเลิก</button>
-              <button onClick={handleSubmit} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
-                <Check className="w-4 h-4" /> บันทึก
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Import Result Modal ──────────────────────────────────────────────── */}
       {showImportResult && (

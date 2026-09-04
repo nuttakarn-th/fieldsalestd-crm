@@ -33,7 +33,11 @@ export interface OTAOrder {
   package_details?: string;
   nationality?: string;
   guide_name?: string;
-  revenue: number;         // ราคาที่ได้จาก platform (บาท)
+  pickup_hotel?: string;
+  gross_price: number;     // ราคา Gross จาก Platform
+  commission_pct: number;  // Commission % (เช่น 15)
+  discount: number;        // Discount (บาท)
+  revenue: number;         // Net Revenue = gross_price - commission_amount - discount
   created_at: string;
   created_by?: string;
 }
@@ -150,6 +154,9 @@ export const useOTAStore = create<OTAState>()(
       addOrder: (o) => {
         const id = uid();
         const order: OTAOrder = {
+          gross_price: 0,
+          commission_pct: 0,
+          discount: 0,
           ...o,
           id,
           created_at: new Date().toISOString(),
