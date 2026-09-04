@@ -1,12 +1,14 @@
 /**
  * OTAOrderEntry.tsx — บันทึก OTA Orders รายวัน
  * Mirror: Standard Daycation Database → Order Entry page
+ * v2: + Export XLSX + Import XLSX
  */
-import { useState, useMemo } from "react";
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle } from "lucide-react";
 import { useOTAStore, OTAPlatform, OTA_PLATFORMS, OTAOrder } from "@/store/otaStore";
 import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 const PLATFORM_COLORS: Record<OTAPlatform, string> = {
   "Trip.com":     "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
@@ -32,16 +34,28 @@ const EMPTY_FORM = {
   revenue: 0,
 };
 
-export default function OTAOrderEntry() {
-  const { orders, packages, addOrder, updateOrder, deleteOrder } = useOTAStore();
-  const currentUser = useCurrentUser();
+// Export column headers (match import template)
+const EXPORT_HEADERS = [
+  "Booking Date", "Usage Date", "Order #", "Group #", "People",
+  "Platform", "Package Code", "Package Details", "Nationality", "Guide", "Revenue (THB)",
+];
 
-  const [month, setMonth] = useState(today.getMonth() + 1); // 1-12
+interface ImportError { row: number; message: string }
+
+export default function OTAOrderEntry() {
+  const { orders, packages, addOrder, updateOrder, deleteOrder, getPackageByCode } = useOTAStore();
+  const currentUser = useCurrentUser();
+  const importRef = useRef<HTMLInputElement>(null);
+
+  const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [importErrors, setImportErrors] = useState<ImportError[]>([]);
+  const [showImportResult, setShowImportResult] = useState(false);
+  const [importStats, setImportStats] = useState({ success: 0, failed: 0 });
 
   // ── Filtered orders ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -63,73 +77,118 @@ export default function OTAOrderEntry() {
 
   const totalPax = filtered.reduce((s, o) => s + o.pax, 0);
   const totalRevenue = filtered.reduce((s, o) => s + o.revenue, 0);
-
   const monthName = new Date(year, month - 1, 1).toLocaleString("en", { month: "long" });
 
-  // ── Month navigation ──────────────────────────────────────────────────────
-  const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear((y) => y - 1); }
-    else setMonth((m) => m - 1);
-  };
-  const nextMonth = () => {
-    if (month === 12) { setMonth(1); setYear((y) => y + 1); }
-    else setMonth((m) => m + 1);
-  };
+  const prevMonth = () => { if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1); };
+  const nextMonth = () => { if (month === 12) { setMonth(1); setYear((y) => y + 1); } else setMonth((m) => m + 1); };
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openAdd = () => {
-    setForm({ ...EMPTY_FORM });
-    setEditId(null);
-    setShowForm(true);
-  };
+  const openAdd = () => { setForm({ ...EMPTY_FORM }); setEditId(null); setShowForm(true); };
   const openEdit = (o: OTAOrder) => {
-    setForm({
-      booking_date: o.booking_date,
-      usage_date: o.usage_date,
-      order_number: o.order_number,
-      group_number: o.group_number,
-      pax: o.pax,
-      platform: o.platform,
-      package_id: o.package_id,
-      package_details: o.package_details ?? "",
-      nationality: o.nationality ?? "",
-      guide_name: o.guide_name ?? "",
-      revenue: o.revenue,
-    });
-    setEditId(o.id);
-    setShowForm(true);
+    setForm({ booking_date: o.booking_date, usage_date: o.usage_date, order_number: o.order_number, group_number: o.group_number, pax: o.pax, platform: o.platform, package_id: o.package_id, package_details: o.package_details ?? "", nationality: o.nationality ?? "", guide_name: o.guide_name ?? "", revenue: o.revenue });
+    setEditId(o.id); setShowForm(true);
   };
-
   const handleSubmit = () => {
-    if (!form.usage_date || !form.order_number || !form.package_id) {
-      toast.error("กรุณากรอก Usage Date, Order # และ Package");
-      return;
-    }
+    if (!form.usage_date || !form.order_number || !form.package_id) { toast.error("กรุณากรอก Usage Date, Order # และ Package"); return; }
     const pkg = packages.find((p) => p.id === form.package_id);
     const payload = { ...form, package_details: pkg?.name ?? form.package_details, created_by: currentUser?.full_name ?? "" };
-    if (editId) {
-      updateOrder(editId, payload);
-      toast.success("แก้ไข Order สำเร็จ");
-    } else {
-      addOrder(payload);
-      toast.success("เพิ่ม Order สำเร็จ");
-    }
+    if (editId) { updateOrder(editId, payload); toast.success("แก้ไข Order สำเร็จ"); }
+    else { addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
     setShowForm(false);
   };
+  const handleDelete = (id: string) => { if (confirm("ลบ Order นี้?")) { deleteOrder(id); toast.success("ลบ Order แล้ว"); } };
 
-  const handleDelete = (id: string) => {
-    if (confirm("ลบ Order นี้?")) {
-      deleteOrder(id);
-      toast.success("ลบ Order แล้ว");
-    }
+  // ── Export XLSX ───────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const rows = filtered.map((o) => {
+      const pkg = packages.find((p) => p.id === o.package_id);
+      return [
+        o.booking_date, o.usage_date, o.order_number, o.group_number,
+        o.pax, o.platform, pkg?.code ?? "", o.package_details ?? "",
+        o.nationality ?? "", o.guide_name ?? "", o.revenue,
+      ];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
+    // Column widths
+    ws["!cols"] = [12,12,14,12,8,16,14,30,14,14,14].map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `OTA_Orders_${monthName}_${year}.xlsx`);
+    toast.success(`Export ${filtered.length} orders สำเร็จ`);
   };
 
-  const fmtDate = (d: string) => {
-    const dt = new Date(d + "T00:00:00");
-    return dt.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  // ── Download Template ─────────────────────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    const exampleRow = [
+      "2026-09-01", "2026-09-04", "TP-123456", "G-001",
+      2, "Trip.com", "CMP", "Chiang Mai - Ping River",
+      "Chinese", "John", 874,
+    ];
+    const note = ["** Platform ที่ใช้ได้: " + OTA_PLATFORMS.join(" | ")];
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, exampleRow, note]);
+    ws["!cols"] = [12,12,14,12,8,16,14,30,14,14,14].map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, "OTA_Orders_Template.xlsx");
   };
-  const fmtCurrency = (n: number) =>
-    n.toLocaleString("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: 2 });
+
+  // ── Import XLSX ───────────────────────────────────────────────────────────
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target?.result, { type: "binary", cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        // Skip header row
+        const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
+        const errors: ImportError[] = [];
+        let success = 0;
+        dataRows.forEach((row, i) => {
+          const rowNum = i + 2;
+          const [bookingDate, usageDate, orderNum, groupNum, pax, platform, pkgCode, pkgDetails, nationality, guide, revenue] = row as string[];
+          // Validate
+          if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
+          if (!OTA_PLATFORMS.includes(platform as OTAPlatform)) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง` }); return; }
+          const pkg = getPackageByCode(String(pkgCode));
+          const toDate = (v: unknown): string => {
+            if (!v) return today.toISOString().slice(0, 10);
+            if (v instanceof Date) return v.toISOString().slice(0, 10);
+            return String(v).slice(0, 10);
+          };
+          addOrder({
+            booking_date: toDate(bookingDate),
+            usage_date: toDate(usageDate),
+            order_number: String(orderNum),
+            group_number: String(groupNum ?? ""),
+            pax: parseInt(String(pax)) || 1,
+            platform: platform as OTAPlatform,
+            package_id: pkg?.id ?? "",
+            package_details: String(pkgDetails ?? pkg?.name ?? ""),
+            nationality: String(nationality ?? ""),
+            guide_name: String(guide ?? ""),
+            revenue: parseFloat(String(revenue)) || 0,
+            created_by: currentUser?.full_name ?? "Import",
+          });
+          success++;
+        });
+        setImportStats({ success, failed: errors.length });
+        setImportErrors(errors);
+        setShowImportResult(true);
+        if (success > 0) toast.success(`Import สำเร็จ ${success} rows`);
+        if (errors.length > 0) toast.error(`${errors.length} rows มีข้อผิดพลาด`);
+      } catch {
+        toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = "";
+  };
+
+  const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const fmtCurrency = (n: number) => n.toLocaleString("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: 2 });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -139,39 +198,53 @@ export default function OTAOrderEntry() {
           <h1 className="text-2xl font-bold">Order Entry</h1>
           <p className="text-muted-foreground text-sm">บันทึก OTA orders รายวัน</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Order
-        </button>
+        <div className="flex gap-2">
+          {/* Import */}
+          <div className="relative">
+            <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
+            <button onClick={() => importRef.current?.click()}
+              className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+              <Upload className="w-4 h-4" /> Import
+            </button>
+          </div>
+          {/* Export */}
+          <button onClick={handleExport}
+            className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /> Export
+          </button>
+          {/* Add */}
+          <button onClick={openAdd}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Plus className="w-4 h-4" /> Add Order
+          </button>
+        </div>
       </div>
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        {/* Month nav */}
         <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
           <button onClick={prevMonth} className="hover:text-purple-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
           <span className="text-sm font-semibold min-w-[120px] text-center">{monthName} {year}</span>
           <button onClick={nextMonth} className="hover:text-purple-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
         </div>
-        {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหา order, platform..."
-            className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order, platform..."
+            className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500" />
         </div>
-        {/* Summary */}
         <div className="ml-auto flex gap-4 text-sm text-muted-foreground">
           <span><span className="font-semibold text-foreground">{filtered.length}</span> orders</span>
           <span><span className="font-semibold text-foreground">{totalPax}</span> pax</span>
           <span className="font-semibold text-purple-600">{fmtCurrency(totalRevenue)}</span>
         </div>
+      </div>
+
+      {/* Template hint */}
+      <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <button onClick={handleDownloadTemplate} className="text-purple-600 hover:underline flex items-center gap-1">
+          <Download className="w-3 h-3" /> ดาวน์โหลด Import Template
+        </button>
+        <span>· รองรับ .xlsx / .xls / .csv</span>
       </div>
 
       {/* Table */}
@@ -180,18 +253,14 @@ export default function OTAOrderEntry() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground">
-                {["Booking Date", "Usage Date", "Order #", "Group #", "People", "Platform", "Package", "Nationality", "Guide", "Revenue", ""].map((h) => (
+                {["Booking Date","Usage Date","Order #","Group #","People","Platform","Package","Nationality","Guide","Revenue",""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="text-center py-12 text-muted-foreground">
-                    ยังไม่มี Order ในเดือนนี้
-                  </td>
-                </tr>
+                <tr><td colSpan={11} className="text-center py-12 text-muted-foreground">ยังไม่มี Order ในเดือนนี้</td></tr>
               ) : (
                 filtered.map((o) => {
                   const pkg = packages.find((p) => p.id === o.package_id);
@@ -203,17 +272,11 @@ export default function OTAOrderEntry() {
                       <td className="px-3 py-2.5">{o.group_number}</td>
                       <td className="px-3 py-2.5 text-center font-semibold">{o.pax}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform]}`}>
-                          {o.platform}
-                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform]}`}>{o.platform}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">
-                          {pkg?.code ?? "-"}
-                        </span>
-                        <span className="ml-2 text-muted-foreground text-xs truncate max-w-[160px] inline-block align-middle">
-                          {o.package_details}
-                        </span>
+                        <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{pkg?.code ?? "-"}</span>
+                        <span className="ml-2 text-muted-foreground text-xs truncate max-w-[160px] inline-block align-middle">{o.package_details}</span>
                       </td>
                       <td className="px-3 py-2.5">{o.nationality}</td>
                       <td className="px-3 py-2.5">{o.guide_name}</td>
@@ -233,7 +296,7 @@ export default function OTAOrderEntry() {
         </div>
       </div>
 
-      {/* ── Add/Edit Modal ──────────────────────────────────────────────────── */}
+      {/* ── Add/Edit Modal ───────────────────────────────────────────────────── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl">
@@ -283,11 +346,10 @@ export default function OTAOrderEntry() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Package *</label>
                 <select value={form.package_id} onChange={(e) => {
-                    const pkg = packages.find((p) => p.id === e.target.value);
-                    const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                    setForm((f) => ({ ...f, package_id: e.target.value, revenue: price * f.pax }));
-                  }}
-                  className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  const pkg = packages.find((p) => p.id === e.target.value);
+                  const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                  setForm((f) => ({ ...f, package_id: e.target.value, revenue: price * f.pax }));
+                }} className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
                   <option value="">-- เลือก Package --</option>
                   {packages.map((p) => <option key={p.id} value={p.id}>[{p.code}] {p.name}</option>)}
                 </select>
@@ -315,6 +377,43 @@ export default function OTAOrderEntry() {
               <button onClick={handleSubmit} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
                 <Check className="w-4 h-4" /> บันทึก
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import Result Modal ──────────────────────────────────────────────── */}
+      {showImportResult && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="font-bold text-lg">ผลการ Import</h2>
+              <button onClick={() => setShowImportResult(false)} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1 bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">{importStats.success}</div>
+                  <div className="text-xs text-green-600/80">สำเร็จ</div>
+                </div>
+                <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-red-600">{importStats.failed}</div>
+                  <div className="text-xs text-red-600/80">ผิดพลาด</div>
+                </div>
+              </div>
+              {importErrors.length > 0 && (
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {importErrors.map((e, i) => (
+                    <div key={i} className="flex gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Row {e.row}: {e.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-5 border-t border-border">
+              <button onClick={() => setShowImportResult(false)} className="w-full px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">ปิด</button>
             </div>
           </div>
         </div>
