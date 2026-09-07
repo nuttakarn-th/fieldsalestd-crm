@@ -26,7 +26,8 @@ import { useBookingLedger } from "@/store/bookingLedgerStore";
 export interface BookingLeadDialogProps {
   open: boolean;
   onClose: () => void;
-  onCancel?: () => void; // ยกเลิกการจอง — คืน quota
+  onCancel?: () => void;       // ปิด dialog โดยไม่บันทึกอะไร
+  onConfirmQuota?: () => void; // ตัด quota จริง (เรียกตอนกด บันทึกเลย / ไว้ภายหลัง)
   tourId: string;
   tourName: string;
   periodId: string;
@@ -58,7 +59,7 @@ function formatPeriodLabel(label: string): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function BookingLeadDialog({
-  open, onClose, onCancel,
+  open, onClose, onCancel, onConfirmQuota,
   tourId, tourName, periodId, periodLabel, seats, pricePerSeat = 0, actorName,
 }: BookingLeadDialogProps) {
   const addCustomer  = useCRM((s) => s.addCustomer);
@@ -130,6 +131,7 @@ export function BookingLeadDialog({
   }
 
   function handleLater() {
+    onConfirmQuota?.(); // ตัด quota ตอนยืนยัน
     // บันทึก booking record แบบ anonymous (ไม่มีชื่อลูกค้า)
     addBooking({
       tour_id: tourId, period_id: periodId,
@@ -144,6 +146,7 @@ export function BookingLeadDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!fullName.trim()) { toast.error("กรุณากรอกชื่อลูกค้า"); return; }
+    onConfirmQuota?.(); // ตัด quota ตอนยืนยัน
     setSaving(true);
 
     const segment: Segment = "B2C Individual";
@@ -262,7 +265,7 @@ export function BookingLeadDialog({
                 className="w-full text-muted-foreground hover:text-destructive"
                 onClick={onCancel}
               >
-                ✕ ยกเลิกการจอง — คืนที่นั่ง
+                ✕ ยกเลิก
               </Button>
             )}
           </div>

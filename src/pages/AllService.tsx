@@ -578,9 +578,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
 
     if (delta < 0) {
-      // ── จองที่นั่ง: ตัด quota ทันที แล้ว popup บันทึกลูกค้า ──
-      adjustPeriodQuota(tourId, pid, delta, actorName);
-      toast.success("อัปเดตโควต้าแล้ว");
+      // ── จองที่นั่ง: เปิด dialog ก่อน ยังไม่ตัด quota จนกว่าจะยืนยัน ──
       setBookingDialog({
         tourId, tourName,
         periodId: pid,
@@ -4507,11 +4505,10 @@ ${catBlocks}
         <BookingLeadDialog
           open={!!bookingDialog}
           onClose={() => setBookingDialog(null)}
-          onCancel={() => {
-            // คืน quota ที่ตัดไปแล้ว
-            adjustPeriodQuota(bookingDialog.tourId, bookingDialog.periodId, bookingDialog.seats, actorName);
-            toast.info("ยกเลิกการจองแล้ว — คืนที่นั่งเรียบร้อย");
-            setBookingDialog(null);
+          onCancel={() => setBookingDialog(null)}
+          onConfirmQuota={() => {
+            adjustPeriodQuota(bookingDialog.tourId, bookingDialog.periodId, -bookingDialog.seats, actorName);
+            toast.success("อัปเดตโควต้าแล้ว");
           }}
           tourId={bookingDialog.tourId}
           tourName={bookingDialog.tourName}
