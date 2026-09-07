@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { logActivity } from "@/lib/activityLog";
+import { toast } from "sonner";
 
 // ===== Tour =====
 export type TourCategory = "International Tour" | "Domestic" | "Incentive";
@@ -140,7 +141,7 @@ interface ServiceState {
   /** ลบ periods ทั้งหมดของโปรแกรม (ใช้ก่อน re-import เพื่อ replace) */
   clearPeriods: (tourId: string) => void;
   /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
-  adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => void;
+  adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => Promise<void>;
 
   addCar: (c: Omit<CarItem, "id">) => string;
   updateCar: (id: string, p: Partial<CarItem>) => void;
@@ -473,9 +474,10 @@ export const useServices = create<ServiceState>()(
         if (updated) sbUpdate("tours", tourId, { periods: [], total_seats: 0, quota: 0 });
       },
 
-      adjustPeriodQuota: (tourId, periodId, delta, updatedBy) => {
+      adjustPeriodQuota: async (tourId, periodId, delta, updatedBy) => {
+        const preTours = get().tours;
         const now = new Date().toISOString();
-        const newTours = get().tours.map((t) => {
+        const newTours = preTours.map((t) => {
           if (t.id !== tourId) return t;
           const periods = (t.periods ?? []).map((x) => {
             if (x.period_id !== periodId) return x;
@@ -491,7 +493,14 @@ export const useServices = create<ServiceState>()(
         });
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
-        if (updated) sbUpdate("tours", tourId, { periods: updated.periods, quota: updated.quota });
+        if (updated) {
+          const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, quota: updated.quota });
+          if (error) {
+            set({ tours: preTours }); // rollback
+            toast.error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+            return;
+          }
+        }
         // Phase 2: log event
         const aqTour = get().tours.find((t) => t.id === tourId);
         const aqPeriod = aqTour?.periods?.find((x) => x.period_id === periodId);
