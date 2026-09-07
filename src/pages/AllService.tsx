@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, Fragment } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye, BarChart2 } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
@@ -508,6 +508,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── Activity Feed scroll-to highlight ──
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const rosterPath = (tourId: string, periodId: string) => {
+    const base = location.pathname.startsWith("/marketing") ? "/marketing" : "/app";
+    return `${base}/period-roster/${tourId}/${periodId}`;
+  };
   useEffect(() => {
     const id = searchParams.get("highlight");
     if (!id) return;
@@ -2767,7 +2772,7 @@ ${catBlocks}
                                     </>
                                   )}
                                   <div className="ml-auto flex items-center gap-0.5">
-                                    <Button size="icon" variant="ghost" className="h-8 w-8" title="รายชื่อผู้จอง" onClick={() => navigate(`period-roster/${t.id}/${pid}`)}><span className="text-base">👥</span></Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8" title="รายชื่อผู้จอง" onClick={() => navigate(rosterPath(t.id, pid))}><span className="text-base">👥</span></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8" title="Duplicate Period" onClick={() => openDuplicatePeriod(t.id, p)}><Copy className="w-3.5 h-3.5 text-muted-foreground" /></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEditPeriod(t.id, p)}><Pencil className="w-4 h-4" /></Button>
                                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { const booked = p.total_seats - p.quota; const ok = booked > 0 ? confirm(`⚠️ Period นี้มีที่นั่งถูกจองแล้ว ${booked} ที่\n\nการลบจะทำให้ข้อมูลการจองหายทั้งหมด ไม่สามารถกู้คืนได้\n\nยืนยันการลบ Period นี้หรือไม่?`) : confirm("ลบ Period นี้?"); if (ok) { deletePeriod(t.id, p.period_id); toast.success("ลบ Period แล้ว"); } }}><Trash2 className="w-4 h-4 text-destructive/70" /></Button>
@@ -3005,7 +3010,7 @@ ${catBlocks}
                                     </div>
                                     {/* roster + edit/duplicate/delete */}
                                     <div className="flex gap-0.5 shrink-0">
-                                      <Button size="icon" variant="ghost" className="h-7 w-7" title="รายชื่อผู้จอง" onClick={() => navigate(`period-roster/${t.id}/${pid}`)}><span className="text-sm">👥</span></Button>
+                                      <Button size="icon" variant="ghost" className="h-7 w-7" title="รายชื่อผู้จอง" onClick={() => navigate(rosterPath(t.id, pid))}><span className="text-sm">👥</span></Button>
                                     </div>
                                     {canEdit && (
                                       <div className="flex gap-0.5 shrink-0">
