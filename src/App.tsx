@@ -76,6 +76,7 @@ import GalleryAlbumView from "./pages/GalleryAlbumView.tsx";
 import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
 import PresentView from "./pages/PresentView.tsx";
 import SalesWarRoom from "./pages/SalesWarRoom.tsx";
+import PeriodRoster from "./pages/PeriodRoster.tsx";
 import PublicCatalog from "./pages/PublicCatalog.tsx";
 import WebSetting from "./pages/WebSetting.tsx";
 import MarketingLeads from "./pages/MarketingLeads.tsx";
@@ -211,6 +212,7 @@ const App = () => (
             <Route path="campaigns" element={<CampaignManagement />} />
             <Route path="all-service" element={<AllService />} />
             <Route path="stock-analytics" element={<StockAnalytics />} />
+            <Route path="period-roster/:tourId/:periodId" element={<PeriodRoster />} />
             <Route path="marketing-report" element={<MarketingReport />} />
             <Route path="dashboard" element={<MarketingDashboardPage />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
@@ -275,6 +277,7 @@ const App = () => (
             <Route path="calendar-plan" element={<CalendarPlan />} />
             <Route path="stock-dashboard" element={<StockDashboard />} />
             <Route path="stock-analytics" element={<StockAnalytics />} />
+            <Route path="period-roster/:tourId/:periodId" element={<PeriodRoster />} />
             <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
             {/* redirect เก่า → team-resources layout */}
