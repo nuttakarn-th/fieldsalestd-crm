@@ -212,8 +212,8 @@ export function BookingLeadDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md flex flex-col max-h-[90vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <span className="text-lg">🎟️</span>
             บันทึกการจอง
@@ -221,7 +221,7 @@ export function BookingLeadDialog({
         </DialogHeader>
 
         {/* ── Booking summary badge ── */}
-        <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+        <div className="shrink-0 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
           <p className="font-medium text-foreground truncate">{tourName}</p>
           <p className="text-muted-foreground text-xs mt-0.5">
             {formatPeriodLabel(periodLabel)} · <span className="font-semibold text-foreground">{seats} ที่นั่ง</span>
@@ -259,7 +259,8 @@ export function BookingLeadDialog({
 
         {/* ── Step 2: form ── */}
         {step === "form" && (
-          <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+          <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <div className="space-y-3 pt-1 overflow-y-auto flex-1 pr-1">
             {/* Name */}
             <div className="space-y-1">
               <Label htmlFor="bld-name" className="text-xs">ชื่อ-สกุล <span className="text-destructive">*</span></Label>
@@ -455,8 +456,10 @@ export function BookingLeadDialog({
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 pt-1">
+            </div>{/* end scrollable zone */}
+
+            {/* Actions — fixed at bottom, outside scroll */}
+            <div className="flex gap-2 pt-2 shrink-0 border-t mt-2">
               <Button
                 type="button"
                 variant="ghost"
