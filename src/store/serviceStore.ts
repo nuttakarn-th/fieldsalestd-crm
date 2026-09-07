@@ -524,7 +524,7 @@ export const useServices = create<ServiceState>()(
             event_type:   delta < 0 ? "seat_booked" : "seat_released",
             actor:        updatedBy ?? "ระบบ",
             subject:      delta < 0 ? "จองที่นั่ง" : "คืนที่นั่ง",
-            detail:       `${aqPeriod.start_date ?? ""} · ${Math.abs(delta)} ที่นั่ง`,
+            detail:       `${aqPeriod.start_date ? new Date(aqPeriod.start_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : ""} · ${Math.abs(delta)} ที่นั่ง`,
             entity_type:  "tour",
             entity_id:    tourId,
             entity_name:  aqTour.title || aqTour.country || aqTour.code,
