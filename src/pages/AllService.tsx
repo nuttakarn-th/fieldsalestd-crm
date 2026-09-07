@@ -3352,6 +3352,9 @@ ${catBlocks}
                                       <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-500/10 text-green-400 whitespace-nowrap">ว่าง</span>
                                     )}
                                   </div>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" title="รายชื่อผู้จอง" onClick={() => navigate(rosterPath(t.id, pid))}>
+                                    <span className="text-sm">👥</span>
+                                  </Button>
                                   {canEdit && (
                                     <div className="flex gap-0.5 shrink-0 w-[66px]">
                                       <Button size="icon" variant="ghost" className="h-6 w-6" title="Duplicate Period" onClick={() => openDuplicatePeriod(t.id, p)}>
