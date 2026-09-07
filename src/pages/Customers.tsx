@@ -161,11 +161,11 @@ export default function Customers() {
   }, [deptFilter, isMarketing]);
 
   // ── Activity Feed scroll-to highlight ──
+  const highlightId = searchParams.get("highlight");
   useEffect(() => {
-    const id = searchParams.get("highlight");
-    if (!id) return;
+    if (!highlightId) return;
     const tryScroll = (attempts = 0) => {
-      const el = document.querySelector<HTMLElement>(`[data-customer-id="${id}"]`);
+      const el = document.querySelector<HTMLElement>(`[data-customer-id="${highlightId}"]`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         el.classList.add("row-highlight");
@@ -176,7 +176,7 @@ export default function Customers() {
     };
     tryScroll();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [highlightId]);
 
   // obSet สำหรับ determine department ของลูกค้า (Marketing view)
   const obSet = useMemo(() => new Set(obNames), [obNames]);

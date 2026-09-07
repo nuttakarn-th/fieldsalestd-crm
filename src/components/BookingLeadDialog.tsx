@@ -132,7 +132,7 @@ export function BookingLeadDialog({
       budget_range:       "",
       urgency:            "Hot",
       next_followup_date: null,
-      quoted_price:       0,
+      quoted_price:       pricePerSeat * seats,
       status:             "จองแล้ว",
     }, { skipQuotaAdjust: true });
 
