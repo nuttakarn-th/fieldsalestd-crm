@@ -132,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let title = DEFAULT_TITLE;
   let description = DEFAULT_DESC;
   let image = DEFAULT_IMAGE;
+  let pdfUrl: string | null = null;
 
   try {
     // pkgId may be "tour_mrlfhd20-dr1gn" — strip prefix for bare match
@@ -155,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description = parts.join(" · ") || DEFAULT_DESC;
 
       if (pkg.cover_url) image = pkg.cover_url as string;
+      if (pkg.pdf_url) pdfUrl = pkg.pdf_url as string;
     } else {
       // Fallback 1: site_settings payload (legacy)
       const { data: ssData, error: ssError } = await sb
@@ -192,11 +194,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // Fallback 2: tours table (service store — canonical source)
+      // Fallback 2: tours table (canonical source) — also grabs pdf_url
       if (!foundInSS) {
         const { data: tourRow } = await sb
           .from("tours")
-          .select("title, city, country, duration")
+          .select("title, city, country, duration, pdf_url")
           .eq("id", bareId)
           .maybeSingle();
 
@@ -209,15 +211,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (tourRow.city && tourRow.city !== tourRow.title) parts.push(tourRow.city as string);
           if (tourRow.country) parts.push(tourRow.country as string);
           description = parts.join(" · ") || DEFAULT_DESC;
+
+          if (tourRow.pdf_url) pdfUrl = tourRow.pdf_url as string;
         }
       }
+    }
+
+    // If we still don't have pdf_url, try tours table directly
+    if (!pdfUrl) {
+      const bareId = pkgId.startsWith("tour_") ? pkgId.slice(5) : pkgId;
+      const { data: tourRow } = await sb
+        .from("tours")
+        .select("pdf_url")
+        .eq("id", bareId)
+        .maybeSingle();
+      if (tourRow?.pdf_url) pdfUrl = tourRow.pdf_url as string;
     }
   } catch (_) {
     // Fall back to defaults silently
   }
 
   // ── 4. Return OG HTML with JS redirect ────────────────────────────────────
-  const redirectUrl = `${BASE_URL}/tour-packages${pkgId ? `?pkg=${pkgId}` : ""}`;
+  // Redirect browsers directly to PDF if available — avoids async flipbook timing issue
+  const redirectUrl = pdfUrl ?? `${BASE_URL}/tour-packages${pkgId ? `?pkg=${pkgId}` : ""}`;
   return res
     .setHeader("Content-Type", "text/html; charset=utf-8")
     .setHeader("Cache-Control", "no-store")   // don't cache — view count must increment each time
