@@ -939,7 +939,9 @@ export const useCRM = create<CRMState>()(
         "lead_id,customer_id,assigned_to,bu_type,lead_category,scope,program,tour_id,period_id," +
         "pax_count,travel_month,tour_type,budget_range,urgency,next_followup_date,status," +
         "quoted_price,closed_price,closed_date,lost_reason,status_note,requirement_tags," +
-        "followup_logs,created_at,updated_at,fb_name,tiktok_username,skip_quota,department";
+        "followup_logs,created_at,updated_at,fb_name,tiktok_username,skip_quota,department," +
+        "room_type,room_partner,food_pref,discount,deposit_amount,deposit_date," +
+        "balance_due_date,passport_name,emergency_contact,special_requests";
       const leadsQ = supabase.from("leads").select(leadsSelect).order("created_at", { ascending: false }).limit(500);
       const routesQ = supabase
         .from("route_plans")

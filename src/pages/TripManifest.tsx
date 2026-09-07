@@ -104,9 +104,21 @@ export default function TripManifest() {
     let seq = 1;
 
     // 1. Leads (primary)
-    const bookedLeads = leads.filter(
-      (l) => l.tour_id === selectedTourId && l.period_id === selectedPeriodId && l.status === "จองแล้ว"
-    );
+    // - exact match: tour_id + period_id linked
+    // - fallback: old leads without tour_id — match by program name + travel_month
+    const period = periodOptions.find((p) => p.id === selectedPeriodId);
+    const travelMonth = period?.start_date?.slice(0, 7) ?? "";
+    const tourName = tour?.name ?? "";
+    const bookedLeads = leads.filter((l) => {
+      if (l.status !== "จองแล้ว") return false;
+      if (l.tour_id && l.period_id)
+        return l.tour_id === selectedTourId && l.period_id === selectedPeriodId;
+      // fallback: match by program name + travel month (old leads without tour_id link)
+      return (
+        tourName && l.program === tourName &&
+        travelMonth && l.travel_month === travelMonth
+      );
+    });
     for (const l of bookedLeads) {
       const cust = customers.find((c) => c.id === l.customer_id);
       const quoted = l.quoted_price ?? 0;
@@ -167,7 +179,7 @@ export default function TripManifest() {
     }
 
     return result;
-  }, [leads, customers, bookings, selectedTourId, selectedPeriodId]);
+  }, [leads, customers, bookings, tours, periodOptions, selectedTourId, selectedPeriodId]);
 
   // ── Summary ───────────────────────────────────────────────────────────────
   const totalPax   = rows.reduce((s, r) => s + r.pax, 0);
