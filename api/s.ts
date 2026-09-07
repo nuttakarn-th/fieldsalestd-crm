@@ -232,8 +232,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── 4. Return OG HTML with JS redirect ────────────────────────────────────
-  // Redirect browsers directly to PDF if available — avoids async flipbook timing issue
-  const redirectUrl = pdfUrl ?? `${BASE_URL}/tour-packages${pkgId ? `?pkg=${pkgId}` : ""}`;
+  // Redirect to /tour-packages?pkg=<id> so the flipbook modal opens with animation.
+  // pdfUrl is kept as fallback if pkgId is somehow missing.
+  const redirectUrl = pkgId
+    ? `${BASE_URL}/tour-packages?pkg=${pkgId}`
+    : (pdfUrl ?? `${BASE_URL}/tour-packages`);
   return res
     .setHeader("Content-Type", "text/html; charset=utf-8")
     .setHeader("Cache-Control", "no-store")   // don't cache — view count must increment each time

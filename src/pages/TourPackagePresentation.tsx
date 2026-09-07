@@ -2466,20 +2466,24 @@ export default function TourPackagePresentation() {
 
   // ── Deep-link: ?pkg=<id> — auto-open flipbook when shared link is opened ──
   const [searchParams, setSearchParams] = useSearchParams();
+  // Capture pkgId from URL on mount via ref — immune to searchParams/filter changes
+  const deepLinkPkgRef = useRef<string | null>(
+    new URLSearchParams(window.location.search).get("pkg")
+  );
   useEffect(() => {
-    const pkgId = searchParams.get("pkg");
-    if (!pkgId || packages.length === 0 || flipbookPkg) return;
+    const pkgId = deepLinkPkgRef.current;
+    if (!pkgId || flipbookPkg) return;
     const found = packages.find((p) => p.id === pkgId);
     if (found) {
+      deepLinkPkgRef.current = null; // consumed — prevent re-open on future packages updates
       setFlipbookPkg(found);
-      // Scroll card into view after a brief delay
       setTimeout(() => {
         const el = document.getElementById(`pkg-card-${pkgId}`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 400);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packages, searchParams]);
+  }, [packages, flipbookPkg]);
 
   // ── Sync filter state → URL params (keeps ?pkg= if present) ──
   useEffect(() => {
