@@ -261,6 +261,7 @@ const obCoordinatorMenu: RoleMenu = {
       items: [
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
+        { title: "Trip Manifest",     url: "/app/trip-manifest",   icon: ClipboardList },
       ],
     },
     {
@@ -295,6 +296,7 @@ const obManagerMenu: RoleMenu = {
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics", url: "/app/stock-analytics", icon: TrendingUp },
+        { title: "Trip Manifest",   url: "/app/trip-manifest",   icon: ClipboardList },
       ],
     },
     {

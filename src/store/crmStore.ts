@@ -107,6 +107,17 @@ export interface Lead {
   followup_logs?: FollowupLog[];  // ประวัติการ Follow-up ทุกครั้ง
   created_at?: string;  // ISO timestamp เมื่อสร้าง Lead
   updated_at?: string;  // ISO timestamp แก้ไขล่าสุด
+  // ── Trip Manifest fields ──────────────────────────────────────────
+  room_type?: string;          // TWN / SGL / DBL / TRP
+  room_partner?: string;       // ชื่อคู่นอน
+  food_pref?: string;          // ปกติ / มังสวิรัติ / ฮาลาล / แพ้...
+  discount?: number | null;    // ส่วนลด (บาท)
+  deposit_amount?: number | null;  // มัดจำ (บาท)
+  deposit_date?: string | null;    // วันที่จ่ายมัดจำ (YYYY-MM-DD)
+  balance_due_date?: string | null; // วันครบกำหนดชำระส่วนที่เหลือ
+  passport_name?: string;      // ชื่อบน Passport
+  emergency_contact?: string;  // เบอร์ฉุกเฉิน
+  special_requests?: string;   // ความต้องการพิเศษ (รถเข็น ฯลฯ)
 }
 
 export interface MonthlyTarget {

@@ -77,6 +77,7 @@ import TourPackagePresentation from "./pages/TourPackagePresentation.tsx";
 import PresentView from "./pages/PresentView.tsx";
 import SalesWarRoom from "./pages/SalesWarRoom.tsx";
 import PeriodRoster from "./pages/PeriodRoster.tsx";
+import TripManifest from "./pages/TripManifest.tsx";
 import PublicCatalog from "./pages/PublicCatalog.tsx";
 import WebSetting from "./pages/WebSetting.tsx";
 import MarketingLeads from "./pages/MarketingLeads.tsx";
@@ -278,6 +279,7 @@ const App = () => (
             <Route path="stock-dashboard" element={<StockDashboard />} />
             <Route path="stock-analytics" element={<StockAnalytics />} />
             <Route path="period-roster/:tourId/:periodId" element={<PeriodRoster />} />
+            <Route path="trip-manifest" element={<TripManifest />} />
             <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
             {/* redirect เก่า → team-resources layout */}

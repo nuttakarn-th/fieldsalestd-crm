@@ -38,6 +38,8 @@ export interface BookingLeadDialogProps {
 // ── Source chips ──────────────────────────────────────────────────────────────
 
 const SOURCES: Source[] = ["Walk-in", "Field Sale", "FB", "Line OA", "Referral", "TikTok", "Agent"];
+const ROOM_TYPES = ["TWN", "SGL", "DBL", "TRP"] as const;
+const FOOD_PRESETS = ["ปกติ", "มังสวิรัติ", "ฮาลาล"] as const;
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -64,18 +66,34 @@ export function BookingLeadDialog({
 
   const [step, setStep] = useState<"choice" | "form">("choice");
 
-  // Form state
+  // Form state — basic
   const [fullName, setFullName] = useState("");
   const [phone,    setPhone]    = useState("");
   const [lineId,   setLineId]   = useState("");
   const [source,   setSource]   = useState<Source>("Walk-in");
   const [note,     setNote]     = useState("");
   const [saving,   setSaving]   = useState(false);
+  // Form state — trip manifest (optional)
+  const [showExtra,       setShowExtra]       = useState(false);
+  const [roomType,        setRoomType]        = useState("");
+  const [roomPartner,     setRoomPartner]     = useState("");
+  const [foodPref,        setFoodPref]        = useState("ปกติ");
+  const [foodOther,       setFoodOther]       = useState("");
+  const [depositAmount,   setDepositAmount]   = useState("");
+  const [depositDate,     setDepositDate]     = useState("");
+  const [balanceDueDate,  setBalanceDueDate]  = useState("");
+  const [passportName,    setPassportName]    = useState("");
+  const [emergencyContact,setEmergencyContact]= useState("");
+  const [specialRequests, setSpecialRequests] = useState("");
 
   function reset() {
     setStep("choice");
     setFullName(""); setPhone(""); setLineId(""); setSource("Walk-in"); setNote("");
     setSaving(false);
+    setShowExtra(false);
+    setRoomType(""); setRoomPartner(""); setFoodPref("ปกติ"); setFoodOther("");
+    setDepositAmount(""); setDepositDate(""); setBalanceDueDate("");
+    setPassportName(""); setEmergencyContact(""); setSpecialRequests("");
   }
 
   function handleClose() {
@@ -117,6 +135,7 @@ export function BookingLeadDialog({
 
     // 2. Create lead — status = จองแล้ว, linked to tour + period
     // skipQuotaAdjust = true เพราะ quota ถูกตัดไปแล้วจาก Stock page (AllService.tsx)
+    const resolvedFoodPref = foodOther.trim() || foodPref || undefined;
     const leadId = addLead({
       customer_id:        customerId,
       assigned_to:        actorName,
@@ -134,6 +153,16 @@ export function BookingLeadDialog({
       next_followup_date: null,
       quoted_price:       pricePerSeat * seats,
       status:             "จองแล้ว",
+      // Trip Manifest fields
+      passport_name:      passportName.trim() || undefined,
+      room_type:          roomType || undefined,
+      room_partner:       roomPartner.trim() || undefined,
+      food_pref:          resolvedFoodPref,
+      deposit_amount:     depositAmount ? Number(depositAmount) : null,
+      deposit_date:       depositDate || null,
+      balance_due_date:   balanceDueDate || null,
+      emergency_contact:  emergencyContact.trim() || undefined,
+      special_requests:   specialRequests.trim() || undefined,
     }, { skipQuotaAdjust: true });
 
     // 3. บันทึก Booking Ledger record พร้อม lead_id
@@ -266,6 +295,84 @@ export function BookingLeadDialog({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
+            </div>
+
+            {/* ── Trip Manifest collapsible ── */}
+            <div className="border rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowExtra((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/40 transition-colors"
+              >
+                <span>🛂 รายละเอียดผู้โดยสาร (Trip Manifest)</span>
+                <span>{showExtra ? "▲" : "▼"}</span>
+              </button>
+              {showExtra && (
+                <div className="px-3 pb-3 pt-2 space-y-2.5 border-t">
+                  {/* Passport name */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">ชื่อบน Passport</Label>
+                    <Input placeholder="ตามพาสปอร์ต" value={passportName} onChange={(e) => setPassportName(e.target.value)} />
+                  </div>
+                  {/* Room type + partner */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">ประเภทห้อง</Label>
+                      <div className="flex flex-wrap gap-1">
+                        {ROOM_TYPES.map((r) => (
+                          <button key={r} type="button" onClick={() => setRoomType(roomType === r ? "" : r)}
+                            className={`px-2 py-0.5 rounded text-xs border transition-colors ${roomType === r ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                          >{r}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">คู่นอน (ถ้ามี)</Label>
+                      <Input placeholder="ชื่อ-สกุล" value={roomPartner} onChange={(e) => setRoomPartner(e.target.value)} />
+                    </div>
+                  </div>
+                  {/* Food pref */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">อาหาร</Label>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {FOOD_PRESETS.map((f) => (
+                        <button key={f} type="button" onClick={() => { setFoodPref(f); setFoodOther(""); }}
+                          className={`px-2 py-0.5 rounded text-xs border transition-colors ${foodPref === f && !foodOther ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+                        >{f}</button>
+                      ))}
+                    </div>
+                    <Input placeholder="อื่นๆ / แพ้... (ระบุ)" value={foodOther}
+                      onChange={(e) => { setFoodOther(e.target.value); if (e.target.value) setFoodPref(""); }}
+                    />
+                  </div>
+                  {/* Deposit */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">มัดจำ (บาท)</Label>
+                      <Input type="number" placeholder="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">วันที่จ่ายมัดจำ</Label>
+                      <Input type="date" value={depositDate} onChange={(e) => setDepositDate(e.target.value)} />
+                    </div>
+                  </div>
+                  {/* Balance due */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">วันครบกำหนดชำระส่วนที่เหลือ</Label>
+                    <Input type="date" value={balanceDueDate} onChange={(e) => setBalanceDueDate(e.target.value)} />
+                  </div>
+                  {/* Emergency contact */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">เบอร์ฉุกเฉิน</Label>
+                    <Input placeholder="08x-xxx-xxxx" value={emergencyContact} onChange={(e) => setEmergencyContact(e.target.value)} />
+                  </div>
+                  {/* Special requests */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">ความต้องการพิเศษ</Label>
+                    <Input placeholder="รถเข็น, ห้องชั้นล่าง ฯลฯ" value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
