@@ -79,7 +79,7 @@ export default function TripManifest() {
   const tourOptions = useMemo(() =>
     tours
       .filter((t) => !t.archived && t.periods && t.periods.length > 0)
-      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "th")),
+      .sort((a, b) => (a.title || a.country || a.code || "").localeCompare(b.title || b.country || b.code || "", "th")),
     [tours]
   );
 
@@ -108,7 +108,7 @@ export default function TripManifest() {
     // - fallback: old leads without tour_id — match by program name + travel_month
     const period = periodOptions.find((p) => p.period_id === selectedPeriodId);
     const travelMonth = period?.start_date?.slice(0, 7) ?? "";
-    const tourName = tour?.name ?? "";
+    const tourName = tour?.title || tour?.country || tour?.code || "";
     const bookedLeads = leads.filter((l) => {
       if (l.status !== "จองแล้ว") return false;
       if (l.tour_id && l.period_id)
@@ -220,7 +220,7 @@ export default function TripManifest() {
           >
             <option value="">— เลือกโปรแกรม —</option>
             {tourOptions.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <option key={t.id} value={t.id}>{t.title || t.country || t.code}</option>
             ))}
           </select>
         </div>
@@ -262,7 +262,7 @@ export default function TripManifest() {
         <>
           {/* Print header (hidden on screen) */}
           <div className="hidden print:block mb-4">
-            <h2 className="text-lg font-bold">{tour?.name}</h2>
+            <h2 className="text-lg font-bold">{tour?.title || tour?.country || tour?.code}</h2>
             <p className="text-sm">
               {fmtDate(period?.start_date)}{period?.end_date ? ` – ${fmtDate(period?.end_date)}` : ""} &nbsp;|&nbsp;
               วันพิมพ์: {new Date().toLocaleDateString("th-TH")}
