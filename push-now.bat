@@ -3,6 +3,6 @@ cd /d "%~dp0"
 if exist .git\HEAD.lock del /f .git\HEAD.lock
 if exist .git\index.lock del /f .git\index.lock
 git add -A
-git commit -m "fix: og-page preserve ?pkg= param in redirect so deep-link flipbook works"
+git commit -m "feat: flipbook deep-link fix, customers date+sort column, phone duplicate block"
 git push
 pause

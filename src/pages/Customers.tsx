@@ -777,7 +777,28 @@ export default function Customers() {
                 <th className="text-left py-2 px-3 font-medium">ช่องทาง / กลุ่ม</th>
                 <th className="text-left py-2 px-3 font-medium">Tier</th>
                 <th className="text-left py-2 px-3 font-medium">Sales</th>
-                <th className="text-right py-2 px-3 font-medium">ยอดซื้อ</th>
+                {/* Sortable: วันที่เพิ่ม */}
+                <th
+                  className="text-left py-2 px-3 font-medium cursor-pointer select-none hover:text-foreground whitespace-nowrap"
+                  onClick={() => setSortBy((prev) =>
+                    prev === "newest" ? "oldest" : "newest"
+                  )}
+                  title="คลิกเพื่อเรียงตามวันที่เพิ่ม"
+                >
+                  วันที่เพิ่ม{" "}
+                  {sortBy === "newest" ? "↓" : sortBy === "oldest" ? "↑" : <span className="opacity-40">↕</span>}
+                </th>
+                {/* Sortable: ยอดซื้อ */}
+                <th
+                  className="text-right py-2 px-3 font-medium cursor-pointer select-none hover:text-foreground"
+                  onClick={() => setSortBy((prev) =>
+                    prev === "spend_desc" ? "spend_asc" : "spend_desc"
+                  )}
+                  title="คลิกเพื่อเรียงตามยอดซื้อ"
+                >
+                  ยอดซื้อ{" "}
+                  {sortBy === "spend_desc" ? "↓" : sortBy === "spend_asc" ? "↑" : <span className="opacity-40">↕</span>}
+                </th>
                 <th className="py-2 px-3 font-medium w-24">จัดการ</th>
               </tr>
             </thead>
@@ -858,6 +879,21 @@ export default function Customers() {
                       </div>
                     </div>
                   </td>
+                  {/* วันที่เพิ่ม */}
+                  <td className="py-1 px-3 whitespace-nowrap">
+                    {c.created_at ? (
+                      <>
+                        <div className="text-xs text-foreground/80">
+                          {new Date(c.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {new Date(c.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
                   {/* ยอดซื้อ — amount + trips inline */}
                   <td className="py-1 px-3 text-right">
                     <div className="text-xs font-semibold">{formatTHB(wonSpendMap.get(c.customer_id) ?? 0)}</div>
@@ -902,7 +938,7 @@ export default function Customers() {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={8} className="p-12 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</td></tr>
+                <tr><td colSpan={9} className="p-12 text-center text-muted-foreground">ไม่พบข้อมูลลูกค้า</td></tr>
               )}
             </tbody>
           </table>

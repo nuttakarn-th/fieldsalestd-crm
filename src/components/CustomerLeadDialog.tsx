@@ -261,6 +261,15 @@ export function CustomerLeadDialog({
   // ── Skip quota adjust (ป้องกันตัด Stock ซ้ำ) ─────────────────────────────────
   const [skipQuota, setSkipQuota] = useState(false);
 
+  // ── Phone duplicate detection ────────────────────────────────────────────────
+  const normalizePhone = (p: string) => p.replace(/\D/g, "");
+  const dupCustomer = useMemo(() => {
+    if (mode !== "new") return null;
+    const normalized = normalizePhone(phone.trim());
+    if (normalized.length < 9) return null;
+    return customers.find((c) => c.phone && normalizePhone(c.phone) === normalized) ?? null;
+  }, [mode, phone, customers]);
+
   // ── Smart Status ─────────────────────────────────────────────────────────────
   const smartStatus = useMemo<LeadStatus>(() => {
     if (isOB) return "ตอบแล้ว";
@@ -346,6 +355,10 @@ export function CustomerLeadDialog({
   // ── Submit ───────────────────────────────────────────────────────────────────
   const submit = () => {
     if (!fullName.trim()) { toast.error("กรุณากรอกชื่อลูกค้า"); return; }
+    if (dupCustomer) {
+      toast.error(`เบอร์นี้มีอยู่แล้ว — ${dupCustomer.full_name}`, { description: "กรุณาตรวจสอบหน้าฐานข้อมูลลูกค้า" });
+      return;
+    }
 
     let cid = existingId;
     const customerPatch = {
@@ -780,7 +793,12 @@ export function CustomerLeadDialog({
                 เบอร์โทร{" "}
                 <span className="text-[10px] text-muted-foreground">(ไม่บังคับ)</span>
               </Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className={dupCustomer ? "border-red-500 focus-visible:ring-red-500" : ""} />
+              {dupCustomer && (
+                <p className="text-xs text-red-500 mt-1">
+                  ⚠️ เบอร์นี้มีอยู่แล้ว — <span className="font-semibold">{dupCustomer.full_name}</span>
+                </p>
+              )}
             </div>
             <div>
               <Label>Line ID</Label>
