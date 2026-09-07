@@ -59,14 +59,8 @@ function buildHtml(opts: {
   description: string;
   image: string;
   redirectUrl: string;
-  pkgId?: string;
 }): string {
-  const { title, description, image, redirectUrl, pkgId } = opts;
-  // Store pkgId in sessionStorage before redirect so the React app can pick it up
-  // even if the URL ?pkg= param gets stripped by the filter-sync effect
-  const storageScript = pkgId
-    ? `try{sessionStorage.setItem('pendingFlipbook','${pkgId.replace(/'/g, "\\'")}');}catch(e){}`
-    : "";
+  const { title, description, image, redirectUrl } = opts;
   return `<!DOCTYPE html>
 <html lang="th">
 <head>
@@ -98,7 +92,7 @@ function buildHtml(opts: {
     กำลังเปิดโปรแกรมทัวร์… ถ้าไม่เปิดอัตโนมัติ
     <a href="${esc(redirectUrl)}" style="color:#7c3aed;">คลิกที่นี่</a>
   </p>
-  <script>${storageScript}window.location.replace("${redirectUrl.replace(/"/g, '\\"')}");</script>
+  <script>window.location.replace("${redirectUrl.replace(/"/g, '\\"')}");</script>
 </body>
 </html>`;
 }
@@ -238,14 +232,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── 4. Return OG HTML with JS redirect ────────────────────────────────────
-  // Redirect to /tour-packages?pkg=<id> so the flipbook modal opens with animation.
-  // pdfUrl is kept as fallback if pkgId is somehow missing.
-  const redirectUrl = pkgId
-    ? `${BASE_URL}/tour-packages?pkg=${pkgId}`
-    : (pdfUrl ?? `${BASE_URL}/tour-packages`);
+  // Redirect to /view?pdf=...&title=... so user sees PDF viewer + CTA.
+  // Fall back to /tour-packages if no pdf URL is available.
+  let redirectUrl: string;
+  if (pdfUrl) {
+    const params = new URLSearchParams({
+      pdf: pdfUrl,
+      title: title.replace(" — Standard Tour", ""),
+      pkg: pkgId,
+    });
+    redirectUrl = `${BASE_URL}/view?${params.toString()}`;
+  } else {
+    redirectUrl = `${BASE_URL}/tour-packages`;
+  }
   return res
     .setHeader("Content-Type", "text/html; charset=utf-8")
     .setHeader("Cache-Control", "no-store")   // don't cache — view count must increment each time
     .status(200)
-    .send(buildHtml({ title, description, image, redirectUrl, pkgId }));
+    .send(buildHtml({ title, description, image, redirectUrl }));
 }
