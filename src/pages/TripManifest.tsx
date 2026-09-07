@@ -79,7 +79,7 @@ export default function TripManifest() {
   const tourOptions = useMemo(() =>
     tours
       .filter((t) => !t.archived && t.periods && t.periods.length > 0)
-      .sort((a, b) => a.name.localeCompare(b.name, "th")),
+      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "th")),
     [tours]
   );
 
@@ -89,7 +89,7 @@ export default function TripManifest() {
     const tour = tours.find((t) => t.id === selectedTourId);
     return (tour?.periods ?? [])
       .filter((p) => !p.archived)
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      .sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? ""));
   }, [tours, selectedTourId]);
 
   // ── Selected tour / period objects ────────────────────────────────────────
