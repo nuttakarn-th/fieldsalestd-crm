@@ -26,6 +26,7 @@ import { useBookingLedger } from "@/store/bookingLedgerStore";
 export interface BookingLeadDialogProps {
   open: boolean;
   onClose: () => void;
+  onCancel?: () => void; // ยกเลิกการจอง — คืน quota
   tourId: string;
   tourName: string;
   periodId: string;
@@ -57,7 +58,7 @@ function formatPeriodLabel(label: string): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function BookingLeadDialog({
-  open, onClose,
+  open, onClose, onCancel,
   tourId, tourName, periodId, periodLabel, seats, pricePerSeat = 0, actorName,
 }: BookingLeadDialogProps) {
   const addCustomer  = useCRM((s) => s.addCustomer);
@@ -254,6 +255,16 @@ export function BookingLeadDialog({
                 <span className="text-[10px] opacity-60 font-normal">บันทึกแค่จำนวนที่นั่ง</span>
               </Button>
             </div>
+            {onCancel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-destructive"
+                onClick={onCancel}
+              >
+                ✕ ยกเลิกการจอง — คืนที่นั่ง
+              </Button>
+            )}
           </div>
         )}
 
