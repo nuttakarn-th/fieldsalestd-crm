@@ -61,7 +61,18 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   const canonicalPath = id ? `/${path}/${id}` : `/${path}`;
-  const redirectUrl   = `${canonicalPath}?_r=1`;   // ?_r=1 bypasses og-page rewrite → index.html
+
+  // Preserve extra query params (e.g. ?pkg= ?cta= ?preview=) so deep-link still works after redirect.
+  // Vercel rewrites pass the original query string to the destination, so req.query has them all.
+  const extraParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(req.query)) {
+    if (k !== "path" && k !== "id" && k !== "_r") {
+      extraParams.set(k, String(v));
+    }
+  }
+  const extraStr    = extraParams.toString();
+  const redirectUrl = `${canonicalPath}?_r=1${extraStr ? `&${extraStr}` : ""}`;
+  // ?_r=1 bypasses og-page rewrite → index.html
   const ogUrl         = `${SITE_URL}${canonicalPath}`;
   const ogImage       = og.image ?? DEFAULT_IMAGE;
 
