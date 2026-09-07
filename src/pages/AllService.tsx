@@ -554,7 +554,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── inline quota pending edit (per period_id) ──
   const [pendingQuota, setPendingQuota] = useState<Record<string, number>>({});
 
-  // ── Booking Lead Dialog ───────────────────────────────────────────────────
+  // ── Booking confirm (layer 1) ─────────────────────────────────────────────
+  const [bookingConfirm, setBookingConfirm] = useState<{
+    tourId: string; tourName: string;
+    pid: string; periodStart: string | null | undefined;
+    seats: number; pricePerSeat: number;
+  } | null>(null);
+
+  // ── Booking Lead Dialog (layer 2) ─────────────────────────────────────────
   const [bookingDialog, setBookingDialog] = useState<{
     tourId: string; tourName: string;
     periodId: string; periodLabel: string; seats: number; pricePerSeat: number;
@@ -578,13 +585,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     setPendingQuota((prev) => { const n = { ...prev }; delete n[pid]; return n; });
 
     if (delta < 0) {
-      // ── จองที่นั่ง: ตัด quota ทันที แล้ว popup บันทึกลูกค้า ──
-      adjustPeriodQuota(tourId, pid, delta, actorName);
-      toast.success("อัปเดตโควต้าแล้ว");
-      setBookingDialog({
+      // ── จองที่นั่ง: ขอ confirm ก่อน (layer 1) ──
+      setBookingConfirm({
         tourId, tourName,
-        periodId: pid,
-        periodLabel: periodStart ?? "",
+        pid, periodStart,
         seats: Math.abs(delta),
         pricePerSeat,
       });
@@ -4502,7 +4506,49 @@ ${catBlocks}
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* ── Booking Lead Dialog ── */}
+      {/* ── Booking Confirm Dialog (layer 1) ── */}
+      {bookingConfirm && (
+        <Dialog open onOpenChange={(o) => { if (!o) setBookingConfirm(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <span>🎟️</span> ยืนยันการจอง
+              </DialogTitle>
+            </DialogHeader>
+            <div className="text-sm space-y-1 py-1">
+              <p className="font-medium text-foreground">{bookingConfirm.tourName}</p>
+              <p className="text-muted-foreground">
+                จำนวน <span className="font-semibold text-foreground">{bookingConfirm.seats} ที่นั่ง</span>
+                {bookingConfirm.pricePerSeat > 0 && (
+                  <span className="ml-1">· {(bookingConfirm.pricePerSeat * bookingConfirm.seats).toLocaleString()} บาท</span>
+                )}
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-2">
+              <button
+                className="flex-1 rounded-md border px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
+                onClick={() => setBookingConfirm(null)}
+              >
+                ยกเลิก
+              </button>
+              <button
+                className="flex-1 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+                onClick={() => {
+                  const { tourId, tourName, pid, periodStart, seats, pricePerSeat } = bookingConfirm;
+                  setBookingConfirm(null);
+                  adjustPeriodQuota(tourId, pid, -seats, actorName);
+                  toast.success("อัปเดตโควต้าแล้ว");
+                  setBookingDialog({ tourId, tourName, periodId: pid, periodLabel: periodStart ?? "", seats, pricePerSeat });
+                }}
+              >
+                ยืนยัน
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Booking Lead Dialog (layer 2) ── */}
       {bookingDialog && (
         <BookingLeadDialog
           open={!!bookingDialog}
