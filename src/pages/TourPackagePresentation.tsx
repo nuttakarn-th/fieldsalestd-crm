@@ -2466,16 +2466,21 @@ export default function TourPackagePresentation() {
 
   // ── Deep-link: ?pkg=<id> — auto-open flipbook when shared link is opened ──
   const [searchParams, setSearchParams] = useSearchParams();
-  // Capture pkgId from URL on mount via ref — immune to searchParams/filter changes
-  const deepLinkPkgRef = useRef<string | null>(
-    new URLSearchParams(window.location.search).get("pkg")
-  );
+  // Capture pkgId on mount: sessionStorage (set by short-link redirect) takes priority,
+  // then fall back to URL ?pkg= param. Using a ref so filter-sync URL rewrites can't erase it.
+  const deepLinkPkgRef = useRef<string | null>(() => {
+    try {
+      const ss = sessionStorage.getItem("pendingFlipbook");
+      if (ss) { sessionStorage.removeItem("pendingFlipbook"); return ss; }
+    } catch (_) { /* ignore */ }
+    return new URLSearchParams(window.location.search).get("pkg");
+  });
   useEffect(() => {
     const pkgId = deepLinkPkgRef.current;
     if (!pkgId || flipbookPkg) return;
     const found = packages.find((p) => p.id === pkgId);
     if (found) {
-      deepLinkPkgRef.current = null; // consumed — prevent re-open on future packages updates
+      deepLinkPkgRef.current = null; // consumed
       setFlipbookPkg(found);
       setTimeout(() => {
         const el = document.getElementById(`pkg-card-${pkgId}`);

@@ -59,8 +59,14 @@ function buildHtml(opts: {
   description: string;
   image: string;
   redirectUrl: string;
+  pkgId?: string;
 }): string {
-  const { title, description, image, redirectUrl } = opts;
+  const { title, description, image, redirectUrl, pkgId } = opts;
+  // Store pkgId in sessionStorage before redirect so the React app can pick it up
+  // even if the URL ?pkg= param gets stripped by the filter-sync effect
+  const storageScript = pkgId
+    ? `try{sessionStorage.setItem('pendingFlipbook','${pkgId.replace(/'/g, "\\'")}');}catch(e){}`
+    : "";
   return `<!DOCTYPE html>
 <html lang="th">
 <head>
@@ -92,7 +98,7 @@ function buildHtml(opts: {
     กำลังเปิดโปรแกรมทัวร์… ถ้าไม่เปิดอัตโนมัติ
     <a href="${esc(redirectUrl)}" style="color:#7c3aed;">คลิกที่นี่</a>
   </p>
-  <script>window.location.replace("${redirectUrl.replace(/"/g, '\\"')}");</script>
+  <script>${storageScript}window.location.replace("${redirectUrl.replace(/"/g, '\\"')}");</script>
 </body>
 </html>`;
 }
@@ -241,5 +247,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .setHeader("Content-Type", "text/html; charset=utf-8")
     .setHeader("Cache-Control", "no-store")   // don't cache — view count must increment each time
     .status(200)
-    .send(buildHtml({ title, description, image, redirectUrl }));
+    .send(buildHtml({ title, description, image, redirectUrl, pkgId }));
 }
