@@ -94,7 +94,7 @@ export default function TripManifest() {
 
   // ── Selected tour / period objects ────────────────────────────────────────
   const tour   = tours.find((t) => t.id === selectedTourId);
-  const period = periodOptions.find((p) => p.id === selectedPeriodId);
+  const period = periodOptions.find((p) => p.period_id === selectedPeriodId);
 
   // ── Build manifest rows ───────────────────────────────────────────────────
   const rows = useMemo<ManifestRow[]>(() => {
@@ -106,7 +106,7 @@ export default function TripManifest() {
     // 1. Leads (primary)
     // - exact match: tour_id + period_id linked
     // - fallback: old leads without tour_id — match by program name + travel_month
-    const period = periodOptions.find((p) => p.id === selectedPeriodId);
+    const period = periodOptions.find((p) => p.period_id === selectedPeriodId);
     const travelMonth = period?.start_date?.slice(0, 7) ?? "";
     const tourName = tour?.name ?? "";
     const bookedLeads = leads.filter((l) => {
@@ -236,7 +236,7 @@ export default function TripManifest() {
           >
             <option value="">— เลือก Period —</option>
             {periodOptions.map((p) => (
-              <option key={p.id} value={p.id}>
+              <option key={p.period_id} value={p.period_id}>
                 {fmtDate(p.start_date)}{p.end_date ? ` – ${fmtDate(p.end_date)}` : ""}
               </option>
             ))}
