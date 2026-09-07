@@ -7,7 +7,7 @@
  *           → addCustomer + addLead (status=จองแล้ว, tour_id/period_id pre-filled)
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useCRM, type Source, type Segment } from "@/store/crmStore";
+import { useCRM, type Source, type Segment, type Customer } from "@/store/crmStore";
 import { useBookingLedger } from "@/store/bookingLedgerStore";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -63,8 +63,11 @@ export function BookingLeadDialog({
   const addCustomer  = useCRM((s) => s.addCustomer);
   const addLead      = useCRM((s) => s.addLead);
   const addBooking   = useBookingLedger((s) => s.addBooking);
+  const customers    = useCRM((s) => s.customers);
 
   const [step, setStep] = useState<"choice" | "form">("choice");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [activeSugg, setActiveSugg] = useState<"name" | "phone" | null>(null);
 
   // Form state — basic
   const [fullName, setFullName] = useState("");
@@ -86,10 +89,34 @@ export function BookingLeadDialog({
   const [emergencyContact,setEmergencyContact]= useState("");
   const [specialRequests, setSpecialRequests] = useState("");
 
+  // ── Autocomplete helpers ──────────────────────────────────────────────────────
+  const normalizePhone = (p: string) => p.replace(/\D/g, "");
+
+  const nameSuggestions = useMemo(() => {
+    const q = fullName.trim().toLowerCase();
+    if (q.length < 2 || selectedCustomer) return [] as Customer[];
+    return customers.filter((c) => c.full_name.toLowerCase().includes(q)).slice(0, 6);
+  }, [fullName, customers, selectedCustomer]);
+
+  const phoneSuggestions = useMemo(() => {
+    const q = normalizePhone(phone.trim());
+    if (q.length < 5 || selectedCustomer) return [] as Customer[];
+    return customers.filter((c) => c.phone && normalizePhone(c.phone).includes(q)).slice(0, 6);
+  }, [phone, customers, selectedCustomer]);
+
+  function fillFromCustomer(c: Customer) {
+    setFullName(c.full_name);
+    setPhone(c.phone === "-" ? "" : (c.phone ?? ""));
+    setLineId(c.line_id ?? "");
+    setSelectedCustomer(c);
+    setActiveSugg(null);
+  }
+
   function reset() {
     setStep("choice");
     setFullName(""); setPhone(""); setLineId(""); setSource("Walk-in"); setNote("");
     setSaving(false);
+    setSelectedCustomer(null); setActiveSugg(null);
     setShowExtra(false);
     setRoomType(""); setRoomPartner(""); setFoodPref("ปกติ"); setFoodOther("");
     setDepositAmount(""); setDepositDate(""); setBalanceDueDate("");
@@ -121,17 +148,19 @@ export function BookingLeadDialog({
     const segment: Segment = "B2C Individual";
     const travelMonth = periodLabel ? periodLabel.slice(0, 7) : "";
 
-    // 1. Create customer
-    const customerId = addCustomer({
-      full_name: fullName.trim(),
-      company:   "",
-      phone:     phone.trim(),
-      line_id:   lineId.trim(),
-      source,
-      segment,
-      note:      note.trim() || undefined,
-      created_by: actorName,
-    });
+    // 1. Create customer (or reuse existing for returning customers)
+    const customerId = selectedCustomer
+      ? selectedCustomer.customer_id
+      : addCustomer({
+          full_name: fullName.trim(),
+          company:   "",
+          phone:     phone.trim(),
+          line_id:   lineId.trim(),
+          source,
+          segment,
+          note:      note.trim() || undefined,
+          created_by: actorName,
+        });
 
     // 2. Create lead — status = จองแล้ว, linked to tour + period
     // skipQuotaAdjust = true เพราะ quota ถูกตัดไปแล้วจาก Stock page (AllService.tsx)
@@ -234,25 +263,76 @@ export function BookingLeadDialog({
             {/* Name */}
             <div className="space-y-1">
               <Label htmlFor="bld-name" className="text-xs">ชื่อ-สกุล <span className="text-destructive">*</span></Label>
-              <Input
-                id="bld-name"
-                placeholder="ชื่อลูกค้า"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                autoFocus
-              />
+              {selectedCustomer && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-500/10 border border-green-500/30 text-xs text-green-600 dark:text-green-400 mb-1">
+                  <span>🔄 ลูกค้าเก่า</span>
+                  <span className="font-semibold">{selectedCustomer.full_name}</span>
+                  <button type="button" className="ml-auto opacity-60 hover:opacity-100" onClick={() => setSelectedCustomer(null)}>✕</button>
+                </div>
+              )}
+              <div className="relative">
+                <Input
+                  id="bld-name"
+                  placeholder="ชื่อลูกค้า"
+                  value={fullName}
+                  onChange={(e) => { setFullName(e.target.value); setSelectedCustomer(null); }}
+                  onFocus={() => setActiveSugg("name")}
+                  onBlur={() => setTimeout(() => setActiveSugg((a) => a === "name" ? null : a), 150)}
+                  autoFocus
+                />
+                {activeSugg === "name" && nameSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 rounded-md border bg-popover shadow-md overflow-hidden">
+                    {nameSuggestions.map((c) => (
+                      <button
+                        key={c.customer_id}
+                        type="button"
+                        className="w-full flex items-start gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60 transition-colors"
+                        onMouseDown={() => fillFromCustomer(c)}
+                      >
+                        <span className="text-muted-foreground mt-0.5">👤</span>
+                        <span>
+                          <span className="font-medium text-foreground">{c.full_name}</span>
+                          {c.phone && c.phone !== "-" && <span className="text-muted-foreground ml-1.5">{c.phone}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Phone + LINE */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label htmlFor="bld-phone" className="text-xs">เบอร์โทร</Label>
-                <Input
-                  id="bld-phone"
-                  placeholder="08x-xxx-xxxx"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="bld-phone"
+                    placeholder="08x-xxx-xxxx"
+                    value={phone}
+                    onChange={(e) => { setPhone(e.target.value); setSelectedCustomer(null); }}
+                    onFocus={() => setActiveSugg("phone")}
+                    onBlur={() => setTimeout(() => setActiveSugg((a) => a === "phone" ? null : a), 150)}
+                  />
+                  {activeSugg === "phone" && phoneSuggestions.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 left-0 right-0 rounded-md border bg-popover shadow-md overflow-hidden">
+                      {phoneSuggestions.map((c) => (
+                        <button
+                          key={c.customer_id}
+                          type="button"
+                          className="w-full flex items-start gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60 transition-colors"
+                          onMouseDown={() => fillFromCustomer(c)}
+                        >
+                          <span className="text-muted-foreground mt-0.5">📞</span>
+                          <span>
+                            <span className="font-medium text-foreground">{c.full_name}</span>
+                            {c.phone && c.phone !== "-" && <span className="text-muted-foreground ml-1.5">{c.phone}</span>}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="bld-line" className="text-xs">LINE ID</Label>
