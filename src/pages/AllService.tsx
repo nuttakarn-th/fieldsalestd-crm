@@ -1472,11 +1472,8 @@ ${catBlocks}
         const nonCancelledPeriods = (t.periods ?? []).filter((p) => !p.cancelled);
         if (nonCancelledPeriods.length > 0 && nonCancelledPeriods.every((p) => p.archived)) return false;
       }
-      // hide tours where all periods are cancelled (when not showing cancelled)
-      if (!effectiveShowCancelled) {
-        const nonCancelledPeriods = (t.periods ?? []).filter((p) => !p.cancelled);
-        if ((t.periods ?? []).length > 0 && nonCancelledPeriods.length === 0) return false;
-      }
+      // NOTE: tours where ALL periods are cancelled → still show the tour row,
+      // just hide the cancelled period rows inside it (let user see the program exists).
       // archive mode: only show tours that have archived periods
       if (filterStatus === "archive") {
         return (t.periods ?? []).some((p) => p.archived);
@@ -2516,17 +2513,28 @@ ${catBlocks}
                         </button>
                       )}
                       {t.pdf_url && (
-                        <a
-                          href={t.is_published
-                            ? `https://stdtour.vercel.app/view?pdf=${encodeURIComponent(t.pdf_url)}&title=${encodeURIComponent(t.name)}&pkg=tour_${t.id}`
-                            : t.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}
-                          title={t.is_published ? "เปิด PDF Viewer (Live)" : "เปิด PDF โปรแกรม"}
-                        >
-                          {t.is_published ? "🌐 Live" : "📄 PDF"}
-                        </a>
+                        t.is_published ? (
+                          <button
+                            onClick={() => {
+                              try { localStorage.setItem("pendingFlipbook", `tour_${t.id}`); } catch (_) {}
+                              window.open("/tour-packages", "_blank", "noopener,noreferrer");
+                            }}
+                            className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity hover:opacity-75 bg-green-500/15 text-green-400"
+                            title="เปิด Flipbook โปรแกรม (Live)"
+                          >
+                            🌐 Live
+                          </button>
+                        ) : (
+                          <a
+                            href={t.pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity hover:opacity-75 bg-muted text-muted-foreground"
+                            title="เปิด PDF โปรแกรม"
+                          >
+                            📄 PDF
+                          </a>
+                        )
                       )}
                       {canEdit && (
                         <div className="flex items-center gap-0.5 shrink-0">

@@ -2464,6 +2464,30 @@ export default function TourPackagePresentation() {
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // ── Deep-link: read localStorage 'pendingFlipbook' set by LIVE button in Stock ──
+  // localStorage is shared across tabs (same origin), unlike sessionStorage.
+  const deepLinkPkgRef = useRef<string | null>(() => {
+    try {
+      const ls = localStorage.getItem("pendingFlipbook");
+      if (ls) { localStorage.removeItem("pendingFlipbook"); return ls; }
+    } catch (_) { /* ignore */ }
+    return null;
+  });
+  useEffect(() => {
+    const pkgId = deepLinkPkgRef.current;
+    if (!pkgId || flipbookPkg) return;
+    const found = packages.find((p) => p.id === pkgId);
+    if (found) {
+      deepLinkPkgRef.current = null;
+      setFlipbookPkg(found);
+      setTimeout(() => {
+        const el = document.getElementById(`pkg-card-${pkgId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 400);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packages, flipbookPkg]);
+
   // ── Sync filter state → URL params ──
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
