@@ -2515,12 +2515,12 @@ ${catBlocks}
                       {t.pdf_url && (
                         <a
                           href={t.is_published
-                            ? `/view?pdf=${encodeURIComponent(t.pdf_url)}&title=${encodeURIComponent(t.title || t.city || "โปรแกรมทัวร์")}&pkg=tour_${t.id}`
+                            ? `/tour-packages?pkg=tour_${t.id}&preview=1`
                             : t.pdf_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded transition-opacity hover:opacity-75 ${t.is_published ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}
-                          title={t.is_published ? "ดูหน้า Live ของโปรแกรม (เหมือนลูกค้าเห็น)" : "เปิด PDF โปรแกรม"}
+                          title={t.is_published ? "ดูหน้า Live ของโปรแกรม (Flipbook เหมือนลูกค้าเห็น)" : "เปิด PDF โปรแกรม"}
                         >
                           {t.is_published ? "🌐 Live" : "📄 PDF"}
                         </a>

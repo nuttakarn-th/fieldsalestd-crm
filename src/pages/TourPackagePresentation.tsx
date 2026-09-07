@@ -2412,6 +2412,7 @@ export default function TourPackagePresentation() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [flipbookPkg, setFlipbookPkg]     = useState<TourPackageItem | null>(null);
+  const [showCta,     setShowCta]         = useState(false);
   const [editPkg,     setEditPkg]         = useState<TourPackageItem | null>(null);
   const [pendingAddOpen, setPendingAddOpen] = useState(false);
   const [pendingPdf,  setPendingPdf]      = useState<{ url: string; name: string } | null>(null);
@@ -2464,15 +2465,31 @@ export default function TourPackagePresentation() {
   const pdfRef             = useRef<HTMLInputElement>(null);
   const highlightCoverRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // ── Deep-link: read localStorage 'pendingFlipbook' set by LIVE button in Stock ──
-  // localStorage is shared across tabs (same origin), unlike sessionStorage.
-  const deepLinkPkgRef = useRef<string | null>(() => {
+  // ── Deep-link: read ?pkg URL param (short link) OR localStorage (LIVE button in Stock) ──
+  // Read synchronously during render — BEFORE the filter-sync effect runs and strips URL params.
+  // Guard with a "done" ref so this runs only on first render.
+  const _dlDone = useRef(false);
+  const deepLinkPkgRef     = useRef<string | null>(null);
+  const showCtaOnCloseRef  = useRef<boolean>(false);
+  if (!_dlDone.current) {
+    _dlDone.current = true;
+    // Priority 1: URL ?pkg= (from short link / LIVE button opening new tab)
     try {
-      const ls = localStorage.getItem("pendingFlipbook");
-      if (ls) { localStorage.removeItem("pendingFlipbook"); return ls; }
+      const sp = new URLSearchParams(window.location.search);
+      const urlPkg = sp.get("pkg");
+      if (urlPkg) {
+        deepLinkPkgRef.current    = urlPkg;
+        showCtaOnCloseRef.current = sp.get("cta") === "1";
+      }
     } catch (_) { /* ignore */ }
-    return null;
-  });
+    // Priority 2: localStorage (LIVE button in AllService sets this before opening new tab)
+    if (!deepLinkPkgRef.current) {
+      try {
+        const ls = localStorage.getItem("pendingFlipbook");
+        if (ls) { localStorage.removeItem("pendingFlipbook"); deepLinkPkgRef.current = ls; }
+      } catch (_) { /* ignore */ }
+    }
+  }
   useEffect(() => {
     const pkgId = deepLinkPkgRef.current;
     if (!pkgId || flipbookPkg) return;
@@ -2875,7 +2892,60 @@ export default function TourPackagePresentation() {
 
       {/* ── Flipbook Modal ── */}
       {flipbookPkg && (
-        <BookFlipbookModal pkg={flipbookPkg} onClose={() => setFlipbookPkg(null)} />
+        <BookFlipbookModal
+          pkg={flipbookPkg}
+          onClose={() => {
+            setFlipbookPkg(null);
+            if (showCtaOnCloseRef.current) {
+              showCtaOnCloseRef.current = false; // fire once only
+              setShowCta(true);
+            }
+          }}
+        />
+      )}
+
+      {/* ── CTA Overlay (แสดงหลังปิด Flipbook ที่มาจาก Short Link) ── */}
+      {showCta && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 10000,
+            background: "rgba(0,0,0,0.88)",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            gap: "1.25rem", padding: "1.5rem",
+          }}
+        >
+          <div style={{ textAlign: "center", color: "#fff", maxWidth: 360 }}>
+            <div style={{ fontSize: "2.8rem", marginBottom: "0.5rem" }}>💚</div>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: "0 0 0.5rem" }}>
+              สนใจโปรแกรมนี้มั้ย?
+            </h2>
+            <p style={{ color: "#999", fontSize: "0.9rem", margin: 0 }}>
+              ทีมงานพร้อมให้คำแนะนำ ราคาพิเศษ จองง่าย ไม่มีค่าใช้จ่ายเพิ่ม
+            </p>
+          </div>
+          <button
+            onClick={() => window.open("https://line.me/R/ti/p/@standardtour", "_blank")}
+            style={{
+              background: "#06C755", color: "#fff", border: "none",
+              borderRadius: "0.75rem", padding: "0.85rem 2.5rem",
+              fontSize: "1.05rem", fontWeight: 700, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: "0.5rem",
+            }}
+          >
+            <span>💬</span> เพิ่ม LINE เพื่อสอบถาม
+          </button>
+          <button
+            onClick={() => setShowCta(false)}
+            style={{
+              background: "transparent", color: "#bbb",
+              border: "1px solid #555", borderRadius: "0.75rem",
+              padding: "0.65rem 2rem", fontSize: "0.9rem", cursor: "pointer",
+            }}
+          >
+            ดูโปรแกรมทัวร์อื่น
+          </button>
+        </div>
       )}
 
       {/* ── Add/Edit Dialog ── */}

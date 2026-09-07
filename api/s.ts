@@ -232,19 +232,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── 4. Return OG HTML with JS redirect ────────────────────────────────────
-  // Redirect to /view?pdf=...&title=... so user sees PDF viewer + CTA.
-  // Fall back to /tour-packages if no pdf URL is available.
-  let redirectUrl: string;
-  if (pdfUrl) {
-    const params = new URLSearchParams({
-      pdf: pdfUrl,
-      title: title.replace(" — Standard Tour", ""),
-      pkg: pkgId,
-    });
-    redirectUrl = `${BASE_URL}/view?${params.toString()}`;
-  } else {
-    redirectUrl = `${BASE_URL}/tour-packages`;
-  }
+  // Redirect to /tour-packages?pkg=...&cta=1 so the Flipbook opens directly
+  // (works on all mobile browsers — no PDF reader dependency).
+  // Fall back to /tour-packages home if pkg is unknown.
+  const redirectUrl = `${BASE_URL}/tour-packages?pkg=${encodeURIComponent(pkgId)}&cta=1`;
   return res
     .setHeader("Content-Type", "text/html; charset=utf-8")
     .setHeader("Cache-Control", "no-store")   // don't cache — view count must increment each time
