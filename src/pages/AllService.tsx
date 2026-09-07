@@ -328,6 +328,7 @@ const blankPeriodForm = () => ({
   price_per_seat: "",
   special_price: "",        // ราคาพิเศษ — เมื่อกรอก 🔥 auto-on
   total_seats: "",
+  quota: "",          // ที่นั่งว่าง — แก้ไขได้ใน edit mode (ว่างเปล่า = auto จาก total_seats)
   airline_code: "",
   departure_city: "" as "" | "CNX" | "DMK" | "BKK",
   project: "",
@@ -848,6 +849,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: String(p.price_per_seat),
       special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
+      quota: String(p.total_seats),   // duplicate → reset quota = full seats
       airline_code: p.airline_code ?? "",
       departure_city: (p.departure_city ?? "") as "" | "CNX" | "DMK" | "BKK",
       project: p.project ?? "",
@@ -882,6 +884,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: String(p.price_per_seat),
       special_price: p.special_price ? String(p.special_price) : "",
       total_seats: String(p.total_seats),
+      quota: String(p.quota),          // edit → โหลด quota จริงจาก period
       airline_code: p.airline_code ?? "",
       departure_city: (p.departure_city ?? "") as "" | "CNX" | "DMK" | "BKK",
       project: p.project ?? "",
@@ -927,8 +930,12 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      // cancelled → quota=0; edit → clamp quota ไม่ให้เกิน seats ใหม่; create → seats
-      quota: pForm.cancelled ? 0 : (pEditId ? Math.min(existingPeriod?.quota ?? seats, seats) : seats),
+      // cancelled → 0; edit → ใช้ค่าจาก quota input (clamp ≤ seats); create → seats
+      quota: pForm.cancelled
+        ? 0
+        : pEditId
+          ? (pForm.quota !== "" ? Math.min(Number(pForm.quota), seats) : Math.min(existingPeriod?.quota ?? seats, seats))
+          : seats,
       airline_code: pForm.airline_code || undefined,
       departure_city: pForm.departure_city || undefined,
       project: pForm.project || undefined,
@@ -3912,6 +3919,28 @@ ${catBlocks}
                     value={pForm.total_seats} onChange={(e) => setPForm({ ...pForm, total_seats: e.target.value })} placeholder="20" />
                 </div>
               </div>
+
+              {/* ── Quota (ที่นั่งว่าง) — แสดงเฉพาะ edit mode เพื่อให้แก้ได้โดยตรง ── */}
+              {pEditId && !pForm.cancelled && (
+                <div>
+                  <label className="text-[10px] font-semibold text-primary uppercase tracking-wide">
+                    ที่นั่งว่าง (Quota)
+                    {pForm.quota !== "" && pForm.total_seats && (
+                      <span className="ml-1.5 text-muted-foreground font-normal normal-case">
+                        จอง {Math.max(0, Number(pForm.total_seats) - Number(pForm.quota))} ที่
+                      </span>
+                    )}
+                  </label>
+                  <Input
+                    className="h-8 text-xs mt-0.5"
+                    type="number" min={0} max={Number(pForm.total_seats) || undefined}
+                    value={pForm.quota}
+                    onChange={(e) => setPForm({ ...pForm, quota: e.target.value })}
+                    placeholder={`0–${pForm.total_seats || "?"} (ที่นั่งว่าง)`}
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-0.5">ที่นั่งว่าง = ที่นั่งทั้งหมด − จองแล้ว</p>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
