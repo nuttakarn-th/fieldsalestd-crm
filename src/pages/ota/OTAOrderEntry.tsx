@@ -287,10 +287,12 @@ export default function OTAOrderEntry() {
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   const openAdd = () => {
-    setForm({ ...EMPTY_FORM });
+    const defaultPlatform = EMPTY_FORM.platform;
+    const cfg = platformConfigs.find((c) => c.platform === defaultPlatform);
+    setForm({ ...EMPTY_FORM, commission_pct: cfg?.commission_pct ?? 0 });
     setEditId(null);
     setCommissionMode("pct");
-    setCommissionAmtDirect(0);
+    setCommissionAmtDirect(cfg ? +(EMPTY_FORM.gross_price * (cfg.commission_pct) / 100).toFixed(2) : 0);
     setShowForm(true);
   };
   const openEdit = (o: OTAOrder) => {

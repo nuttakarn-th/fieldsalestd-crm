@@ -134,7 +134,7 @@ export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANoti
               visible.map((entry) => {
                 const meta = ACTION_META[entry.action];
                 const Icon = meta.Icon;
-                const isClickable = !!entry.order_id && !!onOrderClick;
+                const isClickable = !!entry.order_id && !!onOrderClick && entry.action !== "delete_order";
                 return (
                   <div
                     key={entry.id}
