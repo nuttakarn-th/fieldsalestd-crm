@@ -368,7 +368,7 @@ export default function TripManifest() {
             rows.push({
               key: `booking-${b.id}-0`, displaySeq: String(mainSeq++),
               leadId: null, bookingId: b.id,
-              travelerIndex: 0, isGroupLeader: false, groupKey: null, groupSize: 1,
+              travelerIndex: 0, isGroupLeader: true, groupKey: null, groupSize: 1,
               source: "booking",
               name:           t?.name || b.customer_name || "(ไม่ระบุชื่อ)",
               passportName:   t?.passport_name ?? "",
@@ -382,14 +382,13 @@ export default function TripManifest() {
               allTravelers: travelers,
             });
           } else {
-            // Multi-pax → N sub-rows
-            const groupSeq = mainSeq++;
+            // Multi-pax → N sub-rows (sequential numbering)
             for (let ti = 0; ti < b.seats; ti++) {
               const t = travelers[ti];
               const isLeader = ti === 0;
               rows.push({
                 key: `booking-${b.id}-${ti}`,
-                displaySeq: isLeader ? String(groupSeq) : `${groupSeq}-${ti + 1}`,
+                displaySeq: String(mainSeq++),
                 leadId: null, bookingId: b.id,
                 travelerIndex: ti, isGroupLeader: isLeader,
                 groupKey: b.id, groupSize: b.seats,
@@ -642,13 +641,15 @@ export default function TripManifest() {
                         {trip.rows.map((r, i) => {
                           const status   = getRowStatus(r);
                           const isSub    = r.groupKey !== null && !r.isGroupLeader;
-                          const isLeader = r.isGroupLeader;
+                          const isLeader = r.isGroupLeader && r.groupSize > 1;
                           const anon     = !r.name || r.name.startsWith("(");
 
                           return (
                             <tr key={r.key} onClick={() => setEditRow(r)}
                               className={`border-t cursor-pointer hover:bg-primary/5 transition-colors ${
-                                isSub ? "bg-muted/30 dark:bg-muted/10" : i % 2 === 0 ? "bg-background" : "bg-muted/20"
+                                isLeader
+                                  ? "bg-amber-50/60 dark:bg-amber-950/20"
+                                  : i % 2 === 0 ? "bg-background" : "bg-muted/20"
                               }`}
                               title="คลิกเพื่อแก้ไข">
 
@@ -658,19 +659,19 @@ export default function TripManifest() {
                               </td>
 
                               {/* Seq */}
-                              <td className={`px-2 py-1.5 ${isSub ? "pl-5 text-muted-foreground/50" : "text-muted-foreground"}`}>
-                                {isSub ? `└ ${r.travelerIndex! + 1}` : r.displaySeq}
+                              <td className="px-2 py-1.5 text-muted-foreground tabular-nums">
+                                {r.displaySeq}
                               </td>
 
                               {/* Name */}
-                              <td className="px-2 py-1.5 font-medium whitespace-nowrap">
+                              <td className="px-2 py-1.5 whitespace-nowrap">
                                 <span className="flex items-center gap-1.5">
-                                  {isLeader && <Crown className="w-3 h-3 text-amber-500 shrink-0" title="หัวหน้ากลุ่ม" />}
+                                  {isLeader && <Crown className="w-3 h-3 text-amber-500 shrink-0" title="ผู้จอง / หัวหน้ากลุ่ม" />}
                                   {anon
                                     ? <span className="text-muted-foreground/50 italic text-[11px]">(ยังไม่ระบุ) <span className="text-[9px] text-red-500">+ กรอก</span></span>
-                                    : <span className={isSub ? "text-foreground/80" : ""}>{r.name}</span>
+                                    : <span className={isLeader ? "font-semibold" : "font-medium text-foreground/80"}>{r.name}</span>
                                   }
-                                  {isLeader && <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1">กลุ่ม {r.pax} คน</Badge>}
+                                  {isLeader && <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 border-amber-400 text-amber-700">จอง {r.pax} คน</Badge>}
                                 </span>
                               </td>
 
@@ -685,7 +686,9 @@ export default function TripManifest() {
 
                               {/* Seats — show only on leader/single row */}
                               <td className="px-2 py-1.5 text-center">
-                                {isSub ? <span className="opacity-30">–</span> : <span className="font-medium">{r.pax}</span>}
+                                {isSub
+                                  ? <span className="opacity-30">–</span>
+                                  : <span className={`font-medium ${isLeader ? "text-amber-700 dark:text-amber-400" : ""}`}>{r.pax}</span>}
                               </td>
 
                               {show("room") && (
