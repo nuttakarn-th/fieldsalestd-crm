@@ -381,7 +381,7 @@ export default function OTAOrderEntry() {
     e.target.value = "";
   };
 
-  const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   const fmtCurrency = (n: number) => n.toLocaleString("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: 2 });
 
   return (
