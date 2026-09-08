@@ -505,7 +505,7 @@ export const useOTAStore = create<OTAState>()(
         set((s) => ({ platformConfigs: s.platformConfigs.filter((c) => c.id !== id) }));
       },
 
-      // ── Bulk Import (upsert by order_number) ────────────────────────────────
+      // ── Bulk Import (insert all rows — order_number ไม่ unique แล้ว) ─────────
 
       importOrders: async (rows) => {
         let inserted = 0;
@@ -513,66 +513,37 @@ export const useOTAStore = create<OTAState>()(
         let errors = 0;
 
         if (SUPABASE_ENABLED && supabase) {
-          // Deduplicate ภายใน batch (Order # เดียวกัน 2 แถว → Postgres error)
-          // เก็บแถวสุดท้ายของแต่ละ order_number และนับจำนวน skip
-          const dedupMap = new Map<string, typeof rows[number]>();
-          rows.forEach((r) => dedupMap.set(r.order_number, r));
-          const dedupedRows = [...dedupMap.values()];
-          const internalDups = rows.length - dedupedRows.length;
-          if (internalDups > 0) {
-            console.warn(`[ota] importOrders: ${internalDups} duplicate order_number(s) in batch — kept last occurrence each`);
-          }
-
-          // ดึง existing id จาก DB โดยตรง (ไม่พึ่ง local state ที่อาจยังไม่โหลด)
-          const orderNums = dedupedRows.map((r) => r.order_number);
-          const { data: existing } = await supabase
-            .from("ota_orders")
-            .select("id, order_number")
-            .in("order_number", orderNums);
-
-          const existingByOrderNum = new Map(
-            (existing ?? []).map((r) => [r.order_number as string, r.id as string])
-          );
-
-          // Build upsert payload — ใช้ existing id ถ้ามี ไม่งั้นสร้างใหม่
-          const records = dedupedRows.map((row) => {
-            const existingId = existingByOrderNum.get(row.order_number);
-            return {
-              id:              existingId ?? uid(),
-              booking_date:    row.booking_date,
-              usage_date:      row.usage_date,
-              order_number:    row.order_number,
-              group_number:    row.group_number,
-              pax:             row.pax,
-              platform:        row.platform,
-              package_id:      row.package_id || null,
-              package_details: row.package_details ?? "",
-              nationality:     row.nationality ?? "",
-              guide_name:      row.guide_name ?? "",
-              pickup_hotel:    row.pickup_hotel ?? "",
-              gross_price:     row.gross_price,
-              commission_pct:  row.commission_pct,
-              discount:        row.discount,
-              revenue:         row.revenue,
-              created_by:      row.created_by ?? "",
-            };
-          });
+          // Build insert payload — แต่ละแถวได้ id ใหม่เสมอ
+          const records = rows.map((row) => ({
+            id:              uid(),
+            booking_date:    row.booking_date,
+            usage_date:      row.usage_date,
+            order_number:    row.order_number,
+            group_number:    row.group_number,
+            pax:             row.pax,
+            platform:        row.platform,
+            package_id:      row.package_id || null,
+            package_details: row.package_details ?? "",
+            nationality:     row.nationality ?? "",
+            guide_name:      row.guide_name ?? "",
+            pickup_hotel:    row.pickup_hotel ?? "",
+            gross_price:     row.gross_price,
+            commission_pct:  row.commission_pct,
+            discount:        row.discount,
+            revenue:         row.revenue,
+            created_by:      row.created_by ?? "",
+          }));
+          inserted = records.length;
 
           const { error } = await supabase
             .from("ota_orders")
-            .upsert(records, { onConflict: "order_number" });
+            .insert(records);
 
           if (error) {
             console.error("[ota] importOrders error:", error.message, error.details, error.hint);
             toast.error(`Import ล้มเหลว: ${error.message}`);
             return { inserted: 0, updated: 0, errors: rows.length };
           }
-
-          // นับ inserted vs updated (อ้างอิงจาก DB lookup ที่ทำไว้)
-          dedupedRows.forEach((row) => {
-            if (existingByOrderNum.has(row.order_number)) updated++;
-            else inserted++;
-          });
 
           // Reload from DB เพื่อให้ state sync
           const { data } = await supabase
@@ -582,22 +553,12 @@ export const useOTAStore = create<OTAState>()(
           if (data) set({ orders: data.map(rowToOrder) });
 
         } else {
-          // Local fallback
+          // Local fallback — insert all as new rows
           rows.forEach((row) => {
-            const existingId = existingByOrderNum.get(row.order_number);
-            if (existingId) {
-              set((s) => ({
-                orders: s.orders.map((o) =>
-                  o.id === existingId ? { ...o, ...row } : o
-                ),
-              }));
-              updated++;
-            } else {
-              const id = uid();
-              const order: OTAOrder = { ...row, id, created_at: new Date().toISOString() };
-              set((s) => ({ orders: [order, ...s.orders] }));
-              inserted++;
-            }
+            const id = uid();
+            const order: OTAOrder = { ...row, id, created_at: new Date().toISOString() };
+            set((s) => ({ orders: [order, ...s.orders] }));
+            inserted++;
           });
         }
 
