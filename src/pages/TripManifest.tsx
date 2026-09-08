@@ -1,16 +1,22 @@
 /**
- * TripManifest.tsx  v2 — Timeline view
+ * TripManifest.tsx  v3 — Timeline view + UX improvements
  *
- * แสดง Trip ที่กำลังจะเดินทางทั้งหมด เรียงตามวันออก
- * กรองตามเดือน, ค้นหาชื่อลูกค้า, expand ดูรายละเอียด, Export Excel per trip
+ * ✨ ใหม่ v3:
+ *  - Row status indicator (🟢 ครบ / 🟡 ขาดข้อมูล / 🔴 ไม่ระบุชื่อ)
+ *  - Trip summary badge (ครบ X · ขาด Y · Anon Z)
+ *  - Slide-over edit panel (คลิกแถวเพื่อแก้ไขข้อมูลได้เลย)
+ *  - Column visibility toggle
+ *  - ปุ่ม "กรอกข้อมูล" สำหรับแถว Anon
  */
 
 import { useState, useMemo } from "react";
+import { X, Settings2, ChevronDown, ChevronUp, Save } from "lucide-react";
 import { useCRM } from "@/store/crmStore";
 import { useServices } from "@/store/serviceStore";
 import { useBookingLedger } from "@/store/bookingLedgerStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,6 +70,8 @@ function foodColor(pref: string) {
 interface ManifestRow {
   seq: number;
   key: string;
+  leadId: string | null;
+  bookingId: string | null;
   name: string;
   passportName: string;
   phone: string;
@@ -93,8 +101,43 @@ interface TripCard {
   quota: number;
   rows: ManifestRow[];
   daysToDepart: number;
-  monthKey: string; // "2026-09"
+  monthKey: string;
 }
+
+// ── Row status ────────────────────────────────────────────────────────────────
+
+type RowStatus = "complete" | "partial" | "anon";
+
+function getRowStatus(r: ManifestRow): RowStatus {
+  if (r.source === "booking" && !r.name.startsWith("(")) return "partial"; // booking with name = partial
+  if (r.source === "booking") return "anon";
+  if (r.passportName && r.depositAmount != null && r.roomType) return "complete";
+  return "partial";
+}
+
+const ROW_STATUS_BAR: Record<RowStatus, string> = {
+  complete: "bg-emerald-500",
+  partial:  "bg-amber-400",
+  anon:     "bg-red-500",
+};
+
+// ── Column definitions ────────────────────────────────────────────────────────
+
+const COL_DEFS = [
+  { id: "passport",    label: "ชื่อ Passport" },
+  { id: "emergency",   label: "ฉุกเฉิน"      },
+  { id: "room",        label: "ห้อง"          },
+  { id: "partner",     label: "คู่นอน"        },
+  { id: "food",        label: "อาหาร"         },
+  { id: "deposit",     label: "มัดจำ"         },
+  { id: "depositDate", label: "วันมัดจำ"      },
+  { id: "balanceDate", label: "ชำระสุดท้าย"   },
+  { id: "price",       label: "ราคา"          },
+  { id: "discount",    label: "ส่วนลด"        },
+  { id: "remarks",     label: "หมายเหตุ"      },
+] as const;
+type ColId = typeof COL_DEFS[number]["id"];
+const DEFAULT_HIDDEN: ColId[] = ["emergency", "partner", "price", "discount"];
 
 // ── Excel export ──────────────────────────────────────────────────────────────
 
@@ -113,29 +156,23 @@ function exportExcel(trip: TripCard) {
     r.quotedPrice, r.discount ?? "", r.totalNet,
     r.addedBy, r.specialRequests || r.note,
   ]);
-
-  // Summary footer
-  const totalPax  = trip.rows.reduce((s, r) => s + r.pax, 0);
-  const totalNet  = trip.rows.reduce((s, r) => s + r.totalNet, 0);
-  const totalDisc = trip.rows.reduce((s, r) => s + (r.discount ?? 0), 0);
-  const totalGross= trip.rows.reduce((s, r) => s + r.quotedPrice, 0);
+  const totalPax   = trip.rows.reduce((s, r) => s + r.pax, 0);
+  const totalNet   = trip.rows.reduce((s, r) => s + r.totalNet, 0);
+  const totalDisc  = trip.rows.reduce((s, r) => s + (r.discount ?? 0), 0);
+  const totalGross = trip.rows.reduce((s, r) => s + r.quotedPrice, 0);
   data.push(["รวม", "", "", "", "", totalPax, "", "", "", "", "", "", totalGross, totalDisc, totalNet, "", ""]);
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
-  // Column widths
   ws["!cols"] = [4,22,22,14,16,6,10,14,12,10,12,12,10,10,10,14,24].map(w => ({ wch: w }));
-  // Style header row bold (basic)
   headers.forEach((_, i) => {
     const cell = XLSX.utils.encode_cell({ r: 0, c: i });
     if (!ws[cell]) return;
     ws[cell].s = { font: { bold: true }, fill: { fgColor: { rgb: "DBEAFE" } } };
   });
-
   const wb = XLSX.utils.book_new();
   const sheetName = `${trip.tourName.slice(0,20)} ${fmtDate(trip.startDate)}`.replace(/[/\\?*[\]]/g, "-");
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
 
-  // Info sheet
   const infoData = [
     ["โปรแกรมทัวร์", trip.tourName],
     ["วันเดินทาง", `${fmtDate(trip.startDate)} – ${fmtDate(trip.endDate)}`],
@@ -147,54 +184,225 @@ function exportExcel(trip: TripCard) {
   const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
   wsInfo["!cols"] = [{ wch: 18 }, { wch: 35 }];
   XLSX.utils.book_append_sheet(wb, wsInfo, "ข้อมูลทริป");
-
   XLSX.writeFile(wb, `TripManifest_${trip.tourName.slice(0,15)}_${trip.startDate?.slice(0,10) ?? "x"}.xlsx`);
+}
+
+// ── Slide-over Edit Panel ─────────────────────────────────────────────────────
+
+const ROOM_TYPES = ["", "TWN", "SGL", "DBL", "TRP"] as const;
+const FOOD_PRESETS = ["ปกติ", "มังสวิรัติ", "ฮาลาล", "อื่นๆ"] as const;
+
+interface EditForm {
+  name: string;
+  phone: string;
+  passportName: string;
+  roomType: string;
+  roomPartner: string;
+  foodPref: string;
+  depositAmount: string;
+  depositDate: string;
+  balanceDueDate: string;
+  emergencyContact: string;
+  specialRequests: string;
+  note: string;
+}
+
+interface EditPanelProps {
+  row: ManifestRow;
+  onClose: () => void;
+  onSave: (row: ManifestRow, form: EditForm) => Promise<void>;
+}
+
+function EditPanel({ row, onClose, onSave }: EditPanelProps) {
+  const [form, setForm] = useState<EditForm>({
+    name:             row.name === "(ไม่ระบุชื่อ)" ? "" : row.name,
+    phone:            row.phone,
+    passportName:     row.passportName,
+    roomType:         row.roomType,
+    roomPartner:      row.roomPartner,
+    foodPref:         row.foodPref || "ปกติ",
+    depositAmount:    row.depositAmount != null ? String(row.depositAmount) : "",
+    depositDate:      row.depositDate ?? "",
+    balanceDueDate:   row.balanceDueDate ?? "",
+    emergencyContact: row.emergencyContact,
+    specialRequests:  row.specialRequests,
+    note:             row.note,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (k: keyof EditForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(row, form);
+    setSaving(false);
+    onClose();
+  };
+
+  const inputCls = "w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/40";
+  const labelCls = "block text-[11px] font-medium text-muted-foreground mb-1";
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-background border-l border-border z-50 flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h2 className="font-bold text-base">แก้ไขข้อมูลลูกค้า</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">แถวที่ {row.seq} · {row.pax} ที่นั่ง</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* ชื่อ + เบอร์ */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>ชื่อลูกค้า</label>
+              <input value={form.name} onChange={set("name")} placeholder="ชื่อ-นามสกุล" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>เบอร์โทร</label>
+              <input value={form.phone} onChange={set("phone")} placeholder="08x-xxx-xxxx" className={inputCls} />
+            </div>
+          </div>
+
+          {/* Passport */}
+          <div>
+            <label className={labelCls}>ชื่อ Passport</label>
+            <input value={form.passportName} onChange={set("passportName")} placeholder="ชื่อตามพาสปอร์ต" className={inputCls} />
+          </div>
+
+          {/* ห้อง + คู่นอน */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>ประเภทห้อง</label>
+              <select value={form.roomType} onChange={set("roomType")} className={inputCls}>
+                {ROOM_TYPES.map(t => <option key={t} value={t}>{t || "– ไม่ระบุ –"}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>คู่นอน</label>
+              <input value={form.roomPartner} onChange={set("roomPartner")} placeholder="ชื่อคู่นอน" className={inputCls} />
+            </div>
+          </div>
+
+          {/* อาหาร */}
+          <div>
+            <label className={labelCls}>ความต้องการอาหาร</label>
+            <select value={form.foodPref} onChange={set("foodPref")} className={inputCls}>
+              {FOOD_PRESETS.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+
+          {/* มัดจำ */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>มัดจำ (฿)</label>
+              <input type="number" value={form.depositAmount} onChange={set("depositAmount")} placeholder="0" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>วันมัดจำ</label>
+              <input type="date" value={form.depositDate} onChange={set("depositDate")} className={inputCls} />
+            </div>
+          </div>
+
+          {/* ชำระสุดท้าย */}
+          <div>
+            <label className={labelCls}>วันชำระยอดสุดท้าย</label>
+            <input type="date" value={form.balanceDueDate} onChange={set("balanceDueDate")} className={inputCls} />
+          </div>
+
+          {/* ติดต่อฉุกเฉิน */}
+          <div>
+            <label className={labelCls}>ติดต่อฉุกเฉิน</label>
+            <input value={form.emergencyContact} onChange={set("emergencyContact")} placeholder="ชื่อ / เบอร์" className={inputCls} />
+          </div>
+
+          {/* หมายเหตุ */}
+          <div>
+            <label className={labelCls}>ความต้องการพิเศษ / หมายเหตุ</label>
+            <textarea
+              value={form.specialRequests || form.note}
+              onChange={e => setForm(f => ({ ...f, specialRequests: e.target.value, note: e.target.value }))}
+              rows={3}
+              placeholder="แพ้อาหาร, ต้องการวีลแชร์, ฯลฯ"
+              className={`${inputCls} resize-none`}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-border flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-sm font-medium bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+          >
+            ยกเลิก
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? "กำลังบันทึก..." : "บันทึก"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TripManifest() {
-  const leads    = useCRM((s) => s.leads);
-  const customers = useCRM((s) => s.customers);
-  const tours    = useServices((s) => s.tours);
-  const bookings = useBookingLedger((s) => s.bookings);
+  const leads      = useCRM((s) => s.leads);
+  const customers  = useCRM((s) => s.customers);
+  const updateLead = useCRM((s) => s.updateLead);
+  const tours      = useServices((s) => s.tours);
+  const bookings   = useBookingLedger((s) => s.bookings);
+  const updateBooking = useBookingLedger((s) => s.updateBooking);
 
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [selectedMonth, setSelectedMonth] = useState<string>(""); // "2026-09" or ""
-  const [search, setSearch] = useState("");
-  const [showPast, setShowPast] = useState(false);
+  const [expandedIds, setExpandedIds]     = useState<Set<string>>(new Set());
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [search, setSearch]               = useState("");
+  const [showPast, setShowPast]           = useState(false);
+  const [editRow, setEditRow]             = useState<ManifestRow | null>(null);
+  const [hiddenCols, setHiddenCols]       = useState<Set<ColId>>(new Set(DEFAULT_HIDDEN));
+  const [showColMenu, setShowColMenu]     = useState(false);
 
   // ── Build all trip cards ───────────────────────────────────────────────────
   const allTrips = useMemo<TripCard[]>(() => {
     const result: TripCard[] = [];
-
     for (const tour of tours) {
       if (tour.archived) continue;
       for (const period of tour.periods ?? []) {
         if (period.archived) continue;
-
         const tourName = tour.title || tour.country || tour.code || "–";
         const days = daysUntil(period.start_date);
         const monthKey = period.start_date?.slice(0, 7) ?? "";
 
-        // Collect leads
         const bookedLeads = leads.filter((l) => {
           if (l.status !== "จองแล้ว") return false;
           if (l.tour_id && l.period_id)
             return l.tour_id === tour.id && l.period_id === period.period_id;
-          return (
-            tourName && l.program === tourName &&
-            monthKey && l.travel_month === monthKey
-          );
+          return tourName && l.program === tourName && monthKey && l.travel_month === monthKey;
         });
 
-        // Collect anon bookings
         const anonBookings = bookings.filter(
           (b) => b.tour_id === tour.id && b.period_id === period.period_id &&
                  b.status === "active" && !b.lead_id
         );
 
-        // Only include periods with at least 1 booking OR upcoming
         if (bookedLeads.length === 0 && anonBookings.length === 0) continue;
 
         let seq = 1;
@@ -207,6 +415,8 @@ export default function TripManifest() {
           rows.push({
             seq: seq++,
             key: `lead-${l.id}`,
+            leadId: l.id,
+            bookingId: null,
             name:            cust?.full_name ?? l.program ?? "–",
             passportName:    (l as Record<string, unknown>).passport_name as string ?? "",
             phone:           cust?.phone ?? "",
@@ -232,11 +442,13 @@ export default function TripManifest() {
           rows.push({
             seq: seq++,
             key: `booking-${b.id}`,
+            leadId: null,
+            bookingId: b.id,
             name:            b.customer_name ?? "(ไม่ระบุชื่อ)",
             passportName:    "",
             phone:           b.customer_phone ?? "",
             pax:             b.seats,
-            roomType:        "", roomPartner:     "", foodPref: "",
+            roomType:        "", roomPartner: "", foodPref: "",
             depositAmount:   null, depositDate: null, balanceDueDate: null,
             quotedPrice:     (b.price_per_seat ?? 0) * b.seats,
             discount:        null,
@@ -250,25 +462,16 @@ export default function TripManifest() {
         result.push({
           tourId: tour.id,
           periodId: period.period_id,
-          tourName,
-          startDate: period.start_date ?? "",
-          endDate:   period.end_date ?? "",
-          quota:     period.quota ?? 0,
-          rows,
-          daysToDepart: days,
-          monthKey,
+          tourName, startDate: period.start_date ?? "", endDate: period.end_date ?? "",
+          quota: period.quota ?? 0, rows, daysToDepart: days, monthKey,
         });
       }
     }
-
     return result.sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [leads, customers, bookings, tours]);
 
   // ── Month options ──────────────────────────────────────────────────────────
-  const monthOptions = useMemo(() => {
-    const months = [...new Set(allTrips.map(t => t.monthKey))].sort();
-    return months;
-  }, [allTrips]);
+  const monthOptions = useMemo(() => [...new Set(allTrips.map(t => t.monthKey))].sort(), [allTrips]);
 
   // ── Filtered trips ─────────────────────────────────────────────────────────
   const filteredTrips = useMemo(() => {
@@ -286,30 +489,56 @@ export default function TripManifest() {
   }, [allTrips, selectedMonth, search, showPast]);
 
   // ── Summary stats ──────────────────────────────────────────────────────────
-  const totalPaxAll = filteredTrips.reduce((s, t) => s + t.rows.reduce((ss, r) => ss + r.pax, 0), 0);
-  const upcomingCount = filteredTrips.filter(t => t.daysToDepart >= 0).length;
+  const totalPaxAll    = filteredTrips.reduce((s, t) => s + t.rows.reduce((ss, r) => ss + r.pax, 0), 0);
+  const upcomingCount  = filteredTrips.filter(t => t.daysToDepart >= 0).length;
 
   function toggleExpand(id: string) {
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setExpandedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
-
-  function expandAll() {
-    setExpandedIds(new Set(filteredTrips.map(t => `${t.tourId}-${t.periodId}`)));
-  }
-
-  function collapseAll() {
-    setExpandedIds(new Set());
-  }
+  function expandAll()  { setExpandedIds(new Set(filteredTrips.map(t => `${t.tourId}-${t.periodId}`))); }
+  function collapseAll(){ setExpandedIds(new Set()); }
 
   const thMonth = (ym: string) => {
     const [y, m] = ym.split("-");
-    const d = new Date(Number(y), Number(m) - 1, 1);
-    return d.toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
   };
+
+  // ── Save handler ──────────────────────────────────────────────────────────
+  const handleSave = async (row: ManifestRow, form: EditForm) => {
+    try {
+      if (row.leadId) {
+        await updateLead(row.leadId, {
+          passport_name:      form.passportName || undefined,
+          room_type:          form.roomType || undefined,
+          room_partner:       form.roomPartner || undefined,
+          food_pref:          form.foodPref !== "ปกติ" ? form.foodPref : undefined,
+          deposit_amount:     form.depositAmount ? Number(form.depositAmount) : null,
+          deposit_date:       form.depositDate || null,
+          balance_due_date:   form.balanceDueDate || null,
+          emergency_contact:  form.emergencyContact || undefined,
+          special_requests:   form.specialRequests || undefined,
+          notes:              form.note || undefined,
+        } as Parameters<typeof updateLead>[1]);
+        toast.success(`บันทึกข้อมูล "${row.name}" สำเร็จ`);
+      } else if (row.bookingId) {
+        const name = form.name.trim();
+        await updateBooking(row.bookingId, {
+          customer_name:  name || null,
+          customer_phone: form.phone.trim() || null,
+          notes:          form.note.trim() || null,
+        });
+        toast.success(`บันทึกข้อมูลสำเร็จ`);
+      }
+    } catch {
+      toast.error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+    }
+  };
+
+  // ── Column toggle ─────────────────────────────────────────────────────────
+  const toggleCol = (id: ColId) => {
+    setHiddenCols(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const show = (id: ColId) => !hiddenCols.has(id);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -320,7 +549,7 @@ export default function TripManifest() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">🛂 Trip Manifest</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            รายชื่อผู้โดยสารทุกทริปที่กำลังจะเดินทาง — คลิก Trip เพื่อดูรายละเอียด
+            คลิกแถวใดก็ได้เพื่อแก้ไขข้อมูล — 🟢 ครบ · 🟡 ขาดข้อมูล · 🔴 ไม่ระบุชื่อ
           </p>
         </div>
         <div className="flex gap-2 print:hidden">
@@ -340,14 +569,15 @@ export default function TripManifest() {
           <p className="text-xs text-muted-foreground">ผู้โดยสารทั้งหมด</p>
         </div>
         <div className="border rounded-lg p-3 text-center bg-muted/30">
-          <p className="text-lg font-bold text-orange-500">{filteredTrips.filter(t => t.daysToDepart <= 7 && t.daysToDepart >= 0).length}</p>
+          <p className="text-lg font-bold text-orange-500">
+            {filteredTrips.filter(t => t.daysToDepart <= 7 && t.daysToDepart >= 0).length}
+          </p>
           <p className="text-xs text-muted-foreground">ออกใน 7 วัน</p>
         </div>
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-2 items-center print:hidden">
-        {/* Search */}
         <input
           type="text"
           placeholder="🔍 ค้นหาชื่อทริป / ชื่อลูกค้า / เบอร์..."
@@ -355,7 +585,6 @@ export default function TripManifest() {
           onChange={e => setSearch(e.target.value)}
           className="border rounded-md px-3 py-1.5 text-sm bg-background min-w-[220px] flex-1"
         />
-        {/* Month chips */}
         <div className="flex gap-1 flex-wrap">
           <button
             onClick={() => setSelectedMonth("")}
@@ -364,23 +593,46 @@ export default function TripManifest() {
             }`}
           >ทุกเดือน</button>
           {monthOptions.map(ym => (
-            <button
-              key={ym}
-              onClick={() => setSelectedMonth(ym === selectedMonth ? "" : ym)}
+            <button key={ym} onClick={() => setSelectedMonth(ym === selectedMonth ? "" : ym)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                 selectedMonth === ym ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"
-              }`}
-            >{thMonth(ym)}</button>
+              }`}>{thMonth(ym)}</button>
           ))}
         </div>
-        {/* Show past toggle */}
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
           <input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} className="rounded" />
           แสดงทริปที่ผ่านแล้ว
         </label>
+
+        {/* Column visibility toggle */}
+        <div className="relative">
+          <button
+            onClick={() => setShowColMenu(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-md hover:bg-muted transition-colors"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            คอลัมน์
+            {showColMenu ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+          {showColMenu && (
+            <div className="absolute right-0 top-full mt-1 z-30 bg-background border border-border rounded-lg shadow-lg p-3 min-w-[180px]">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-2">แสดง/ซ่อนคอลัมน์</p>
+              {COL_DEFS.map(col => (
+                <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer hover:text-foreground text-sm">
+                  <input
+                    type="checkbox"
+                    checked={show(col.id)}
+                    onChange={() => toggleCol(col.id)}
+                    className="rounded"
+                  />
+                  {col.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Empty state */}
       {filteredTrips.length === 0 && (
         <div className="text-center py-20 text-muted-foreground text-sm space-y-2">
           <p className="text-3xl">🗓️</p>
@@ -399,32 +651,47 @@ export default function TripManifest() {
           const pax = trip.rows.reduce((s, r) => s + r.pax, 0);
           const net = trip.rows.reduce((s, r) => s + r.totalNet, 0);
 
+          // Trip summary counts
+          const completeCount = trip.rows.filter(r => getRowStatus(r) === "complete").length;
+          const anonCount     = trip.rows.filter(r => getRowStatus(r) === "anon").length;
+          const partialCount  = trip.rows.length - completeCount - anonCount;
+
           return (
             <div key={cardId} className={`border-l-4 rounded-lg border overflow-hidden ${colorCls}`}>
-              {/* Card header — always visible */}
+              {/* Card header */}
               <button
                 className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                 onClick={() => toggleExpand(cardId)}
               >
-                {/* Expand chevron */}
                 <span className="text-muted-foreground text-lg leading-none">{isOpen ? "▾" : "▸"}</span>
-
-                {/* Tour info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm">{trip.tourName}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.cls}`}>
-                      {badge.label}
-                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.cls}`}>{badge.label}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     📅 {fmtDate(trip.startDate)}{trip.endDate ? ` – ${fmtDate(trip.endDate)}` : ""}
-                    &nbsp;|&nbsp;
-                    👥 {pax} / {trip.quota} คน
-                    &nbsp;|&nbsp;
-                    💰 ฿{fmtMoney(net)}
+                    &nbsp;|&nbsp;👥 {pax} / {trip.quota} คน
+                    &nbsp;|&nbsp;💰 ฿{fmtMoney(net)}
                   </div>
-                  {/* Mini name preview */}
+                  {/* Summary badges */}
+                  <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                    {completeCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium">
+                        ✓ ครบ {completeCount}
+                      </span>
+                    )}
+                    {partialCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 font-medium">
+                        ⚠ ขาดข้อมูล {partialCount}
+                      </span>
+                    )}
+                    {anonCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-medium">
+                        ✗ ไม่ระบุชื่อ {anonCount}
+                      </span>
+                    )}
+                  </div>
                   {!isOpen && trip.rows.length > 0 && (
                     <div className="text-xs text-muted-foreground/70 mt-1 truncate">
                       {trip.rows.slice(0, 4).map(r => r.name).join(", ")}
@@ -432,16 +699,12 @@ export default function TripManifest() {
                     </div>
                   )}
                 </div>
-
-                {/* Actions */}
                 <div className="flex gap-2 print:hidden shrink-0" onClick={e => e.stopPropagation()}>
                   <button
-                    title="Export Excel"
                     onClick={() => exportExcel(trip)}
                     className="px-2 py-1 text-xs rounded border bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950 border-emerald-400 text-emerald-700 dark:text-emerald-300 font-medium transition-colors"
                   >📥 Excel</button>
                   <button
-                    title="Print"
                     onClick={() => window.print()}
                     className="px-2 py-1 text-xs rounded border bg-background hover:bg-muted font-medium transition-colors"
                   >🖨️</button>
@@ -454,97 +717,146 @@ export default function TripManifest() {
                   {trip.rows.length === 0 ? (
                     <p className="text-center py-6 text-sm text-muted-foreground">ยังไม่มีรายชื่อใน Period นี้</p>
                   ) : (
-                    <>
-                      <table className="min-w-full text-xs">
-                        <thead>
-                          <tr className="bg-muted/60 text-muted-foreground text-left">
-                            <th className="px-2 py-2 font-semibold">#</th>
-                            <th className="px-2 py-2 font-semibold">ชื่อลูกค้า</th>
-                            <th className="px-2 py-2 font-semibold">ชื่อ Passport</th>
-                            <th className="px-2 py-2 font-semibold">เบอร์</th>
-                            <th className="px-2 py-2 font-semibold">ฉุกเฉิน</th>
-                            <th className="px-2 py-2 font-semibold text-center">ที่นั่ง</th>
-                            <th className="px-2 py-2 font-semibold">ห้อง</th>
-                            <th className="px-2 py-2 font-semibold">คู่นอน</th>
-                            <th className="px-2 py-2 font-semibold">อาหาร</th>
-                            <th className="px-2 py-2 font-semibold text-right">มัดจำ</th>
-                            <th className="px-2 py-2 font-semibold">วันมัดจำ</th>
-                            <th className="px-2 py-2 font-semibold">ชำระสุดท้าย</th>
-                            <th className="px-2 py-2 font-semibold text-right">ราคา</th>
-                            <th className="px-2 py-2 font-semibold text-right">ส่วนลด</th>
-                            <th className="px-2 py-2 font-semibold text-right">สุทธิ</th>
-                            <th className="px-2 py-2 font-semibold">เพิ่มโดย</th>
-                            <th className="px-2 py-2 font-semibold">หมายเหตุ</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trip.rows.map((r, i) => (
+                    <table className="min-w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/60 text-muted-foreground text-left">
+                          <th className="w-1" />
+                          <th className="px-2 py-2 font-semibold">#</th>
+                          <th className="px-2 py-2 font-semibold">ชื่อลูกค้า</th>
+                          {show("passport") && <th className="px-2 py-2 font-semibold">ชื่อ Passport</th>}
+                          <th className="px-2 py-2 font-semibold">เบอร์</th>
+                          {show("emergency") && <th className="px-2 py-2 font-semibold">ฉุกเฉิน</th>}
+                          <th className="px-2 py-2 font-semibold text-center">ที่นั่ง</th>
+                          {show("room") && <th className="px-2 py-2 font-semibold">ห้อง</th>}
+                          {show("partner") && <th className="px-2 py-2 font-semibold">คู่นอน</th>}
+                          {show("food") && <th className="px-2 py-2 font-semibold">อาหาร</th>}
+                          {show("deposit") && <th className="px-2 py-2 font-semibold text-right">มัดจำ</th>}
+                          {show("depositDate") && <th className="px-2 py-2 font-semibold">วันมัดจำ</th>}
+                          {show("balanceDate") && <th className="px-2 py-2 font-semibold">ชำระสุดท้าย</th>}
+                          {show("price") && <th className="px-2 py-2 font-semibold text-right">ราคา</th>}
+                          {show("discount") && <th className="px-2 py-2 font-semibold text-right">ส่วนลด</th>}
+                          <th className="px-2 py-2 font-semibold text-right">สุทธิ</th>
+                          <th className="px-2 py-2 font-semibold">เพิ่มโดย</th>
+                          {show("remarks") && <th className="px-2 py-2 font-semibold">หมายเหตุ</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trip.rows.map((r, i) => {
+                          const status = getRowStatus(r);
+                          return (
                             <tr
                               key={r.key}
-                              className={`border-t transition-colors ${i % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+                              onClick={() => setEditRow(r)}
+                              className={`border-t transition-colors cursor-pointer hover:bg-primary/5 ${i % 2 === 0 ? "bg-background" : "bg-muted/20"}`}
+                              title="คลิกเพื่อแก้ไขข้อมูล"
                             >
+                              {/* Status indicator bar */}
+                              <td className="w-1 p-0">
+                                <div className={`w-1 h-full min-h-[36px] ${ROW_STATUS_BAR[status]}`} />
+                              </td>
                               <td className="px-2 py-2 text-muted-foreground">{r.seq}</td>
                               <td className="px-2 py-2 font-medium whitespace-nowrap">
-                                {r.name}
-                                {r.source === "booking" && (
+                                {status === "anon" ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="text-muted-foreground/50 italic">(ไม่ระบุชื่อ)</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 font-medium">
+                                      + กรอกข้อมูล
+                                    </span>
+                                  </span>
+                                ) : r.name}
+                                {r.source === "booking" && r.name !== "(ไม่ระบุชื่อ)" && (
                                   <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0">Anon</Badge>
                                 )}
                               </td>
-                              <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
-                                {r.passportName || <span className="opacity-40">–</span>}
-                              </td>
+                              {show("passport") && (
+                                <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
+                                  {r.passportName || <span className="opacity-40">–</span>}
+                                </td>
+                              )}
                               <td className="px-2 py-2 whitespace-nowrap">{r.phone || <span className="opacity-40">–</span>}</td>
-                              <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                                {r.emergencyContact || <span className="opacity-40">–</span>}
-                              </td>
+                              {show("emergency") && (
+                                <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                                  {r.emergencyContact || <span className="opacity-40">–</span>}
+                                </td>
+                              )}
                               <td className="px-2 py-2 text-center">{r.pax}</td>
-                              <td className="px-2 py-2">
-                                {r.roomType
-                                  ? <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{r.roomType}</Badge>
-                                  : <span className="opacity-40">–</span>}
-                              </td>
-                              <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
-                                {r.roomPartner || <span className="opacity-40">–</span>}
-                              </td>
-                              <td className="px-2 py-2">
-                                {r.foodPref
-                                  ? <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${foodColor(r.foodPref)}`}>{r.foodPref}</span>
-                                  : <span className="opacity-40">–</span>}
-                              </td>
-                              <td className="px-2 py-2 text-right">
-                                {r.depositAmount != null ? fmtMoney(r.depositAmount) : <span className="opacity-40">–</span>}
-                              </td>
-                              <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtDate(r.depositDate)}</td>
-                              <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtDate(r.balanceDueDate)}</td>
-                              <td className="px-2 py-2 text-right">{fmtMoney(r.quotedPrice)}</td>
-                              <td className="px-2 py-2 text-right text-orange-600 dark:text-orange-400">
-                                {r.discount ? `-${fmtMoney(r.discount)}` : <span className="opacity-40">–</span>}
-                              </td>
+                              {show("room") && (
+                                <td className="px-2 py-2">
+                                  {r.roomType
+                                    ? <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{r.roomType}</Badge>
+                                    : <span className="opacity-40">–</span>}
+                                </td>
+                              )}
+                              {show("partner") && (
+                                <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">
+                                  {r.roomPartner || <span className="opacity-40">–</span>}
+                                </td>
+                              )}
+                              {show("food") && (
+                                <td className="px-2 py-2">
+                                  {r.foodPref
+                                    ? <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${foodColor(r.foodPref)}`}>{r.foodPref}</span>
+                                    : <span className="opacity-40">–</span>}
+                                </td>
+                              )}
+                              {show("deposit") && (
+                                <td className="px-2 py-2 text-right">
+                                  {r.depositAmount != null ? fmtMoney(r.depositAmount) : <span className="opacity-40">–</span>}
+                                </td>
+                              )}
+                              {show("depositDate") && (
+                                <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtDate(r.depositDate)}</td>
+                              )}
+                              {show("balanceDate") && (
+                                <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{fmtDate(r.balanceDueDate)}</td>
+                              )}
+                              {show("price") && (
+                                <td className="px-2 py-2 text-right">{fmtMoney(r.quotedPrice)}</td>
+                              )}
+                              {show("discount") && (
+                                <td className="px-2 py-2 text-right text-orange-600 dark:text-orange-400">
+                                  {r.discount ? `-${fmtMoney(r.discount)}` : <span className="opacity-40">–</span>}
+                                </td>
+                              )}
                               <td className="px-2 py-2 text-right font-semibold text-emerald-700 dark:text-emerald-400">
                                 {fmtMoney(r.totalNet)}
                               </td>
                               <td className="px-2 py-2 whitespace-nowrap text-muted-foreground">{r.addedBy}</td>
-                              <td className="px-2 py-2 max-w-[140px] truncate text-muted-foreground" title={r.specialRequests || r.note}>
-                                {r.specialRequests || r.note || <span className="opacity-40">–</span>}
-                              </td>
+                              {show("remarks") && (
+                                <td className="px-2 py-2 max-w-[140px] truncate text-muted-foreground" title={r.specialRequests || r.note}>
+                                  {r.specialRequests || r.note || <span className="opacity-40">–</span>}
+                                </td>
+                              )}
                             </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t-2 bg-muted/50 font-semibold">
-                            <td colSpan={5} className="px-2 py-2 text-right text-muted-foreground text-xs">รวม</td>
-                            <td className="px-2 py-2 text-center">{pax}</td>
-                            <td colSpan={7} />
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 bg-muted/50 font-semibold">
+                          <td className="w-1" />
+                          <td colSpan={show("passport") ? 3 : 2} className="px-2 py-2 text-right text-muted-foreground text-xs">รวม</td>
+                          <td className="px-2 py-2" />
+                          {show("emergency") && <td />}
+                          <td className="px-2 py-2 text-center">{pax}</td>
+                          {show("room") && <td />}
+                          {show("partner") && <td />}
+                          {show("food") && <td />}
+                          {show("deposit") && <td />}
+                          {show("depositDate") && <td />}
+                          {show("balanceDate") && <td />}
+                          {show("price") && (
                             <td className="px-2 py-2 text-right">{fmtMoney(trip.rows.reduce((s,r)=>s+r.quotedPrice,0))}</td>
+                          )}
+                          {show("discount") && (
                             <td className="px-2 py-2 text-right text-orange-600">
                               {trip.rows.some(r => r.discount) ? `-${fmtMoney(trip.rows.reduce((s,r)=>s+(r.discount??0),0))}` : "–"}
                             </td>
-                            <td className="px-2 py-2 text-right text-emerald-700 dark:text-emerald-400">{fmtMoney(net)}</td>
-                            <td colSpan={2} />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </>
+                          )}
+                          <td className="px-2 py-2 text-right text-emerald-700 dark:text-emerald-400">{fmtMoney(net)}</td>
+                          <td colSpan={show("remarks") ? 2 : 1} />
+                        </tr>
+                      </tfoot>
+                    </table>
                   )}
                 </div>
               )}
@@ -552,6 +864,15 @@ export default function TripManifest() {
           );
         })}
       </div>
+
+      {/* Slide-over edit panel */}
+      {editRow && (
+        <EditPanel
+          row={editRow}
+          onClose={() => setEditRow(null)}
+          onSave={handleSave}
+        />
+      )}
     </div>
   );
 }

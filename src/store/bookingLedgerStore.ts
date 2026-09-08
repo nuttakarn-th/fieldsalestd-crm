@@ -45,6 +45,8 @@ interface BookingLedgerState {
   loadBookings: () => Promise<void>;
   /** โหลด bookings สำหรับ period ที่ระบุ (ใช้ใน CancelBookingDialog) */
   loadBookingsForPeriod: (tourId: string, periodId: string) => Promise<BookingRecord[]>;
+  /** แก้ไขข้อมูล booking (ชื่อ, เบอร์, หมายเหตุ) */
+  updateBooking: (id: string, patch: Partial<Pick<BookingRecord, "customer_name" | "customer_phone" | "notes">>) => Promise<boolean>;
   /** Subscribe Realtime — คืน unsubscribe fn */
   subscribeRealtime: () => () => void;
   /** Helper: get active bookings for a period from local state */
@@ -147,6 +149,15 @@ export const useBookingLedger = create<BookingLedgerState>()((set, get) => ({
     });
     set({ bookings: merged });
     return records;
+  },
+
+  updateBooking: async (id, patch) => {
+    set((s) => ({ bookings: s.bookings.map((b) => b.id === id ? { ...b, ...patch } : b) }));
+    if (SUPABASE_ENABLED && supabase) {
+      const { error } = await supabase.from("bookings").update(patch).eq("id", id);
+      if (error) { console.error("[booking] updateBooking error:", error); return false; }
+    }
+    return true;
   },
 
   getActiveBookingsForPeriod: (tourId, periodId) =>
