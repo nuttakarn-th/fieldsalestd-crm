@@ -211,6 +211,28 @@ export default function OTADashboard() {
     return Object.entries(map).map(([name, v]) => ({ name, ...v }));
   }, [monthOrders, packages]);
 
+  const { topPkgByPlatformData, topPkgCodes } = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    const pkgTotals: Record<string, number> = {};
+    monthOrders.forEach((o) => {
+      const pkg = packages.find((p) => p.id === o.package_id);
+      const code = pkg?.code ?? "Other";
+      if (!map[o.platform]) map[o.platform] = {};
+      map[o.platform][code] = (map[o.platform][code] ?? 0) + o.revenue;
+      pkgTotals[code] = (pkgTotals[code] ?? 0) + o.revenue;
+    });
+    const topPkgCodes = Object.entries(pkgTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([c]) => c);
+    const topPkgByPlatformData = Object.entries(map).map(([platform, pkgs]) => {
+      const row: Record<string, string | number> = { platform };
+      topPkgCodes.forEach((code) => { row[code] = pkgs[code] ?? 0; });
+      return row;
+    });
+    return { topPkgByPlatformData, topPkgCodes };
+  }, [monthOrders, packages]);
+
   const revPaxByPlatform = useMemo(() => {
     const map: Record<string, { rev: number; pax: number }> = {};
     monthOrders.forEach((o) => {
@@ -556,6 +578,79 @@ export default function OTADashboard() {
               )}
             </ChartCard>
           </div>
+
+          <ChartCard title="Platform ROI — Commission Analysis">
+            {revenueByPlatform.length === 0 ? <EmptyChart /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                      <th className="pb-2 font-medium">Platform</th>
+                      <th className="pb-2 font-medium text-right">Gross Revenue</th>
+                      <th className="pb-2 font-medium text-right">Net Revenue</th>
+                      <th className="pb-2 font-medium text-right">Commission (฿)</th>
+                      <th className="pb-2 font-medium text-right">Eff. Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {revenueByPlatform.map((r) => {
+                      const commission = r.gross - r.net;
+                      const rate = r.gross > 0 ? (commission / r.gross) * 100 : 0;
+                      return (
+                        <tr key={r.name} className="hover:bg-muted/40 transition-colors">
+                          <td className="py-2.5 font-medium">{r.name}</td>
+                          <td className="py-2.5 text-right text-muted-foreground tabular-nums">{fmtB(r.gross)}</td>
+                          <td className="py-2.5 text-right font-semibold text-purple-600 dark:text-purple-400 tabular-nums">{fmtB(r.net)}</td>
+                          <td className="py-2.5 text-right text-rose-500 dark:text-rose-400 tabular-nums">{fmtB(commission)}</td>
+                          <td className="py-2.5 text-right">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              rate < 10
+                                ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                : rate < 20
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            }`}>
+                              {rate.toFixed(1)}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-border font-bold">
+                      <td className="pt-2.5">Total</td>
+                      <td className="pt-2.5 text-right text-muted-foreground tabular-nums">{fmtB(totalGross)}</td>
+                      <td className="pt-2.5 text-right text-purple-600 dark:text-purple-400 tabular-nums">{fmtB(totalRevenue)}</td>
+                      <td className="pt-2.5 text-right text-rose-500 dark:text-rose-400 tabular-nums">{fmtB(totalGross - totalRevenue)}</td>
+                      <td className="pt-2.5 text-right">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-muted text-foreground">
+                          {totalGross > 0 ? (((totalGross - totalRevenue) / totalGross) * 100).toFixed(1) : "0.0"}%
+                        </span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </ChartCard>
+
+          <ChartCard title="Top Packages by Platform (Net Revenue — เดือนนี้)">
+            {topPkgByPlatformData.length === 0 ? <EmptyChart /> : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={topPkgByPlatformData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="platform" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <RTooltip formatter={(v: number) => `฿${v.toLocaleString()}`} />
+                  <Legend />
+                  {topPkgCodes.map((code, i) => (
+                    <Bar key={code} dataKey={code} stackId="a" fill={COLORS[i % COLORS.length]} name={code} radius={i === topPkgCodes.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ChartCard>
 
           <ChartCard title="Revenue Forecast (฿k) — 6 เดือนที่ผ่านมา + 3 เดือนคาดการณ์">
             <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
