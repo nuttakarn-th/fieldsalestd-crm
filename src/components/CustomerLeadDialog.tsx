@@ -319,11 +319,16 @@ export function CustomerLeadDialog({
     }
   }, [existingId, mode, customers]);
 
-  // ── กรองทัวร์ให้เหลือเฉพาะที่มี period ในเดือนที่เลือก ────────────────────
+  // ── กรองทัวร์ให้เหลือเฉพาะที่มี period ในเดือนที่เลือก + ไม่ยกเลิก/archive ─
+  const activePeriod = (p: { cancelled?: boolean; archived?: boolean }) =>
+    !p.cancelled && !p.archived;
+
   const toursInMonth = useMemo(() => {
-    if (travelMonth === ALL_MONTHS_KEY) return tours;
-    return tours.filter((t) =>
-      (t.periods ?? []).some((p) => matchesMonth(p.start_date, travelMonth))
+    const activeTours = tours.filter((t) => !t.archived);
+    if (travelMonth === ALL_MONTHS_KEY)
+      return activeTours.filter((t) => (t.periods ?? []).some(activePeriod));
+    return activeTours.filter((t) =>
+      (t.periods ?? []).some((p) => activePeriod(p) && matchesMonth(p.start_date, travelMonth))
     );
   }, [tours, travelMonth]);
 
@@ -463,7 +468,7 @@ export function CustomerLeadDialog({
 
   // ── Period selector (reusable) ───────────────────────────────────────────────
   const PeriodSelector = () => {
-    const allPeriods = tours.find((x) => x.id === tourId)?.periods ?? [];
+    const allPeriods = (tours.find((x) => x.id === tourId)?.periods ?? []).filter(activePeriod);
     if (allPeriods.length === 0) return null;
     const filtered = allPeriods.filter((p) => matchesMonth(p.start_date, travelMonth));
     const sel = allPeriods.find((p) => p.period_id === periodId && periodId !== "__none__");
