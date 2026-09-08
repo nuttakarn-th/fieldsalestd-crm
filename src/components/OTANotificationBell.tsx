@@ -108,7 +108,7 @@ export function OTANotificationBell({ collapsed = false }: OTANotificationBellPr
       {open && (
         <div
           ref={popoverRef}
-          className="absolute left-full top-0 ml-2 z-50 w-80 rounded-xl shadow-2xl border border-border bg-background text-foreground overflow-hidden"
+          className="absolute left-full bottom-0 ml-2 z-50 w-80 rounded-xl shadow-2xl border border-border bg-background text-foreground overflow-hidden"
           style={{ maxHeight: "70vh" }}
         >
           {/* Header */}
