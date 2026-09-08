@@ -193,6 +193,9 @@ export default function OTAOrderEntry() {
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
   const [importStats, setImportStats] = useState({ inserted: 0, updated: 0, failed: 0 });
+  // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
+  const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
+  const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
 
   // ── Filtered orders ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -220,8 +223,16 @@ export default function OTAOrderEntry() {
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear((y) => y + 1); } else setMonth((m) => m + 1); };
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openAdd = () => { setForm({ ...EMPTY_FORM }); setEditId(null); setShowForm(true); };
+  const openAdd = () => {
+    setForm({ ...EMPTY_FORM });
+    setEditId(null);
+    setCommissionMode("pct");
+    setCommissionAmtDirect(0);
+    setShowForm(true);
+  };
   const openEdit = (o: OTAOrder) => {
+    const pct = o.commission_pct ?? 0;
+    const gross = o.gross_price ?? 0;
     setForm({
       booking_date: o.booking_date, usage_date: o.usage_date,
       order_number: o.order_number, group_number: o.group_number,
@@ -229,11 +240,13 @@ export default function OTAOrderEntry() {
       package_id: o.package_id, package_details: o.package_details ?? "",
       nationality: o.nationality ?? "", guide_name: o.guide_name ?? "",
       pickup_hotel: o.pickup_hotel ?? "",
-      gross_price: o.gross_price ?? 0,
-      commission_pct: o.commission_pct ?? 0,
+      gross_price: gross,
+      commission_pct: pct,
       discount: o.discount ?? 0,
       revenue: o.revenue,
     });
+    setCommissionMode("pct");
+    setCommissionAmtDirect(+(gross * pct / 100).toFixed(2));
     setEditId(o.id); setShowForm(true);
   };
   const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
@@ -627,28 +640,79 @@ export default function OTAOrderEntry() {
                   <input value={form.pickup_hotel} onChange={(e) => setForm((f) => ({ ...f, pickup_hotel: e.target.value }))} placeholder="Hotel name (optional)" className={inputCls} />
                 </div>
 
-                {/* Row 7: Gross Price | Commission % */}
+                {/* Row 7: Gross Price | Commission (with % / ฿ toggle) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Gross Price <span className="text-red-500">*</span></label>
                     <input type="number" min={0} step="0.01" value={form.gross_price}
-                      onChange={(e) => setForm((f) => ({ ...f, gross_price: parseFloat(e.target.value) || 0 }))}
+                      onChange={(e) => {
+                        const g = parseFloat(e.target.value) || 0;
+                        setForm((f) => ({ ...f, gross_price: g }));
+                        // ถ้าอยู่ใน ฿ mode ให้ sync pct จาก amt เดิม
+                        if (commissionMode === "amt") {
+                          const pct = g > 0 ? +(commissionAmtDirect / g * 100).toFixed(4) : 0;
+                          setForm((f) => ({ ...f, gross_price: g, commission_pct: pct }));
+                        }
+                      }}
                       className={inputCls} />
                   </div>
                   <div>
-                    <label className={labelCls}>Commission % <span className="text-red-500">*</span></label>
-                    <input type="number" min={0} max={100} step="0.1" value={form.commission_pct}
-                      onChange={(e) => setForm((f) => ({ ...f, commission_pct: parseFloat(e.target.value) || 0 }))}
-                      placeholder="e.g. 15" className={inputCls} />
+                    {/* Label + toggle pill */}
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-foreground/70">
+                        {commissionMode === "pct" ? "Commission %" : "Commission (฿)"}
+                        <span className="text-red-500"> *</span>
+                      </label>
+                      <div className="flex rounded border border-border overflow-hidden text-[10px] font-semibold">
+                        <button type="button"
+                          onClick={() => setCommissionMode("pct")}
+                          className={`px-2 py-0.5 transition-colors ${commissionMode === "pct" ? "bg-purple-600 text-white" : "text-muted-foreground hover:bg-muted"}`}>
+                          %
+                        </button>
+                        <button type="button"
+                          onClick={() => {
+                            // convert current pct → amt when switching to ฿ mode
+                            setCommissionAmtDirect(+(form.gross_price * form.commission_pct / 100).toFixed(2));
+                            setCommissionMode("amt");
+                          }}
+                          className={`px-2 py-0.5 transition-colors ${commissionMode === "amt" ? "bg-purple-600 text-white" : "text-muted-foreground hover:bg-muted"}`}>
+                          ฿
+                        </button>
+                      </div>
+                    </div>
+                    {commissionMode === "pct" ? (
+                      <input type="number" min={0} max={100} step="0.1" value={form.commission_pct}
+                        onChange={(e) => setForm((f) => ({ ...f, commission_pct: parseFloat(e.target.value) || 0 }))}
+                        placeholder="e.g. 15" className={inputCls} />
+                    ) : (
+                      <input type="number" min={0} step="0.01" value={commissionAmtDirect}
+                        onChange={(e) => {
+                          const amt = parseFloat(e.target.value) || 0;
+                          setCommissionAmtDirect(amt);
+                          const pct = form.gross_price > 0 ? +(amt / form.gross_price * 100).toFixed(4) : 0;
+                          setForm((f) => ({ ...f, commission_pct: pct }));
+                        }}
+                        placeholder="e.g. 500" className={inputCls} />
+                    )}
                   </div>
                 </div>
 
-                {/* Row 8: Commission Amount (auto) | Discount */}
+                {/* Row 8: Commission (readonly opposite value) | Discount */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Commission Amount</label>
-                    <input readOnly value={commissionAmt.toFixed(2)}
-                      className={`${inputCls} bg-muted/50 cursor-default text-muted-foreground`} />
+                    {commissionMode === "pct" ? (
+                      <>
+                        <label className={labelCls}>Commission Amount (คำนวณ)</label>
+                        <input readOnly value={commissionAmt.toFixed(2)}
+                          className={`${inputCls} bg-muted/50 cursor-default text-muted-foreground`} />
+                      </>
+                    ) : (
+                      <>
+                        <label className={labelCls}>Commission % (คำนวณ)</label>
+                        <input readOnly value={`${form.commission_pct.toFixed(2)} %`}
+                          className={`${inputCls} bg-muted/50 cursor-default text-muted-foreground`} />
+                      </>
+                    )}
                   </div>
                   <div>
                     <label className={labelCls}>Discount</label>
