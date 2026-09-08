@@ -68,6 +68,7 @@ export interface OTAAuditEntry {
   timestamp: string;     // ISO string
   detail: string;        // human-readable description
   read: boolean;
+  order_id?: string | null;  // ชี้กลับไปที่ order ที่เกี่ยวข้อง
 }
 
 export interface OTAPackage {
@@ -94,6 +95,10 @@ interface OTAState {
   // Audit log
   pushAudit: (e: Omit<OTAAuditEntry, "id" | "timestamp" | "read">) => void;
   markAllAuditRead: () => void;
+
+  // Row highlight (notification click → scroll to row)
+  highlightedOrderId: string | null;
+  setHighlightedOrderId: (id: string | null) => void;
 
   // Orders
   addOrder: (o: Omit<OTAOrder, "id" | "created_at">) => Promise<string>;
@@ -240,11 +245,12 @@ function rowToPackage(r: Record<string, unknown>): OTAPackage {
 export const useOTAStore = create<OTAState>()(
   persist(
     (set, get) => ({
-      orders:          [],
-      packages:        SEED_PACKAGES,
-      platformConfigs: [],
-      loaded:          false,
-      auditLog:        [],
+      orders:             [],
+      packages:           SEED_PACKAGES,
+      platformConfigs:    [],
+      loaded:             false,
+      auditLog:           [],
+      highlightedOrderId: null,
 
       // ── Audit helpers ──────────────────────────────────────────────────────
 
@@ -262,6 +268,8 @@ export const useOTAStore = create<OTAState>()(
 
       markAllAuditRead: () =>
         set((s) => ({ auditLog: s.auditLog.map((e) => ({ ...e, read: true })) })),
+
+      setHighlightedOrderId: (id) => set({ highlightedOrderId: id }),
 
       // ── Load from Supabase ─────────────────────────────────────────────────
 
@@ -363,6 +371,7 @@ export const useOTAStore = create<OTAState>()(
           action: "add_order",
           actor: o.created_by ?? "ระบบ",
           detail: `เพิ่ม Order #${o.order_number} · ${o.platform} · ${o.pax} คน`,
+          order_id: id,
         });
         return id;
       },
@@ -384,6 +393,7 @@ export const useOTAStore = create<OTAState>()(
           action: "update_order",
           actor,
           detail: `แก้ไข Order #${existing?.order_number ?? id}`,
+          order_id: id,
         });
       },
 
@@ -402,6 +412,7 @@ export const useOTAStore = create<OTAState>()(
           action: "delete_order",
           actor,
           detail: `ลบ Order #${existing?.order_number ?? id} · ${existing?.platform ?? ""}`,
+          order_id: id,
         });
       },
 

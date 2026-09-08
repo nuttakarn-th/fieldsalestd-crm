@@ -7,6 +7,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle } from "lucide-react";
 import { useOTAStore, OTAPlatform, OTA_PLATFORMS, OTAOrder } from "@/store/otaStore";
 import { useCurrentUser } from "@/store/authStore";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -180,7 +181,7 @@ const EXPORT_HEADERS = [
 interface ImportError { row: number; message: string }
 
 export default function OTAOrderEntry() {
-  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, getPackageByCode } = useOTAStore();
+  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
   const currentUser = useCurrentUser();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -196,6 +197,26 @@ export default function OTAOrderEntry() {
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
+
+  // ── Notification highlight — scroll to row + flash orange ─────────────────
+  useEffect(() => {
+    if (!highlightedOrderId) return;
+    // ถ้า order อยู่เดือนอื่น ให้เปลี่ยน month/year ไปก่อน
+    const targetOrder = orders.find((o) => o.id === highlightedOrderId);
+    if (targetOrder) {
+      const d = new Date(targetOrder.usage_date);
+      setMonth(d.getMonth() + 1);
+      setYear(d.getFullYear());
+    }
+    // รอ render รอบถัดไปแล้วค่อย scroll
+    const scrollTimer = setTimeout(() => {
+      const row = document.querySelector<HTMLElement>(`[data-order-id="${highlightedOrderId}"]`);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    // ล้าง highlight หลัง 2.5s
+    const clearTimer = setTimeout(() => setHighlightedOrderId(null), 2500);
+    return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
+  }, [highlightedOrderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Filtered orders ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -399,6 +420,14 @@ export default function OTAOrderEntry() {
 
   return (
     <div className="p-4 w-full">
+      {/* Flash animation keyframe */}
+      <style>{`
+        @keyframes row-flash {
+          0%,100% { background-color: transparent; }
+          20%,60%  { background-color: rgb(254 215 170 / 0.9); outline: 2px solid rgb(249 115 22); outline-offset: -2px; }
+        }
+        .row-flash-anim { animation: row-flash 0.55s ease-in-out 4; }
+      `}</style>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -477,7 +506,14 @@ export default function OTAOrderEntry() {
                   const pkg = packages.find((p) => p.id === o.package_id);
                   const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
                   return (
-                    <tr key={o.id} className="border-t border-border hover:bg-muted/30 transition-colors">
+                    <tr
+                      key={o.id}
+                      data-order-id={o.id}
+                      className={cn(
+                        "border-t border-border hover:bg-muted/30 transition-colors",
+                        highlightedOrderId === o.id && "row-flash-anim"
+                      )}
+                    >
                       <td className="px-3 py-2.5 whitespace-nowrap text-sm">{fmtDate(o.booking_date)}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap font-medium text-sm">{fmtDate(o.usage_date)}</td>
                       <td className="px-3 py-2.5 text-sm">{o.order_number}</td>

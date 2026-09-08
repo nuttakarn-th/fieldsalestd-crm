@@ -9,6 +9,7 @@ import {
   ClipboardList, BarChart3, CalendarDays, Package, Settings2, ChevronLeft, ChevronRight, LogOut,
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
+import { useOTAStore } from "@/store/otaStore";
 import { UserMenu } from "@/components/UserMenu";
 import { OTANotificationBell } from "@/components/OTANotificationBell";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -29,6 +30,7 @@ export default function OTALayout() {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
   const logout = useAuth((s) => s.logout);
+  const setHighlightedOrderId = useOTAStore((s) => s.setHighlightedOrderId);
   const [collapsed, setCollapsed] = useState(false);
 
   // ── Role guard ────────────────────────────────────────────────────────────
@@ -92,7 +94,13 @@ export default function OTALayout() {
         {/* User + back */}
         <div className="border-t border-white/10 px-2 py-3 space-y-1">
           {/* Notification bell */}
-          <OTANotificationBell collapsed={collapsed} />
+          <OTANotificationBell
+            collapsed={collapsed}
+            onOrderClick={(id) => {
+              setHighlightedOrderId(id);
+              navigate("/ota/order-entry");
+            }}
+          />
 
           {!collapsed && (
             <div className="px-3 py-1">

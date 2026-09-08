@@ -39,9 +39,10 @@ const ACTION_META: Record<
 
 interface OTANotificationBellProps {
   collapsed?: boolean;
+  onOrderClick?: (orderId: string) => void;
 }
 
-export function OTANotificationBell({ collapsed = false }: OTANotificationBellProps) {
+export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANotificationBellProps) {
   const auditLog        = useOTAStore((s) => s.auditLog);
   const markAllAuditRead = useOTAStore((s) => s.markAllAuditRead);
 
@@ -133,12 +134,20 @@ export function OTANotificationBell({ collapsed = false }: OTANotificationBellPr
               visible.map((entry) => {
                 const meta = ACTION_META[entry.action];
                 const Icon = meta.Icon;
+                const isClickable = !!entry.order_id && !!onOrderClick;
                 return (
                   <div
                     key={entry.id}
+                    onClick={() => {
+                      if (isClickable) {
+                        onOrderClick!(entry.order_id!);
+                        setOpen(false);
+                      }
+                    }}
                     className={cn(
                       "flex items-start gap-3 px-4 py-3 border-b border-border last:border-0 transition-colors",
-                      !entry.read ? "bg-blue-50 dark:bg-blue-950/20" : "hover:bg-muted/30"
+                      !entry.read ? "bg-blue-50 dark:bg-blue-950/20" : "hover:bg-muted/30",
+                      isClickable && "cursor-pointer hover:bg-orange-50 dark:hover:bg-orange-950/20"
                     )}
                   >
                     {/* Icon */}
@@ -153,6 +162,9 @@ export function OTANotificationBell({ collapsed = false }: OTANotificationBellPr
                         <span className="font-medium truncate max-w-[120px]">{entry.actor}</span>
                         <span>·</span>
                         <span>{relativeTime(entry.timestamp)}</span>
+                        {isClickable && (
+                          <span className="text-orange-500 font-medium">· กดเพื่อดู</span>
+                        )}
                       </div>
                     </div>
 
