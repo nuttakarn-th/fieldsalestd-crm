@@ -152,6 +152,29 @@ const PLATFORM_COLORS: Record<OTAPlatform, string> = {
   "Airbnb":       "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",
 };
 
+// ── Sort config ───────────────────────────────────────────────────────────────
+type SortKey = "booking_date" | "usage_date" | "gross_price" | "commission_pct" | "commAmt" | "discount" | "revenue";
+
+const SORT_COLS: Array<{ label: string; key: SortKey | null; align?: "left" | "center" | "right" }> = [
+  { label: "Booking Date",    key: "booking_date"   },
+  { label: "Usage Date",      key: "usage_date"     },
+  { label: "Order #",         key: null             },
+  { label: "Group #",         key: null             },
+  { label: "People",          key: null,             align: "center" },
+  { label: "Platform",        key: null             },
+  { label: "Package Code",    key: null             },
+  { label: "Package Details", key: null             },
+  { label: "Nationality",     key: null             },
+  { label: "Guide",           key: null             },
+  { label: "Pickup Hotel",    key: null             },
+  { label: "Gross Price",     key: "gross_price",    align: "right"  },
+  { label: "Comm %",          key: "commission_pct", align: "center" },
+  { label: "Comm Amount",     key: "commAmt",        align: "right"  },
+  { label: "Discount",        key: "discount",       align: "right"  },
+  { label: "Net Revenue",     key: "revenue",        align: "right"  },
+  { label: "",                key: null             },
+];
+
 const today = new Date();
 const EMPTY_FORM = {
   booking_date: today.toISOString().slice(0, 10),
@@ -197,6 +220,13 @@ export default function OTAOrderEntry() {
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
+  const [sortKey, setSortKey] = useState<SortKey>("usage_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  };
 
   // ── Notification highlight — scroll to row + flash orange ─────────────────
   useEffect(() => {
@@ -233,8 +263,20 @@ export default function OTAOrderEntry() {
           packages.find((p) => p.id === o.package_id)?.code.toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => a.usage_date.localeCompare(b.usage_date));
-  }, [orders, packages, month, year, search]);
+      .sort((a, b) => {
+        const getVal = (o: OTAOrder): number | string => {
+          if (sortKey === "commAmt") return o.gross_price * o.commission_pct / 100;
+          const v = o[sortKey as keyof OTAOrder];
+          return (v ?? "") as number | string;
+        };
+        const va = getVal(a);
+        const vb = getVal(b);
+        const cmp = typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb));
+        return sortDir === "asc" ? cmp : -cmp;
+      });
+  }, [orders, packages, month, year, search, sortKey, sortDir]);
 
   const totalPax = filtered.reduce((s, o) => s + o.pax, 0);
   const totalRevenue = filtered.reduce((s, o) => s + o.revenue, 0);
@@ -489,12 +531,25 @@ export default function OTAOrderEntry() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground">
-                {[
-                  "Booking Date","Usage Date","Order #","Group #","People","Platform",
-                  "Package Code","Package Details","Nationality","Guide","Pickup Hotel",
-                  "Gross Price","Comm %","Comm Amount","Discount","Net Revenue",""
-                ].map((h) => (
-                  <th key={h} className="text-left px-3 py-2.5 font-medium whitespace-nowrap">{h}</th>
+                {SORT_COLS.map((col) => (
+                  <th
+                    key={col.label || "actions"}
+                    onClick={() => col.key && handleSort(col.key)}
+                    className={cn(
+                      "px-3 py-2.5 font-medium whitespace-nowrap",
+                      col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
+                      col.key && "cursor-pointer select-none hover:text-foreground transition-colors"
+                    )}
+                  >
+                    {col.key ? (
+                      <span className="inline-flex items-center gap-0.5">
+                        {col.label}
+                        <span className="text-[10px] leading-none opacity-60">
+                          {sortKey === col.key ? (sortDir === "asc" ? " ▲" : " ▼") : " ⇅"}
+                        </span>
+                      </span>
+                    ) : col.label}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -530,7 +585,7 @@ export default function OTAOrderEntry() {
                       <td className="px-3 py-2.5 text-sm whitespace-nowrap">{o.guide_name}</td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[140px] truncate">{o.pickup_hotel ?? "-"}</td>
                       <td className="px-3 py-2.5 text-right text-sm">{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</td>
-                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">{o.commission_pct > 0 ? `${o.commission_pct}%` : "-"}</td>
+                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">{o.commission_pct > 0 ? `${+((+o.commission_pct).toFixed(1))}%` : "-"}</td>
                       <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</td>
                       <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{o.discount > 0 ? fmtCurrency(o.discount) : "-"}</td>
                       <td className="px-3 py-2.5 font-semibold text-right text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</td>
