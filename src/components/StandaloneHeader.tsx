@@ -52,6 +52,8 @@ interface StandaloneHeaderProps {
  * @param hideChat  — true เพื่อซ่อนปุ่ม Chat และ ChatWidget popup
  */
 export function StandaloneHeader({ backTo = "/", extra, hideChat = false }: StandaloneHeaderProps) {
+  const currentUser = useCurrentUser();
+  const role = currentUser?.role ?? "";
   return (
     <>
       <header className="px-3 sm:px-8 py-3 sm:py-5 max-w-7xl mx-auto flex items-center gap-2 sm:gap-3 min-w-0">
@@ -72,15 +74,15 @@ export function StandaloneHeader({ backTo = "/", extra, hideChat = false }: Stan
         {extra && <div className="min-w-0 shrink">{extra}</div>}
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
-          <SwitchRoleBtn />
-          <StandyBtn />
-          {!hideChat && <ChatHeaderBtn />}
-          <ActivityFeed />
+          {role !== "OTA" && <SwitchRoleBtn />}
+          {role !== "OTA" && <StandyBtn />}
+          {!hideChat && role !== "OTA" && <ChatHeaderBtn />}
+          {role !== "OTA" && <ActivityFeed />}
           <UserMenu />
         </div>
       </header>
-      {!hideChat && <ChatWidget />}
-      <StandyWidget />
+      {!hideChat && role !== "OTA" && <ChatWidget />}
+      {role !== "OTA" && <StandyWidget />}
     </>
   );
 }
