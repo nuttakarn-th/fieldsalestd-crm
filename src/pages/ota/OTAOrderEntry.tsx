@@ -644,14 +644,17 @@ export default function OTAOrderEntry() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Gross Price <span className="text-red-500">*</span></label>
-                    <input type="number" min={0} step="0.01" value={form.gross_price}
+                    <input type="number" min={0} step="0.01"
+                      value={form.gross_price === 0 ? "" : form.gross_price}
+                      placeholder="0.00"
                       onChange={(e) => {
                         const g = parseFloat(e.target.value) || 0;
-                        setForm((f) => ({ ...f, gross_price: g }));
                         // ถ้าอยู่ใน ฿ mode ให้ sync pct จาก amt เดิม
                         if (commissionMode === "amt") {
                           const pct = g > 0 ? +(commissionAmtDirect / g * 100).toFixed(4) : 0;
                           setForm((f) => ({ ...f, gross_price: g, commission_pct: pct }));
+                        } else {
+                          setForm((f) => ({ ...f, gross_price: g }));
                         }
                       }}
                       className={inputCls} />
@@ -681,11 +684,13 @@ export default function OTAOrderEntry() {
                       </div>
                     </div>
                     {commissionMode === "pct" ? (
-                      <input type="number" min={0} max={100} step="0.1" value={form.commission_pct}
+                      <input type="number" min={0} max={100} step="0.1"
+                        value={form.commission_pct === 0 ? "" : form.commission_pct}
                         onChange={(e) => setForm((f) => ({ ...f, commission_pct: parseFloat(e.target.value) || 0 }))}
                         placeholder="e.g. 15" className={inputCls} />
                     ) : (
-                      <input type="number" min={0} step="0.01" value={commissionAmtDirect}
+                      <input type="number" min={0} step="0.01"
+                        value={commissionAmtDirect === 0 ? "" : commissionAmtDirect}
                         onChange={(e) => {
                           const amt = parseFloat(e.target.value) || 0;
                           setCommissionAmtDirect(amt);
@@ -716,7 +721,9 @@ export default function OTAOrderEntry() {
                   </div>
                   <div>
                     <label className={labelCls}>Discount</label>
-                    <input type="number" min={0} step="0.01" value={form.discount}
+                    <input type="number" min={0} step="0.01"
+                      value={form.discount === 0 ? "" : form.discount}
+                      placeholder="0"
                       onChange={(e) => setForm((f) => ({ ...f, discount: parseFloat(e.target.value) || 0 }))}
                       className={inputCls} />
                   </div>
