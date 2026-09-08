@@ -10,6 +10,18 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+/** ข้อมูลผู้เดินทางแต่ละคนในกลุ่ม (เก็บใน JSONB column travelers) */
+export interface Traveler {
+  seq: number;           // ลำดับในกลุ่ม (1-based)
+  name: string;
+  passport_name: string;
+  phone: string;
+  food_pref: string;
+  room_type: string;
+  room_partner: string;
+  is_leader: boolean;
+}
+
 export interface BookingRecord {
   id: string;
   tour_id: string;
@@ -29,6 +41,8 @@ export interface BookingRecord {
   cancelled_at?: string | null;
   cancelled_by?: string | null;
   cancel_reason?: string | null;
+  // Group travelers
+  travelers?: Traveler[] | null;
 }
 
 export type AddBookingParams = Omit<BookingRecord, "id" | "status" | "cancelled_at" | "cancelled_by" | "cancel_reason">;
@@ -47,6 +61,8 @@ interface BookingLedgerState {
   loadBookingsForPeriod: (tourId: string, periodId: string) => Promise<BookingRecord[]>;
   /** แก้ไขข้อมูล booking (ชื่อ, เบอร์, หมายเหตุ) */
   updateBooking: (id: string, patch: Partial<Pick<BookingRecord, "customer_name" | "customer_phone" | "notes">>) => Promise<boolean>;
+  /** อัพเดตรายชื่อผู้เดินทางในกลุ่ม */
+  updateTravelers: (id: string, travelers: Traveler[]) => Promise<boolean>;
   /** Subscribe Realtime — คืน unsubscribe fn */
   subscribeRealtime: () => () => void;
   /** Helper: get active bookings for a period from local state */
@@ -156,6 +172,20 @@ export const useBookingLedger = create<BookingLedgerState>()((set, get) => ({
     if (SUPABASE_ENABLED && supabase) {
       const { error } = await supabase.from("bookings").update(patch).eq("id", id);
       if (error) { console.error("[booking] updateBooking error:", error); return false; }
+    }
+    return true;
+  },
+
+  updateTravelers: async (id, travelers) => {
+    set((s) => ({ bookings: s.bookings.map((b) => b.id === id ? { ...b, travelers } : b) }));
+    if (SUPABASE_ENABLED && supabase) {
+      // บันทึกชื่อหัวหน้ากลุ่มกลับเข้า customer_name ด้วย
+      const leader = travelers.find(t => t.is_leader);
+      const patch: Record<string, unknown> = { travelers };
+      if (leader?.name) patch.customer_name = leader.name;
+      if (leader?.phone) patch.customer_phone = leader.phone;
+      const { error } = await supabase.from("bookings").update(patch).eq("id", id);
+      if (error) { console.error("[booking] updateTravelers error:", error); return false; }
     }
     return true;
   },
