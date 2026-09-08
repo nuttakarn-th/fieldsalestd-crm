@@ -373,6 +373,7 @@ const otaMenu: RoleMenu = {
       ],
     },
   ],
+  account: [],
 };
 
 export function getMenuForRole(role: AppRole): RoleMenu {

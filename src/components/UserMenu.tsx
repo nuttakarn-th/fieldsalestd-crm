@@ -55,7 +55,7 @@ export function UserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/app/profile" className="cursor-pointer">
+          <Link to="/profile" className="cursor-pointer">
             <UserIcon className="w-4 h-4 mr-2" /> My Profile
           </Link>
         </DropdownMenuItem>
