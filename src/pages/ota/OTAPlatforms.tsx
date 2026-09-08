@@ -189,8 +189,13 @@ export default function OTAPlatforms() {
               <div>
                 <label className={labelCls}>Platform <span className="text-red-500">*</span></label>
                 {editId ? (
-                  // แก้ไข: แสดงชื่อ platform (ไม่ให้เปลี่ยน)
-                  <div className={`${inputCls} bg-muted/50 text-muted-foreground cursor-default`}>{form.platform}</div>
+                  // แก้ไข: แก้ชื่อ platform ได้เสมอ
+                  <input
+                    value={form.platform}
+                    onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value }))}
+                    placeholder="ชื่อ platform..."
+                    className={inputCls}
+                  />
                 ) : (
                   <>
                     {!customPlatform ? (
