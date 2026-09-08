@@ -261,6 +261,21 @@ export function CustomerLeadDialog({
   // ── Skip quota adjust (ป้องกันตัด Stock ซ้ำ) ─────────────────────────────────
   const [skipQuota, setSkipQuota] = useState(false);
 
+  // ── Existing customer autocomplete (name) ───────────────────────────────────
+  const [nameActiveSugg, setNameActiveSugg] = useState(false);
+  const nameSuggestions = useMemo(() => {
+    if (mode !== "new") return [];
+    const q = fullName.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return customers.filter((c) => c.full_name.toLowerCase().includes(q)).slice(0, 6);
+  }, [mode, fullName, customers]);
+
+  function switchToExisting(c: typeof customers[0]) {
+    setMode("existing");
+    setExistingId(c.customer_id);
+    setNameActiveSugg(false);
+  }
+
   // ── Phone duplicate detection ────────────────────────────────────────────────
   const normalizePhone = (p: string) => p.replace(/\D/g, "");
   const dupCustomer = useMemo(() => {
@@ -791,18 +806,50 @@ export function CustomerLeadDialog({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label>ชื่อลูกค้า *</Label>
-              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="ชื่อจริง / Nickname / ชื่อ LINE" />
+              <div className="relative">
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="ชื่อจริง / Nickname / ชื่อ LINE"
+                  onFocus={() => setNameActiveSugg(true)}
+                  onBlur={() => setTimeout(() => setNameActiveSugg(false), 150)}
+                />
+                {nameActiveSugg && nameSuggestions.length > 0 && (
+                  <div className="absolute z-50 top-full mt-1 left-0 right-0 rounded-md border bg-popover shadow-md overflow-hidden">
+                    <p className="px-3 py-1.5 text-[10px] text-muted-foreground border-b">พบลูกค้าเดิม — กดเลือกเพื่อเพิ่มบริการให้ลูกค้าเดิมแทน</p>
+                    {nameSuggestions.map((c) => (
+                      <button
+                        key={c.customer_id}
+                        type="button"
+                        className="w-full flex items-start gap-2 px-3 py-2 text-left text-xs hover:bg-muted/60 transition-colors"
+                        onMouseDown={() => switchToExisting(c)}
+                      >
+                        <span className="text-muted-foreground mt-0.5">👤</span>
+                        <span>
+                          <span className="font-medium text-foreground">{c.full_name}</span>
+                          {c.phone && c.phone !== "-" && <span className="text-muted-foreground ml-1.5">{c.phone}</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <Label>
                 เบอร์โทร{" "}
                 <span className="text-[10px] text-muted-foreground">(ไม่บังคับ)</span>
               </Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className={dupCustomer ? "border-red-500 focus-visible:ring-red-500" : ""} />
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className={dupCustomer ? "border-amber-500 focus-visible:ring-amber-500" : ""} />
               {dupCustomer && (
-                <p className="text-xs text-red-500 mt-1">
-                  ⚠️ เบอร์นี้มีอยู่แล้ว — <span className="font-semibold">{dupCustomer.full_name}</span>
-                </p>
+                <button
+                  type="button"
+                  className="w-full mt-1 text-left text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 flex items-center gap-1 group"
+                  onClick={() => switchToExisting(dupCustomer)}
+                >
+                  <span>⚠️ พบลูกค้าเดิม — <span className="font-semibold">{dupCustomer.full_name}</span></span>
+                  <span className="underline group-hover:no-underline ml-auto shrink-0">กดเพื่อเพิ่มบริการให้ลูกค้าเดิม →</span>
+                </button>
               )}
             </div>
             <div>
