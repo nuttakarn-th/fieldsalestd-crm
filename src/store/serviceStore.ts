@@ -488,7 +488,7 @@ export const useServices = create<ServiceState>()(
               ...(updatedBy ? { updated_by: updatedBy, updated_at: now } : {}),
             };
           });
-          const quota = periods.reduce((s, x) => s + x.quota, 0);
+          const quota = periods.filter((x) => !x.cancelled).reduce((s, x) => s + x.quota, 0);
           return { ...t, periods, quota };
         });
         set({ tours: newTours });
