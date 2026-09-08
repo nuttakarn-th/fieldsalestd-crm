@@ -8,7 +8,7 @@ import { useState } from "react";
 import {
   ClipboardList, BarChart3, CalendarDays, Package, Settings2, ChevronLeft, ChevronRight, LogOut,
 } from "lucide-react";
-import { useCurrentUser } from "@/store/authStore";
+import { useCurrentUser, useAuth } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ export default function OTALayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
+  const logout = useAuth((s) => s.logout);
   const [collapsed, setCollapsed] = useState(false);
 
   // ── Role guard ────────────────────────────────────────────────────────────
@@ -96,15 +97,15 @@ export default function OTALayout() {
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link
-                to="/app"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+              <button
+                onClick={() => logout()}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
               >
                 <LogOut className="w-4 h-4 shrink-0" />
-                {!collapsed && <span>Back to CRM</span>}
-              </Link>
+                {!collapsed && <span>Logout</span>}
+              </button>
             </TooltipTrigger>
-            {collapsed && <TooltipContent side="right">Back to CRM</TooltipContent>}
+            {collapsed && <TooltipContent side="right">Logout</TooltipContent>}
           </Tooltip>
         </div>
 
