@@ -141,7 +141,7 @@ interface ServiceState {
   /** ลบ periods ทั้งหมดของโปรแกรม (ใช้ก่อน re-import เพื่อ replace) */
   clearPeriods: (tourId: string) => void;
   /** ปรับที่นั่งว่างของ period ที่ระบุ: delta < 0 = ตัดออก, delta > 0 = เพิ่มกลับ */
-  adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string) => Promise<void>;
+  adjustPeriodQuota: (tourId: string, periodId: string, delta: number, updatedBy?: string, customerName?: string) => Promise<void>;
 
   addCar: (c: Omit<CarItem, "id">) => string;
   updateCar: (id: string, p: Partial<CarItem>) => void;
@@ -474,7 +474,7 @@ export const useServices = create<ServiceState>()(
         if (updated) sbUpdate("tours", tourId, { periods: [], total_seats: 0, quota: 0 });
       },
 
-      adjustPeriodQuota: async (tourId, periodId, delta, updatedBy) => {
+      adjustPeriodQuota: async (tourId, periodId, delta, updatedBy, customerName) => {
         const preTours = get().tours;
         const now = new Date().toISOString();
         const newTours = preTours.map((t) => {
@@ -520,16 +520,22 @@ export const useServices = create<ServiceState>()(
             actor: updatedBy ?? null,
           });
           // Activity log — seat booked (delta < 0) or released (delta > 0)
+          const periodDateStr = aqPeriod.start_date
+            ? new Date(aqPeriod.start_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
+            : "";
+          const isRelease = delta > 0;
           logActivity({
             event_type:   delta < 0 ? "seat_booked" : "seat_released",
             actor:        updatedBy ?? "ระบบ",
             subject:      delta < 0 ? "จองที่นั่ง" : "คืนที่นั่ง",
-            detail:       `${aqPeriod.start_date ? new Date(aqPeriod.start_date).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : ""} · ${Math.abs(delta)} ที่นั่ง`,
+            detail:       isRelease && customerName
+              ? `${customerName} · ${periodDateStr} · ${Math.abs(delta)} ที่นั่ง`
+              : `${periodDateStr} · ${Math.abs(delta)} ที่นั่ง`,
             entity_type:  "tour",
             entity_id:    tourId,
             entity_name:  aqTour.title || aqTour.country || aqTour.code,
             program_name: aqTour.title || aqTour.country || aqTour.code,
-            tour_code:    aqTour.code,
+            tour_code:    isRelease ? undefined : aqTour.code,
             meta:         { delta, period_id: periodId, price_per_seat: aqPeriod.special_price ?? aqPeriod.price_per_seat },
           });
 

@@ -144,12 +144,12 @@ export function CancelBookingDialog({
             // audit trail fail is non-critical — ไม่หยุด flow หลัก
           }
 
-          adjustPeriodQuota(tourId, periodId, count, actorName);
+          adjustPeriodQuota(tourId, periodId, count, actorName, custName);
           toast.success(`ยกเลิกการจองของ "${custName}" — คืน ${count} ที่นั่ง`);
         } else {
           // ── ยกเลิกบางส่วน: ลด pax_count ────────────────────────────────
           updateLead(selectedLead.lead_id, { pax_count: selectedLead.pax_count - count });
-          adjustPeriodQuota(tourId, periodId, count, actorName);
+          adjustPeriodQuota(tourId, periodId, count, actorName, custName);
           toast.success(
             `ลดที่นั่ง "${custName}" จาก ${selectedLead.pax_count} → ${selectedLead.pax_count - count} ที่ — คืน ${count} ที่นั่ง`,
           );
