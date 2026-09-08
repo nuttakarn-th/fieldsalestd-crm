@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import { UserMenu } from "@/components/UserMenu";
+import { OTANotificationBell } from "@/components/OTANotificationBell";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +91,9 @@ export default function OTALayout() {
 
         {/* User + back */}
         <div className="border-t border-white/10 px-2 py-3 space-y-1">
+          {/* Notification bell */}
+          <OTANotificationBell collapsed={collapsed} />
+
           {!collapsed && (
             <div className="px-3 py-1">
               <UserMenu />

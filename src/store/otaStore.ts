@@ -57,6 +57,19 @@ export interface PlatformPrice {
   price: number;
 }
 
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+export type OTAAuditAction = "import" | "add_order" | "update_order" | "delete_order";
+
+export interface OTAAuditEntry {
+  id: string;
+  action: OTAAuditAction;
+  actor: string;
+  timestamp: string;     // ISO string
+  detail: string;        // human-readable description
+  read: boolean;
+}
+
 export interface OTAPackage {
   id: string;
   code: string;
@@ -72,15 +85,20 @@ interface OTAState {
   packages: OTAPackage[];
   platformConfigs: OTAPlatformConfig[];
   loaded: boolean; // ป้องกัน seed ทับข้อมูลจาก DB
+  auditLog: OTAAuditEntry[];
 
   // Supabase loaders
   loadFromSupabase: () => Promise<void>;
   seedDefaultPackages: () => Promise<void>; // เพิ่ม packages เริ่มต้นด้วยมือ
 
+  // Audit log
+  pushAudit: (e: Omit<OTAAuditEntry, "id" | "timestamp" | "read">) => void;
+  markAllAuditRead: () => void;
+
   // Orders
   addOrder: (o: Omit<OTAOrder, "id" | "created_at">) => Promise<string>;
-  updateOrder: (id: string, patch: Partial<OTAOrder>) => Promise<void>;
-  deleteOrder: (id: string) => Promise<void>;
+  updateOrder: (id: string, patch: Partial<OTAOrder>, actor?: string) => Promise<void>;
+  deleteOrder: (id: string, actor?: string) => Promise<void>;
 
   // Packages
   addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => Promise<string>;
@@ -226,6 +244,24 @@ export const useOTAStore = create<OTAState>()(
       packages:        SEED_PACKAGES,
       platformConfigs: [],
       loaded:          false,
+      auditLog:        [],
+
+      // ── Audit helpers ──────────────────────────────────────────────────────
+
+      pushAudit: (e) => {
+        const entry: OTAAuditEntry = {
+          ...e,
+          id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          read: false,
+        };
+        set((s) => ({
+          auditLog: [entry, ...s.auditLog].slice(0, 50), // เก็บแค่ 50 entries ล่าสุด
+        }));
+      },
+
+      markAllAuditRead: () =>
+        set((s) => ({ auditLog: s.auditLog.map((e) => ({ ...e, read: true })) })),
 
       // ── Load from Supabase ─────────────────────────────────────────────────
 
@@ -323,10 +359,15 @@ export const useOTAStore = create<OTAState>()(
         }
 
         set((s) => ({ orders: [order, ...s.orders] }));
+        get().pushAudit({
+          action: "add_order",
+          actor: o.created_by ?? "ระบบ",
+          detail: `เพิ่ม Order #${o.order_number} · ${o.platform} · ${o.pax} คน`,
+        });
         return id;
       },
 
-      updateOrder: async (id, patch) => {
+      updateOrder: async (id, patch, actor = "ระบบ") => {
         if (SUPABASE_ENABLED && supabase) {
           const { error } = await supabase.from("ota_orders").update(patch).eq("id", id);
           if (error) {
@@ -335,12 +376,19 @@ export const useOTAStore = create<OTAState>()(
             return;
           }
         }
+        const existing = get().orders.find((o) => o.id === id);
         set((s) => ({
           orders: s.orders.map((o) => (o.id === id ? { ...o, ...patch } : o)),
         }));
+        get().pushAudit({
+          action: "update_order",
+          actor,
+          detail: `แก้ไข Order #${existing?.order_number ?? id}`,
+        });
       },
 
-      deleteOrder: async (id) => {
+      deleteOrder: async (id, actor = "ระบบ") => {
+        const existing = get().orders.find((o) => o.id === id);
         if (SUPABASE_ENABLED && supabase) {
           const { error } = await supabase.from("ota_orders").delete().eq("id", id);
           if (error) {
@@ -350,6 +398,11 @@ export const useOTAStore = create<OTAState>()(
           }
         }
         set((s) => ({ orders: s.orders.filter((o) => o.id !== id) }));
+        get().pushAudit({
+          action: "delete_order",
+          actor,
+          detail: `ลบ Order #${existing?.order_number ?? id} · ${existing?.platform ?? ""}`,
+        });
       },
 
       // ── Packages ──────────────────────────────────────────────────────────
@@ -548,6 +601,12 @@ export const useOTAStore = create<OTAState>()(
           });
         }
 
+        const actor = rows[0]?.created_by ?? "ระบบ";
+        get().pushAudit({
+          action: "import",
+          actor,
+          detail: `Import ${rows.length} orders (ใหม่ ${inserted}, อัปเดต ${updated}${errors > 0 ? `, error ${errors}` : ""})`,
+        });
         return { inserted, updated, errors };
       },
 
@@ -565,10 +624,10 @@ export const useOTAStore = create<OTAState>()(
         get().platformConfigs.find((c) => c.platform === platform),
     }),
     {
-      name: "ota-store-v3",
-      // version 3: เพิ่ม platformConfigs state
-      version: 3,
-      migrate: () => ({ orders: [], packages: [], platformConfigs: [], loaded: false }),
+      name: "ota-store-v4",
+      // version 4: เพิ่ม auditLog สำหรับ OTA Notification Bell
+      version: 4,
+      migrate: () => ({ orders: [], packages: [], platformConfigs: [], loaded: false, auditLog: [] }),
     }
   )
 );

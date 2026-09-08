@@ -242,11 +242,11 @@ export default function OTAOrderEntry() {
     const pkg = packages.find((p) => p.id === form.package_id);
     const net = computeNet(form.gross_price, form.commission_pct, form.discount);
     const payload = { ...form, package_details: pkg?.name ?? form.package_details, revenue: net, created_by: currentUser?.full_name ?? "" };
-    if (editId) { await updateOrder(editId, payload); toast.success("แก้ไข Order สำเร็จ"); }
+    if (editId) { await updateOrder(editId, payload, currentUser?.full_name ?? "ระบบ"); toast.success("แก้ไข Order สำเร็จ"); }
     else { await addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
     setShowForm(false);
   };
-  const handleDelete = async (id: string) => { if (confirm("ลบ Order นี้?")) { await deleteOrder(id); toast.success("ลบ Order แล้ว"); } };
+  const handleDelete = async (id: string) => { if (confirm("ลบ Order นี้?")) { await deleteOrder(id, currentUser?.full_name ?? "ระบบ"); toast.success("ลบ Order แล้ว"); } };
 
   // ── Export XLSX ───────────────────────────────────────────────────────────
   const handleExport = () => {
