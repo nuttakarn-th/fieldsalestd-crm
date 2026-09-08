@@ -4506,9 +4506,9 @@ ${catBlocks}
           open={!!bookingDialog}
           onClose={() => setBookingDialog(null)}
           onCancel={() => setBookingDialog(null)}
-          onConfirmQuota={() => {
-            adjustPeriodQuota(bookingDialog.tourId, bookingDialog.periodId, -bookingDialog.seats, actorName);
-            toast.success("อัปเดตโควต้าแล้ว");
+          onConfirmQuota={async () => {
+            // ต้อง await — BookingLeadDialog จะสร้าง record ก็ต่อเมื่อ quota สำเร็จ
+            await adjustPeriodQuota(bookingDialog.tourId, bookingDialog.periodId, -bookingDialog.seats, actorName);
           }}
           tourId={bookingDialog.tourId}
           tourName={bookingDialog.tourName}

@@ -27,7 +27,7 @@ export interface BookingLeadDialogProps {
   open: boolean;
   onClose: () => void;
   onCancel?: () => void;       // ปิด dialog โดยไม่บันทึกอะไร
-  onConfirmQuota?: () => void; // ตัด quota จริง (เรียกตอนกด บันทึกเลย / ไว้ภายหลัง)
+  onConfirmQuota?: () => Promise<void>; // ตัด quota จริง — ต้อง await ก่อนสร้าง record
   tourId: string;
   tourName: string;
   periodId: string;
@@ -130,8 +130,13 @@ export function BookingLeadDialog({
     onClose();
   }
 
-  function handleLater() {
-    onConfirmQuota?.(); // ตัด quota ตอนยืนยัน
+  async function handleLater() {
+    try {
+      await onConfirmQuota?.();
+    } catch {
+      toast.error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+      return; // ไม่สร้าง booking record ถ้า quota fail
+    }
     // บันทึก booking record แบบ anonymous (ไม่มีชื่อลูกค้า)
     addBooking({
       tour_id: tourId, period_id: periodId,
@@ -143,11 +148,17 @@ export function BookingLeadDialog({
     toast.info("บันทึกที่นั่งแล้ว — สามารถเพิ่มข้อมูลลูกค้าได้ภายหลัง");
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!fullName.trim()) { toast.error("กรุณากรอกชื่อลูกค้า"); return; }
-    onConfirmQuota?.(); // ตัด quota ตอนยืนยัน
     setSaving(true);
+    try {
+      await onConfirmQuota?.(); // ตัด quota — ถ้า fail ให้หยุดทันที
+    } catch {
+      toast.error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+      setSaving(false);
+      return;
+    }
 
     const segment: Segment = "B2C Individual";
     const travelMonth = periodLabel ? periodLabel.slice(0, 7) : "";

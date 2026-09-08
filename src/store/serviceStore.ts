@@ -497,8 +497,7 @@ export const useServices = create<ServiceState>()(
           const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, quota: updated.quota });
           if (error) {
             set({ tours: preTours }); // rollback
-            toast.error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
-            return;
+            throw new Error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
           }
         }
         // Phase 2: log event
