@@ -11,8 +11,9 @@ import {
 } from "recharts";
 import {
   ShoppingCart, Banknote, Users, TrendingUp, Bus, Layers,
-  DollarSign, BarChart3,
+  DollarSign, BarChart3, FileDown,
 } from "lucide-react";
+import { downloadOTAReport } from "./OTAReportGenerator";
 
 const COLORS = ["#7c3aed", "#db2777", "#a78bfa", "#f9a8d4", "#60a5fa", "#34d399", "#fb923c", "#fbbf24"];
 const GUIDE_COLORS: Record<string, string> = {
@@ -140,6 +141,15 @@ export default function OTADashboard() {
   const ytdRevenue = useMemo(
     () => orders.filter((o) => o.usage_date.startsWith(`${year}-`)).reduce((s, o) => s + o.revenue, 0),
     [orders, year]
+  );
+
+  const commissionTotal = useMemo(
+    () => monthOrders.reduce((s, o) => s + (o.gross_price * o.commission_pct) / 100, 0),
+    [monthOrders]
+  );
+  const discountTotal = useMemo(
+    () => monthOrders.reduce((s, o) => s + (o.discount ?? 0), 0),
+    [monthOrders]
   );
 
   // ── OVERVIEW data ─────────────────────────────────────────────────────────────
@@ -405,10 +415,31 @@ export default function OTADashboard() {
           <h1 className="text-2xl font-bold">OTA Dashboard</h1>
           <p className="text-muted-foreground text-sm">วิเคราะห์ performance OTA รายเดือน</p>
         </div>
-        <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
-          <button onClick={prevMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">◀</button>
-          <span className="text-sm font-semibold min-w-[130px] text-center">{monthName} {year}</span>
-          <button onClick={nextMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">▶</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadOTAReport({
+              month, year, monthName,
+              generatedAt: new Date().toISOString(),
+              totalOrders, totalRevenue, totalGross, totalPax,
+              avgPax, revPAX, uniqueGroups, ytdRevenue,
+              commissionTotal, discountTotal,
+              prevOrders, prevRevenue, prevPax,
+              revenueByPlatform,
+              platformOrderData,
+              monthlyData,
+              revenueByPackage,
+              nationalityData,
+            })}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            <FileDown className="w-4 h-4" />
+            Export PDF
+          </button>
+          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
+            <button onClick={prevMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">◀</button>
+            <span className="text-sm font-semibold min-w-[130px] text-center">{monthName} {year}</span>
+            <button onClick={nextMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">▶</button>
+          </div>
         </div>
       </div>
 
