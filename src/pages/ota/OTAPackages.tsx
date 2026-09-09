@@ -362,8 +362,7 @@ export default function OTAPackages() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs text-muted-foreground">Platform Prices <span className="text-muted-foreground/60">(เฉพาะที่เปิดขาย)</span></label>
-                  <div className="relative">
-                    <button
+                  <button
                       onClick={() => setShowPlatformPicker((v) => !v)}
                       disabled={availablePlatforms.length === 0}
                       className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-2 py-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -371,22 +370,6 @@ export default function OTAPackages() {
                       <Plus className="w-3 h-3" /> Add Platform
                       <ChevronDown className={`w-3 h-3 transition-transform ${showPlatformPicker ? "rotate-180" : ""}`} />
                     </button>
-                    {/* Dropdown picker */}
-                    {showPlatformPicker && availablePlatforms.length > 0 && (
-                      <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[180px]">
-                        {availablePlatforms.map((pl) => (
-                          <button
-                            key={pl}
-                            onClick={() => addPlatformRow(pl)}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-2"
-                          >
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${getPlatformColor(pl).split(" ")[0].replace("bg-", "bg-").replace("-100", "-500")}`} />
-                            {pl}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -414,7 +397,23 @@ export default function OTAPackages() {
                     </div>
                   ))}
 
-                  {rows.length === 0 && (
+                  {/* Inline platform picker */}
+                  {showPlatformPicker && (
+                    <div className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden">
+                      {availablePlatforms.map((pl, i) => (
+                        <button
+                          key={pl}
+                          onClick={() => addPlatformRow(pl)}
+                          className={`w-full text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors flex items-center gap-2 ${i > 0 ? "border-t border-border" : ""}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${getPlatformColor(pl).includes("blue") ? "bg-blue-500" : getPlatformColor(pl).includes("orange") ? "bg-orange-500" : getPlatformColor(pl).includes("gray") ? "bg-gray-400" : getPlatformColor(pl).includes("green") ? "bg-green-500" : getPlatformColor(pl).includes("red") ? "bg-red-500" : getPlatformColor(pl).includes("pink") ? "bg-pink-500" : "bg-purple-500"}`} />
+                          {pl}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {rows.length === 0 && !showPlatformPicker && (
                     <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded-xl">
                       ยังไม่มี Platform — กด "+ Add Platform" เพื่อเพิ่ม
                     </p>
