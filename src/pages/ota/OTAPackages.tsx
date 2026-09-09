@@ -4,7 +4,7 @@
  * v3: dynamic platform rows (+ Add Platform), Export/Import XLSX
  */
 import { useState, useRef } from "react";
-import { Plus, Pencil, Trash2, X, Check, Download, Upload, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Download, Upload, AlertCircle, ChevronDown } from "lucide-react";
 import { useOTAStore, OTAPackage, OTAPlatform, OTA_PLATFORMS } from "@/store/otaStore";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -27,12 +27,10 @@ const EXPORT_HEADERS = ["Code", "Name", ...OTA_PLATFORMS];
 // ── Form row type (for dynamic platform list) ─────────────────────────────────
 interface PriceRow { platform: string; price: number }
 
-const defaultRows = (): PriceRow[] => OTA_PLATFORMS.map((pl) => ({ platform: pl, price: 0 }));
-
 interface ImportError { row: number; message: string }
 
 export default function OTAPackages() {
-  const { packages, addPackage, updatePackage, deletePackage, getPackageByCode } = useOTAStore();
+  const { packages, platformConfigs, addPackage, updatePackage, deletePackage, getPackageByCode } = useOTAStore();
   const importRef = useRef<HTMLInputElement>(null);
 
   const [showForm, setShowForm]         = useState(false);
@@ -40,10 +38,21 @@ export default function OTAPackages() {
   const [sheetPkg, setSheetPkg]         = useState<OTAPackage | null>(null);
   const [code, setCode]                 = useState("");
   const [name, setName]                 = useState("");
-  const [rows, setRows]                 = useState<PriceRow[]>(defaultRows());
+  const [rows, setRows]                 = useState<PriceRow[]>([]);
+  const [showPlatformPicker, setShowPlatformPicker] = useState(false);
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
   const [importStats, setImportStats]   = useState({ added: 0, updated: 0, failed: 0 });
+
+  // All platform names from /platforms page (fallback to OTA_PLATFORMS)
+  const allPlatforms = platformConfigs.length > 0
+    ? platformConfigs.map((c) => c.platform)
+    : [...OTA_PLATFORMS];
+
+  // Platforms not yet added to current rows
+  const availablePlatforms = allPlatforms.filter(
+    (pl) => !rows.some((r) => r.platform === pl)
+  );
 
   // ── Row helpers ──────────────────────────────────────────────────────────────
   const updateRow = (i: number, field: keyof PriceRow, value: string | number) =>
@@ -53,22 +62,21 @@ export default function OTAPackages() {
 
   // ── Open modal ────────────────────────────────────────────────────────────────
   const openAdd = () => {
-    setCode(""); setName(""); setRows(defaultRows()); setEditId(null); setShowForm(true);
+    setCode(""); setName(""); setRows([]); setEditId(null); setShowPlatformPicker(false); setShowForm(true);
   };
   const openEdit = (pkg: OTAPackage) => {
     setCode(pkg.code); setName(pkg.name);
-    // Merge default platforms + any extra platforms saved in package
-    const saved = pkg.platform_prices;
-    const merged: PriceRow[] = OTA_PLATFORMS.map((pl) => ({
-      platform: pl,
-      price: saved.find((s) => s.platform === pl)?.price ?? 0,
-    }));
-    saved.forEach((s) => {
-      if (!OTA_PLATFORMS.includes(s.platform as OTAPlatform)) {
-        merged.push({ platform: s.platform, price: s.price });
-      }
-    });
-    setRows(merged); setEditId(pkg.id); setShowForm(true);
+    // Show only platforms where price > 0 (actively selling)
+    const activeRows: PriceRow[] = pkg.platform_prices
+      .filter((pp) => pp.price > 0)
+      .map((pp) => ({ platform: pp.platform, price: pp.price }));
+    setRows(activeRows); setEditId(pkg.id); setShowPlatformPicker(false); setShowForm(true);
+  };
+
+  // Add a platform from the picker
+  const addPlatformRow = (platform: string) => {
+    setRows((r) => [...r, { platform, price: 0 }]);
+    setShowPlatformPicker(false);
   };
 
   const handleSubmit = async () => {
@@ -350,49 +358,65 @@ export default function OTAPackages() {
                   className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
               </div>
 
-              {/* Platform Prices — dynamic rows */}
+              {/* Platform Prices — add-only model */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-muted-foreground">Platform Prices</label>
-                  <button onClick={addRow}
-                    className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-2 py-1 rounded-lg transition-colors">
-                    <Plus className="w-3 h-3" /> Add Platform
-                  </button>
+                  <label className="text-xs text-muted-foreground">Platform Prices <span className="text-muted-foreground/60">(เฉพาะที่เปิดขาย)</span></label>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowPlatformPicker((v) => !v)}
+                      disabled={availablePlatforms.length === 0}
+                      className="flex items-center gap-1 text-xs font-medium text-purple-600 hover:text-purple-700 border border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 px-2 py-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-3 h-3" /> Add Platform
+                      <ChevronDown className={`w-3 h-3 transition-transform ${showPlatformPicker ? "rotate-180" : ""}`} />
+                    </button>
+                    {/* Dropdown picker */}
+                    {showPlatformPicker && availablePlatforms.length > 0 && (
+                      <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                        {availablePlatforms.map((pl) => (
+                          <button
+                            key={pl}
+                            onClick={() => addPlatformRow(pl)}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                          >
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${getPlatformColor(pl).split(" ")[0].replace("bg-", "bg-").replace("-100", "-500")}`} />
+                            {pl}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   {rows.map((row, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      {/* Platform name */}
-                      <div className="flex-1">
-                        <label className="text-[10px] text-muted-foreground block mb-0.5">Platform Name</label>
-                        <input
-                          value={row.platform}
-                          onChange={(e) => updateRow(i, "platform", e.target.value)}
-                          placeholder="Platform"
-                          className="w-full px-2.5 py-1.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
+                    <div key={i} className="flex items-center gap-2 bg-muted/40 rounded-xl px-3 py-2">
+                      {/* Platform badge */}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${getPlatformColor(row.platform)}`}>
+                        {row.platform}
+                      </span>
                       {/* Price */}
-                      <div className="w-28">
-                        <label className="text-[10px] text-muted-foreground block mb-0.5">Price</label>
+                      <div className="flex items-center gap-1.5 flex-1 justify-end">
+                        <span className="text-sm text-muted-foreground">฿</span>
                         <input
-                          type="number" min={0} value={row.price}
+                          type="number" min={0} value={row.price || ""}
+                          placeholder="0"
                           onChange={(e) => updateRow(i, "price", parseFloat(e.target.value) || 0)}
-                          className="w-full px-2.5 py-1.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-24 px-2.5 py-1.5 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right"
                         />
                       </div>
                       {/* Delete row */}
                       <button onClick={() => removeRow(i)}
-                        className="mt-4 p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600 rounded-lg transition-colors">
+                        className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600 rounded-lg transition-colors shrink-0">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   ))}
 
                   {rows.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
-                      กด "+ Add Platform" เพื่อเพิ่มราคา
+                    <p className="text-xs text-muted-foreground text-center py-4 border border-dashed border-border rounded-xl">
+                      ยังไม่มี Platform — กด "+ Add Platform" เพื่อเพิ่ม
                     </p>
                   )}
                 </div>
