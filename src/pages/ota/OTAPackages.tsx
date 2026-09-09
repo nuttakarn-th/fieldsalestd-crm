@@ -269,7 +269,7 @@ export default function OTAPackages() {
 
       {/* ── Bottom Sheet (package detail) ─────────────────────────────────────── */}
       {sheetPkg && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSheetPkg(null)} />
           <div className="relative bg-card rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col">
             {/* Handle */}
@@ -309,7 +309,7 @@ export default function OTAPackages() {
               </div>
             </div>
             {/* Footer */}
-            <div className="flex gap-3 px-5 py-4 border-t border-border shrink-0">
+            <div className="flex gap-3 px-5 pt-4 pb-6 border-t border-border shrink-0">
               <button
                 onClick={() => { setSheetPkg(null); handleDelete(sheetPkg.id); }}
                 className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-xl text-sm font-medium transition-colors"

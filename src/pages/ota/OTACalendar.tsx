@@ -193,7 +193,7 @@ export default function OTACalendar() {
 
       {/* ── Bottom Sheet (mobile: day detail) ──────────────────────────────────── */}
       {selectedDay !== null && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedDay(null)} />
           {/* Sheet */}
