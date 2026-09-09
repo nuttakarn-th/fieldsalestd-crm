@@ -102,11 +102,9 @@ export default function OTALayout() {
             }}
           />
 
-          {!collapsed && (
-            <div className="px-3 py-1">
-              <UserMenu />
-            </div>
-          )}
+          <div className="px-3 py-1">
+            <UserMenu showName={!collapsed} />
+          </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
