@@ -222,6 +222,7 @@ export default function OTAOrderEntry() {
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
   const [sortKey, setSortKey] = useState<SortKey>("usage_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sheetOrder, setSheetOrder] = useState<OTAOrder | null>(null);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -529,62 +530,120 @@ export default function OTAOrderEntry() {
         <span>· รองรับ .xlsx / .xls / .csv</span>
       </div>
 
-      {/* ── Mobile Card View (shown only on small screens) ───────────────────── */}
-      <div className="md:hidden space-y-3 mb-4">
+      {/* ── Mobile Card List (compact 2-line, tap to open Bottom Sheet) ─────── */}
+      <div className="md:hidden space-y-2 mb-4">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">ยังไม่มี Order ในเดือนนี้</div>
         ) : (
           filtered.map((o) => {
             const pkg = packages.find((p) => p.id === o.package_id);
-            const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
             return (
-              <div
+              <button
                 key={o.id}
                 data-order-id={o.id}
+                onClick={() => setSheetOrder(o)}
                 className={cn(
-                  "bg-card border border-border rounded-xl p-4 shadow-sm",
+                  "w-full text-left bg-card border border-border rounded-xl px-4 py-3 shadow-sm active:scale-[0.98] transition-transform",
                   highlightedOrderId === o.id && "row-flash-anim"
                 )}
               >
-                {/* Top row: Usage date + platform badge + actions */}
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Usage Date</p>
-                    <p className="font-semibold text-sm">{fmtDate(o.usage_date)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
-                    <button onClick={() => openEdit(o)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(o.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
+                {/* Line 1: date · platform · pax */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-semibold">{fmtDate(o.usage_date)}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{o.pax} pax</span>
                 </div>
-                {/* Order # + Group # */}
-                <div className="flex gap-4 mb-2 text-sm">
-                  <div><span className="text-muted-foreground text-xs">Order # </span><span className="font-medium">{o.order_number}</span></div>
-                  {o.group_number && <div><span className="text-muted-foreground text-xs">Group # </span><span>{o.group_number}</span></div>}
+                {/* Line 2: order # · net revenue */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground truncate max-w-[180px]">
+                    {o.order_number}
+                    {pkg?.code ? <span className="ml-2 font-mono bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded text-[10px]">{pkg.code}</span> : null}
+                  </span>
+                  <span className="text-sm font-bold text-purple-600 dark:text-purple-400 shrink-0">{fmtCurrency(o.revenue)}</span>
                 </div>
-                {/* Package */}
-                <div className="mb-2">
-                  <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded mr-2">{pkg?.code ?? "-"}</span>
-                  <span className="text-xs text-muted-foreground">{o.package_details}</span>
-                </div>
-                {/* Pax + Nationality + Guide */}
-                <div className="flex flex-wrap gap-3 mb-2 text-sm">
-                  <div><span className="text-muted-foreground text-xs">Pax </span><span className="font-semibold">{o.pax}</span></div>
-                  {o.nationality && <div><span className="text-muted-foreground text-xs">National </span><span>{o.nationality}</span></div>}
-                  {o.guide_name && <div><span className="text-muted-foreground text-xs">Guide </span><span>{o.guide_name}</span></div>}
-                </div>
-                {/* Financial summary */}
-                <div className="flex gap-4 text-sm border-t border-border pt-2 mt-2">
-                  <div><p className="text-xs text-muted-foreground">Gross</p><p>{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Comm {o.commission_pct > 0 ? `${+((+o.commission_pct).toFixed(1))}%` : ""}</p><p className="text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</p></div>
-                  <div className="ml-auto"><p className="text-xs text-muted-foreground">Net Revenue</p><p className="font-semibold text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</p></div>
-                </div>
-              </div>
+              </button>
             );
           })
         )}
       </div>
+
+      {/* ── Bottom Sheet (order detail) ───────────────────────────────────────── */}
+      {sheetOrder && (() => {
+        const o = sheetOrder;
+        const pkg = packages.find((p) => p.id === o.package_id);
+        const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
+        return (
+          <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50" onClick={() => setSheetOrder(null)} />
+            {/* Sheet */}
+            <div className="relative bg-card rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+                <div>
+                  <p className="font-bold text-base">{fmtDate(o.usage_date)}</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
+                </div>
+                <button onClick={() => setSheetOrder(null)} className="p-2 hover:bg-muted rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+              </div>
+              {/* Body — scrollable */}
+              <div className="overflow-y-auto px-5 py-4 space-y-3 flex-1">
+                {/* Order info */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div><p className="text-xs text-muted-foreground">Booking Date</p><p className="text-sm font-medium">{fmtDate(o.booking_date)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Usage Date</p><p className="text-sm font-medium">{fmtDate(o.usage_date)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Order #</p><p className="text-sm font-medium break-all">{o.order_number}</p></div>
+                  {o.group_number && <div><p className="text-xs text-muted-foreground">Group #</p><p className="text-sm font-medium">{o.group_number}</p></div>}
+                </div>
+                {/* Package */}
+                <div className="bg-muted/40 rounded-lg px-3 py-2">
+                  <p className="text-xs text-muted-foreground mb-1">Package</p>
+                  <div className="flex items-start gap-2">
+                    {pkg?.code && <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded shrink-0">{pkg.code}</span>}
+                    <p className="text-sm">{o.package_details}</p>
+                  </div>
+                </div>
+                {/* People */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div><p className="text-xs text-muted-foreground">Pax</p><p className="text-sm font-semibold">{o.pax}</p></div>
+                  {o.nationality && <div><p className="text-xs text-muted-foreground">Nationality</p><p className="text-sm">{o.nationality}</p></div>}
+                  {o.guide_name && <div><p className="text-xs text-muted-foreground">Guide</p><p className="text-sm">{o.guide_name}</p></div>}
+                </div>
+                {o.pickup_hotel && <div><p className="text-xs text-muted-foreground">Pickup Hotel</p><p className="text-sm">{o.pickup_hotel}</p></div>}
+                {/* Financials */}
+                <div className="bg-muted/40 rounded-lg px-3 py-3 grid grid-cols-2 gap-3">
+                  <div><p className="text-xs text-muted-foreground">Gross Price</p><p className="text-sm font-medium">{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Commission {o.commission_pct > 0 ? `(${+((+o.commission_pct).toFixed(1))}%)` : ""}</p><p className="text-sm text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</p></div>
+                  {o.discount > 0 && <div><p className="text-xs text-muted-foreground">Discount</p><p className="text-sm text-muted-foreground">{fmtCurrency(o.discount)}</p></div>}
+                  <div className="col-span-2 border-t border-border pt-2 mt-1">
+                    <p className="text-xs text-muted-foreground">Net Revenue</p>
+                    <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</p>
+                  </div>
+                </div>
+              </div>
+              {/* Footer actions */}
+              <div className="flex gap-3 px-5 py-4 border-t border-border">
+                <button
+                  onClick={() => { setSheetOrder(null); handleDelete(o.id); }}
+                  className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> ลบ
+                </button>
+                <button
+                  onClick={() => { setSheetOrder(null); openEdit(o); }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Pencil className="w-4 h-4" /> แก้ไข
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Desktop Table ─────────────────────────────────────────────────────── */}
       <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
