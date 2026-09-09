@@ -37,6 +37,7 @@ export default function OTAPackages() {
 
   const [showForm, setShowForm]         = useState(false);
   const [editId, setEditId]             = useState<string | null>(null);
+  const [sheetPkg, setSheetPkg]         = useState<OTAPackage | null>(null);
   const [code, setCode]                 = useState("");
   const [name, setName]                 = useState("");
   const [rows, setRows]                 = useState<PriceRow[]>(defaultRows());
@@ -156,40 +157,74 @@ export default function OTAPackages() {
   const fmtB = (n: number) => n > 0 ? `฿${n.toLocaleString("th-TH")}` : "-";
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold">Resource Library</h1>
-          <p className="text-muted-foreground text-sm">Manage tour packages and platform pricing</p>
+          <h1 className="text-xl md:text-2xl font-bold">Resource Library</h1>
+          <p className="text-muted-foreground text-xs hidden sm:block">Manage tour packages and platform pricing</p>
         </div>
         <div className="flex gap-2">
           <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
           <button onClick={() => importRef.current?.click()}
-            className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-            <Upload className="w-4 h-4" /> Import
+            className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
           </button>
           <button onClick={handleExport}
-            className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> Export
+            className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
           </button>
           <button onClick={openAdd}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Add Package
           </button>
         </div>
       </div>
 
       {/* Template hint */}
-      <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <button onClick={handleDownloadTemplate} className="text-purple-600 hover:underline flex items-center gap-1">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <button onClick={handleDownloadTemplate} className="text-purple-600 hover:underline flex items-center gap-1 shrink-0">
           <Download className="w-3 h-3" /> ดาวน์โหลด Import Template
         </button>
-        <span>· Import จะ Add ใหม่ หรือ Update ถ้า Code ซ้ำ · รองรับ .xlsx / .xls / .csv</span>
+        <span className="hidden sm:inline">· Import จะ Add ใหม่ หรือ Update ถ้า Code ซ้ำ · รองรับ .xlsx / .xls / .csv</span>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden bg-card">
+      {/* ── Mobile Card List ──────────────────────────────────────────────────── */}
+      <div className="md:hidden space-y-3 mb-4">
+        {packages.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">ยังไม่มี Package</div>
+        ) : (
+          packages.map((pkg) => (
+            <button
+              key={pkg.id}
+              onClick={() => setSheetPkg(pkg)}
+              className="w-full text-left bg-card border border-border rounded-xl px-4 py-3 shadow-sm active:scale-[0.98] transition-transform"
+            >
+              {/* Line 1: code + price count */}
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono font-bold text-purple-600 dark:text-purple-400 text-base">{pkg.code}</span>
+                <span className="text-xs text-muted-foreground">{pkg.platform_prices.length} platforms</span>
+              </div>
+              {/* Line 2: name */}
+              <p className="text-sm text-foreground mb-2 line-clamp-2">{pkg.name}</p>
+              {/* Price dots */}
+              <div className="flex flex-wrap gap-1.5">
+                {pkg.platform_prices.slice(0, 3).map((pp) => (
+                  <span key={pp.platform} className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPlatformColor(pp.platform)}`}>
+                    {pp.platform} {fmtB(pp.price)}
+                  </span>
+                ))}
+                {pkg.platform_prices.length > 3 && (
+                  <span className="text-xs text-muted-foreground self-center">+{pkg.platform_prices.length - 3}</span>
+                )}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table ─────────────────────────────────────────────────────── */}
+      <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 text-muted-foreground">
@@ -231,6 +266,66 @@ export default function OTAPackages() {
           </tbody>
         </table>
       </div>
+
+      {/* ── Bottom Sheet (package detail) ─────────────────────────────────────── */}
+      {sheetPkg && (
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSheetPkg(null)} />
+          <div className="relative bg-card rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+              <div>
+                <span className="font-mono font-bold text-purple-600 dark:text-purple-400 text-xl">{sheetPkg.code}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{sheetPkg.platform_prices.length} platforms</p>
+              </div>
+              <button onClick={() => setSheetPkg(null)} className="p-2 hover:bg-muted rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+            </div>
+            {/* Body */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+              {/* Package name */}
+              <div className="bg-muted/40 rounded-xl p-4">
+                <p className="text-xs text-muted-foreground mb-1">Package Details</p>
+                <p className="text-sm font-medium">{sheetPkg.name}</p>
+              </div>
+              {/* Platform prices */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">Platform Prices</p>
+                {sheetPkg.platform_prices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">ยังไม่มีราคา</p>
+                ) : (
+                  <div className="space-y-2">
+                    {sheetPkg.platform_prices.map((pp) => (
+                      <div key={pp.platform} className="flex items-center justify-between bg-muted/30 rounded-lg px-4 py-2.5">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getPlatformColor(pp.platform)}`}>{pp.platform}</span>
+                        <span className="font-bold text-base">{fmtB(pp.price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="flex gap-3 px-5 py-4 border-t border-border shrink-0">
+              <button
+                onClick={() => { setSheetPkg(null); handleDelete(sheetPkg.id); }}
+                className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> ลบ
+              </button>
+              <button
+                onClick={() => { setSheetPkg(null); openEdit(sheetPkg); }}
+                className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Pencil className="w-4 h-4" /> แก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add/Edit Modal ──────────────────────────────────────────────────────── */}
       {showForm && (
