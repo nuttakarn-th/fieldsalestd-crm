@@ -35,6 +35,7 @@ export default function OTAPlatforms() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [customPlatform, setCustomPlatform] = useState(false);
+  const [sheetCfg, setSheetCfg] = useState<OTAPlatformConfig | null>(null);
 
   const inputCls = "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
   const labelCls = "block text-xs font-medium text-foreground/70 mb-1";
@@ -96,16 +97,16 @@ export default function OTAPlatforms() {
   const availablePlatforms = OTA_PLATFORMS.filter((p) => !existingPlatforms.has(p));
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold">Platform Commission</h1>
-          <p className="text-muted-foreground text-sm">Commission % ของแต่ละ platform — auto-fill ตอนสร้าง Order</p>
+          <h1 className="text-xl md:text-2xl font-bold">Platform Commission</h1>
+          <p className="text-muted-foreground text-xs hidden sm:block">Commission % ของแต่ละ platform — auto-fill ตอนสร้าง Order</p>
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" /> Add Platform
         </button>
@@ -114,11 +115,41 @@ export default function OTAPlatforms() {
       {/* Info banner */}
       <div className="mb-4 flex items-start gap-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl px-4 py-3 text-sm text-purple-700 dark:text-purple-300">
         <Percent className="w-4 h-4 mt-0.5 shrink-0" />
-        <span>Commission % ที่ตั้งไว้จะเด้งมาอัตโนมัติเมื่อเลือก Platform ใน Order Entry แต่ยังสามารถแก้ไขตัวเลขได้ทุกครั้ง</span>
+        <span className="text-xs md:text-sm">Commission % ที่ตั้งไว้จะเด้งมาอัตโนมัติเมื่อเลือก Platform ใน Order Entry แต่ยังสามารถแก้ไขตัวเลขได้ทุกครั้ง</span>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden bg-card">
+      {/* ── Mobile Card List ──────────────────────────────────────────────────── */}
+      <div className="md:hidden space-y-3 mb-4">
+        {platformConfigs.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            <Percent className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            ยังไม่มี Platform
+          </div>
+        ) : (
+          platformConfigs.map((cfg) => (
+            <button
+              key={cfg.id}
+              onClick={() => setSheetCfg(cfg)}
+              className="w-full text-left bg-card border border-border rounded-xl px-4 py-3 shadow-sm active:scale-[0.98] transition-transform"
+            >
+              <div className="flex items-center justify-between">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${PLATFORM_COLORS[cfg.platform] ?? "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"}`}>
+                  {cfg.platform}
+                </span>
+                <span className={`text-2xl font-bold ${cfg.commission_pct > 0 ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
+                  {cfg.commission_pct}%
+                </span>
+              </div>
+              {cfg.notes && (
+                <p className="text-xs text-muted-foreground mt-2">{cfg.notes}</p>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table ─────────────────────────────────────────────────────── */}
+      <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
         {platformConfigs.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Percent className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -151,16 +182,10 @@ export default function OTAPlatforms() {
                   <td className="px-4 py-3 text-muted-foreground text-xs">{cfg.notes || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
-                      <button
-                        onClick={() => openEdit(cfg)}
-                        className="p-1.5 hover:bg-muted rounded transition-colors"
-                      >
+                      <button onClick={() => openEdit(cfg)} className="p-1.5 hover:bg-muted rounded transition-colors">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(cfg.id, cfg.platform)}
-                        className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"
-                      >
+                      <button onClick={() => handleDelete(cfg.id, cfg.platform)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -171,6 +196,57 @@ export default function OTAPlatforms() {
           </table>
         )}
       </div>
+
+      {/* ── Bottom Sheet ──────────────────────────────────────────────────────── */}
+      {sheetCfg && (
+        <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSheetCfg(null)} />
+          <div className="relative bg-card rounded-t-2xl shadow-2xl">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${PLATFORM_COLORS[sheetCfg.platform] ?? "bg-purple-100 text-purple-800"}`}>
+                {sheetCfg.platform}
+              </span>
+              <button onClick={() => setSheetCfg(null)} className="p-2 hover:bg-muted rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="px-5 py-5 space-y-4">
+              <div className="flex items-center justify-between bg-muted/40 rounded-xl px-5 py-4">
+                <span className="text-sm text-muted-foreground">Commission Rate</span>
+                <span className={`text-4xl font-bold ${sheetCfg.commission_pct > 0 ? "text-purple-600 dark:text-purple-400" : "text-muted-foreground"}`}>
+                  {sheetCfg.commission_pct}%
+                </span>
+              </div>
+              {sheetCfg.notes && (
+                <div className="bg-muted/40 rounded-xl px-4 py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                  <p className="text-sm">{sheetCfg.notes}</p>
+                </div>
+              )}
+            </div>
+            {/* Footer */}
+            <div className="flex gap-3 px-5 pt-2 pb-6 border-t border-border">
+              <button
+                onClick={() => { setSheetCfg(null); handleDelete(sheetCfg.id, sheetCfg.platform); }}
+                className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> ลบ
+              </button>
+              <button
+                onClick={() => { setSheetCfg(null); openEdit(sheetCfg); }}
+                className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Pencil className="w-4 h-4" /> แก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add/Edit Modal ────────────────────────────────────────────────────── */}
       {showForm && (
