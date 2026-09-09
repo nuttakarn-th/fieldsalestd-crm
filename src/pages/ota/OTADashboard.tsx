@@ -726,12 +726,13 @@ export default function OTADashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ChartCard title="Guide Language Breakdown">
               {guideData.length === 0 ? <EmptyChart /> : (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
                       data={guideData} dataKey="value" nameKey="name"
-                      cx="50%" cy="50%" outerRadius={80}
+                      cx="50%" cy="52%" outerRadius={80}
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={{ strokeWidth: 1 }}
                     >
                       {guideData.map((entry, i) => (
                         <Cell key={i} fill={GUIDE_COLORS[entry.name] ?? COLORS[i % COLORS.length]} />
