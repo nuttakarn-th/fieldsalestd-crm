@@ -473,46 +473,48 @@ export default function OTAOrderEntry() {
         .row-flash-anim { animation: row-flash 0.55s ease-in-out 4; }
       `}</style>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold">Order Entry</h1>
-          <p className="text-muted-foreground text-sm">บันทึก OTA orders รายวัน</p>
+          <h1 className="text-xl sm:text-2xl font-bold">Order Entry</h1>
+          <p className="text-muted-foreground text-sm hidden sm:block">บันทึก OTA orders รายวัน</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {/* Import */}
           <div className="relative">
             <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
             <button onClick={() => importRef.current?.click()}
-              className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-              <Upload className="w-4 h-4" /> Import
+              className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+              <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
             </button>
           </div>
           {/* Export */}
           <button onClick={handleExport}
-            className="flex items-center gap-2 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> Export
+            className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
           </button>
           {/* Add */}
           <button onClick={openAdd}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Add Order
           </button>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
-          <button onClick={prevMonth} className="hover:text-purple-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-          <span className="text-sm font-semibold min-w-[120px] text-center">{monthName} {year}</span>
-          <button onClick={nextMonth} className="hover:text-purple-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+      <div className="flex flex-col gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
+            <button onClick={prevMonth} className="hover:text-purple-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="text-sm font-semibold min-w-[110px] text-center">{monthName} {year}</span>
+            <button onClick={nextMonth} className="hover:text-purple-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order, platform..."
+              className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500" />
+          </div>
         </div>
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order, platform..."
-            className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500" />
-        </div>
-        <div className="ml-auto flex gap-4 text-sm text-muted-foreground">
+        <div className="flex gap-4 text-sm text-muted-foreground">
           <span><span className="font-semibold text-foreground">{filtered.length}</span> orders</span>
           <span><span className="font-semibold text-foreground">{totalPax}</span> pax</span>
           <span className="font-semibold text-purple-600">{fmtCurrency(totalRevenue)}</span>
@@ -527,8 +529,65 @@ export default function OTAOrderEntry() {
         <span>· รองรับ .xlsx / .xls / .csv</span>
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-border overflow-hidden bg-card">
+      {/* ── Mobile Card View (shown only on small screens) ───────────────────── */}
+      <div className="md:hidden space-y-3 mb-4">
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">ยังไม่มี Order ในเดือนนี้</div>
+        ) : (
+          filtered.map((o) => {
+            const pkg = packages.find((p) => p.id === o.package_id);
+            const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
+            return (
+              <div
+                key={o.id}
+                data-order-id={o.id}
+                className={cn(
+                  "bg-card border border-border rounded-xl p-4 shadow-sm",
+                  highlightedOrderId === o.id && "row-flash-anim"
+                )}
+              >
+                {/* Top row: Usage date + platform badge + actions */}
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Usage Date</p>
+                    <p className="font-semibold text-sm">{fmtDate(o.usage_date)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLATFORM_COLORS[o.platform] ?? "bg-purple-100 text-purple-800"}`}>{o.platform}</span>
+                    <button onClick={() => openEdit(o)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDelete(o.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                </div>
+                {/* Order # + Group # */}
+                <div className="flex gap-4 mb-2 text-sm">
+                  <div><span className="text-muted-foreground text-xs">Order # </span><span className="font-medium">{o.order_number}</span></div>
+                  {o.group_number && <div><span className="text-muted-foreground text-xs">Group # </span><span>{o.group_number}</span></div>}
+                </div>
+                {/* Package */}
+                <div className="mb-2">
+                  <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded mr-2">{pkg?.code ?? "-"}</span>
+                  <span className="text-xs text-muted-foreground">{o.package_details}</span>
+                </div>
+                {/* Pax + Nationality + Guide */}
+                <div className="flex flex-wrap gap-3 mb-2 text-sm">
+                  <div><span className="text-muted-foreground text-xs">Pax </span><span className="font-semibold">{o.pax}</span></div>
+                  {o.nationality && <div><span className="text-muted-foreground text-xs">National </span><span>{o.nationality}</span></div>}
+                  {o.guide_name && <div><span className="text-muted-foreground text-xs">Guide </span><span>{o.guide_name}</span></div>}
+                </div>
+                {/* Financial summary */}
+                <div className="flex gap-4 text-sm border-t border-border pt-2 mt-2">
+                  <div><p className="text-xs text-muted-foreground">Gross</p><p>{o.gross_price > 0 ? fmtCurrency(o.gross_price) : "-"}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Comm {o.commission_pct > 0 ? `${+((+o.commission_pct).toFixed(1))}%` : ""}</p><p className="text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</p></div>
+                  <div className="ml-auto"><p className="text-xs text-muted-foreground">Net Revenue</p><p className="font-semibold text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</p></div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── Desktop Table ─────────────────────────────────────────────────────── */}
+      <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -605,6 +664,7 @@ export default function OTAOrderEntry() {
           </table>
         </div>
       </div>
+      {/* end desktop table */}
 
       {/* ── Add/Edit Modal ───────────────────────────────────────────────────── */}
       {showForm && (() => {

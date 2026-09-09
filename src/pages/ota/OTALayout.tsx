@@ -42,10 +42,11 @@ export default function OTALayout() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
+      {/* ── Sidebar (desktop only) ───────────────────────────────────────────── */}
       <aside
         className={cn(
-          "relative flex flex-col bg-[#1e1b4b] text-white transition-all duration-300 shrink-0",
+          "relative flex-col bg-[#1e1b4b] text-white transition-all duration-300 shrink-0",
+          "hidden md:flex",          // ซ่อนบนมือถือ
           collapsed ? "w-16" : "w-56"
         )}
       >
@@ -133,9 +134,30 @@ export default function OTALayout() {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto pb-16 md:pb-0">
         <Outlet />
       </main>
+
+      {/* ── Mobile Bottom Navigation ─────────────────────────────────────────── */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#1e1b4b] border-t border-white/10 flex safe-area-inset-bottom">
+        {NAV_ITEMS.map((item) => {
+          const active = location.pathname.startsWith(item.to);
+          const Icon   = item.icon;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors",
+                active ? "text-purple-300" : "text-white/50 hover:text-white"
+              )}
+            >
+              <Icon className="w-5 h-5" />
+              <span>{item.label.split(" ")[0]}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
