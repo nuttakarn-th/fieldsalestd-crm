@@ -408,12 +408,12 @@ export default function OTADashboard() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">OTA Dashboard</h1>
-          <p className="text-muted-foreground text-sm">วิเคราะห์ performance OTA รายเดือน</p>
+          <h1 className="text-xl md:text-2xl font-bold">OTA Dashboard</h1>
+          <p className="text-muted-foreground text-xs md:text-sm hidden sm:block">วิเคราะห์ performance OTA รายเดือน</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -433,18 +433,19 @@ export default function OTADashboard() {
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
           >
             <FileDown className="w-4 h-4" />
-            Export PDF
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
-          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
+          <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5">
             <button onClick={prevMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">◀</button>
-            <span className="text-sm font-semibold min-w-[130px] text-center">{monthName} {year}</span>
+            <span className="text-sm font-semibold min-w-[110px] text-center">{monthName} {year}</span>
             <button onClick={nextMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">▶</button>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards — 8 cards, 2 rows on mobile */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      {/* ── KPI Cards — horizontal scroll on mobile ───────────────────────────── */}
+      {/* Top 4 in 2×2 grid */}
+      <div className="grid grid-cols-2 gap-3">
         <KPICard
           icon={ShoppingCart} label="Orders" value={String(totalOrders)}
           color="bg-purple-100 dark:bg-purple-900/40 text-purple-600"
@@ -456,41 +457,52 @@ export default function OTADashboard() {
           badge={momBadge(totalRevenue, prevRevenue)}
         />
         <KPICard
-          icon={DollarSign} label="Gross Revenue" value={fmtB(totalGross)}
-          color="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600"
-        />
-        <KPICard
           icon={Users} label="People" value={String(totalPax)}
           color="bg-pink-100 dark:bg-pink-900/40 text-pink-600"
           badge={momBadge(totalPax, prevPax)}
         />
         <KPICard
-          icon={TrendingUp} label="Avg / Order" value={avgPax}
-          color="bg-blue-100 dark:bg-blue-900/40 text-blue-600"
+          icon={DollarSign} label="Gross Revenue" value={fmtB(totalGross)}
+          color="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600"
         />
-        <KPICard
-          icon={BarChart3} label="RevPAX" value={fmtB(revPAX)}
-          color="bg-violet-100 dark:bg-violet-900/40 text-violet-600"
-          sub="รายได้ต่อคน"
-        />
-        <KPICard
-          icon={Bus} label="Total Groups" value={String(uniqueGroups || totalOrders)}
-          color="bg-orange-100 dark:bg-orange-900/40 text-orange-600"
-        />
-        <KPICard
-          icon={Layers} label="YTD Revenue" value={fmtBK(ytdRevenue)}
-          color="bg-rose-100 dark:bg-rose-900/40 text-rose-600"
-          sub={`ทั้งปี ${year}`}
-        />
+      </div>
+      {/* Secondary 4 KPIs — horizontal scroll strip on mobile, grid on desktop */}
+      <div className="flex md:grid md:grid-cols-4 gap-3 overflow-x-auto pb-1 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
+        {[
+          { icon: TrendingUp, label: "Avg / Order", value: avgPax, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600" },
+          { icon: BarChart3,  label: "RevPAX",      value: fmtB(revPAX), color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
+          { icon: Bus,        label: "Total Groups", value: String(uniqueGroups || totalOrders), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600" },
+          { icon: Layers,     label: "YTD Revenue",  value: fmtBK(ytdRevenue), color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600", sub: `ทั้งปี ${year}` },
+        ].map((k) => (
+          <div key={k.label} className="shrink-0 w-40 md:w-auto">
+            <KPICard icon={k.icon} label={k.label} value={k.value} color={k.color} sub={k.sub} />
+          </div>
+        ))}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-2 border-b border-border pb-3 flex-wrap">
-        <TabBtn active={tab === "overview"} onClick={() => setTab("overview")}>📊 Overview</TabBtn>
-        <TabBtn active={tab === "revenue"} onClick={() => setTab("revenue")}>💰 Revenue</TabBtn>
-        <TabBtn active={tab === "operations"} onClick={() => setTab("operations")}>⚙️ Operations</TabBtn>
-        <TabBtn active={tab === "markets"} onClick={() => setTab("markets")}>🌏 Markets</TabBtn>
+      {/* ── Tab bar — full-width segmented control ────────────────────────────── */}
+      <div className="grid grid-cols-4 bg-muted rounded-xl p-1 gap-1">
+        {([
+          { key: "overview",    emoji: "📊", label: "Overview"  },
+          { key: "revenue",     emoji: "💰", label: "Revenue"   },
+          { key: "operations",  emoji: "⚙️", label: "Ops"       },
+          { key: "markets",     emoji: "🌏", label: "Markets"   },
+        ] as { key: Tab; emoji: string; label: string }[]).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex flex-col items-center justify-center py-2 rounded-lg text-[11px] font-medium transition-colors gap-0.5 ${
+              tab === t.key
+                ? "bg-card text-purple-600 shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span className="text-base leading-none">{t.emoji}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
       </div>
+
 
       {/* ── Tab: Overview ─────────────────────────────────────────────────────── */}
       {tab === "overview" && (
