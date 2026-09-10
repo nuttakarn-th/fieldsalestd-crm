@@ -670,7 +670,7 @@ export default function Customers() {
         <div className="flex gap-3 flex-1 min-h-0 overflow-hidden">
 
           {/* ── Left panel: list ── */}
-          <div className="w-[340px] shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
+          <div className="w-1/3 shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
 
             {/* Summary stats strip */}
             <div className="grid grid-cols-3 shrink-0 border-b border-border bg-muted/10">
