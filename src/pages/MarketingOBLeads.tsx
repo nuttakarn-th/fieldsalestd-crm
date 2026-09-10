@@ -101,6 +101,78 @@ function leadPriority(status: string): number {
   return 6;
 }
 
+// ── RFM Model ─────────────────────────────────────────────────────────────────
+
+type RFMSegment = "Champion" | "Loyal" | "At Risk" | "Big Spender" | "New" | "ทั่วไป";
+type RFMScore = 1 | 2 | 3; // 1 = ดี, 2 = เตือน, 3 = แย่
+
+interface RFMResult {
+  rDays: number | null;
+  rLabel: string;
+  rScore: RFMScore;
+  fScore: RFMScore;
+  mScore: RFMScore;
+  segment: RFMSegment;
+  insight: string;
+}
+
+function computeRFM(customer: Customer): RFMResult {
+  const now = Date.now();
+
+  // R — Recency (วันที่ติดต่อล่าสุด)
+  let rDays: number | null = null;
+  let rLabel = "ไม่มีข้อมูล";
+  let rScore: RFMScore = 3;
+  if (customer.last_contacted_at) {
+    rDays = Math.floor((now - new Date(customer.last_contacted_at).getTime()) / 86_400_000);
+    if (rDays <= 7)        rLabel = `${rDays} วันที่แล้ว`;
+    else if (rDays <= 30)  rLabel = `${Math.floor(rDays / 7)} สัปดาห์ที่แล้ว`;
+    else                   rLabel = `${Math.floor(rDays / 30)} เดือนที่แล้ว`;
+    rScore = rDays <= 60 ? 1 : rDays <= 180 ? 2 : 3;
+  }
+
+  // F — Frequency (จำนวนครั้งที่ซื้อ)
+  const fScore: RFMScore = customer.total_trips >= 3 ? 1 : customer.total_trips >= 1 ? 2 : 3;
+
+  // M — Monetary (ยอดรวม)
+  const mScore: RFMScore = customer.total_spend >= 50_000 ? 1 : customer.total_spend >= 10_000 ? 2 : 3;
+
+  // Segment logic
+  let segment: RFMSegment;
+  if (customer.total_trips === 0)              segment = "New";
+  else if (fScore === 1 && mScore === 1 && rScore <= 2) segment = "Champion";
+  else if (fScore === 1 && rScore === 3)        segment = "At Risk";
+  else if (mScore === 1 && fScore >= 2)         segment = "Big Spender";
+  else if (fScore === 1)                        segment = "Loyal";
+  else                                          segment = "ทั่วไป";
+
+  // Auto insight
+  const insight =
+    segment === "Champion"    ? `ลูกค้า Champion ยอดสูง ใช้บริการบ่อย${rScore === 2 ? ` — หายไป ${rLabel} แล้ว ควรโทรติดตามด่วน` : " — ดูแลรักษาความสัมพันธ์ต่อเนื่อง"}` :
+    segment === "At Risk"     ? `เคยซื้อบ่อยแต่หายนาน ${rLabel} — ควรโทรหาด่วน เสนอโปรพิเศษหรือ package ใหม่` :
+    segment === "Big Spender" ? `ยอดต่อครั้งสูงแต่ซื้อไม่บ่อย — มีศักยภาพสูง ลองเสนอ package พรีเมียม` :
+    segment === "Loyal"       ? `ใช้บริการสม่ำเสมอ — เหมาะสำหรับ upsell หรือ cross-sell package ใหม่` :
+    segment === "New"         ? `ลูกค้าใหม่ยังไม่เคยซื้อ — ติดตามพูดคุย เสนอ package เริ่มต้น` :
+                                `ลูกค้าทั่วไป — ติดตามอย่างสม่ำเสมอเพื่อสร้างความสัมพันธ์`;
+
+  return { rDays, rLabel, rScore, fScore, mScore, segment, insight };
+}
+
+const SEGMENT_STYLE: Record<RFMSegment, { label: string; pill: string }> = {
+  "Champion":    { label: "Champion",    pill: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300" },
+  "At Risk":     { label: "At Risk",     pill: "bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400" },
+  "Big Spender": { label: "Big Spender", pill: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400" },
+  "Loyal":       { label: "Loyal",       pill: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  "New":         { label: "New",         pill: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300" },
+  "ทั่วไป":      { label: "ทั่วไป",      pill: "bg-muted text-muted-foreground border-border" },
+};
+
+const RFM_SCORE_COLOR: Record<RFMScore, string> = {
+  1: "text-emerald-600 dark:text-emerald-400",
+  2: "text-amber-600 dark:text-amber-400",
+  3: "text-red-500 dark:text-red-400",
+};
+
 // ── Compact list row ──────────────────────────────────────────────────────────
 
 interface ListRowProps {
@@ -113,6 +185,8 @@ interface ListRowProps {
 function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
   const meta  = statusMeta(lead?.status ?? "ใหม่");
   const value = lead?.closed_price || lead?.quoted_price;
+  const rfm   = computeRFM(customer);
+  const seg   = SEGMENT_STYLE[rfm.segment];
   return (
     <button
       data-id={customer.customer_id}
@@ -124,7 +198,7 @@ function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
       }`}
     >
       {/* Status bar */}
-      <div className={`w-1 h-8 rounded-full shrink-0 ${meta.bar}`} />
+      <div className={`w-1 h-10 rounded-full shrink-0 ${meta.bar}`} />
 
       {/* Avatar */}
       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold ${
@@ -133,27 +207,37 @@ function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
         {customer.full_name.charAt(0)}
       </div>
 
-      {/* Name + status pill + program */}
+      {/* Name + segment + recency */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate leading-tight ${selected ? "text-violet-700 dark:text-violet-300" : ""}`}>
-          {customer.full_name}
-        </p>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className={`text-sm font-semibold truncate leading-tight ${selected ? "text-violet-700 dark:text-violet-300" : ""}`}>
+            {customer.full_name}
+          </p>
+          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${seg.pill}`}>
+            {seg.label}
+          </Badge>
+        </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${meta.pill}`}>
             {meta.label}
           </Badge>
-          <p className="text-[10px] text-muted-foreground truncate leading-tight">
-            {lead?.program || lead?.bu_type || customer.phone}
+          <p className={`text-[10px] truncate leading-tight ${RFM_SCORE_COLOR[rfm.rScore]}`}>
+            {rfm.rLabel}
           </p>
         </div>
       </div>
 
-      {/* Deal value */}
-      {value ? (
-        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0 tabular-nums">
-          {fmtMoney(value)}
-        </span>
-      ) : null}
+      {/* Deal value / spend */}
+      <div className="text-right shrink-0">
+        {value ? (
+          <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            {fmtMoney(value)}
+          </p>
+        ) : null}
+        {customer.total_spend > 0 && (
+          <p className="text-[9px] text-muted-foreground tabular-nums">{fmtMoney(customer.total_spend)}</p>
+        )}
+      </div>
     </button>
   );
 }
@@ -182,6 +266,7 @@ interface DetailPanelProps {
 
 function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
   const tours = useServices((s) => s.tours);
+  const rfm   = customer ? computeRFM(customer) : null;
 
   if (!customer) {
     return (
@@ -243,6 +328,40 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
           </Button>
         </div>
       </div>
+
+      {/* ── RFM Profile section ── */}
+      {rfm && (
+        <div className="px-6 py-4 border-b border-border bg-muted/20">
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RFM Profile</p>
+            <Badge variant="outline" className={`text-[9px] px-2 ${SEGMENT_STYLE[rfm.segment].pill}`}>
+              {SEGMENT_STYLE[rfm.segment].label}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {/* R */}
+            <div className="bg-card border rounded-xl p-3 text-center">
+              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.rScore]}`}>{rfm.rLabel}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">ล่าสุด (R)</p>
+            </div>
+            {/* F */}
+            <div className="bg-card border rounded-xl p-3 text-center">
+              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.fScore]}`}>{customer.total_trips} ครั้ง</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">ความถี่ (F)</p>
+            </div>
+            {/* M */}
+            <div className="bg-card border rounded-xl p-3 text-center">
+              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.mScore]}`}>{fmtMoney(customer.total_spend)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">ยอดรวม (M)</p>
+            </div>
+          </div>
+          {/* Insight */}
+          <div className="rounded-xl border border-violet-200/60 bg-violet-50/60 dark:bg-violet-900/15 dark:border-violet-800/40 px-3.5 py-2.5">
+            <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mb-1">คำแนะนำ</p>
+            <p className="text-[11px] text-foreground/70 leading-relaxed">{rfm.insight}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Content: 2-column grid ── */}
       <div className="flex-1 p-5 grid grid-cols-1 lg:grid-cols-2 gap-5 content-start">
