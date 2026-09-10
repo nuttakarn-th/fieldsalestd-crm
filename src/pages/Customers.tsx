@@ -251,6 +251,7 @@ function exportFBList(customers: Customer[]) {
 function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const updateLead = useCRM((s) => s.updateLead);
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
+  const deleteLead = useCRM((s) => s.deleteLead);
 
   const [status, setStatus] = useState<LeadStatus>(lead.status);
   const [urgency, setUrgency] = useState<string>(lead.urgency ?? "Warm");
@@ -261,6 +262,7 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
   const [note, setNote] = useState(lead.status_note ?? "");
   const [lostReason, setLostReason] = useState(lead.lost_reason ?? LOST_REASONS[0]);
   const [lostNote, setLostNote] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isCancelling = status === "ยกเลิก";
 
@@ -297,6 +299,12 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
       : undefined;
     if (status !== lead.status || isCancelling) updateLeadStatus(lead.lead_id, status, finalLostReason);
     toast.success("บันทึก Lead เรียบร้อยแล้ว");
+    onClose();
+  }
+
+  function handleDelete() {
+    deleteLead(lead.lead_id);
+    toast.success("ลบ Lead เรียบร้อยแล้ว");
     onClose();
   }
 
@@ -382,7 +390,26 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[60px] text-sm mt-1" placeholder="เพิ่มหมายเหตุ..." />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
+          {confirmDelete ? (
+            <div className="flex items-center gap-2 w-full sm:w-auto mr-auto">
+              <span className="text-xs text-destructive font-medium">ยืนยันลบ Lead นี้?</span>
+              <Button size="sm" variant="destructive" className="h-7 px-3 text-xs" onClick={handleDelete}>
+                ลบเลย
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 px-3 text-xs" onClick={() => setConfirmDelete(false)}>
+                ยกเลิก
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm" variant="ghost"
+              className="h-8 px-3 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive mr-auto"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1" />ลบ Lead
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onClose}><X className="w-3.5 h-3.5 mr-1" />ยกเลิก</Button>
           <Button size="sm" className={isCancelling ? "bg-destructive hover:bg-destructive/90" : "bg-gradient-primary"} onClick={handleSave}>
             <Save className="w-3.5 h-3.5 mr-1" />{isCancelling ? "ยืนยันยกเลิก" : "บันทึก"}
