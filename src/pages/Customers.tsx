@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { Navigate, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X, Users2, Calendar, ExternalLink, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCRM, formatTHB, tierBadge, SOURCES, isClosedStatus, type Customer, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { useCRM, formatTHB, tierBadge, SOURCES, isClosedStatus, isLostStatus, type Customer, type Lead, type LeadStatus, type SalesRep, type Tier, type Source } from "@/store/crmStore";
 import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames, useAllSalesTeamNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +51,30 @@ const INTEREST_STYLE: Record<string, { label: string; className: string }> = {
   "Visa":             { label: "📋 Visa",   className: "bg-rose-100 text-rose-700 border-rose-200" },
   "ประกันการเดินทาง": { label: "🛡️ ประกัน", className: "bg-orange-100 text-orange-700 border-orange-200" },
 };
+
+function leadStatusStyle(status: string) {
+  const s = status as LeadStatus;
+  if (isClosedStatus(s)) return {
+    pill: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300",
+    bar:  "bg-emerald-500",
+    label: status,
+  };
+  if (isLostStatus(s)) return {
+    pill: "bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400",
+    bar:  "bg-red-400",
+    label: status,
+  };
+  if (status === "ส่ง Quote แล้ว") return {
+    pill: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300",
+    bar:  "bg-blue-400",
+    label: status,
+  };
+  return {
+    pill: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
+    bar:  "bg-amber-400",
+    label: status,
+  };
+}
 
 function fmtMoney(n: number): string {
   if (!n) return "฿0";
@@ -140,6 +164,8 @@ export default function Customers() {
   const isOBManager = user?.role === "OB Manager";
   const isOBRole = user?.role === "OB Co-ordinator" || isOBManager;
   const canDirectDelete = isAdmin || isSalesManager || isOBManager;
+  // Split-pane: show for OB/Sales roles (Marketing redirects to its own page)
+  const useSplitPane = (isOBRole || user?.role === "Sales" || isSalesManager) && !isMarketing && !isAdmin;
 
   // ── Marketing: Department filter (OB | Sales | all) via URL ?dept= ──────────
   const [searchParams, setSearchParams] = useSearchParams();
@@ -195,6 +221,7 @@ export default function Customers() {
   const [transferTo, setTransferTo] = useState<SalesRep | "">("");
   const [deleteOf, setDeleteOf] = useState<Customer | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filters
   const [filterTier, setFilterTier] = useState<Tier | "all">("all");
@@ -330,6 +357,44 @@ export default function Customers() {
   // Reset to page 1 whenever filter/search/pageSize changes
   useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterDateRange, sortBy, pageSize]);
 
+  // ── Split-pane computed ───────────────────────────────────────────────────
+  const latestLeadByCustomer = useMemo(() => {
+    const map = new Map<string, LeadStatus>();
+    const priority = (s: LeadStatus) => isLostStatus(s) ? 2 : isClosedStatus(s) ? 1 : 0;
+    leads.forEach((l) => {
+      const cur = map.get(l.customer_id);
+      if (!cur || priority(l.status) < priority(cur)) map.set(l.customer_id, l.status);
+    });
+    return map;
+  }, [leads]);
+
+  const selectedCustomer = useMemo(
+    () => (selectedId ? scoped.find((c) => c.customer_id === selectedId) ?? null : null),
+    [scoped, selectedId],
+  );
+
+  const selectedLeads = useMemo(
+    () =>
+      selectedId
+        ? leads
+            .filter((l) => l.customer_id === selectedId)
+            .sort((a, b) => {
+              const p = (s: LeadStatus) => (isLostStatus(s) ? 2 : isClosedStatus(s) ? 1 : 0);
+              return p(a.status) - p(b.status);
+            })
+        : [],
+    [leads, selectedId],
+  );
+
+  // Auto-select first item when split-pane + filter changes
+  useEffect(() => {
+    if (!useSplitPane) return;
+    setSelectedId((prev) => {
+      if (prev && filtered.some((c) => c.customer_id === prev)) return prev;
+      return filtered[0]?.customer_id ?? null;
+    });
+  }, [filtered, useSplitPane]);
+
   const resetFilters = () => {
     setFilterTier("all");
     setFilterSource("all");
@@ -406,6 +471,401 @@ export default function Customers() {
   // เก็บ query string (เช่น ?dept=ob) ไว้ด้วย — ไม่งั้นตัวกรอง OB/Sales จะหายไปตอน redirect
   if ((user?.role === "Marketing" || user?.role === "Marketing Manager") && location.pathname.startsWith("/app")) {
     return <Navigate to={`/marketing/customers${location.search}`} replace />;
+  }
+
+  // ── Split-pane layout (OB / Sales roles) ────────────────────────────────
+  if (useSplitPane) {
+    const activeLeads   = selectedLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status));
+    const closedValue   = selectedLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0);
+    const latestStatus  = selectedCustomer ? latestLeadByCustomer.get(selectedCustomer.customer_id) : undefined;
+
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] p-3 sm:p-4 gap-3 overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div>
+            <h1 className="text-lg font-bold leading-tight">ฐานข้อมูลลูกค้า</h1>
+            <p className="text-xs text-muted-foreground">
+              {currentRep !== "All" ? currentRep : (isOBRole ? "OB ทั้งทีม" : "Sales ทั้งทีม")} · {filtered.length} ราย
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <ImportExportMenu
+              fields={CUSTOMER_FIELDS}
+              sheetName="ลูกค้า"
+              filename="customers"
+              data={exportData}
+              onImport={handleImport}
+            />
+            <Button className="bg-gradient-primary h-8 px-3 text-xs gap-1.5" onClick={() => setOpenAdd(true)}>
+              <Plus className="w-3.5 h-3.5" /> เพิ่มลูกค้า / สร้าง Lead
+            </Button>
+          </div>
+        </div>
+
+        {/* ── Split pane ── */}
+        <div className="flex gap-3 flex-1 min-h-0 overflow-hidden">
+
+          {/* ── Left panel: list ── */}
+          <div className="w-[290px] shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
+
+            {/* Filter bar */}
+            <div className="p-2.5 border-b border-border shrink-0 space-y-2">
+              <div className="flex gap-1.5">
+                <select
+                  value={filterSource}
+                  onChange={(e) => setFilterSource(e.target.value as Source | "all")}
+                  className="flex-1 h-8 rounded-lg border border-border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer"
+                >
+                  <option value="all">ทุกช่องทาง</option>
+                  {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="flex-1 h-8 rounded-lg border border-border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer"
+                >
+                  <option value="newest">ใหม่สุด</option>
+                  <option value="spend_desc">ยอดสูงสุด</option>
+                  <option value="spend_asc">ยอดน้อยสุด</option>
+                  <option value="name">ชื่อ ก-ฮ</option>
+                </select>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="ค้นหาชื่อ, เบอร์..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Count */}
+            <div className="px-3 py-1.5 border-b border-border shrink-0 bg-muted/20">
+              <p className="text-[10px] text-muted-foreground font-medium">{filtered.length} รายการ</p>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  <Users2 className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                  <p>ไม่พบลูกค้า</p>
+                </div>
+              ) : (
+                filtered.map((c) => {
+                  const status  = latestLeadByCustomer.get(c.customer_id) ?? "ใหม่";
+                  const lStyle  = leadStatusStyle(status);
+                  const spend   = wonSpendMap.get(c.customer_id) ?? 0;
+                  const isSelected = c.customer_id === selectedId;
+                  return (
+                    <div
+                      key={c.customer_id}
+                      data-customer-id={c.customer_id}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 cursor-pointer border-b border-border transition-colors ${
+                        isSelected
+                          ? "bg-violet-50/80 dark:bg-violet-900/20 border-l-2 border-l-violet-500"
+                          : "hover:bg-muted/40"
+                      }`}
+                      onClick={() => setSelectedId(c.customer_id)}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {c.full_name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${isSelected ? "text-violet-700 dark:text-violet-300" : ""}`}>
+                          {c.full_name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lStyle.pill}`}>{lStyle.label}</span>
+                          <span className="text-[10px] text-muted-foreground">{c.source}</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {spend > 0
+                          ? <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{fmtMoney(spend)}</p>
+                          : <p className="text-[10px] text-muted-foreground">—</p>
+                        }
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* ── Right panel: detail ── */}
+          <div className="flex-1 bg-card border rounded-xl overflow-hidden shadow-sm flex flex-col min-w-0">
+            {!selectedCustomer ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                <Users2 className="w-10 h-10 opacity-20" />
+                <p className="text-sm">เลือกลูกค้าจากรายการ</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto flex flex-col">
+
+                {/* Customer header */}
+                <div className="px-5 py-4 border-b border-border bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-900/20 shrink-0">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shrink-0 shadow">
+                      {selectedCustomer.full_name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg font-bold">{selectedCustomer.full_name}</h2>
+                        <Badge variant="outline" className={`text-[10px] px-2 ${tierBadge(selectedCustomer.customer_tier)}`}>
+                          <Star className="w-2.5 h-2.5 mr-1" />{selectedCustomer.customer_tier}
+                        </Badge>
+                        {latestStatus && (
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${leadStatusStyle(latestStatus).pill}`}>
+                            {leadStatusStyle(latestStatus).label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        {selectedCustomer.source} · {selectedCustomer.created_by}
+                        {selectedCustomer.last_contacted_at && ` · ติดต่อล่าสุด ${fmtDate(selectedCustomer.last_contacted_at)}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button size="sm" variant="outline"
+                        className="h-8 px-3 text-xs gap-1.5 border-violet-300 text-violet-600 hover:bg-violet-50"
+                        onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                        <ExternalLink className="w-3.5 h-3.5" /> โปรไฟล์เต็ม
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5"
+                        onClick={() => setEditing(selectedCustomer)}>
+                        <Pencil className="w-3.5 h-3.5" /> แก้ไข
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats strip */}
+                <div className="grid grid-cols-4 border-b border-border shrink-0">
+                  {[
+                    { label: "ซื้อแล้ว",  value: `${wonTripsMap.get(selectedCustomer.customer_id) ?? 0} ครั้ง`, cls: "text-violet-600 dark:text-violet-400" },
+                    { label: "ยอดรวม",   value: fmtMoney(wonSpendMap.get(selectedCustomer.customer_id) ?? 0), cls: "text-emerald-600 dark:text-emerald-400" },
+                    { label: "Active Lead", value: `${activeLeads.length}`, cls: "text-amber-600" },
+                    { label: "ยอดปิดได้", value: closedValue > 0 ? fmtMoney(closedValue) : "—", cls: "text-emerald-600 dark:text-emerald-400" },
+                  ].map(({ label, value, cls }) => (
+                    <div key={label} className="px-4 py-3 text-center border-r border-border last:border-r-0">
+                      <p className={`text-base font-bold ${cls}`}>{value}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 p-4 grid grid-cols-2 gap-4 content-start">
+
+                  {/* Contact card */}
+                  <div className="bg-card border rounded-xl p-4 space-y-3">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <a href={`tel:${selectedCustomer.phone}`} className="text-violet-600 hover:underline">{selectedCustomer.phone}</a>
+                      </div>
+                      {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span>{selectedCustomer.line_id}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate text-xs">{selectedCustomer.email}</span>
+                        </div>
+                      )}
+                      {selectedCustomer.province && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-xs">{selectedCustomer.province}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Quick actions */}
+                    <div className="flex gap-1.5 pt-2 border-t border-border flex-wrap">
+                      <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" asChild>
+                        <a href={`tel:${selectedCustomer.phone}`}><Phone className="w-3 h-3" /> โทร</a>
+                      </Button>
+                      {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1">
+                          <MessageCircle className="w-3 h-3" /> LINE
+                        </Button>
+                      )}
+                      {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
+                        <Button size="sm" variant="outline"
+                          className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                          onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
+                          <ArrowRightLeft className="w-3 h-3" /> โอน
+                        </Button>
+                      )}
+                      {canDirectDelete ? (
+                        <Button size="sm" variant="outline"
+                          className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
+                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                          <Trash2 className="w-3 h-3" /> ลบ
+                        </Button>
+                      ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                        <Button size="sm" variant="outline"
+                          className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
+                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                          <Trash2 className="w-3 h-3" /> ขอลบ
+                        </Button>
+                      ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                        <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
+                          <Clock className="w-3 h-3" /> รอ Manager
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Lead history — full width */}
+                  <div className="bg-card border rounded-xl overflow-hidden col-span-2">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ประวัติ Lead</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{selectedLeads.length} รายการ</span>
+                        <Button size="sm"
+                          className="h-6 px-2.5 text-[10px] gap-1 bg-violet-600 hover:bg-violet-700 text-white"
+                          onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                          <Plus className="w-2.5 h-2.5" /> สร้าง Lead
+                        </Button>
+                      </div>
+                    </div>
+                    {selectedLeads.length === 0 ? (
+                      <div className="py-8 text-center text-muted-foreground text-sm">
+                        <p className="mb-2 text-xs">ยังไม่มี Lead</p>
+                        <Button size="sm" variant="outline" className="text-xs h-7"
+                          onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                          + สร้าง Lead แรก
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {selectedLeads.map((l) => {
+                          const lStyle = leadStatusStyle(l.status);
+                          const lv = l.closed_price || l.quoted_price;
+                          return (
+                            <div key={l.lead_id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                              <div className={`w-1 h-10 rounded-full shrink-0 ${lStyle.bar}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lStyle.pill}`}>{lStyle.label}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                                  <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
+                                  {l.travel_month && (
+                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>
+                                  )}
+                                  {l.assigned_to && <span>· {l.assigned_to}</span>}
+                                </div>
+                              </div>
+                              {lv ? (
+                                <div className="text-right shrink-0">
+                                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(lv)}</p>
+                                  {l.closed_date && <p className="text-[10px] text-muted-foreground">ปิด {fmtDate(l.closed_date)}</p>}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Note */}
+                  {selectedCustomer.note && (
+                    <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4 col-span-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2">บันทึก</p>
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{selectedCustomer.note}</p>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dialogs */}
+        <CustomerLeadDialog open={openAdd} onOpenChange={setOpenAdd} />
+        <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
+        <Dialog open={!!transferOf} onOpenChange={(o) => !o && setTransferOf(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>โอนลูกค้าให้ Sales คนอื่น</DialogTitle></DialogHeader>
+            {transferOf && (
+              <div className="space-y-3">
+                <p className="text-sm">ลูกค้า: <b>{transferOf.full_name}</b></p>
+                <div>
+                  <label className="text-xs font-semibold">เลือก Sales ปลายทาง</label>
+                  <Select value={transferTo} onValueChange={(v) => setTransferTo(v as SalesRep)}>
+                    <SelectTrigger><SelectValue placeholder="เลือก Sales..." /></SelectTrigger>
+                    <SelectContent>
+                      {SALES_REPS.filter((r) => r !== transferOf.created_by).map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTransferOf(null)}>ยกเลิก</Button>
+              <Button className="bg-amber-600 hover:bg-amber-700 text-white" disabled={!transferTo}
+                onClick={() => { if (!transferOf || !transferTo) return; transferCustomer(transferOf.customer_id, transferTo as SalesRep); toast.success(`โอนลูกค้า ${transferOf.full_name} ให้ ${transferTo} แล้ว`); setTransferOf(null); }}>
+                ยืนยันโอน
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={!!deleteOf} onOpenChange={(o) => !o && setDeleteOf(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="w-5 h-5" />
+                {canDirectDelete ? "ลบลูกค้า" : "ขอลบลูกค้า"}
+              </DialogTitle>
+            </DialogHeader>
+            {deleteOf && (
+              <div className="space-y-4">
+                <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3">
+                  <p className="text-sm font-semibold">{deleteOf.full_name}</p>
+                  <p className="text-xs text-muted-foreground">{deleteOf.phone}</p>
+                </div>
+                {canDirectDelete
+                  ? <p className="text-xs text-destructive/80">⚠️ การลบจะ<strong>ถาวร</strong> ไม่สามารถกู้คืนได้</p>
+                  : <p className="text-xs text-muted-foreground">⚠️ คำขอจะถูกส่งให้ Manager พิจารณา</p>
+                }
+                <div>
+                  <label className="text-xs font-semibold block mb-1.5">เหตุผล (ถ้ามี)</label>
+                  <Textarea value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} rows={3} className="text-sm resize-none" />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteOf(null)}>ยกเลิก</Button>
+              <Button variant="destructive" onClick={async () => {
+                if (!deleteOf || !user) return;
+                if (canDirectDelete) { deleteCustomer(deleteOf.customer_id); }
+                else { await addRequest({ customer_id: deleteOf.customer_id, customer_name: deleteOf.full_name, requested_by: user.full_name, reason: deleteReason.trim() || undefined, department: user.role === "OB Co-ordinator" ? "ob" : "sales" }); }
+                setDeleteOf(null);
+              }}>
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                {canDirectDelete ? "ลบทันที" : "ส่งคำขอให้ Manager"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
   }
 
   return (
