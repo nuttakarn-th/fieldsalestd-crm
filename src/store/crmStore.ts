@@ -4,8 +4,9 @@ import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { toast } from "sonner";
 
 // ── ป้องกัน Race condition: customer FK ยังไม่ commit ก่อน lead insert ──
-// เก็บ Promise ของ Supabase customer insert เพื่อให้ addLead await ได้
-const _pendingCustomerInserts = new Map<string, Promise<void>>();
+// เก็บ Promise ของ Supabase inserts เพื่อให้ awaitBookingInserts() ตรวจสอบผล
+const _pendingCustomerInserts = new Map<string, Promise<boolean>>(); // true=ok, false=error
+const _pendingLeadInserts     = new Map<string, Promise<boolean>>(); // true=ok, false=error
 import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
 import { logActivity, getDeptFromRole } from "@/lib/activityLog";
@@ -647,6 +648,7 @@ interface CRMState {
   loadAllFromSupabase: () => Promise<void>;
   loadRouteFromSupabase: (routeId: string) => Promise<void>;
   addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by" | "channel"> & { created_by?: SalesRep }) => string;
+  awaitBookingInserts: (customerId: string, leadId: string) => Promise<{ customerOk: boolean; leadOk: boolean }>;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
@@ -1345,10 +1347,11 @@ export const useCRM = create<CRMState>()(
       teamNotifications: [notif, ...get().teamNotifications],
     });
     // Fire-and-forget persist to Supabase (ไม่ block UI)
-    // บันทึก Promise ไว้ใน map เพื่อให้ addLead สามารถ await ก่อน insert lead
+    // บันทึก Promise ไว้ใน map เพื่อให้ addLead / awaitBookingInserts() await ได้
     if (SUPABASE_ENABLED && supabase) {
-      const customerInsertPromise = supabase.from("customers").insert(newC).then(({ error }) => {
-        if (error) console.error("[supabase] เพิ่มลูกค้าล้มเหลว:", error);
+      const customerInsertPromise: Promise<boolean> = supabase.from("customers").insert(newC).then(({ error }) => {
+        if (error) { console.error("[supabase] เพิ่มลูกค้าล้มเหลว:", error); return false; }
+        return true;
       }).finally(() => {
         _pendingCustomerInserts.delete(id);
       });
@@ -1368,6 +1371,14 @@ export const useCRM = create<CRMState>()(
       department:  getDeptFromRole(currentUser?.role),
     });
     return id;
+  },
+
+  awaitBookingInserts: async (customerId, leadId) => {
+    const [customerOk, leadOk] = await Promise.all([
+      _pendingCustomerInserts.get(customerId) ?? Promise.resolve(true),
+      _pendingLeadInserts.get(leadId)         ?? Promise.resolve(true),
+    ]);
+    return { customerOk, leadOk };
   },
 
   updateCustomer: (id, patch) => {
@@ -1458,15 +1469,18 @@ export const useCRM = create<CRMState>()(
     const isWon = isClosedStatus(initStatus);
 
     // ── Auto closed_price เมื่อสร้าง Lead ด้วยสถานะจองแล้วทันที ──
+    // ลำดับ priority: closed_price (caller ระบุ) > quoted_price (ราคาขายจริง รวมโปรโมชั่น) > period.price_per_seat (ราคาเต็ม)
     let closedPrice = l.closed_price ?? null;
     if (isWon && closedPrice == null) {
-      if (l.tour_id && l.period_id) {
+      if (l.quoted_price) {
+        closedPrice = l.quoted_price; // ใช้ราคาขายจริง (รวมส่วนลดโปรโมชั่นแล้ว)
+      } else if (l.tour_id && l.period_id) {
         const periods = useServices.getState().tours
           .find((t) => t.id === l.tour_id)?.periods ?? [];
         const period = periods.find((p) => p.period_id === l.period_id);
         if (period?.price_per_seat) closedPrice = period.price_per_seat * l.pax_count;
       }
-      if (closedPrice == null) closedPrice = l.quoted_price || 0;
+      if (closedPrice == null) closedPrice = 0;
     }
 
     const now = new Date().toISOString();
@@ -1516,15 +1530,21 @@ export const useCRM = create<CRMState>()(
     if (SUPABASE_ENABLED && supabase) {
       // await customer insert ก่อน เพื่อป้องกัน FK race condition
       const pendingCustomer = _pendingCustomerInserts.get(l.customer_id);
-      const doLeadInsert = async () => {
-        if (pendingCustomer) await pendingCustomer;
+      const leadInsertPromise: Promise<boolean> = (async () => {
+        if (pendingCustomer) {
+          const customerOk = await pendingCustomer;
+          if (!customerOk) { console.error("[supabase] ข้ามการ insert lead เพราะ customer insert ล้มเหลว"); return false; }
+        }
         const { error } = await supabase.from("leads").insert(newL);
         if (error) {
           console.error("[supabase] เพิ่ม lead ล้มเหลว:", error);
-          toast.error("บันทึก Lead ล้มเหลว — กรุณาลองใหม่");
+          return false;
         }
-      };
-      void doLeadInsert();
+        return true;
+      })().finally(() => {
+        _pendingLeadInserts.delete(id);
+      });
+      _pendingLeadInserts.set(id, leadInsertPromise);
     }
     const cust = get().customers.find((c) => c.customer_id === l.customer_id);
     {

@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useCRM, type Source, type Segment, type Customer } from "@/store/crmStore";
+import { useCRM, formatTHB, type Source, type Segment, type Customer } from "@/store/crmStore";
 import { useBookingLedger } from "@/store/bookingLedgerStore";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -62,10 +62,11 @@ export function BookingLeadDialog({
   open, onClose, onCancel, onConfirmQuota,
   tourId, tourName, periodId, periodLabel, seats, pricePerSeat = 0, actorName,
 }: BookingLeadDialogProps) {
-  const addCustomer  = useCRM((s) => s.addCustomer);
-  const addLead      = useCRM((s) => s.addLead);
-  const addBooking   = useBookingLedger((s) => s.addBooking);
-  const customers    = useCRM((s) => s.customers);
+  const addCustomer          = useCRM((s) => s.addCustomer);
+  const addLead              = useCRM((s) => s.addLead);
+  const awaitBookingInserts  = useCRM((s) => s.awaitBookingInserts);
+  const addBooking           = useBookingLedger((s) => s.addBooking);
+  const customers            = useCRM((s) => s.customers);
 
   const [step, setStep] = useState<"choice" | "form">("choice");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -78,6 +79,8 @@ export function BookingLeadDialog({
   const [source,   setSource]   = useState<Source>("Walk-in");
   const [note,     setNote]     = useState("");
   const [saving,   setSaving]   = useState(false);
+  // Price — default ราคาเต็ม, แก้เป็นราคาโปรได้
+  const [actualPricePerSeat, setActualPricePerSeat] = useState(pricePerSeat);
   // Form state — trip manifest (optional)
   const [showExtra,       setShowExtra]       = useState(false);
   const [roomType,        setRoomType]        = useState("");
@@ -117,7 +120,7 @@ export function BookingLeadDialog({
   function reset() {
     setStep("choice");
     setFullName(""); setPhone(""); setLineId(""); setSource("Walk-in"); setNote("");
-    setSaving(false);
+    setSaving(false); setActualPricePerSeat(pricePerSeat);
     setSelectedCustomer(null); setActiveSugg(null);
     setShowExtra(false);
     setRoomType(""); setRoomPartner(""); setFoodPref("ปกติ"); setFoodOther("");
@@ -163,6 +166,11 @@ export function BookingLeadDialog({
     const segment: Segment = "B2C Individual";
     const travelMonth = periodLabel ? periodLabel.slice(0, 7) : "";
 
+    // คำนวณราคาและส่วนลด
+    const actualTotal   = actualPricePerSeat * seats;
+    const fullTotal     = pricePerSeat * seats;
+    const discountTotal = Math.max(0, fullTotal - actualTotal);
+
     // 1. Create customer (or reuse existing for returning customers)
     const customerId = selectedCustomer
       ? selectedCustomer.customer_id
@@ -195,7 +203,8 @@ export function BookingLeadDialog({
       budget_range:       "",
       urgency:            "Hot",
       next_followup_date: null,
-      quoted_price:       pricePerSeat * seats,
+      quoted_price:       actualTotal,           // ราคาขายจริง (หลังโปรโมชั่น)
+      discount:           discountTotal || null, // ส่วนลดรวม (null ถ้าเป็นราคาเต็ม)
       status:             "จองแล้ว",
       // Trip Manifest fields
       passport_name:      passportName.trim() || undefined,
@@ -209,13 +218,21 @@ export function BookingLeadDialog({
       special_requests:   specialRequests.trim() || undefined,
     }, { skipQuotaAdjust: true });
 
-    // 3. บันทึก Booking Ledger record พร้อม lead_id
+    // 3. รอ Supabase INSERT สำเร็จก่อนปิด dialog
+    const { customerOk, leadOk } = await awaitBookingInserts(customerId, leadId);
+    if (!customerOk || !leadOk) {
+      toast.error("บันทึกไม่สำเร็จ — กรุณาลองใหม่หรือติดต่อ Admin");
+      setSaving(false);
+      return;
+    }
+
+    // 4. บันทึก Booking Ledger record พร้อม lead_id
     addBooking({
       tour_id: tourId, period_id: periodId,
       lead_id: leadId ?? null,
       customer_name: fullName.trim(),
       customer_phone: phone.trim() || null,
-      seats, price_per_seat: pricePerSeat,
+      seats, price_per_seat: actualPricePerSeat,
       booked_by: actorName, booked_at: new Date().toISOString(),
       notes: note.trim() || null,
     });
@@ -390,6 +407,45 @@ export function BookingLeadDialog({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Price */}
+            <div className="space-y-1">
+              <Label htmlFor="bld-price" className="text-xs flex items-center justify-between">
+                <span>ราคาต่อคน (บาท)</span>
+                {actualPricePerSeat < pricePerSeat && pricePerSeat > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">
+                    ลด {formatTHB(pricePerSeat - actualPricePerSeat)} · รวม {formatTHB(actualPricePerSeat * seats)}
+                  </span>
+                )}
+                {(actualPricePerSeat >= pricePerSeat || pricePerSeat === 0) && (
+                  <span className="text-muted-foreground">รวม {formatTHB(actualPricePerSeat * seats)}</span>
+                )}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="bld-price"
+                  type="number"
+                  min={0}
+                  value={actualPricePerSeat}
+                  onChange={(e) => setActualPricePerSeat(Number(e.target.value))}
+                  className={actualPricePerSeat < pricePerSeat ? "border-amber-400 focus-visible:ring-amber-400" : ""}
+                />
+                {actualPricePerSeat !== pricePerSeat && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline whitespace-nowrap"
+                    onClick={() => setActualPricePerSeat(pricePerSeat)}
+                  >
+                    ราคาเต็ม
+                  </button>
+                )}
+              </div>
+              {pricePerSeat > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  ราคาเต็ม {formatTHB(pricePerSeat)}/คน — แก้ได้ถ้าขายราคาโปรโมชั่น
+                </p>
+              )}
             </div>
 
             {/* Note */}

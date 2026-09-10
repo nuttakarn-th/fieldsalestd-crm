@@ -452,8 +452,17 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
                     </div>
                     {/* Value */}
                     {lv ? (
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 space-y-0.5">
                         <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{thaiCurrency(lv)}</p>
+                        {(l.discount ?? 0) > 0 ? (
+                          <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                            โปรโมชั่น -{l.discount!.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                            ราคาเต็ม
+                          </span>
+                        )}
                         {l.closed_price && l.closed_date && (
                           <p className="text-[10px] text-muted-foreground">ปิด {thaiDate(l.closed_date)}</p>
                         )}

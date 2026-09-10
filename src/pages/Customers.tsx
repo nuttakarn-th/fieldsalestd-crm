@@ -968,8 +968,17 @@ export default function Customers() {
                                   </div>
                                 </div>
                                 {lv ? (
-                                  <div className="text-right shrink-0">
+                                  <div className="text-right shrink-0 space-y-0.5">
                                     <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(lv)}</p>
+                                    {(l.discount ?? 0) > 0 ? (
+                                      <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                                        โปรโมชั่น -฿{formatTHB(l.discount!)}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                                        ราคาเต็ม
+                                      </span>
+                                    )}
                                     {l.closed_date && <p className="text-[10px] text-muted-foreground">ปิด {fmtDate(l.closed_date)}</p>}
                                   </div>
                                 ) : null}
