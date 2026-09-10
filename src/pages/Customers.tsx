@@ -808,11 +808,35 @@ export default function Customers() {
                         {selectedCustomer.last_contacted_at && ` · ติดต่อล่าสุด ${fmtDate(selectedCustomer.last_contacted_at)}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                       <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5"
                         onClick={() => setEditing(selectedCustomer)}>
-                        <Pencil className="w-3.5 h-3.5" /> แก้ไข
+                        <Pencil className="w-3.5 h-3.5" /> แก้ไขข้อมูล
                       </Button>
+                      {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
+                        <Button size="sm" variant="outline"
+                          className="h-8 px-3 text-xs gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                          onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
+                          <ArrowRightLeft className="w-3.5 h-3.5" /> โอน
+                        </Button>
+                      )}
+                      {canDirectDelete ? (
+                        <Button size="sm" variant="outline"
+                          className="h-8 px-3 text-xs gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/5"
+                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                          <Trash2 className="w-3.5 h-3.5" /> ลบ
+                        </Button>
+                      ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                        <Button size="sm" variant="outline"
+                          className="h-8 px-3 text-xs gap-1.5 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
+                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                          <Trash2 className="w-3.5 h-3.5" /> ขอลบ
+                        </Button>
+                      ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                        <span className="h-8 flex items-center gap-1 px-2.5 text-xs text-amber-500 border border-amber-200 rounded-md">
+                          <Clock className="w-3.5 h-3.5" /> รอ Manager
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -874,30 +898,6 @@ export default function Customers() {
                             <MessageCircle className="w-3 h-3" /> LINE
                           </Button>
                         )}
-                        {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
-                          <Button size="sm" variant="outline"
-                            className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
-                            onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
-                            <ArrowRightLeft className="w-3 h-3" /> โอน
-                          </Button>
-                        )}
-                        {canDirectDelete ? (
-                          <Button size="sm" variant="outline"
-                            className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-                            onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                            <Trash2 className="w-3 h-3" /> ลบ
-                          </Button>
-                        ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                          <Button size="sm" variant="outline"
-                            className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
-                            onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                            <Trash2 className="w-3 h-3" /> ขอลบ
-                          </Button>
-                        ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                          <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
-                            <Clock className="w-3 h-3" /> รอ Manager
-                          </span>
-                        ) : null}
                       </div>
                     </div>
 
