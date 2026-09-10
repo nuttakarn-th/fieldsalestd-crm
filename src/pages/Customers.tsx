@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { Navigate, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X, Users2, Calendar, Star } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X, Users2, Calendar, Star, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useCRM, formatTHB, tierBadge, SOURCES, isClosedStatus, isLostStatus, type Customer, type Lead, type LeadStatus, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { useCRM, formatTHB, tierBadge, SOURCES, isClosedStatus, isLostStatus, LEAD_STATUSES, URGENCY_OPTIONS, LOST_REASONS, type Customer, type Lead, type LeadStatus, type SalesRep, type Tier, type Source } from "@/store/crmStore";
+import { Label } from "@/components/ui/label";
+import { useServices } from "@/store/serviceStore";
 import { useCurrentUser, useActiveSalesNames, useActiveOBNames, useActiveSalesTeamNames, useAllSalesTeamNames } from "@/store/authStore";
 import { useDeleteRequests } from "@/store/deleteRequestStore";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,6 +122,152 @@ function exportFBList(customers: Customer[]) {
   toast.success(`Export ${customers.length} รายการสำหรับ Facebook Custom Audience แล้ว ✅`);
 }
 
+// ── Inline LeadEditDialog (สำหรับ split-pane — ไม่ต้อง navigate ไป CustomerDetail) ───
+function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const updateLead = useCRM((s) => s.updateLead);
+  const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
+
+  const [status, setStatus] = useState<LeadStatus>(lead.status);
+  const [urgency, setUrgency] = useState((lead as any).urgency ?? "Warm");
+  const [pax, setPax] = useState(String(lead.pax_count));
+  const [travelMonth, setTravelMonth] = useState(lead.travel_month ?? "");
+  const [quotedPrice, setQuotedPrice] = useState(String(lead.quoted_price ?? 0));
+  const [nextFollowup, setNextFollowup] = useState((lead as any).next_followup_date ?? "");
+  const [note, setNote] = useState((lead as any).status_note ?? "");
+  const [lostReason, setLostReason] = useState((lead as any).lost_reason ?? LOST_REASONS[0]);
+  const [lostNote, setLostNote] = useState("");
+
+  const isCancelling = status === "ยกเลิก";
+
+  function handleSave() {
+    if (isCancelling && !lostReason) {
+      toast.error("กรุณาระบุเหตุผลที่ยกเลิก");
+      return;
+    }
+    const newPax = parseInt(pax) || lead.pax_count;
+    const patch: Partial<Lead> = {
+      urgency: urgency as Lead["urgency"],
+      pax_count: newPax,
+      travel_month: travelMonth,
+      quoted_price: parseFloat(quotedPrice) || 0,
+      next_followup_date: nextFollowup || null,
+      status_note: note || null,
+    } as Partial<Lead>;
+    updateLead(lead.lead_id, patch);
+
+    // ── ถ้า pax เปลี่ยน และ Lead อยู่ใน "จองแล้ว" ทั้งก่อนและหลัง → adjust quota ─
+    const paxDelta = newPax - lead.pax_count;
+    const bothWon = isClosedStatus(lead.status) && isClosedStatus(status);
+    if (paxDelta !== 0 && bothWon) {
+      const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
+      if (isTour && lead.tour_id) {
+        const { adjustQuota, adjustPeriodQuota } = useServices.getState();
+        if (lead.period_id) adjustPeriodQuota(lead.tour_id, lead.period_id, -paxDelta);
+        else adjustQuota(lead.tour_id, -paxDelta);
+      }
+    }
+
+    const finalLostReason = isCancelling
+      ? (lostNote.trim() ? `${lostReason} — ${lostNote.trim()}` : lostReason)
+      : undefined;
+    if (status !== lead.status || isCancelling) updateLeadStatus(lead.lead_id, status, finalLostReason);
+    toast.success("บันทึก Lead เรียบร้อยแล้ว");
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">✏️ แก้ไข Lead</DialogTitle>
+          <p className="text-xs text-muted-foreground">{lead.lead_id}</p>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div>
+            <Label className="text-xs text-muted-foreground">โปรแกรม</Label>
+            <p className="text-sm font-medium mt-0.5 text-foreground/80">{lead.program || lead.bu_type}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">สถานะ</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as LeadStatus)}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LEAD_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">ความเร่งด่วน</Label>
+              <Select value={urgency} onValueChange={setUrgency}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {URGENCY_OPTIONS.map((u) => (
+                    <SelectItem key={u.val} value={u.val} className="text-xs">{u.emoji} {u.val}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">จำนวน Pax</Label>
+              <Input value={pax} onChange={(e) => setPax(e.target.value)} type="number" min={1} className="h-8 text-xs mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">เดือนเดินทาง</Label>
+              <Input value={travelMonth} onChange={(e) => setTravelMonth(e.target.value)} className="h-8 text-xs mt-1" placeholder="เช่น สิงหาคม" />
+            </div>
+            <div>
+              <Label className="text-xs">ราคา Quote (฿)</Label>
+              <Input value={quotedPrice} onChange={(e) => setQuotedPrice(e.target.value)} type="number" className="h-8 text-xs mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">วัน Follow-up</Label>
+              <Input value={nextFollowup} onChange={(e) => setNextFollowup(e.target.value)} type="date" className="h-8 text-xs mt-1" />
+            </div>
+          </div>
+          {isCancelling && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2.5">
+              <p className="text-xs font-semibold text-destructive">❌ ระบุเหตุผลที่ยกเลิก</p>
+              <div>
+                <Label className="text-xs">เหตุผลหลัก *</Label>
+                <Select value={lostReason} onValueChange={setLostReason}>
+                  <SelectTrigger className="mt-1 border-destructive/30 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {LOST_REASONS.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">รายละเอียดเพิ่มเติม (ไม่บังคับ)</Label>
+                <Textarea
+                  value={lostNote}
+                  onChange={(e) => setLostNote(e.target.value)}
+                  className="mt-1 min-h-[50px] text-sm border-destructive/30"
+                  placeholder="เช่น ลูกค้าบอกว่าเพื่อนแนะนำบริษัทอื่น..."
+                />
+              </div>
+            </div>
+          )}
+          <div>
+            <Label className="text-xs">หมายเหตุ</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[60px] text-sm mt-1" placeholder="เพิ่มหมายเหตุ..." />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}><X className="w-3.5 h-3.5 mr-1" />ยกเลิก</Button>
+          <Button size="sm" className={isCancelling ? "bg-destructive hover:bg-destructive/90" : "bg-gradient-primary"} onClick={handleSave}>
+            <Save className="w-3.5 h-3.5 mr-1" />{isCancelling ? "ยืนยันยกเลิก" : "บันทึก"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function Customers() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -223,6 +371,7 @@ export default function Customers() {
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"leads" | "profile" | "transfer">("leads");
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   // Filters
   const [filterTier, setFilterTier] = useState<Tier | "all">("all");
@@ -756,8 +905,8 @@ export default function Customers() {
                             {/* Lead action bar */}
                             <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border bg-muted/20">
                               <Button size="sm" variant="ghost"
-                                className="h-6 text-[10px] text-muted-foreground px-2 gap-1 hover:text-foreground"
-                                onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                                className="h-6 text-[10px] text-violet-600 dark:text-violet-400 px-2 gap-1 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                onClick={() => setEditingLead(l)}>
                                 <Pencil className="w-3 h-3" /> แก้ไข Lead
                               </Button>
                               {(l.bu_type || (l as any).status_note) && (
@@ -926,6 +1075,7 @@ export default function Customers() {
         {/* Dialogs */}
         <CustomerLeadDialog open={openAdd} onOpenChange={setOpenAdd} />
         <EditCustomerDialog customer={editing} onClose={() => setEditing(null)} />
+        {editingLead && <LeadEditDialog lead={editingLead} onClose={() => setEditingLead(null)} />}
         <Dialog open={!!transferOf} onOpenChange={(o) => !o && setTransferOf(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>โอนลูกค้าให้ Sales คนอื่น</DialogTitle></DialogHeader>
