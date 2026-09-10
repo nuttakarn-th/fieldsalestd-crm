@@ -108,16 +108,27 @@ function fmtFutureDate(dateStr: string | null | undefined): string | null {
 
 const TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
 
-/** "2026-09-25" → "25 ก.ย. 69" */
+/** "2026-09-25" or ISO datetime → "25 ก.ย. 69" */
 function fmtThaiDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
-  const parts = dateStr.split("-");
+  const datePart = dateStr.split("T")[0];
+  const parts = datePart.split("-");
   if (parts.length < 3) return null;
   const [y, m, d] = parts;
   const monthIdx = parseInt(m, 10) - 1;
   if (monthIdx < 0 || monthIdx > 11) return null;
   const buddhistShort = String(parseInt(y, 10) + 543).slice(-2);
   return `${parseInt(d, 10)} ${TH_MONTHS_SHORT[monthIdx]} ${buddhistShort}`;
+}
+
+/** ISO datetime → "10.35 น." */
+function fmtThaiTime(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}.${mm} น.`;
 }
 
 /** "2026-12" → "ธ.ค. 69" */
@@ -1197,6 +1208,7 @@ export default function Customers() {
                             ? `${tripStart} – ${tripEnd}`
                             : tripStart || fmtTravelMonth(l.travel_month);
                           const closedLabel = fmtThaiDate(l.closed_date);
+                          const closedTime  = isClosedStatus(l.status) ? fmtThaiTime(l.updated_at) : null;
                           return (
                             <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
                               <div className="flex items-center gap-3 px-4 py-3">
@@ -1212,7 +1224,9 @@ export default function Customers() {
                                     {l.assigned_to && <span>· {l.assigned_to}</span>}
                                   </div>
                                   {closedLabel && (
-                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">✓ จอง {closedLabel}</p>
+                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">
+                                      ✓ จอง {closedLabel}{closedTime ? ` (${closedTime})` : ""}
+                                    </p>
                                   )}
                                 </div>
                                 {lv ? (
