@@ -392,7 +392,31 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
             <span className="text-[10px] text-muted-foreground">{leads.length} รายการ</span>
           </div>
           {leads.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground text-sm">ยังไม่มี Lead</div>
+            (customer.total_trips > 0 || customer.total_spend > 0) ? (
+              <div className="py-5 px-4 space-y-3">
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/40 flex items-center justify-center shrink-0 mt-0.5">
+                    <Banknote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">มียอดซื้อแต่ไม่มี Lead ในระบบ</p>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                      ยอด <span className="font-semibold text-foreground/80">{thaiCurrency(customer.total_spend)}</span>
+                      {" · "}{customer.total_trips} ครั้ง
+                      {" — "}ข้อมูลนำเข้าจากระบบเก่า ยังไม่มีประวัติ Lead เชื่อมต่อ
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={onNavigate}
+                  className="w-full text-[11px] py-2 rounded-lg border border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/20 transition-colors font-medium"
+                >
+                  + เพิ่มประวัติการซื้อ / ดูโปรไฟล์เต็ม
+                </button>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground text-sm">ยังไม่มี Lead</div>
+            )
           ) : (
             <div className="divide-y divide-border">
               {leads.map((l) => {
@@ -502,11 +526,19 @@ export default function MarketingOBLeads() {
   const [search, setSearch]           = useState("");
   const [statusGroup, setStatusGroup] = useState<"active" | "won" | "lost" | "all">("all");
   const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [sortBy, setSortBy]             = useState<"default" | "spend" | "recent" | "frequent">("default");
 
   const obCustomers = useMemo(
     () => customers.filter((c) => c.channel === "OB"),
     [customers],
   );
+
+  const sourceOptions = useMemo(() => {
+    const set = new Set<string>();
+    obCustomers.forEach((c) => { if (c.source) set.add(c.source); });
+    return Array.from(set).sort();
+  }, [obCustomers]);
 
   const latestLeadByCustomer = useMemo(() => {
     const map = new Map<string, Lead>();
@@ -542,6 +574,9 @@ export default function MarketingOBLeads() {
     if (statusGroup !== "all") {
       list = list.filter((c) => statusMeta(latestLeadByCustomer.get(c.customer_id)?.status ?? "ใหม่").group === statusGroup);
     }
+    if (sourceFilter !== "all") {
+      list = list.filter((c) => c.source === sourceFilter);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -553,12 +588,16 @@ export default function MarketingOBLeads() {
       );
     }
     return [...list].sort((a, b) => {
+      if (sortBy === "spend")    return b.total_spend - a.total_spend;
+      if (sortBy === "frequent") return b.total_trips - a.total_trips;
+      if (sortBy === "recent")   return (b.last_contacted_at ?? "").localeCompare(a.last_contacted_at ?? "");
+      // default: lead priority then last_contacted_at
       const pa = leadPriority(latestLeadByCustomer.get(a.customer_id)?.status ?? "ใหม่");
       const pb = leadPriority(latestLeadByCustomer.get(b.customer_id)?.status ?? "ใหม่");
       if (pa !== pb) return pa - pb;
       return (b.last_contacted_at ?? "").localeCompare(a.last_contacted_at ?? "");
     });
-  }, [obCustomers, search, statusGroup, latestLeadByCustomer]);
+  }, [obCustomers, search, statusGroup, sourceFilter, sortBy, latestLeadByCustomer]);
 
   // Export-ready records (follows current filter)
   const exportData = useMemo(() =>
@@ -708,8 +747,32 @@ export default function MarketingOBLeads() {
         {/* ── Left: list panel ── */}
         <div className="w-96 shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
 
-          {/* Search */}
-          <div className="p-2.5 border-b border-border shrink-0">
+          {/* Search + Filters */}
+          <div className="p-2.5 border-b border-border shrink-0 space-y-2">
+            {/* Filter dropdowns */}
+            <div className="flex gap-1.5">
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="flex-1 h-8 rounded-lg border border-border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer"
+              >
+                <option value="all">ทุกแหล่งที่มา</option>
+                {sourceOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="flex-1 h-8 rounded-lg border border-border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer"
+              >
+                <option value="default">เรียงตามสถานะ</option>
+                <option value="spend">ยอดสูงสุด</option>
+                <option value="frequent">ซื้อบ่อยสุด</option>
+                <option value="recent">ติดต่อล่าสุด</option>
+              </select>
+            </div>
+            {/* Search input */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
               <Input
