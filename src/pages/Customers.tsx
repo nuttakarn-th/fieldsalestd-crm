@@ -370,7 +370,6 @@ export default function Customers() {
   const [deleteOf, setDeleteOf] = useState<Customer | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState<"leads" | "profile" | "transfer">("leads");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   // Filters
@@ -546,7 +545,7 @@ export default function Customers() {
   }, [filtered, useSplitPane]);
 
   // Reset detail tab when selected customer changes
-  useEffect(() => { setDetailTab("leads"); }, [selectedId]);
+  useEffect(() => { setEditingLead(null); }, [selectedId]);
 
   const resetFilters = () => {
     setFilterTier("all");
@@ -834,238 +833,209 @@ export default function Customers() {
                   ))}
                 </div>
 
-                {/* Tab bar */}
-                <div className="flex shrink-0 border-b border-border bg-muted/20">
-                  {(["leads", "profile", "transfer"] as const).map((tab) => {
-                    const labels: Record<string, string> = {
-                      leads:    `Leads (${selectedLeads.length})`,
-                      profile:  "โปรไฟล์",
-                      transfer: "โอน / บันทึก",
-                    };
-                    return (
-                      <button
-                        key={tab}
-                        onClick={() => setDetailTab(tab)}
-                        className={`flex-1 py-2 text-xs font-semibold transition-colors border-b-2 ${
-                          detailTab === tab
-                            ? "text-violet-600 dark:text-violet-400 border-violet-500"
-                            : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/40"
-                        }`}
-                      >
-                        {labels[tab]}
-                      </button>
-                    );
-                  })}
-                </div>
+                {/* ── Blog scroll: ข้อมูล + Leads + โอน + บันทึก ── */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-                {/* ── Tab: Leads ── */}
-                {detailTab === "leads" && (
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{selectedLeads.length} Lead</span>
+                  {/* Row 1: ข้อมูลติดต่อ + ข้อมูลลูกค้า */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Contact card */}
+                    <div className="bg-card border rounded-xl p-4 space-y-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <a href={`tel:${selectedCustomer.phone}`} className="text-violet-600 hover:underline">{selectedCustomer.phone}</a>
+                        </div>
+                        {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                          <div className="flex items-center gap-2">
+                            <MessageCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span>{selectedCustomer.line_id}</span>
+                          </div>
+                        )}
+                        {selectedCustomer.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate text-xs">{selectedCustomer.email}</span>
+                          </div>
+                        )}
+                        {selectedCustomer.province && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-xs">{selectedCustomer.province}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-1.5 pt-2 border-t border-border flex-wrap">
+                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" asChild>
+                          <a href={`tel:${selectedCustomer.phone}`}><Phone className="w-3 h-3" /> โทร</a>
+                        </Button>
+                        {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                          <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1">
+                            <MessageCircle className="w-3 h-3" /> LINE
+                          </Button>
+                        )}
+                        {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
+                          <Button size="sm" variant="outline"
+                            className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                            onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
+                            <ArrowRightLeft className="w-3 h-3" /> โอน
+                          </Button>
+                        )}
+                        {canDirectDelete ? (
+                          <Button size="sm" variant="outline"
+                            className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
+                            onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                            <Trash2 className="w-3 h-3" /> ลบ
+                          </Button>
+                        ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                          <Button size="sm" variant="outline"
+                            className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
+                            onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                            <Trash2 className="w-3 h-3" /> ขอลบ
+                          </Button>
+                        ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                          <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
+                            <Clock className="w-3 h-3" /> รอ Manager
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Customer info card */}
+                    <div className="bg-card border rounded-xl p-4 space-y-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลลูกค้า</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                        <div><p className="text-muted-foreground">ช่องทาง</p><p className="font-semibold mt-0.5">{selectedCustomer.source}</p></div>
+                        <div><p className="text-muted-foreground">กลุ่มลูกค้า</p><p className="font-semibold mt-0.5 leading-tight">{(selectedCustomer as any).segment ?? "—"}</p></div>
+                        <div><p className="text-muted-foreground">Sales</p><p className="font-semibold mt-0.5 text-violet-600 dark:text-violet-400">{selectedCustomer.created_by}</p></div>
+                        {(selectedCustomer as any).birthday && (
+                          <div><p className="text-muted-foreground">วันเกิด</p><p className="font-semibold mt-0.5">{new Date((selectedCustomer as any).birthday).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}</p></div>
+                        )}
+                        {selectedCustomer.created_at && (
+                          <div><p className="text-muted-foreground">เพิ่มเมื่อ</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.created_at)}</p></div>
+                        )}
+                        {selectedCustomer.last_contacted_at && (
+                          <div><p className="text-muted-foreground">ติดต่อล่าสุด</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.last_contacted_at)}</p></div>
+                        )}
+                      </div>
+                      {((selectedCustomer as any).interests ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
+                          {((selectedCustomer as any).interests as string[]).map((key) => (
+                            <span key={key} className="text-[10px] px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50/50 text-violet-700 dark:bg-violet-900/20 dark:border-violet-700 dark:text-violet-300">{key}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Leads */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        LEADS ({selectedLeads.length})
+                      </p>
                       <Button size="sm"
-                        className="h-7 px-2.5 text-xs gap-1 bg-violet-600 hover:bg-violet-700 text-white ml-auto"
+                        className="h-7 px-2.5 text-xs gap-1 bg-violet-600 hover:bg-violet-700 text-white"
                         onClick={() => setOpenAdd(true)}>
                         <Plus className="w-3 h-3" /> สร้าง Lead
                       </Button>
                     </div>
                     {selectedLeads.length === 0 ? (
-                      <div className="py-10 text-center text-muted-foreground">
-                        <p className="text-sm mb-3">ยังไม่มี Lead</p>
+                      <div className="py-8 text-center text-muted-foreground border border-dashed border-border rounded-xl">
+                        <p className="text-sm mb-2">ยังไม่มี Lead</p>
                         <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setOpenAdd(true)}>
                           + สร้าง Lead แรก
                         </Button>
                       </div>
                     ) : (
-                      selectedLeads.map((l) => {
-                        const lStyle = leadStatusStyle(l.status);
-                        const lv = l.closed_price || l.quoted_price;
-                        return (
-                          <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
-                            <div className="flex items-center gap-3 px-4 py-3">
-                              <div className={`w-1 h-10 rounded-full shrink-0 ${lStyle.bar}`} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lStyle.pill}`}>{lStyle.label}</span>
+                      <div className="space-y-2">
+                        {selectedLeads.map((l) => {
+                          const lStyle = leadStatusStyle(l.status);
+                          const lv = l.closed_price || l.quoted_price;
+                          return (
+                            <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
+                              <div className="flex items-center gap-3 px-4 py-3">
+                                <div className={`w-1 h-10 rounded-full shrink-0 ${lStyle.bar}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lStyle.pill}`}>{lStyle.label}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                                    <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
+                                    {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
+                                    {l.assigned_to && <span>· {l.assigned_to}</span>}
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-                                  <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
-                                  {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
-                                  {l.assigned_to && <span>· {l.assigned_to}</span>}
-                                </div>
+                                {lv ? (
+                                  <div className="text-right shrink-0">
+                                    <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(lv)}</p>
+                                    {l.closed_date && <p className="text-[10px] text-muted-foreground">ปิด {fmtDate(l.closed_date)}</p>}
+                                  </div>
+                                ) : null}
                               </div>
-                              {lv ? (
-                                <div className="text-right shrink-0">
-                                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(lv)}</p>
-                                  {l.closed_date && <p className="text-[10px] text-muted-foreground">ปิด {fmtDate(l.closed_date)}</p>}
-                                </div>
-                              ) : null}
+                              <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border bg-muted/20">
+                                <Button size="sm" variant="ghost"
+                                  className="h-6 text-[10px] text-violet-600 dark:text-violet-400 px-2 gap-1 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                  onClick={() => setEditingLead(l)}>
+                                  <Pencil className="w-3 h-3" /> แก้ไข Lead
+                                </Button>
+                                {(l.bu_type || l.status_note) && (
+                                  <span className="text-[10px] text-muted-foreground truncate">
+                                    {l.bu_type && `· ${l.bu_type}`}
+                                    {l.status_note && ` · ${l.status_note}`}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {/* Lead action bar */}
-                            <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border bg-muted/20">
-                              <Button size="sm" variant="ghost"
-                                className="h-6 text-[10px] text-violet-600 dark:text-violet-400 px-2 gap-1 hover:bg-violet-50 dark:hover:bg-violet-900/20"
-                                onClick={() => setEditingLead(l)}>
-                                <Pencil className="w-3 h-3" /> แก้ไข Lead
-                              </Button>
-                              {(l.bu_type || (l as any).status_note) && (
-                                <span className="text-[10px] text-muted-foreground truncate">
-                                  {l.bu_type && `· ${l.bu_type}`}
-                                  {(l as any).status_note && ` · ${(l as any).status_note}`}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                )}
 
-                {/* ── Tab: โปรไฟล์ ── */}
-                {detailTab === "profile" && (
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Contact card */}
-                      <div className="bg-card border rounded-xl p-4 space-y-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <a href={`tel:${selectedCustomer.phone}`} className="text-violet-600 hover:underline">{selectedCustomer.phone}</a>
-                          </div>
-                          {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
-                            <div className="flex items-center gap-2">
-                              <MessageCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <span>{selectedCustomer.line_id}</span>
-                            </div>
-                          )}
-                          {selectedCustomer.email && (
-                            <div className="flex items-center gap-2">
-                              <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <span className="truncate text-xs">{selectedCustomer.email}</span>
-                            </div>
-                          )}
-                          {selectedCustomer.province && (
-                            <div className="flex items-center gap-2">
-                              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-xs">{selectedCustomer.province}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-1.5 pt-2 border-t border-border flex-wrap">
-                          <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" asChild>
-                            <a href={`tel:${selectedCustomer.phone}`}><Phone className="w-3 h-3" /> โทร</a>
-                          </Button>
-                          {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
-                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1">
-                              <MessageCircle className="w-3 h-3" /> LINE
-                            </Button>
-                          )}
-                          {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
-                            <Button size="sm" variant="outline"
-                              className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
-                              onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
-                              <ArrowRightLeft className="w-3 h-3" /> โอน
-                            </Button>
-                          )}
-                          {canDirectDelete ? (
-                            <Button size="sm" variant="outline"
-                              className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-                              onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                              <Trash2 className="w-3 h-3" /> ลบ
-                            </Button>
-                          ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                            <Button size="sm" variant="outline"
-                              className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
-                              onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                              <Trash2 className="w-3 h-3" /> ขอลบ
-                            </Button>
-                          ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                            <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
-                              <Clock className="w-3 h-3" /> รอ Manager
-                            </span>
-                          ) : null}
-                        </div>
+                  {/* Row 3: ประวัติโอน */}
+                  {((selectedCustomer as any).transfer_logs ?? []).length > 0 && (
+                    <div className="bg-card border rounded-xl overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-2">
+                        <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          ประวัติโอน ({((selectedCustomer as any).transfer_logs ?? []).length} ครั้ง)
+                        </p>
                       </div>
-
-                      {/* Customer info card */}
-                      <div className="bg-card border rounded-xl p-4 space-y-2.5">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลลูกค้า</p>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                          <div><p className="text-muted-foreground">ช่องทาง</p><p className="font-semibold mt-0.5">{selectedCustomer.source}</p></div>
-                          <div><p className="text-muted-foreground">กลุ่มลูกค้า</p><p className="font-semibold mt-0.5 leading-tight">{(selectedCustomer as any).segment ?? "—"}</p></div>
-                          <div><p className="text-muted-foreground">Sales</p><p className="font-semibold mt-0.5 text-violet-600 dark:text-violet-400">{selectedCustomer.created_by}</p></div>
-                          {(selectedCustomer as any).birthday && (
-                            <div><p className="text-muted-foreground">วันเกิด</p><p className="font-semibold mt-0.5">{new Date((selectedCustomer as any).birthday).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}</p></div>
-                          )}
-                          {selectedCustomer.created_at && (
-                            <div><p className="text-muted-foreground">เพิ่มเมื่อ</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.created_at)}</p></div>
-                          )}
-                          {selectedCustomer.last_contacted_at && (
-                            <div><p className="text-muted-foreground">ติดต่อล่าสุด</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.last_contacted_at)}</p></div>
-                          )}
-                        </div>
-                        {((selectedCustomer as any).interests ?? []).length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
-                            {((selectedCustomer as any).interests as string[]).map((key) => (
-                              <span key={key} className="text-[10px] px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50/50 text-violet-700 dark:bg-violet-900/20 dark:border-violet-700 dark:text-violet-300">{key}</span>
-                            ))}
-                          </div>
-                        )}
+                      <div className="p-3">
+                        <ol className="relative border-l border-border space-y-3 ml-3">
+                          {[...((selectedCustomer as any).transfer_logs ?? [])].reverse().map((log: any) => (
+                            <li key={log.log_id} className="ml-4">
+                              <div className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full border-2 border-background bg-violet-500" />
+                              <div className="bg-muted/30 rounded-lg px-2.5 py-2 space-y-0.5">
+                                <p className="text-xs font-medium">
+                                  <span className="text-muted-foreground">{log.from_rep}</span>
+                                  {" → "}
+                                  <span className="font-semibold text-violet-600 dark:text-violet-400">{log.to_rep}</span>
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  🕐 {fmtDate(log.transferred_at)}
+                                  {log.transferred_by && log.transferred_by !== log.from_rep && ` · โดย ${log.transferred_by}`}
+                                </p>
+                                {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* ── Tab: โอน / บันทึก ── */}
-                {detailTab === "transfer" && (
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {((selectedCustomer as any).transfer_logs ?? []).length > 0 ? (
-                      <div className="bg-card border rounded-xl overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-2">
-                          <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            ประวัติโอน ({((selectedCustomer as any).transfer_logs ?? []).length} ครั้ง)
-                          </p>
-                        </div>
-                        <div className="p-3">
-                          <ol className="relative border-l border-border space-y-3 ml-3">
-                            {[...((selectedCustomer as any).transfer_logs ?? [])].reverse().map((log: any) => (
-                              <li key={log.log_id} className="ml-4">
-                                <div className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full border-2 border-background bg-violet-500" />
-                                <div className="bg-muted/30 rounded-lg px-2.5 py-2 space-y-0.5">
-                                  <p className="text-xs font-medium">
-                                    <span className="text-muted-foreground">{log.from_rep}</span>
-                                    {" → "}
-                                    <span className="font-semibold text-violet-600 dark:text-violet-400">{log.to_rep}</span>
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    🕐 {fmtDate(log.transferred_at)}
-                                    {log.transferred_by && log.transferred_by !== log.from_rep && ` · โดย ${log.transferred_by}`}
-                                  </p>
-                                  {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
-                                </div>
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-center text-xs text-muted-foreground py-4">ยังไม่มีประวัติโอน</p>
-                    )}
-                    {selectedCustomer.note && (
-                      <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2">บันทึก</p>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{selectedCustomer.note}</p>
-                      </div>
-                    )}
-                    {!selectedCustomer.note && ((selectedCustomer as any).transfer_logs ?? []).length === 0 && (
-                      <p className="text-center text-xs text-muted-foreground py-4">ไม่มีข้อมูล</p>
-                    )}
-                  </div>
-                )}
+                  {/* Row 4: บันทึก */}
+                  {selectedCustomer.note && (
+                    <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2">บันทึก</p>
+                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{selectedCustomer.note}</p>
+                    </div>
+                  )}
+
+                </div>
 
               </div>
             )}
