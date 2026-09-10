@@ -128,13 +128,13 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
   const updateLeadStatus = useCRM((s) => s.updateLeadStatus);
 
   const [status, setStatus] = useState<LeadStatus>(lead.status);
-  const [urgency, setUrgency] = useState((lead as any).urgency ?? "Warm");
+  const [urgency, setUrgency] = useState<string>(lead.urgency ?? "Warm");
   const [pax, setPax] = useState(String(lead.pax_count));
   const [travelMonth, setTravelMonth] = useState(lead.travel_month ?? "");
   const [quotedPrice, setQuotedPrice] = useState(String(lead.quoted_price ?? 0));
-  const [nextFollowup, setNextFollowup] = useState((lead as any).next_followup_date ?? "");
-  const [note, setNote] = useState((lead as any).status_note ?? "");
-  const [lostReason, setLostReason] = useState((lead as any).lost_reason ?? LOST_REASONS[0]);
+  const [nextFollowup, setNextFollowup] = useState(lead.next_followup_date ?? "");
+  const [note, setNote] = useState(lead.status_note ?? "");
+  const [lostReason, setLostReason] = useState(lead.lost_reason ?? LOST_REASONS[0]);
   const [lostNote, setLostNote] = useState("");
 
   const isCancelling = status === "ยกเลิก";
@@ -146,13 +146,13 @@ function LeadEditDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
     }
     const newPax = parseInt(pax) || lead.pax_count;
     const patch: Partial<Lead> = {
-      urgency: urgency as Lead["urgency"],
+      urgency: urgency as "Hot" | "Warm" | "Cold",
       pax_count: newPax,
       travel_month: travelMonth,
       quoted_price: parseFloat(quotedPrice) || 0,
       next_followup_date: nextFollowup || null,
       status_note: note || null,
-    } as Partial<Lead>;
+    };
     updateLead(lead.lead_id, patch);
 
     // ── ถ้า pax เปลี่ยน และ Lead อยู่ใน "จองแล้ว" ทั้งก่อนและหลัง → adjust quota ─
