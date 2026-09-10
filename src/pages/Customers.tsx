@@ -479,6 +479,14 @@ export default function Customers() {
     const closedValue   = selectedLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0);
     const latestStatus  = selectedCustomer ? latestLeadByCustomer.get(selectedCustomer.customer_id) : undefined;
 
+    // ── Left-panel aggregate stats (ตาม filtered list) ──
+    const filteredSet     = new Set(filtered.map((c) => c.customer_id));
+    const panelTotalSpend = filtered.reduce((sum, c) => sum + (wonSpendMap.get(c.customer_id) ?? 0), 0);
+    const panelTotalTrips = filtered.reduce((sum, c) => sum + (wonTripsMap.get(c.customer_id) ?? 0), 0);
+    const panelPipeline   = leads
+      .filter((l) => filteredSet.has(l.customer_id) && !isClosedStatus(l.status) && !isLostStatus(l.status))
+      .reduce((sum, l) => sum + (l.quoted_price ?? 0), 0);
+
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] p-3 sm:p-4 gap-3 overflow-hidden">
 
@@ -508,7 +516,23 @@ export default function Customers() {
         <div className="flex gap-3 flex-1 min-h-0 overflow-hidden">
 
           {/* ── Left panel: list ── */}
-          <div className="w-[290px] shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
+          <div className="w-[340px] shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
+
+            {/* Summary stats strip */}
+            <div className="grid grid-cols-3 shrink-0 border-b border-border bg-muted/10">
+              <div className="px-2 py-2.5 text-center border-r border-border">
+                <p className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 leading-tight">{fmtMoney(panelTotalSpend)}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">ยอดรวม</p>
+              </div>
+              <div className="px-2 py-2.5 text-center border-r border-border">
+                <p className="text-[12px] font-bold text-violet-600 dark:text-violet-400 leading-tight">{panelTotalTrips} ครั้ง</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">จองแล้ว</p>
+              </div>
+              <div className="px-2 py-2.5 text-center">
+                <p className="text-[12px] font-bold text-amber-600 dark:text-amber-400 leading-tight">{fmtMoney(panelPipeline)}</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Pipeline</p>
+              </div>
+            </div>
 
             {/* Filter bar */}
             <div className="p-2.5 border-b border-border shrink-0 space-y-2">
