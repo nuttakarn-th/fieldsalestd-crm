@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fmtDate } from "@/lib/dateUtils";
 import { Navigate, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X, Users2, Calendar, ExternalLink, Star } from "lucide-react";
+import { Search, Plus, Pencil, Phone, MessageCircle, ArrowRightLeft, Lock, Inbox, Mail, MapPin, Megaphone, Trash2, Clock, SlidersHorizontal, X, Users2, Calendar, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -222,6 +222,7 @@ export default function Customers() {
   const [deleteOf, setDeleteOf] = useState<Customer | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"leads" | "profile" | "transfer">("leads");
 
   // Filters
   const [filterTier, setFilterTier] = useState<Tier | "all">("all");
@@ -395,6 +396,9 @@ export default function Customers() {
     });
   }, [filtered, useSplitPane]);
 
+  // Reset detail tab when selected customer changes
+  useEffect(() => { setDetailTab("leads"); }, [selectedId]);
+
   const resetFilters = () => {
     setFilterTier("all");
     setFilterSource("all");
@@ -476,7 +480,9 @@ export default function Customers() {
   // ── Split-pane layout (OB / Sales roles) ────────────────────────────────
   if (useSplitPane) {
     const activeLeads   = selectedLeads.filter((l) => !isClosedStatus(l.status) && !isLostStatus(l.status));
+    const lostLeads     = selectedLeads.filter((l) => isLostStatus(l.status));
     const closedValue   = selectedLeads.filter((l) => isClosedStatus(l.status)).reduce((s, l) => s + (l.closed_price || l.quoted_price || 0), 0);
+    const activeQuoted  = activeLeads.reduce((sum, l) => sum + (l.quoted_price ?? 0), 0);
     const latestStatus  = selectedCustomer ? latestLeadByCustomer.get(selectedCustomer.customer_id) : undefined;
 
     // ── Left-panel aggregate stats (ตาม filtered list) ──
@@ -629,7 +635,7 @@ export default function Customers() {
                 <p className="text-sm">เลือกลูกค้าจากรายการ</p>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto flex flex-col">
+              <div className="flex-1 flex flex-col min-h-0">
 
                 {/* Customer header */}
                 <div className="px-5 py-4 border-b border-border bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-900/20 shrink-0">
@@ -655,11 +661,6 @@ export default function Customers() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline"
-                        className="h-8 px-3 text-xs gap-1.5 border-violet-300 text-violet-600 hover:bg-violet-50"
-                        onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
-                        <ExternalLink className="w-3.5 h-3.5" /> โปรไฟล์เต็ม
-                      </Button>
                       <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5"
                         onClick={() => setEditing(selectedCustomer)}>
                         <Pencil className="w-3.5 h-3.5" /> แก้ไข
@@ -668,116 +669,71 @@ export default function Customers() {
                   </div>
                 </div>
 
-                {/* Stats strip */}
-                <div className="grid grid-cols-4 border-b border-border shrink-0">
+                {/* Stats strip — 5 cols */}
+                <div className="grid grid-cols-5 border-b border-border shrink-0">
                   {[
-                    { label: "ซื้อแล้ว",  value: `${wonTripsMap.get(selectedCustomer.customer_id) ?? 0} ครั้ง`, cls: "text-violet-600 dark:text-violet-400" },
-                    { label: "ยอดรวม",   value: fmtMoney(wonSpendMap.get(selectedCustomer.customer_id) ?? 0), cls: "text-emerald-600 dark:text-emerald-400" },
+                    { label: "ทริปสำเร็จ", value: `${wonTripsMap.get(selectedCustomer.customer_id) ?? 0} ครั้ง`, cls: "text-violet-600 dark:text-violet-400" },
+                    { label: "ยอดใช้จริง", value: fmtMoney(wonSpendMap.get(selectedCustomer.customer_id) ?? 0), cls: "text-emerald-600 dark:text-emerald-400" },
                     { label: "Active Lead", value: `${activeLeads.length}`, cls: "text-amber-600" },
-                    { label: "ยอดปิดได้", value: closedValue > 0 ? fmtMoney(closedValue) : "—", cls: "text-emerald-600 dark:text-emerald-400" },
+                    { label: "Quote รอปิด", value: activeQuoted > 0 ? fmtMoney(activeQuoted) : "—", cls: "text-amber-600" },
+                    { label: "Lead เสีย",   value: `${lostLeads.length}`, cls: "text-destructive" },
                   ].map(({ label, value, cls }) => (
-                    <div key={label} className="px-4 py-3 text-center border-r border-border last:border-r-0">
-                      <p className={`text-base font-bold ${cls}`}>{value}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+                    <div key={label} className="px-2 py-2.5 text-center border-r border-border last:border-r-0">
+                      <p className={`text-sm font-bold ${cls}`}>{value}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">{label}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 p-4 grid grid-cols-2 gap-4 content-start">
+                {/* Tab bar */}
+                <div className="flex shrink-0 border-b border-border bg-muted/20">
+                  {(["leads", "profile", "transfer"] as const).map((tab) => {
+                    const labels: Record<string, string> = {
+                      leads:    `Leads (${selectedLeads.length})`,
+                      profile:  "โปรไฟล์",
+                      transfer: "โอน / บันทึก",
+                    };
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setDetailTab(tab)}
+                        className={`flex-1 py-2 text-xs font-semibold transition-colors border-b-2 ${
+                          detailTab === tab
+                            ? "text-violet-600 dark:text-violet-400 border-violet-500"
+                            : "text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/40"
+                        }`}
+                      >
+                        {labels[tab]}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  {/* Contact card */}
-                  <div className="bg-card border rounded-xl p-4 space-y-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <a href={`tel:${selectedCustomer.phone}`} className="text-violet-600 hover:underline">{selectedCustomer.phone}</a>
-                      </div>
-                      {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span>{selectedCustomer.line_id}</span>
-                        </div>
-                      )}
-                      {selectedCustomer.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate text-xs">{selectedCustomer.email}</span>
-                        </div>
-                      )}
-                      {selectedCustomer.province && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-xs">{selectedCustomer.province}</span>
-                        </div>
-                      )}
-                    </div>
-                    {/* Quick actions */}
-                    <div className="flex gap-1.5 pt-2 border-t border-border flex-wrap">
-                      <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" asChild>
-                        <a href={`tel:${selectedCustomer.phone}`}><Phone className="w-3 h-3" /> โทร</a>
+                {/* ── Tab: Leads ── */}
+                {detailTab === "leads" && (
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{selectedLeads.length} Lead</span>
+                      <Button size="sm"
+                        className="h-7 px-2.5 text-xs gap-1 bg-violet-600 hover:bg-violet-700 text-white ml-auto"
+                        onClick={() => setOpenAdd(true)}>
+                        <Plus className="w-3 h-3" /> สร้าง Lead
                       </Button>
-                      {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
-                        <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1">
-                          <MessageCircle className="w-3 h-3" /> LINE
-                        </Button>
-                      )}
-                      {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
-                        <Button size="sm" variant="outline"
-                          className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
-                          onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
-                          <ArrowRightLeft className="w-3 h-3" /> โอน
-                        </Button>
-                      )}
-                      {canDirectDelete ? (
-                        <Button size="sm" variant="outline"
-                          className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
-                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                          <Trash2 className="w-3 h-3" /> ลบ
-                        </Button>
-                      ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                        <Button size="sm" variant="outline"
-                          className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
-                          onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
-                          <Trash2 className="w-3 h-3" /> ขอลบ
-                        </Button>
-                      ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
-                        <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
-                          <Clock className="w-3 h-3" /> รอ Manager
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Lead history — full width */}
-                  <div className="bg-card border rounded-xl overflow-hidden col-span-2">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ประวัติ Lead</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground">{selectedLeads.length} รายการ</span>
-                        <Button size="sm"
-                          className="h-6 px-2.5 text-[10px] gap-1 bg-violet-600 hover:bg-violet-700 text-white"
-                          onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
-                          <Plus className="w-2.5 h-2.5" /> สร้าง Lead
-                        </Button>
-                      </div>
                     </div>
                     {selectedLeads.length === 0 ? (
-                      <div className="py-8 text-center text-muted-foreground text-sm">
-                        <p className="mb-2 text-xs">ยังไม่มี Lead</p>
-                        <Button size="sm" variant="outline" className="text-xs h-7"
-                          onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                      <div className="py-10 text-center text-muted-foreground">
+                        <p className="text-sm mb-3">ยังไม่มี Lead</p>
+                        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setOpenAdd(true)}>
                           + สร้าง Lead แรก
                         </Button>
                       </div>
                     ) : (
-                      <div className="divide-y divide-border">
-                        {selectedLeads.map((l) => {
-                          const lStyle = leadStatusStyle(l.status);
-                          const lv = l.closed_price || l.quoted_price;
-                          return (
-                            <div key={l.lead_id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                      selectedLeads.map((l) => {
+                        const lStyle = leadStatusStyle(l.status);
+                        const lv = l.closed_price || l.quoted_price;
+                        return (
+                          <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
+                            <div className="flex items-center gap-3 px-4 py-3">
                               <div className={`w-1 h-10 rounded-full shrink-0 ${lStyle.bar}`} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -786,9 +742,7 @@ export default function Customers() {
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                                   <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
-                                  {l.travel_month && (
-                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>
-                                  )}
+                                  {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
                                   {l.assigned_to && <span>· {l.assigned_to}</span>}
                                 </div>
                               </div>
@@ -799,21 +753,171 @@ export default function Customers() {
                                 </div>
                               ) : null}
                             </div>
-                          );
-                        })}
-                      </div>
+                            {/* Lead action bar */}
+                            <div className="flex items-center gap-1 px-3 py-1.5 border-t border-border bg-muted/20">
+                              <Button size="sm" variant="ghost"
+                                className="h-6 text-[10px] text-muted-foreground px-2 gap-1 hover:text-foreground"
+                                onClick={() => navigate(`/app/customers/${selectedCustomer.customer_id}`)}>
+                                <Pencil className="w-3 h-3" /> แก้ไข Lead
+                              </Button>
+                              {(l.bu_type || (l as any).status_note) && (
+                                <span className="text-[10px] text-muted-foreground truncate">
+                                  {l.bu_type && `· ${l.bu_type}`}
+                                  {(l as any).status_note && ` · ${(l as any).status_note}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
+                )}
 
-                  {/* Note */}
-                  {selectedCustomer.note && (
-                    <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4 col-span-2">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2">บันทึก</p>
-                      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{selectedCustomer.note}</p>
+                {/* ── Tab: โปรไฟล์ ── */}
+                {detailTab === "profile" && (
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Contact card */}
+                      <div className="bg-card border rounded-xl p-4 space-y-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <a href={`tel:${selectedCustomer.phone}`} className="text-violet-600 hover:underline">{selectedCustomer.phone}</a>
+                          </div>
+                          {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                            <div className="flex items-center gap-2">
+                              <MessageCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span>{selectedCustomer.line_id}</span>
+                            </div>
+                          )}
+                          {selectedCustomer.email && (
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate text-xs">{selectedCustomer.email}</span>
+                            </div>
+                          )}
+                          {selectedCustomer.province && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-xs">{selectedCustomer.province}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5 pt-2 border-t border-border flex-wrap">
+                          <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1" asChild>
+                            <a href={`tel:${selectedCustomer.phone}`}><Phone className="w-3 h-3" /> โทร</a>
+                          </Button>
+                          {selectedCustomer.line_id && selectedCustomer.line_id !== "-" && (
+                            <Button size="sm" variant="outline" className="h-7 px-2.5 text-xs gap-1">
+                              <MessageCircle className="w-3 h-3" /> LINE
+                            </Button>
+                          )}
+                          {currentRep !== "All" && selectedCustomer.created_by === currentRep && (
+                            <Button size="sm" variant="outline"
+                              className="h-7 px-2.5 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                              onClick={() => { setTransferOf(selectedCustomer); setTransferTo(""); }}>
+                              <ArrowRightLeft className="w-3 h-3" /> โอน
+                            </Button>
+                          )}
+                          {canDirectDelete ? (
+                            <Button size="sm" variant="outline"
+                              className="h-7 px-2.5 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/5"
+                              onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                              <Trash2 className="w-3 h-3" /> ลบ
+                            </Button>
+                          ) : currentRep !== "All" && !pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                            <Button size="sm" variant="outline"
+                              className="h-7 px-2.5 text-xs gap-1 text-destructive/70 border-destructive/20 hover:bg-destructive/5"
+                              onClick={() => { setDeleteOf(selectedCustomer); setDeleteReason(""); }}>
+                              <Trash2 className="w-3 h-3" /> ขอลบ
+                            </Button>
+                          ) : pendingDeleteIds.has(selectedCustomer.customer_id) ? (
+                            <span className="h-7 flex items-center gap-1 px-2.5 text-xs text-amber-500">
+                              <Clock className="w-3 h-3" /> รอ Manager
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* Customer info card */}
+                      <div className="bg-card border rounded-xl p-4 space-y-2.5">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลลูกค้า</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                          <div><p className="text-muted-foreground">ช่องทาง</p><p className="font-semibold mt-0.5">{selectedCustomer.source}</p></div>
+                          <div><p className="text-muted-foreground">กลุ่มลูกค้า</p><p className="font-semibold mt-0.5 leading-tight">{(selectedCustomer as any).segment ?? "—"}</p></div>
+                          <div><p className="text-muted-foreground">Sales</p><p className="font-semibold mt-0.5 text-violet-600 dark:text-violet-400">{selectedCustomer.created_by}</p></div>
+                          {(selectedCustomer as any).birthday && (
+                            <div><p className="text-muted-foreground">วันเกิด</p><p className="font-semibold mt-0.5">{new Date((selectedCustomer as any).birthday).toLocaleDateString("th-TH", { day: "numeric", month: "long" })}</p></div>
+                          )}
+                          {selectedCustomer.created_at && (
+                            <div><p className="text-muted-foreground">เพิ่มเมื่อ</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.created_at)}</p></div>
+                          )}
+                          {selectedCustomer.last_contacted_at && (
+                            <div><p className="text-muted-foreground">ติดต่อล่าสุด</p><p className="font-semibold mt-0.5">{fmtDate(selectedCustomer.last_contacted_at)}</p></div>
+                          )}
+                        </div>
+                        {((selectedCustomer as any).interests ?? []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-2 border-t border-border">
+                            {((selectedCustomer as any).interests as string[]).map((key) => (
+                              <span key={key} className="text-[10px] px-2 py-0.5 rounded-full border border-violet-200 bg-violet-50/50 text-violet-700 dark:bg-violet-900/20 dark:border-violet-700 dark:text-violet-300">{key}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
-                </div>
+                {/* ── Tab: โอน / บันทึก ── */}
+                {detailTab === "transfer" && (
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {((selectedCustomer as any).transfer_logs ?? []).length > 0 ? (
+                      <div className="bg-card border rounded-xl overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-border bg-muted/20 flex items-center gap-2">
+                          <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            ประวัติโอน ({((selectedCustomer as any).transfer_logs ?? []).length} ครั้ง)
+                          </p>
+                        </div>
+                        <div className="p-3">
+                          <ol className="relative border-l border-border space-y-3 ml-3">
+                            {[...((selectedCustomer as any).transfer_logs ?? [])].reverse().map((log: any) => (
+                              <li key={log.log_id} className="ml-4">
+                                <div className="absolute -left-[7px] mt-1 w-3 h-3 rounded-full border-2 border-background bg-violet-500" />
+                                <div className="bg-muted/30 rounded-lg px-2.5 py-2 space-y-0.5">
+                                  <p className="text-xs font-medium">
+                                    <span className="text-muted-foreground">{log.from_rep}</span>
+                                    {" → "}
+                                    <span className="font-semibold text-violet-600 dark:text-violet-400">{log.to_rep}</span>
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    🕐 {fmtDate(log.transferred_at)}
+                                    {log.transferred_by && log.transferred_by !== log.from_rep && ` · โดย ${log.transferred_by}`}
+                                  </p>
+                                  {log.note && <p className="text-xs text-muted-foreground italic">📝 {log.note}</p>}
+                                </div>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-center text-xs text-muted-foreground py-4">ยังไม่มีประวัติโอน</p>
+                    )}
+                    {selectedCustomer.note && (
+                      <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2">บันทึก</p>
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{selectedCustomer.note}</p>
+                      </div>
+                    )}
+                    {!selectedCustomer.note && ((selectedCustomer as any).transfer_logs ?? []).length === 0 && (
+                      <p className="text-center text-xs text-muted-foreground py-4">ไม่มีข้อมูล</p>
+                    )}
+                  </div>
+                )}
+
               </div>
             )}
           </div>
