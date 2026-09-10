@@ -78,6 +78,34 @@ function leadStatusStyle(status: string) {
   };
 }
 
+function fmtRelativeDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days === 0) return "วันนี้";
+  if (days === 1) return "เมื่อวาน";
+  if (days < 7) return `${days} วันที่แล้ว`;
+  if (days < 30) return `${Math.floor(days / 7)} สัปดาห์ที่แล้ว`;
+  if (days < 365) return `${Math.floor(days / 30)} เดือนที่แล้ว`;
+  return `${Math.floor(days / 365)} ปีที่แล้ว`;
+}
+
+function fmtFutureDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const diffMs = d.getTime() - Date.now();
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
+  if (days === 0) return "วันนี้";
+  if (days === 1) return "พรุ่งนี้";
+  if (days < 7) return `อีก ${days} วัน`;
+  if (days < 30) return `อีก ${Math.floor(days / 7)} สัปดาห์`;
+  return `อีก ${Math.floor(days / 30)} เดือน`;
+}
+
 function fmtMoney(n: number): string {
   if (!n) return "฿0";
   if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -436,6 +464,7 @@ export default function Customers() {
   // Filters
   const [filterTier, setFilterTier] = useState<Tier | "all">("all");
   const [filterSource, setFilterSource] = useState<Source | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "no_lead" | "active" | "quoted" | "closed" | "lost">("all");
   const [filterDateRange, setFilterDateRange] = useState<"all" | "7d" | "30d" | "90d" | "365d">("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "spend_desc" | "spend_asc" | "name">("newest");
   const [showFilters, setShowFilters] = useState(false);
@@ -514,6 +543,41 @@ export default function Customers() {
     return customers;
   }, [customers, currentRep, isOBRole, isSalesManager, obNames, salesTeamNames, isMarketing, deptFilter, obSet]);
 
+  const latestLeadByCustomer = useMemo(() => {
+    const map = new Map<string, LeadStatus>();
+    const priority = (s: LeadStatus) => isLostStatus(s) ? 2 : isClosedStatus(s) ? 1 : 0;
+    leads.forEach((l) => {
+      const cur = map.get(l.customer_id);
+      if (!cur || priority(l.status) < priority(cur)) map.set(l.customer_id, l.status);
+    });
+    return map;
+  }, [leads]);
+
+  // Next follow-up date per customer (earliest upcoming date from active leads)
+  const nextFollowupByCustomer = useMemo(() => {
+    const map = new Map<string, string>();
+    leads.forEach((l) => {
+      if (!l.next_followup_date || isClosedStatus(l.status) || isLostStatus(l.status)) return;
+      const cur = map.get(l.customer_id);
+      if (!cur || l.next_followup_date < cur) map.set(l.customer_id, l.next_followup_date);
+    });
+    return map;
+  }, [leads]);
+
+  // RFM per customer for list badges
+  const rfmByCustomer = useMemo(() => {
+    const map = new Map<string, RFMResult>();
+    scoped.forEach((c) => {
+      const enriched = {
+        ...c,
+        total_trips: wonTripsMap.get(c.customer_id) ?? (c as any).total_trips ?? 0,
+        total_spend: wonSpendMap.get(c.customer_id) ?? (c as any).total_spend ?? 0,
+      };
+      map.set(c.customer_id, computeRFM(enriched));
+    });
+    return map;
+  }, [scoped, wonTripsMap, wonSpendMap]);
+
   const filtered = useMemo(() => {
     const s = debouncedQ.trim().toLowerCase();
     let list = scoped;
@@ -537,6 +601,19 @@ export default function Customers() {
 
     // Source filter
     if (filterSource !== "all") list = list.filter((c) => c.source === filterSource);
+
+    // Status filter (based on latest lead status)
+    if (filterStatus !== "all") {
+      list = list.filter((c) => {
+        const st = latestLeadByCustomer.get(c.customer_id);
+        if (filterStatus === "no_lead")  return !st;
+        if (filterStatus === "closed")   return st ? isClosedStatus(st) : false;
+        if (filterStatus === "lost")     return st ? isLostStatus(st) : false;
+        if (filterStatus === "quoted")   return st === "ส่ง Quote แล้ว";
+        if (filterStatus === "active")   return st ? !isClosedStatus(st) && !isLostStatus(st) && st !== "ส่ง Quote แล้ว" : false;
+        return true;
+      });
+    }
 
     // Date range filter (created_at)
     if (filterDateRange !== "all") {
@@ -562,21 +639,12 @@ export default function Customers() {
       }
     });
     return sorted;
-  }, [scoped, debouncedQ, filterTier, filterSource, filterDateRange, sortBy]);
+  }, [scoped, debouncedQ, filterTier, filterSource, filterStatus, filterDateRange, sortBy, latestLeadByCustomer]);
 
   // Reset to page 1 whenever filter/search/pageSize changes
-  useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterDateRange, sortBy, pageSize]);
+  useEffect(() => { setPage(1); }, [debouncedQ, filterTier, filterSource, filterStatus, filterDateRange, sortBy, pageSize]);
 
   // ── Split-pane computed ───────────────────────────────────────────────────
-  const latestLeadByCustomer = useMemo(() => {
-    const map = new Map<string, LeadStatus>();
-    const priority = (s: LeadStatus) => isLostStatus(s) ? 2 : isClosedStatus(s) ? 1 : 0;
-    leads.forEach((l) => {
-      const cur = map.get(l.customer_id);
-      if (!cur || priority(l.status) < priority(cur)) map.set(l.customer_id, l.status);
-    });
-    return map;
-  }, [leads]);
 
   const selectedCustomer = useMemo(
     () => (selectedId ? scoped.find((c) => c.customer_id === selectedId) ?? null : null),
@@ -622,12 +690,13 @@ export default function Customers() {
   const resetFilters = () => {
     setFilterTier("all");
     setFilterSource("all");
+    setFilterStatus("all");
     setFilterDateRange("all");
     setSortBy("newest");
     setQ("");
   };
-  const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterDateRange !== "all" || q !== "";
-  const activeFilterCount = [filterTier !== "all", filterSource !== "all", filterDateRange !== "all"].filter(Boolean).length;
+  const hasActiveFilter = filterTier !== "all" || filterSource !== "all" || filterStatus !== "all" || filterDateRange !== "all" || q !== "";
+  const activeFilterCount = [filterTier !== "all", filterSource !== "all", filterStatus !== "all", filterDateRange !== "all"].filter(Boolean).length;
   const DATE_LABELS: Record<string, string> = { "7d": "7 วัน", "30d": "30 วัน", "90d": "90 วัน", "365d": "1 ปี" };
 
   // Pagination
@@ -782,6 +851,18 @@ export default function Customers() {
                   <option value="name">ชื่อ ก-ฮ</option>
                 </select>
               </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+                className={`w-full h-8 rounded-lg border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer transition ${filterStatus !== "all" ? "border-violet-400 text-violet-700 dark:text-violet-300 font-medium" : "border-border"}`}
+              >
+                <option value="all">ทุกสถานะ Lead</option>
+                <option value="no_lead">ยังไม่มี Lead</option>
+                <option value="active">กำลังติดตาม</option>
+                <option value="quoted">ส่ง Quote แล้ว</option>
+                <option value="closed">จองแล้ว</option>
+                <option value="lost">ยกเลิก</option>
+              </select>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
@@ -807,10 +888,15 @@ export default function Customers() {
                 </div>
               ) : (
                 filtered.map((c) => {
-                  const status  = latestLeadByCustomer.get(c.customer_id) ?? "ใหม่";
-                  const lStyle  = leadStatusStyle(status);
-                  const spend   = wonSpendMap.get(c.customer_id) ?? 0;
-                  const isSelected = c.customer_id === selectedId;
+                  const status      = latestLeadByCustomer.get(c.customer_id) ?? "ใหม่";
+                  const lStyle      = leadStatusStyle(status);
+                  const spend       = wonSpendMap.get(c.customer_id) ?? 0;
+                  const isSelected  = c.customer_id === selectedId;
+                  const lastContact = fmtRelativeDate(c.last_contacted_at);
+                  const nextFollowup = nextFollowupByCustomer.get(c.customer_id);
+                  const nextFmt     = nextFollowup ? fmtFutureDate(nextFollowup) : null;
+                  const rfm         = rfmByCustomer.get(c.customer_id);
+                  const rfmStyle    = rfm ? RFM_SEGMENT_STYLE[rfm.segment] : null;
                   return (
                     <div
                       key={c.customer_id}
@@ -826,12 +912,24 @@ export default function Customers() {
                         {c.full_name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold truncate ${isSelected ? "text-violet-700 dark:text-violet-300" : ""}`}>
-                          {c.full_name}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <p className={`text-sm font-semibold truncate ${isSelected ? "text-violet-700 dark:text-violet-300" : ""}`}>
+                            {c.full_name}
+                          </p>
+                          {rfmStyle && rfm && rfm.segment !== "ทั่วไป" && (
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${rfmStyle.pill}`}>{rfmStyle.label}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lStyle.pill}`}>{lStyle.label}</span>
-                          <span className="text-[10px] text-muted-foreground">{c.source}</span>
+                          {lastContact && (
+                            <span className="text-[9px] text-muted-foreground">📞 {lastContact}</span>
+                          )}
+                          {nextFmt && (
+                            <span className={`text-[9px] font-medium ${nextFollowup && new Date(nextFollowup) < new Date() ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`}>
+                              ⏰ {nextFmt}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -1422,6 +1520,15 @@ export default function Customers() {
                 onClick={() => setFilterSource("all")}
               >
                 {filterSource} <X className="w-3 h-3" />
+              </button>
+            )}
+            {filterStatus !== "all" && (
+              <button
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-xs border border-violet-200 hover:bg-violet-200 transition"
+                onClick={() => setFilterStatus("all")}
+              >
+                {filterStatus === "no_lead" ? "ยังไม่มี Lead" : filterStatus === "active" ? "กำลังติดตาม" : filterStatus === "quoted" ? "ส่ง Quote แล้ว" : filterStatus === "closed" ? "จองแล้ว" : "ยกเลิก"}
+                <X className="w-3 h-3" />
               </button>
             )}
             <button
