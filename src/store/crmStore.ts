@@ -49,6 +49,7 @@ export interface Customer {
   customer_tier: Tier;
   first_contact_date: string;
   created_by: SalesRep;
+  channel: "OB" | "Sales";        // ช่องทางที่สร้างลูกค้า — ล็อกตอน created (ไม่เปลี่ยนแม้ย้ายทีม)
   transferred_to?: SalesRep;
   transferred_from?: SalesRep;
   transferred_at?: string;
@@ -645,7 +646,7 @@ interface CRMState {
   loadCustomersFromSupabase: () => Promise<void>;
   loadAllFromSupabase: () => Promise<void>;
   loadRouteFromSupabase: (routeId: string) => Promise<void>;
-  addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by"> & { created_by?: SalesRep }) => string;
+  addCustomer: (c: Omit<Customer, "customer_id" | "total_trips" | "total_spend" | "customer_tier" | "first_contact_date" | "created_by" | "channel"> & { created_by?: SalesRep }) => string;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
@@ -931,7 +932,7 @@ export const useCRM = create<CRMState>()(
       const custSelect =
         "customer_id,full_name,company,phone,line_id,email,province,birthday,interests," +
         "note,last_contacted_at,source,segment,total_trips,total_spend,customer_tier," +
-        "first_contact_date,created_by,transferred_to,transferred_from,transferred_at," +
+        "first_contact_date,created_by,channel,transferred_to,transferred_from,transferred_at," +
         "transfer_logs,created_at";
 
       const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(500);
@@ -1314,6 +1315,10 @@ export const useCRM = create<CRMState>()(
     const creator = c.created_by
       ?? currentUser?.full_name
       ?? (get().currentRep !== "All" ? get().currentRep : SALES_REPS[0]);
+    // ── channel: ล็อกตาม role ของ creator ตอนสร้าง — ไม่เปลี่ยนแม้ย้ายทีม ──
+    const creatorRole = currentUser?.role;
+    const channel: "OB" | "Sales" =
+      creatorRole === "OB Manager" || creatorRole === "OB Co-ordinator" ? "OB" : "Sales";
     const newC: Customer = {
       ...c,
       customer_id: id,
@@ -1322,6 +1327,7 @@ export const useCRM = create<CRMState>()(
       customer_tier: "New",
       first_contact_date: new Date().toISOString().split("T")[0],
       created_by: creator,
+      channel,
       created_at: new Date().toISOString(),
     };
     const now = new Date().toISOString();

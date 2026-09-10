@@ -19,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCRM, SOURCES, type Customer, type Source } from "@/store/crmStore";
-import { useActiveOBNames } from "@/store/authStore";
 import { toast } from "sonner";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -287,7 +286,6 @@ function DetailPanel({ customer, onNavigate }: { customer: Customer | null; onNa
 
 export default function MarketingSalesLeads() {
   const navigate  = useNavigate();
-  const obNames   = useActiveOBNames();
   const customers = useCRM((s) => s.customers);
   const allLeads  = useCRM((s) => s.leads);
 
@@ -295,16 +293,9 @@ export default function MarketingSalesLeads() {
   const [sourceFilter, setSourceFilter]   = useState<Source | "all">("all");
   const [selectedId, setSelectedId]       = useState<string | null>(null);
 
-  const obSet = useMemo(() => new Set(obNames), [obNames]);
-
   const salesCustomers = useMemo(
-    () => customers.filter(
-      (c) =>
-        !obSet.has(c.created_by) &&
-        !obSet.has(c.transferred_to ?? "") &&
-        !obSet.has(c.transferred_from ?? ""),
-    ),
-    [customers, obSet],
+    () => customers.filter((c) => c.channel === "Sales"),
+    [customers],
   );
 
   const filtered = useMemo(() => {

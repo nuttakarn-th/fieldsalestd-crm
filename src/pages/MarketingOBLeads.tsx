@@ -365,27 +365,21 @@ export default function MarketingOBLeads() {
   const [statusGroup, setStatusGroup] = useState<"active" | "won" | "lost" | "all">("all");
   const [selectedId, setSelectedId]   = useState<string | null>(null);
 
-  const obSet = useMemo(() => new Set(obNames), [obNames]);
-
   const obCustomers = useMemo(
-    () => customers.filter(
-      (c) => obSet.has(c.created_by) || obSet.has(c.transferred_to ?? "") || obSet.has(c.transferred_from ?? ""),
-    ),
-    [customers, obSet],
+    () => customers.filter((c) => c.channel === "OB"),
+    [customers],
   );
 
   const latestLeadByCustomer = useMemo(() => {
     const map = new Map<string, Lead>();
-    allLeads
-      .filter((l) => obSet.has(l.assigned_to))
-      .forEach((l) => {
-        const cur = map.get(l.customer_id);
-        if (!cur || leadPriority(l.status) < leadPriority(cur.status)) {
-          map.set(l.customer_id, l);
-        }
-      });
+    allLeads.forEach((l) => {
+      const cur = map.get(l.customer_id);
+      if (!cur || leadPriority(l.status) < leadPriority(cur.status)) {
+        map.set(l.customer_id, l);
+      }
+    });
     return map;
-  }, [allLeads, obSet]);
+  }, [allLeads]);
 
   const stats = useMemo(() => {
     const s = { active: 0, won: 0, lost: 0, all: obCustomers.length, wonValue: 0, pipelineValue: 0 };
@@ -464,10 +458,10 @@ export default function MarketingOBLeads() {
   const selectedLeads = useMemo(
     () => selectedId
       ? allLeads
-          .filter((l) => l.customer_id === selectedId && obSet.has(l.assigned_to))
+          .filter((l) => l.customer_id === selectedId)
           .sort((a, b) => leadPriority(a.status) - leadPriority(b.status))
       : [],
-    [allLeads, selectedId, obSet],
+    [allLeads, selectedId],
   );
 
   // Filter tab config
