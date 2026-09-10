@@ -13,14 +13,33 @@ import {
   Search, Users2, Phone, Calendar, ChevronRight,
   CheckCircle2, XCircle, Clock, Sparkles,
   Mail, MapPin, User, Star, Banknote, Tag, FileText,
-  ExternalLink, MessageCircle,
+  ExternalLink, MessageCircle, Download,
 } from "lucide-react";
+import { toast } from "sonner";
+import { exportToExcel, type ExcelField } from "@/lib/excelUtils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCRM, isClosedStatus, isLostStatus, type Customer, type Lead } from "@/store/crmStore";
 import { useServices } from "@/store/serviceStore";
 import { useActiveOBNames } from "@/store/authStore";
+
+// ── Export fields ─────────────────────────────────────────────────────────────
+const OB_EXPORT_FIELDS: ExcelField[] = [
+  { key: "full_name",         header: "ชื่อ-นามสกุล",      required: true },
+  { key: "phone",             header: "เบอร์โทรศัพท์",      required: true },
+  { key: "line_id",           header: "Line ID" },
+  { key: "email",             header: "อีเมล" },
+  { key: "province",          header: "จังหวัด" },
+  { key: "source",            header: "ช่องทางที่มา" },
+  { key: "segment",           header: "กลุ่มลูกค้า" },
+  { key: "customer_tier",     header: "Tier" },
+  { key: "total_trips",       header: "จำนวนการซื้อ (ครั้ง)", type: "number" as const },
+  { key: "total_spend",       header: "ยอดซื้อรวม (บาท)",    type: "number" as const },
+  { key: "first_contact_date",header: "วันที่เพิ่มข้อมูล" },
+  { key: "created_by",        header: "Sales ที่ดูแล" },
+  { key: "lead_status",       header: "สถานะ Lead ล่าสุด" },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -422,6 +441,31 @@ export default function MarketingOBLeads() {
     });
   }, [obCustomers, search, statusGroup, latestLeadByCustomer]);
 
+  // Export-ready records (follows current filter)
+  const exportData = useMemo(() =>
+    filtered.map((c) => ({
+      full_name:          c.full_name,
+      phone:              c.phone,
+      line_id:            c.line_id ?? "",
+      email:              c.email ?? "",
+      province:           c.province ?? "",
+      source:             c.source ?? "",
+      segment:            c.segment ?? "",
+      customer_tier:      c.customer_tier ?? "",
+      total_trips:        c.total_trips,
+      total_spend:        c.total_spend,
+      first_contact_date: c.first_contact_date ?? "",
+      created_by:         c.created_by ?? "",
+      lead_status:        latestLeadByCustomer.get(c.customer_id)?.status ?? "",
+    })),
+    [filtered, latestLeadByCustomer],
+  );
+
+  const handleExport = () => {
+    exportToExcel(exportData, OB_EXPORT_FIELDS, "OB Leads", `OB_leads`);
+    toast.success(`Export ${exportData.length} รายการเรียบร้อย ✅`);
+  };
+
   // Auto-select first item on load / filter change
   useEffect(() => {
     if (filtered.length > 0) {
@@ -521,10 +565,21 @@ export default function MarketingOBLeads() {
           <span className="text-[11px] text-muted-foreground">Pipeline</span>
           <span className="text-sm font-bold text-violet-700 dark:text-violet-400 tabular-nums">{fmtMoney(stats.pipelineValue)}</span>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="font-semibold text-amber-600">{stats.active}</span> ดำเนินการ
-          <span className="opacity-40">·</span>
-          <span className="font-semibold text-red-500">{stats.lost}</span> ยกเลิก
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="font-semibold text-amber-600">{stats.active}</span> ดำเนินการ
+            <span className="opacity-40">·</span>
+            <span className="font-semibold text-red-500">{stats.lost}</span> ยกเลิก
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 text-[11px] gap-1.5 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-400"
+            onClick={handleExport}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Excel ({filtered.length})
+          </Button>
         </div>
       </div>
 
