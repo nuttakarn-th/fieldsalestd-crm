@@ -106,6 +106,32 @@ function fmtFutureDate(dateStr: string | null | undefined): string | null {
   return `อีก ${Math.floor(days / 30)} เดือน`;
 }
 
+const TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+/** "2026-09-25" → "25 ก.ย. 69" */
+function fmtThaiDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const parts = dateStr.split("-");
+  if (parts.length < 3) return null;
+  const [y, m, d] = parts;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return null;
+  const buddhistShort = String(parseInt(y, 10) + 543).slice(-2);
+  return `${parseInt(d, 10)} ${TH_MONTHS_SHORT[monthIdx]} ${buddhistShort}`;
+}
+
+/** "2026-12" → "ธ.ค. 69" */
+function fmtTravelMonth(ym: string | null | undefined): string | null {
+  if (!ym) return null;
+  const parts = ym.split("-");
+  if (parts.length < 2) return null;
+  const [y, m] = parts;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return null;
+  const buddhistShort = String(parseInt(y, 10) + 543).slice(-2);
+  return `${TH_MONTHS_SHORT[monthIdx]} ${buddhistShort}`;
+}
+
 function fmtMoney(n: number): string {
   if (!n) return "฿0";
   if (n >= 1_000_000) return `฿${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -362,6 +388,7 @@ export default function Customers() {
   const user = useCurrentUser();
   const customers = useCRM((s) => s.customers);
   const leads     = useCRM((s) => s.leads);
+  const tours     = useServices((s) => s.tours);
   const currentRep = useCRM((s) => s.currentRep);
   const transferCustomer = useCRM((s) => s.transferCustomer);
   const deleteCustomer = useCRM((s) => s.deleteCustomer);
@@ -391,6 +418,13 @@ export default function Customers() {
     }
     return { wonSpendMap: spendMap, wonTripsMap: tripsMap };
   }, [leads]);
+
+  // period_id → TourPeriod lookup (เพื่อ show ช่วงเดินทางจริง)
+  const periodLookup = useMemo(() => {
+    const map = new Map<string, import("@/store/serviceStore").TourPeriod>();
+    tours.forEach((t) => t.periods?.forEach((p) => map.set(p.period_id, p)));
+    return map;
+  }, [tours]);
 
   const SALES_REPS     = useActiveSalesNames() as SalesRep[];
   const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
@@ -1156,6 +1190,13 @@ export default function Customers() {
                         {selectedLeads.map((l) => {
                           const lStyle = leadStatusStyle(l.status);
                           const lv = l.closed_price || l.quoted_price;
+                          const period = l.period_id ? periodLookup.get(l.period_id) : null;
+                          const tripStart = fmtThaiDate(period?.start_date);
+                          const tripEnd   = fmtThaiDate(period?.end_date);
+                          const tripLabel = tripStart && tripEnd
+                            ? `${tripStart} – ${tripEnd}`
+                            : tripStart || fmtTravelMonth(l.travel_month);
+                          const closedLabel = fmtThaiDate(l.closed_date);
                           return (
                             <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
                               <div className="flex items-center gap-3 px-4 py-3">
@@ -1167,9 +1208,12 @@ export default function Customers() {
                                   </div>
                                   <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
                                     <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
-                                    {l.travel_month && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{l.travel_month}</span>}
+                                    {tripLabel && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{tripLabel}</span>}
                                     {l.assigned_to && <span>· {l.assigned_to}</span>}
                                   </div>
+                                  {closedLabel && (
+                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">✓ จอง {closedLabel}</p>
+                                  )}
                                 </div>
                                 {lv ? (
                                   <div className="text-right shrink-0 space-y-0.5">
@@ -1183,7 +1227,6 @@ export default function Customers() {
                                         ราคาเต็ม
                                       </span>
                                     )}
-                                    {l.closed_date && <p className="text-[10px] text-muted-foreground">ปิด {fmtDate(l.closed_date)}</p>}
                                   </div>
                                 ) : null}
                               </div>
