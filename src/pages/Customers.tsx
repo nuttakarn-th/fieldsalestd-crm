@@ -85,6 +85,66 @@ function fmtMoney(n: number): string {
   return `฿${n.toLocaleString("th-TH")}`;
 }
 
+// ── RFM Model ────────────────────────────────────────────────────────────────
+type RFMSegment = "Champion" | "Loyal" | "At Risk" | "Big Spender" | "New" | "ทั่วไป";
+type RFMScore   = 1 | 2 | 3; // 1 = ดี, 2 = เตือน, 3 = แย่
+interface RFMResult { rDays: number | null; rLabel: string; rScore: RFMScore; fScore: RFMScore; mScore: RFMScore; segment: RFMSegment; insight: string; }
+
+function computeRFM(customer: Customer & { total_trips?: number; total_spend?: number }): RFMResult {
+  const now  = Date.now();
+  const trips = customer.total_trips ?? 0;
+  const spend = customer.total_spend ?? 0;
+
+  // R — Recency
+  let rDays: number | null = null;
+  let rLabel = "ไม่มีข้อมูล";
+  let rScore: RFMScore = 3;
+  if (customer.last_contacted_at) {
+    rDays  = Math.floor((now - new Date(customer.last_contacted_at).getTime()) / 86_400_000);
+    rLabel = rDays <= 7 ? `${rDays} วันที่แล้ว` : rDays <= 30 ? `${rDays} วัน` : rDays <= 90 ? `${Math.floor(rDays / 30)} เดือน` : `${Math.floor(rDays / 30)} เดือน`;
+    rScore = rDays <= 30 ? 1 : rDays <= 90 ? 2 : 3;
+  }
+
+  // F — Frequency
+  const fScore: RFMScore = trips >= 3 ? 1 : trips >= 1 ? 2 : 3;
+
+  // M — Monetary
+  const mScore: RFMScore = spend >= 50_000 ? 1 : spend >= 10_000 ? 2 : 3;
+
+  // Segment
+  let segment: RFMSegment;
+  if (trips === 0)                                        segment = "New";
+  else if (fScore === 1 && mScore === 1 && rScore <= 2)  segment = "Champion";
+  else if (fScore === 1 && rScore === 3)                  segment = "At Risk";
+  else if (mScore === 1 && fScore >= 2)                   segment = "Big Spender";
+  else if (fScore === 1)                                  segment = "Loyal";
+  else                                                    segment = "ทั่วไป";
+
+  const insight =
+    segment === "Champion"    ? `ลูกค้า Champion ยอดสูง ใช้บริการบ่อย${rScore === 2 ? ` — หายไป ${rLabel} แล้ว ควรโทรติดตามด่วน` : " — ดูแลรักษาความสัมพันธ์ต่อเนื่อง"}` :
+    segment === "At Risk"     ? `เคยซื้อบ่อยแต่หายนาน ${rLabel} — ควรโทรหาด่วน เสนอโปรพิเศษหรือ package ใหม่` :
+    segment === "Big Spender" ? `ยอดต่อครั้งสูงแต่ซื้อไม่บ่อย — มีศักยภาพสูง ลองเสนอ package พรีเมียม` :
+    segment === "Loyal"       ? `ใช้บริการสม่ำเสมอ — เหมาะสำหรับ upsell หรือ cross-sell package ใหม่` :
+    segment === "New"         ? `ลูกค้าใหม่ยังไม่เคยซื้อ — ติดตามพูดคุย เสนอ package เริ่มต้น` :
+                                `ลูกค้าทั่วไป — ติดตามอย่างสม่ำเสมอเพื่อสร้างความสัมพันธ์`;
+
+  return { rDays, rLabel, rScore, fScore, mScore, segment, insight };
+}
+
+const RFM_SEGMENT_STYLE: Record<RFMSegment, { label: string; pill: string }> = {
+  "Champion":    { label: "Champion",    pill: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300" },
+  "At Risk":     { label: "At Risk",     pill: "bg-red-100 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400" },
+  "Big Spender": { label: "Big Spender", pill: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400" },
+  "Loyal":       { label: "Loyal",       pill: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300" },
+  "New":         { label: "New",         pill: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300" },
+  "ทั่วไป":      { label: "ทั่วไป",      pill: "bg-muted text-muted-foreground border-border" },
+};
+const RFM_SCORE_COLOR: Record<RFMScore, string> = {
+  1: "text-emerald-600 dark:text-emerald-400",
+  2: "text-amber-600 dark:text-amber-400",
+  3: "text-red-500 dark:text-red-400",
+};
+
 // ── Marketing Export helpers ──────────────────────────────────────────────────
 function exportCSV(rows: string[][], filename: string) {
   const BOM = "﻿";
@@ -303,6 +363,7 @@ export default function Customers() {
     }
     return { wonSpendMap: spendMap, wonTripsMap: tripsMap };
   }, [leads]);
+
   const SALES_REPS     = useActiveSalesNames() as SalesRep[];
   const salesTeamNames = useAllSalesTeamNames(); // app_users + sales_reps (ครอบคลุมชื่อเก่า เช่น "เฟิร์ส","โดนัท")
   const obNames = useActiveOBNames();
@@ -521,6 +582,17 @@ export default function Customers() {
     () => (selectedId ? scoped.find((c) => c.customer_id === selectedId) ?? null : null),
     [scoped, selectedId],
   );
+
+  // ── RFM Profile: คำนวณจากยอด live (wonSpendMap/wonTripsMap) ─────────────────
+  const selectedRFM = useMemo(() => {
+    if (!selectedCustomer) return null;
+    const c = {
+      ...selectedCustomer,
+      total_trips: wonTripsMap.get(selectedCustomer.customer_id) ?? (selectedCustomer as any).total_trips ?? 0,
+      total_spend: wonSpendMap.get(selectedCustomer.customer_id) ?? (selectedCustomer as any).total_spend ?? 0,
+    };
+    return computeRFM(c);
+  }, [selectedCustomer, wonSpendMap, wonTripsMap]);
 
   const selectedLeads = useMemo(
     () =>
@@ -927,6 +999,40 @@ export default function Customers() {
                       )}
                     </div>
                   </div>
+
+                  {/* Row 1.5: RFM Profile */}
+                  {selectedRFM && (
+                    <div className="bg-card border rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RFM Profile</p>
+                        <Badge variant="outline" className={`text-[9px] px-2 ${RFM_SEGMENT_STYLE[selectedRFM.segment].pill}`}>
+                          {RFM_SEGMENT_STYLE[selectedRFM.segment].label}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-muted/40 border rounded-xl p-3 text-center">
+                          <p className={`text-sm font-bold ${RFM_SCORE_COLOR[selectedRFM.rScore]}`}>{selectedRFM.rLabel}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">ล่าสุด (R)</p>
+                        </div>
+                        <div className="bg-muted/40 border rounded-xl p-3 text-center">
+                          <p className={`text-sm font-bold ${RFM_SCORE_COLOR[selectedRFM.fScore]}`}>
+                            {wonTripsMap.get(selectedCustomer?.customer_id ?? "") ?? (selectedCustomer as any)?.total_trips ?? 0} ครั้ง
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">ความถี่ (F)</p>
+                        </div>
+                        <div className="bg-muted/40 border rounded-xl p-3 text-center">
+                          <p className={`text-sm font-bold ${RFM_SCORE_COLOR[selectedRFM.mScore]}`}>
+                            {fmtMoney(wonSpendMap.get(selectedCustomer?.customer_id ?? "") ?? (selectedCustomer as any)?.total_spend ?? 0)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">ยอดรวม (M)</p>
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-violet-200/60 bg-violet-50/60 dark:bg-violet-900/15 dark:border-violet-800/40 px-3 py-2.5">
+                        <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mb-1">คำแนะนำ</p>
+                        <p className="text-[11px] text-foreground/70 leading-relaxed">{selectedRFM.insight}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Row 2: Leads */}
                   <div>
