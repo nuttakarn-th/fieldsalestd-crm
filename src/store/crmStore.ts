@@ -976,13 +976,15 @@ export const useCRM = create<CRMState>()(
       ]));
 
       if (isOBRole) {
-        // OB Co-ordinator + OB Manager: NOT IN Sales → เห็นเฉพาะ OB
-        // ใช้ .not("col", "in", list) — Supabase JS standard API
-        // ⚠️ ไม่ใส่ "" รอบชื่อ: Supabase JS encode quotes → %22 ใน URL
-        //    ทำให้ PostgREST parse ผิด filter ไม่ทำงาน (bug เดิมใช้ `"${n}"`)
+        // OB Co-ordinator + OB Manager: กรองเฉพาะ customers ที่ไม่ใช่ Sales
+        // ⚠️ ไม่กรอง leadsFiltered ที่ DB level — เพราะ assigned_to ของ OB leads
+        //    อาจเป็นชื่อที่บังเอิญอยู่ใน sales_reps table (เช่น OB Manager ที่เคยเป็น Sales)
+        //    ส่งผลให้ NOT IN (salesNames) exclude leads ของ OB ออกไปด้วย
+        //    แก้: โหลด leads ทั้งหมด แล้วให้ customer scoping ที่ app level จัดการ
+        //    (selectedLeads = leads.filter(l => l.customer_id === selectedId) ทำงานถูกต้องอยู่แล้ว)
         if (salesNames.length > 0) {
           custFiltered  = custQ.not("created_by", "in", `(${salesNames.join(",")})`);
-          leadsFiltered = leadsQ.not("assigned_to", "in", `(${salesNames.join(",")})`);
+          // leadsFiltered = leadsQ ไม่กรอง → โหลดทั้งหมด
         }
         // ถ้า salesNames ว่าง → custQ/leadsQ ทั้งหมด (UI filter เป็น safety net)
         routesFiltered = routesQ;
@@ -1012,13 +1014,13 @@ export const useCRM = create<CRMState>()(
       // อัปเดต critical data ทันที (Dashboard เห็นตัวเลขเลย ไม่ต้องรอ routes/chat)
       const loadedSummary: string[] = [];
       const criticalUpdates: Partial<CRMState> = {};
+      const RECENT_MS = 15 * 60 * 1000; // 15 นาที — ใช้ทั้ง customer + lead reconciliation
 
       if (!customers.error && customers.data) {
         // ── Reconciliation: re-insert local-only customers (ที่สร้างล่าสุดเท่านั้น) ────
         // ปัญหา: addCustomer → INSERT → Supabase อาจล้มเหลวเงียบๆ → ข้อมูลอยู่แค่ localStorage
         // แก้:   ตอน loadAll → เปรียบเทียบ local กับ Supabase → พบ local-only ที่สร้างภายใน
         //        15 นาทีล่าสุด → re-insert (idempotent) → ถ้าเก่ากว่านั้น = ถูกลบโดยตั้งใจ → ไม่ re-insert
-        const RECENT_MS = 15 * 60 * 1000; // 15 นาที
         const supaIds = new Set((customers.data as Customer[]).map((c) => c.customer_id));
         const localOnly = get().customers.filter((c) => {
           if (supaIds.has(c.customer_id)) return false;
@@ -1043,14 +1045,32 @@ export const useCRM = create<CRMState>()(
 
       if (!leads.error && leads.data) {
         const sbLeads = leads.data as Lead[];
-        // ── OB Role: sbLeads ถูก pre-filter ที่ DB แล้วให้เหลือเฉพาะ non-Sales leads
-        // → ถ้า DB คืน leads มาเลย (แม้ assigned_to ≠ "แอน") = มีข้อมูล OB จริงใน DB
-        // → ไม่ต้องใช้ seed leads แล้ว ให้ใช้ DB เป็น source of truth ทันที
+        // ── OB Role: DB ไม่กรอง leads แล้ว (แก้ v328) — โหลดทั้งหมด customer scoping จัดการที่ app level
         // ── Non-OB Role: ไม่มี seed leads → ใช้ DB ตรงๆ เสมอ
         const sbHasRealData = isOBRole ? sbLeads.length > 0 : true;
         if (sbHasRealData) {
-          // Supabase มีข้อมูลจริง → ใช้ Supabase เป็น source of truth (ไม่รวม seed)
-          criticalUpdates.leads = sbLeads;
+          // ── Lead Reconciliation: re-insert local-only leads (เหมือน customer reconciliation) ─────
+          // ปัญหา: addLead → INSERT อาจล้มเหลวเงียบๆ → lead อยู่แค่ local state
+          // แก้: ตอน loadAll → เปรียบเทียบ local กับ Supabase → re-insert leads ที่สร้างภายใน 15 นาที
+          const sbLeadIds = new Set(sbLeads.map((l) => l.lead_id));
+          const localOnlyLeads = get().leads.filter((l) => {
+            if (sbLeadIds.has(l.lead_id)) return false;
+            const createdAt = l.created_at ? new Date(l.created_at).getTime() : 0;
+            return Date.now() - createdAt < RECENT_MS;
+          });
+          if (localOnlyLeads.length > 0 && supabase) {
+            console.warn(`[sync] พบ ${localOnlyLeads.length} leads local-only (ล่าสุด) → re-insert`);
+            localOnlyLeads.forEach((l) => {
+              supabase!.from("leads").insert(l).then(({ error: e }) => {
+                if (e && (e as any).code !== "23505") console.error("[sync] re-insert lead ล้มเหลว:", l.lead_id, e.message);
+                else if (!e) console.log("[sync] re-insert lead สำเร็จ:", l.lead_id);
+              });
+            });
+            criticalUpdates.leads = [...sbLeads, ...localOnlyLeads];
+          } else {
+            // Supabase มีข้อมูลจริง → ใช้ Supabase เป็น source of truth (ไม่รวม seed)
+            criticalUpdates.leads = sbLeads;
+          }
         } else {
           // OB role แต่ DB ยังว่าง (demo/staging) → preserve seed leads เป็น fallback
           // ลำดับ fallback: 1) pre-await snapshot, 2) post-await get(), 3) generate fresh
