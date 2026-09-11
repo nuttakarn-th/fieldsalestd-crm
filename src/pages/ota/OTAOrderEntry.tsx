@@ -393,7 +393,9 @@ export default function OTAOrderEntry() {
           : String(va).localeCompare(String(vb));
         return sortDir === "asc" ? cmp : -cmp;
       });
-  }, [orders, packages, month, year, search, sortKey, sortDir]);
+  }, [orders, packages, month, year, search, sortKey, sortDir,
+      filterPlatforms, filterNats, filterGuide, filterPkgCodes,
+      filterPaxMin, filterPaxMax, filterPriceMin, filterPriceMax]);
 
   const totalPax = filtered.reduce((s, o) => s + o.pax, 0);
   const totalRevenue = filtered.reduce((s, o) => s + o.revenue, 0);
