@@ -1001,8 +1001,14 @@ export default function OTAOrderEntry() {
                           commission_pct: cfg !== undefined ? cfg.commission_pct : f.commission_pct,
                         }));
                       }}
-                      options={platformConfigs.map((c) => ({ value: c.platform, label: c.platform, group: "Platforms" }))}
-                      placeholder="Select platform"
+                      options={(() => {
+                        const pkgPlatforms = selectedPkg?.platform_prices.map((pp) => pp.platform) ?? [];
+                        const base = pkgPlatforms.length > 0
+                          ? platformConfigs.filter((c) => pkgPlatforms.includes(c.platform))
+                          : platformConfigs;
+                        return base.map((c) => ({ value: c.platform, label: c.platform, group: "Platforms" }));
+                      })()}
+                      placeholder={selectedPkg ? "Select platform" : "เลือก Package ก่อน"}
                       searchPlaceholder="Search platform..."
                     />
                   </div>
