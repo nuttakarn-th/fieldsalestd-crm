@@ -257,11 +257,17 @@ export default function OTAOrderEntry() {
       .filter((o) => {
         if (!search) return true;
         const q = search.toLowerCase();
+        const pkg = packages.find((p) => p.id === o.package_id);
         return (
           o.order_number.toLowerCase().includes(q) ||
+          o.group_number?.toLowerCase().includes(q) ||
           o.platform.toLowerCase().includes(q) ||
           o.nationality?.toLowerCase().includes(q) ||
-          packages.find((p) => p.id === o.package_id)?.code.toLowerCase().includes(q)
+          o.guide_name?.toLowerCase().includes(q) ||
+          o.pickup_hotel?.toLowerCase().includes(q) ||
+          o.package_details?.toLowerCase().includes(q) ||
+          pkg?.code.toLowerCase().includes(q) ||
+          pkg?.name.toLowerCase().includes(q)
         );
       })
       .sort((a, b) => {
@@ -511,7 +517,7 @@ export default function OTAOrderEntry() {
           </div>
           <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order, platform..."
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order#, group#, platform, guide, hotel, package..."
               className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
         </div>
