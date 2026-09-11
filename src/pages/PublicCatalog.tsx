@@ -491,6 +491,7 @@ export default function PublicCatalog() {
   const [stFilter, setStFilter]       = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [sortBy, setSortBy]           = useState<"name" | "date" | "seats">("date");
+  const [promoOnly, setPromoOnly]     = useState(false);
 
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
@@ -587,7 +588,14 @@ export default function PublicCatalog() {
           }
           return true;
         });
-        return matchP.length > 0;
+        if (!matchP.length) return false;
+        if (promoOnly) {
+          const hasPromo = (t.periods ?? []).some((p: { special_price?: number; cancelled?: boolean }) =>
+            !p.cancelled && (p.special_price ?? 0) > 0
+          );
+          if (!hasPromo) return false;
+        }
+        return true;
       })
       .sort((a, b) => {
         if (sortBy === "name") return (a.title ?? a.city).localeCompare(b.title ?? b.city, "th");
@@ -605,7 +613,7 @@ export default function PublicCatalog() {
         };
         return getMin(a).localeCompare(getMin(b));
       });
-  }, [tours, catFilter, search, monthFilter, stFilter, sortBy]);
+  }, [tours, catFilter, search, monthFilter, stFilter, sortBy, promoOnly]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, TourItem[]>();
@@ -694,6 +702,17 @@ export default function PublicCatalog() {
               {c.chipLabel}
             </Chip>
           ))}
+
+          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
+
+          <Chip
+            active={promoOnly}
+            onClick={() => setPromoOnly(v => !v)}
+            activeBg="#fef3c7"
+            activeText="#92400e"
+          >
+            🔥 โปรโมชั่น
+          </Chip>
 
           <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
