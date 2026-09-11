@@ -156,13 +156,15 @@ export default function OTADashboard() {
   const platformOrderData = useMemo(() => {
     const map: Record<string, number> = {};
     monthOrders.forEach((o) => { map[o.platform] = (map[o.platform] ?? 0) + 1; });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [monthOrders]);
 
   const platformPaxData = useMemo(() => {
     const map: Record<string, number> = {};
     monthOrders.forEach((o) => { map[o.platform] = (map[o.platform] ?? 0) + o.pax; });
-    return Object.entries(map).map(([name, pax]) => ({ name, pax }));
+    return Object.entries(map).map(([name, pax]) => ({ name, pax }))
+      .sort((a, b) => b.pax - a.pax);
   }, [monthOrders]);
 
   const monthlyData = useMemo(() => {
@@ -206,7 +208,8 @@ export default function OTADashboard() {
       map[o.platform].gross += o.gross_price ?? 0;
       map[o.platform].net += o.revenue;
     });
-    return Object.entries(map).map(([name, v]) => ({ name, ...v }));
+    return Object.entries(map).map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.net - a.net);
   }, [monthOrders]);
 
   const revenueByPackage = useMemo(() => {
@@ -218,7 +221,8 @@ export default function OTADashboard() {
       map[code].revenue += o.revenue;
       map[code].pax += o.pax;
     });
-    return Object.entries(map).map(([name, v]) => ({ name, ...v }));
+    return Object.entries(map).map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.revenue - a.revenue);
   }, [monthOrders, packages]);
 
   const { topPkgByPlatformData, topPkgCodes } = useMemo(() => {
@@ -253,7 +257,7 @@ export default function OTADashboard() {
     return Object.entries(map).map(([name, v]) => ({
       name,
       revPax: v.pax > 0 ? Math.round(v.rev / v.pax) : 0,
-    }));
+    })).sort((a, b) => b.revPax - a.revPax);
   }, [monthOrders]);
 
   // Revenue Forecast: 6 historical + current + 3 projected (linear extrapolation)
@@ -295,7 +299,8 @@ export default function OTADashboard() {
       const g = o.guide_name ?? "No Guide";
       map[g] = (map[g] ?? 0) + 1;
     });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map).map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
   }, [monthOrders]);
 
   const dowData = useMemo(() => {
@@ -344,7 +349,8 @@ export default function OTADashboard() {
       map[code].orders += 1;
       map[code].pax += o.pax;
     });
-    return Object.entries(map).map(([name, v]) => ({ name, ...v }));
+    return Object.entries(map).map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.orders - a.orders);
   }, [monthOrders, packages]);
 
   // ── MARKETS data ──────────────────────────────────────────────────────────────
