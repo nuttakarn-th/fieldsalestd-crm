@@ -162,10 +162,9 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
 
             {/* Period list */}
             <div className="flex-1 overflow-y-auto">
-              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                  {periods.length} รอบเดินทาง
-                </p>
+              <div className="px-5 py-2.5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{periods.length} รอบเดินทาง</p>
+                <p className="text-[10px] text-gray-400">เรียงตามวันที่</p>
               </div>
 
               {periods.length === 0 ? (
@@ -174,75 +173,64 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                   <p className="text-sm">ไม่มีรอบเดินทาง</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-gray-100">
                   {periods.map(p => {
                     const total = p.total_seats > 0 ? p.total_seats : (tour.total_seats ?? 0);
                     const st = pStatus(p.quota, total);
                     const pct = total > 0 ? Math.round(((total - p.quota) / total) * 100) : 0;
-                    const barColor = st === "full" ? "#ef4444" : st === "low" ? "#f97316" : "#22c55e";
+                    const barColor = st === "low" ? "#f97316" : "#22c55e";
                     const sd = p.start_date ?? p.travel_date ?? "";
                     const ed = p.end_date ?? "";
+                    const isFull = st === "full";
+                    const sp = p.special_price ?? 0;
+                    const rp = p.price_per_seat ?? (tour as TourItem & { price_per_seat?: number }).price_per_seat ?? 0;
+                    const displayPrice = sp > 0 ? sp : rp;
+                    const iconColor = isFull ? "#9ca3af" : st === "low" ? "#ea580c" : "#16a34a";
                     return (
-                      <div key={p.period_id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
-                        {/* Date range */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">
-                              {fmtDate(sd)}
-                              {ed && <><span className="text-gray-300 mx-2">→</span>{fmtDate(ed)}</>}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5">{tour.duration ?? ""}</p>
-                          </div>
-                          <div className="text-right">
-                            {st === "full" && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600">เต็มแล้ว</span>}
-                            {st === "low"  && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-600">🔥 ใกล้เต็ม</span>}
-                            {st === "ok"   && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700">ว่าง</span>}
-                          </div>
+                      <div key={p.period_id}
+                        className="grid items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors"
+                        style={{ gridTemplateColumns: "auto 1fr auto", opacity: isFull ? 0.5 : 1 }}
+                      >
+                        {/* Col 1: icon + date */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: iconColor }} />
+                          <span className="text-xs font-medium text-gray-800 whitespace-nowrap">
+                            {fmtDate(sd)}{ed ? <> <span className="text-gray-300">→</span> {fmtDate(ed)}</> : null}
+                          </span>
                         </div>
 
-                        {/* Price */}
-                        {(() => {
-                          const sp = p.special_price ?? 0;
-                          const rp = p.price_per_seat ?? tour.price_per_seat ?? 0;
-                          if (!rp) return null;
-                          return (
-                            <div className="flex items-baseline gap-2 mb-2">
-                              {sp > 0 ? (
-                                <>
-                                  <span className="text-base font-bold text-green-700">
-                                    ฿{sp.toLocaleString("th-TH")}
-                                  </span>
-                                  <span className="text-xs text-gray-400 line-through">
-                                    ฿{rp.toLocaleString("th-TH")}
-                                  </span>
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">🔥 ราคาพิเศษ</span>
-                                </>
-                              ) : (
-                                <span className="text-base font-bold text-gray-800">
-                                  ฿{rp.toLocaleString("th-TH")}
-                                </span>
+                        {/* Col 2: price + meter */}
+                        <div className="min-w-0">
+                          {displayPrice > 0 && (
+                            <div className="flex items-baseline gap-1 mb-1">
+                              <span className="text-xs font-semibold" style={{ color: isFull ? "#9ca3af" : sp > 0 ? "#b45309" : "#047857" }}>
+                                ฿{displayPrice.toLocaleString("th-TH")}
+                              </span>
+                              {sp > 0 && rp > 0 && (
+                                <span className="text-[10px] text-gray-400 line-through">฿{rp.toLocaleString("th-TH")}</span>
                               )}
-                              <span className="text-[11px] text-gray-400">/ท่าน</span>
+                              {sp > 0 && (
+                                <span className="text-[9px] font-semibold px-1 py-px rounded bg-red-50 text-red-600">ลด</span>
+                              )}
+                              <span className="text-[10px] text-gray-400">/ท่าน</span>
                             </div>
-                          );
-                        })()}
+                          )}
+                          {!isFull && total > 0 && (
+                            <div className="space-y-0.5">
+                              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: barColor }} />
+                              </div>
+                              <p className="text-[10px] text-gray-400">จอง {total - p.quota}/{total}</p>
+                            </div>
+                          )}
+                        </div>
 
-                        {/* Booking meter */}
-                        {total > 0 && (
-                          <div className="space-y-1">
-                            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
-                            </div>
-                            <div className="flex justify-between text-[11px] text-gray-400">
-                              <span>จองแล้ว {total - p.quota}/{total} ที่นั่ง</span>
-                              {st !== "full" && (
-                                <span className="font-semibold" style={{ color: barColor }}>
-                                  ว่าง {p.quota} ที่นั่ง
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                        {/* Col 3: status pill */}
+                        <div className="shrink-0">
+                          {isFull && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600">เต็มแล้ว</span>}
+                          {st === "low" && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">🔥 ว่าง {p.quota}</span>}
+                          {st === "ok"  && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700">ว่าง {p.quota}</span>}
+                        </div>
                       </div>
                     );
                   })}
