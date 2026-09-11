@@ -1,7 +1,6 @@
 /**
  * OTACalendar.tsx — ตารางงานรายวัน จาก usage_date
- * Mobile: dot-only cells + bottom sheet
- * Desktop: chip view (unchanged)
+ * v2: group by package_id — แสดง total pax ต่อ Package เท่านั้น (ไม่แยก platform)
  */
 import { useMemo, useState } from "react";
 import { useOTAStore } from "@/store/otaStore";
@@ -9,27 +8,19 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const today = new Date();
 
-const PLATFORM_DOT: Record<string, string> = {
-  "Trip.com":      "bg-blue-500",
-  "KKday":         "bg-orange-500",
-  "Agent Offline": "bg-gray-400",
-  "GetYourGuide":  "bg-green-500",
-  "Viator":        "bg-red-500",
-  "Airbnb":        "bg-pink-500",
-};
-const PLATFORM_BADGE: Record<string, string> = {
-  "Trip.com":      "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  "KKday":         "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  "Agent Offline": "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  "GetYourGuide":  "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-  "Viator":        "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  "Airbnb":        "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
-};
-
 const fmtDate = (d: string) =>
   new Date(d + "T00:00:00").toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtCurrency = (n: number) =>
   n.toLocaleString("th-TH", { style: "currency", currency: "THB", minimumFractionDigits: 0 });
+
+interface PkgGroup {
+  pkgId: string;
+  code: string;
+  name: string;
+  totalPax: number;
+  orderCount: number;
+  totalRevenue: number;
+}
 
 export default function OTACalendar() {
   const { orders, packages } = useOTAStore();
@@ -43,6 +34,30 @@ export default function OTACalendar() {
     [orders, prefix]
   );
 
+  // Group by day → then by package
+  const byDayGrouped = useMemo(() => {
+    const map: Record<number, PkgGroup[]> = {};
+    monthOrders.forEach((o) => {
+      const day = parseInt(o.usage_date.slice(8, 10), 10);
+      if (!map[day]) map[day] = [];
+      const pkg = packages.find((p) => p.id === o.package_id);
+      const code = pkg?.code ?? "?";
+      const name = pkg?.name ?? o.package_details ?? "";
+      const existing = map[day].find((g) => g.pkgId === o.package_id);
+      if (existing) {
+        existing.totalPax += o.pax;
+        existing.orderCount++;
+        existing.totalRevenue += o.revenue;
+      } else {
+        map[day].push({ pkgId: o.package_id, code, name, totalPax: o.pax, orderCount: 1, totalRevenue: o.revenue });
+      }
+    });
+    // sort each day by code
+    Object.values(map).forEach((g) => g.sort((a, b) => a.code.localeCompare(b.code)));
+    return map;
+  }, [monthOrders, packages]);
+
+  // For bottom sheet: keep individual orders per day
   const byDay = useMemo(() => {
     const map: Record<number, typeof orders> = {};
     monthOrders.forEach((o) => {
@@ -53,9 +68,9 @@ export default function OTACalendar() {
     return map;
   }, [monthOrders]);
 
-  const firstDay   = new Date(year, month - 1, 1).getDay(); // 0=Sun
+  const firstDay    = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
-  const monthName  = new Date(year, month - 1, 1).toLocaleString("en", { month: "long" });
+  const monthName   = new Date(year, month - 1, 1).toLocaleString("en", { month: "long" });
 
   const prevMonth = () => { if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1); };
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear((y) => y + 1); } else setMonth((m) => m + 1); };
@@ -64,15 +79,16 @@ export default function OTACalendar() {
 
   const totalPax = monthOrders.reduce((s, o) => s + o.pax, 0);
 
-  // Sheet data
-  const sheetOrders = selectedDay !== null ? (byDay[selectedDay] ?? []) : [];
-  const sheetDateStr = selectedDay !== null
+  const sheetGroups   = selectedDay !== null ? (byDayGrouped[selectedDay] ?? []) : [];
+  const sheetOrders   = selectedDay !== null ? (byDay[selectedDay] ?? []) : [];
+  const sheetDateStr  = selectedDay !== null
     ? `${year}-${String(month).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`
     : "";
+  const sheetTotalPax = sheetGroups.reduce((s, g) => s + g.totalPax, 0);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
-      {/* ── Header ─────────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Calendar</h1>
@@ -84,13 +100,11 @@ export default function OTACalendar() {
         </div>
       </div>
 
-      {/* ── Calendar ───────────────────────────────────────────────────────────── */}
+      {/* Calendar */}
       <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
         {/* Month nav */}
-        <div
-          className="flex items-center justify-between px-5 py-4"
-          style={{ background: "linear-gradient(135deg, #4c1d95, #be185d)" }}
-        >
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ background: "linear-gradient(135deg, #4c1d95, #be185d)" }}>
           <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center bg-white/20 hover:bg-white/30 rounded-full transition-colors text-white">
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -103,7 +117,8 @@ export default function OTACalendar() {
         {/* Day-of-week headers */}
         <div className="grid grid-cols-7 bg-muted/50">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
-            <div key={d} className={`text-center py-2 text-[10px] md:text-xs font-semibold ${i === 0 || i === 6 ? "text-rose-500" : "text-purple-600 dark:text-purple-400"}`}>
+            <div key={d} className={`text-center py-2 text-[10px] md:text-xs font-semibold
+              ${i === 0 || i === 6 ? "text-rose-500" : "text-purple-600 dark:text-purple-400"}`}>
               {d}
             </div>
           ))}
@@ -111,29 +126,26 @@ export default function OTACalendar() {
 
         {/* Grid */}
         <div className="grid grid-cols-7 bg-card">
-          {/* Empty leading cells */}
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`empty-${i}`} className="border-t border-l border-border min-h-[60px] md:min-h-[110px] bg-muted/20" />
+            <div key={`e-${i}`} className="border-t border-l border-border min-h-[60px] md:min-h-[110px] bg-muted/20" />
           ))}
 
-          {/* Day cells */}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-            const dayOrders = byDay[day] ?? [];
-            const dayPax   = dayOrders.reduce((s, o) => s + o.pax, 0);
-            const isT      = isToday(day);
-            const hasOrders = dayOrders.length > 0;
+            const groups    = byDayGrouped[day] ?? [];
+            const dayPax    = groups.reduce((s, g) => s + g.totalPax, 0);
+            const isT       = isToday(day);
+            const hasOrders = groups.length > 0;
+            const SHOW_MAX  = 4;
 
             return (
-              <div
-                key={day}
+              <div key={day}
                 onClick={() => hasOrders && setSelectedDay(day)}
                 className={`border-t border-l border-border transition-colors
                   min-h-[60px] md:min-h-[110px] p-1 md:p-2
                   ${isT ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
-                  ${hasOrders ? "cursor-pointer active:bg-muted/50 hover:bg-muted/30" : ""}
-                `}
+                  ${hasOrders ? "cursor-pointer hover:bg-muted/30 active:bg-muted/50" : ""}`}
               >
-                {/* Day number */}
+                {/* Day number + pax total */}
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full
                     ${isT ? "bg-rose-500 text-white" : "text-foreground"}`}>
@@ -146,33 +158,28 @@ export default function OTACalendar() {
                   )}
                 </div>
 
-                {/* ── Mobile: colored dots only ── */}
+                {/* Mobile: dot per unique package */}
                 <div className="md:hidden flex flex-wrap gap-[3px] px-0.5">
-                  {dayOrders.slice(0, 6).map((o) => (
-                    <span key={o.id} className={`w-2 h-2 rounded-full shrink-0 ${PLATFORM_DOT[o.platform] ?? "bg-gray-400"}`} />
+                  {groups.slice(0, 6).map((g) => (
+                    <span key={g.pkgId} className="w-2 h-2 rounded-full shrink-0 bg-purple-500" />
                   ))}
-                  {dayOrders.length > 6 && (
-                    <span className="text-[8px] text-muted-foreground leading-none self-center">+{dayOrders.length - 6}</span>
+                  {groups.length > 6 && (
+                    <span className="text-[8px] text-muted-foreground leading-none self-center">+{groups.length - 6}</span>
                   )}
                 </div>
 
-                {/* ── Desktop: chips with text ── */}
-                <div className="hidden md:block space-y-1">
-                  {dayOrders.slice(0, 4).map((o) => {
-                    const pkg = packages.find((p) => p.id === o.package_id);
-                    return (
-                      <div
-                        key={o.id}
-                        className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-0.5 text-xs font-medium"
-                        title={`${pkg?.name ?? ""} · ${o.platform} · ${o.pax} pax`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${PLATFORM_DOT[o.platform] ?? "bg-gray-400"}`} />
-                        <span className="truncate">{pkg?.code ?? "?"} {o.pax} PAX</span>
-                      </div>
-                    );
-                  })}
-                  {dayOrders.length > 4 && (
-                    <div className="text-xs text-muted-foreground pl-1">+{dayOrders.length - 4} more</div>
+                {/* Desktop: chip per package — code + total pax */}
+                <div className="hidden md:block space-y-0.5">
+                  {groups.slice(0, SHOW_MAX).map((g) => (
+                    <div key={g.pkgId}
+                      className="flex items-center justify-between bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-0.5 text-xs font-medium"
+                      title={`${g.name} · ${g.orderCount} orders · ${g.totalPax} pax`}>
+                      <span className="truncate font-mono">{g.code}</span>
+                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">{g.totalPax} pax</span>
+                    </div>
+                  ))}
+                  {groups.length > SHOW_MAX && (
+                    <div className="text-xs text-muted-foreground pl-1">+{groups.length - SHOW_MAX} more</div>
                   )}
                 </div>
               </div>
@@ -181,28 +188,14 @@ export default function OTACalendar() {
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-4">
-        {Object.entries(PLATFORM_DOT).map(([pl, cls]) => (
-          <div key={pl} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={`w-2.5 h-2.5 rounded-full ${cls}`} />
-            {pl}
-          </div>
-        ))}
-      </div>
-
-      {/* ── Bottom Sheet (mobile: day detail) ──────────────────────────────────── */}
+      {/* ── Bottom Sheet (mobile day detail) ── */}
       {selectedDay !== null && (
         <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedDay(null)} />
-          {/* Sheet */}
           <div className="relative bg-card rounded-t-2xl shadow-2xl max-h-[80vh] flex flex-col">
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
               <div>
                 <p className="font-bold text-base">วันที่ {selectedDay} {monthName} {year}</p>
@@ -210,46 +203,50 @@ export default function OTACalendar() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-purple-600">
-                  {sheetOrders.length} orders · {sheetOrders.reduce((s, o) => s + o.pax, 0)} pax
+                  {sheetOrders.length} orders · {sheetTotalPax} pax
                 </span>
                 <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-muted rounded-lg transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            {/* Order list */}
+
+            {/* Package groups */}
             <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
-              {sheetOrders.map((o) => {
-                const pkg = packages.find((p) => p.id === o.package_id);
-                const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
+              {sheetGroups.map((g) => {
+                const pkgOrders = sheetOrders.filter(o => o.package_id === g.pkgId);
                 return (
-                  <div key={o.id} className="bg-muted/40 rounded-xl p-4">
-                    {/* Platform + pax */}
+                  <div key={g.pkgId} className="bg-muted/40 rounded-xl p-4">
+                    {/* Package header */}
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${PLATFORM_BADGE[o.platform] ?? "bg-purple-100 text-purple-700"}`}>
-                        {o.platform}
-                      </span>
-                      <span className="text-sm font-semibold">{o.pax} pax</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded font-bold">
+                          {g.code}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[160px]">{g.name}</span>
+                      </div>
+                      <span className="font-bold text-purple-600 text-sm shrink-0">{g.totalPax} pax</span>
                     </div>
-                    {/* Order # */}
-                    <p className="text-xs text-muted-foreground mb-1">Order # <span className="text-foreground font-medium">{o.order_number}</span></p>
-                    {/* Package */}
-                    <div className="flex items-center gap-1.5 mb-2">
-                      {pkg?.code && (
-                        <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{pkg.code}</span>
-                      )}
-                      <span className="text-xs text-muted-foreground truncate">{o.package_details}</span>
+                    {/* Summary row */}
+                    <div className="flex gap-4 text-xs text-muted-foreground mb-3">
+                      <span>{g.orderCount} orders</span>
+                      <span>{fmtCurrency(g.totalRevenue)}</span>
                     </div>
-                    {/* People details */}
-                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mb-2">
-                      {o.nationality && <span>🌏 {o.nationality}</span>}
-                      {o.guide_name  && <span>👤 {o.guide_name}</span>}
-                      {o.pickup_hotel && <span>🏨 {o.pickup_hotel}</span>}
-                    </div>
-                    {/* Financials */}
-                    <div className="flex items-center justify-between border-t border-border pt-2 text-sm">
-                      <span className="text-muted-foreground text-xs">Gross {fmtCurrency(o.gross_price)} · Comm {fmtCurrency(commAmt)}</span>
-                      <span className="font-bold text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</span>
+                    {/* Individual orders */}
+                    <div className="space-y-2">
+                      {pkgOrders.map(o => (
+                        <div key={o.id} className="bg-white dark:bg-zinc-900 rounded-lg px-3 py-2 text-xs flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground font-mono truncate max-w-[180px]">{o.order_number}</span>
+                            <span className="font-semibold">{o.pax} pax</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-muted-foreground">
+                            {o.nationality && <span>🌏 {o.nationality}</span>}
+                            {o.guide_name  && <span>👤 {o.guide_name}</span>}
+                            {o.pickup_hotel && <span>🏨 {o.pickup_hotel}</span>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
