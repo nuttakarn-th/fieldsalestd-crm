@@ -361,14 +361,14 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
           {rowSt === "full" && <span className="text-[11px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">เต็มแล้ว</span>}
         </div>
         {/* Flag + city */}
-        <div className={`relative flex items-end gap-2 min-w-0 ${isFull ? "opacity-40" : ""}`}>
-          <FlagImg country={tour.country ?? ""} size={28} />
+        <div className={`relative flex items-end gap-1.5 min-w-0 max-w-[calc(100%-44px)] ${isFull ? "opacity-40" : ""}`}>
+          <FlagImg country={tour.country ?? ""} size={22} />
           <div className="min-w-0 pb-0.5">
-            <p className="text-white font-bold text-sm leading-tight truncate drop-shadow-sm">
+            <p className="text-white font-bold text-xs sm:text-sm leading-tight truncate drop-shadow-sm">
               {tour.city || tour.country || "—"}
             </p>
             {tour.country && tour.country !== tour.city && (
-              <p className="text-white/75 text-xs leading-tight">{tour.country}</p>
+              <p className="text-white/75 text-[10px] sm:text-xs leading-tight truncate">{tour.country}</p>
             )}
           </div>
         </div>
