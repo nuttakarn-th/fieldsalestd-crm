@@ -3,8 +3,8 @@
  * Mirror: Standard Daycation Database → Order Entry page
  * v2: + Export XLSX + Import XLSX
  */
-import { useState, useMemo, useRef, useEffect } from "react";
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useOTAStore, OTAPlatform, OTA_PLATFORMS, OTAOrder } from "@/store/otaStore";
 import { useCurrentUser } from "@/store/authStore";
 import { cn } from "@/lib/utils";
@@ -203,6 +203,61 @@ const EXPORT_HEADERS = [
 
 interface ImportError { row: number; message: string }
 
+// ── MultiSelectDropdown ───────────────────────────────────────────────────────
+function MultiSelectDropdown({
+  label, options, selected, onChange, renderOption,
+}: {
+  label: string;
+  options: string[];
+  selected: Set<string>;
+  onChange: (s: Set<string>) => void;
+  renderOption?: (v: string) => React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+  const toggle = (v: string) => { const n = new Set(selected); n.has(v) ? n.delete(v) : n.add(v); onChange(n); };
+  const count = selected.size;
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(v => !v)}
+        className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors whitespace-nowrap",
+          count > 0 ? "bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-600 dark:text-purple-300"
+                    : "bg-muted border-border text-foreground hover:bg-muted/80")}>
+        {label}
+        {count > 0 && <span className="bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none">{count}</span>}
+        <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 bg-white dark:bg-zinc-900 border border-border rounded-xl shadow-xl min-w-[180px] max-h-60 overflow-y-auto py-1">
+          {options.length === 0
+            ? <div className="px-3 py-2 text-xs text-muted-foreground">ไม่มีข้อมูล</div>
+            : options.map(opt => (
+                <button key={opt} onClick={() => toggle(opt)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-muted transition-colors text-left">
+                  <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                    selected.has(opt) ? "bg-purple-600 border-purple-600" : "border-border")}>
+                    {selected.has(opt) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  {renderOption ? renderOption(opt) : opt}
+                </button>
+              ))
+          }
+          {count > 0 && (
+            <div className="border-t border-border mt-1 pt-1 px-3 pb-1">
+              <button onClick={() => onChange(new Set())} className="text-xs text-muted-foreground hover:text-red-500 transition-colors">ล้างทั้งหมด</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OTAOrderEntry() {
   const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
   const currentUser = useCurrentUser();
@@ -223,6 +278,17 @@ export default function OTAOrderEntry() {
   const [sortKey, setSortKey] = useState<SortKey>("usage_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [sheetOrder, setSheetOrder] = useState<OTAOrder | null>(null);
+
+  // ── Filter state ──────────────────────────────────────────────────────────
+  const [filterPlatforms, setFilterPlatforms] = useState<Set<string>>(new Set());
+  const [filterNats, setFilterNats] = useState<Set<string>>(new Set());
+  const [filterGuide, setFilterGuide] = useState("all");
+  const [filterPkgCodes, setFilterPkgCodes] = useState<Set<string>>(new Set());
+  const [filterPaxMin, setFilterPaxMin] = useState("");
+  const [filterPaxMax, setFilterPaxMax] = useState("");
+  const [filterPriceMin, setFilterPriceMin] = useState("");
+  const [filterPriceMax, setFilterPriceMax] = useState("");
+  const [showAdvFilters, setShowAdvFilters] = useState(false);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -249,6 +315,19 @@ export default function OTAOrderEntry() {
     return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
   }, [highlightedOrderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Option lists (derived from month's orders) ────────────────────────────
+  const monthOrders = useMemo(() => {
+    const prefix = `${year}-${String(month).padStart(2, "0")}`;
+    return orders.filter(o => o.usage_date.startsWith(prefix));
+  }, [orders, month, year]);
+  const availPlatforms = useMemo(() => [...new Set(monthOrders.map(o => o.platform))].sort(), [monthOrders]);
+  const availNats      = useMemo(() => [...new Set(monthOrders.map(o => o.nationality ?? "").filter(Boolean))].sort(), [monthOrders]);
+  const availGuides    = useMemo(() => [...new Set(monthOrders.map(o => o.guide_name ?? "").filter(Boolean))].sort(), [monthOrders]);
+  const availPkgCodes  = useMemo(() => [...new Set(monthOrders.map(o => packages.find(p => p.id === o.package_id)?.code ?? "").filter(Boolean))].sort(), [monthOrders, packages]);
+
+  const activeFilterCount = filterPlatforms.size + filterNats.size + (filterGuide !== "all" ? 1 : 0) + filterPkgCodes.size + (filterPaxMin || filterPaxMax ? 1 : 0) + (filterPriceMin || filterPriceMax ? 1 : 0);
+  const clearAllFilters = () => { setFilterPlatforms(new Set()); setFilterNats(new Set()); setFilterGuide("all"); setFilterPkgCodes(new Set()); setFilterPaxMin(""); setFilterPaxMax(""); setFilterPriceMin(""); setFilterPriceMax(""); };
+
   // ── Filtered orders ───────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const prefix = `${year}-${String(month).padStart(2, "0")}`;
@@ -270,6 +349,14 @@ export default function OTAOrderEntry() {
           pkg?.name.toLowerCase().includes(q)
         );
       })
+      .filter(o => filterPlatforms.size === 0 || filterPlatforms.has(o.platform))
+      .filter(o => filterNats.size === 0 || filterNats.has(o.nationality ?? ""))
+      .filter(o => filterGuide === "all" || o.guide_name === filterGuide)
+      .filter(o => filterPkgCodes.size === 0 || filterPkgCodes.has(packages.find(p => p.id === o.package_id)?.code ?? ""))
+      .filter(o => !filterPaxMin || o.pax >= parseInt(filterPaxMin))
+      .filter(o => !filterPaxMax || o.pax <= parseInt(filterPaxMax))
+      .filter(o => !filterPriceMin || o.gross_price >= parseFloat(filterPriceMin))
+      .filter(o => !filterPriceMax || o.gross_price <= parseFloat(filterPriceMax))
       .sort((a, b) => {
         const getVal = (o: OTAOrder): number | string => {
           if (sortKey === "commAmt") return o.gross_price * o.commission_pct / 100;
@@ -507,24 +594,136 @@ export default function OTAOrderEntry() {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* ── Controls / Filter Bar ── */}
       <div className="flex flex-col gap-2 mb-4">
+
+        {/* Row 1: Month + Search + Quick Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
+          {/* Month nav */}
+          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5 shrink-0">
             <button onClick={prevMonth} className="hover:text-purple-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
             <span className="text-sm font-semibold min-w-[110px] text-center">{monthName} {year}</span>
             <button onClick={nextMonth} className="hover:text-purple-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <div className="relative flex-1 min-w-[160px]">
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา order#, group#, platform, guide, hotel, package..."
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="ค้นหา order#, group#, guide, hotel, package..."
               className="w-full pl-9 pr-3 py-1.5 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
+
+          {/* Platform */}
+          <MultiSelectDropdown label="Platform" options={availPlatforms} selected={filterPlatforms} onChange={setFilterPlatforms}
+            renderOption={v => <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", PLATFORM_COLORS[v as OTAPlatform] ?? "bg-gray-100 text-gray-700")}>{v}</span>} />
+
+          {/* Nationality */}
+          <MultiSelectDropdown label="Nationality" options={availNats} selected={filterNats} onChange={setFilterNats} />
+
+          {/* Guide */}
+          <select value={filterGuide} onChange={e => setFilterGuide(e.target.value)}
+            className={cn("px-3 py-1.5 rounded-lg text-sm border transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500",
+              filterGuide !== "all" ? "bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-600 dark:text-purple-300"
+                                    : "bg-muted border-border")}>
+            <option value="all">Guide: ทั้งหมด</option>
+            {availGuides.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+
+          {/* Advanced toggle */}
+          <button onClick={() => setShowAdvFilters(v => !v)}
+            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors",
+              showAdvFilters || activeFilterCount > 0
+                ? "bg-purple-50 border-purple-300 text-purple-700 dark:bg-purple-900/30 dark:border-purple-600 dark:text-purple-300"
+                : "bg-muted border-border text-foreground hover:bg-muted/80")}>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            เพิ่มเติม
+            {activeFilterCount > 0 && <span className="bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold leading-none">{activeFilterCount}</span>}
+          </button>
         </div>
-        <div className="flex gap-4 text-sm text-muted-foreground">
-          <span><span className="font-semibold text-foreground">{filtered.length}</span> orders</span>
-          <span><span className="font-semibold text-foreground">{totalPax}</span> pax</span>
-          <span className="font-semibold text-purple-600">{fmtCurrency(totalRevenue)}</span>
+
+        {/* Row 2: Advanced Filters */}
+        {showAdvFilters && (
+          <div className="bg-muted/50 border border-border rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Package Code */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Package Code</p>
+              <MultiSelectDropdown label="เลือก Code" options={availPkgCodes} selected={filterPkgCodes} onChange={setFilterPkgCodes}
+                renderOption={v => <span className="font-mono text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{v}</span>} />
+            </div>
+            {/* Pax range */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">จำนวน Pax</p>
+              <div className="flex items-center gap-1.5">
+                <input type="number" min={1} placeholder="min" value={filterPaxMin} onChange={e => setFilterPaxMin(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <span className="text-muted-foreground text-xs">–</span>
+                <input type="number" min={1} placeholder="max" value={filterPaxMax} onChange={e => setFilterPaxMax(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+            </div>
+            {/* Price range */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Gross Price (฿)</p>
+              <div className="flex items-center gap-1.5">
+                <input type="number" min={0} placeholder="min" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <span className="text-muted-foreground text-xs">–</span>
+                <input type="number" min={0} placeholder="max" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm bg-white dark:bg-zinc-900 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+            </div>
+            {/* Clear */}
+            <div className="flex items-end">
+              <button onClick={clearAllFilters} className="text-xs text-red-500 hover:text-red-700 transition-colors underline underline-offset-2">
+                ล้าง Filter ทั้งหมด
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Row 3: Active chips + Summary */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[...filterPlatforms].map(p => (
+            <span key={p} className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs px-2 py-0.5 rounded-full">
+              {p}<button onClick={() => { const s = new Set(filterPlatforms); s.delete(p); setFilterPlatforms(s); }}><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          {[...filterNats].map(n => (
+            <span key={n} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full">
+              {n}<button onClick={() => { const s = new Set(filterNats); s.delete(n); setFilterNats(s); }}><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          {filterGuide !== "all" && (
+            <span className="flex items-center gap-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs px-2 py-0.5 rounded-full">
+              {filterGuide}<button onClick={() => setFilterGuide("all")}><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {[...filterPkgCodes].map(c => (
+            <span key={c} className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 text-xs px-2 py-0.5 rounded-full font-mono">
+              {c}<button onClick={() => { const s = new Set(filterPkgCodes); s.delete(c); setFilterPkgCodes(s); }}><X className="w-3 h-3" /></button>
+            </span>
+          ))}
+          {(filterPaxMin || filterPaxMax) && (
+            <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">
+              Pax {filterPaxMin || "1"}–{filterPaxMax || "∞"}
+              <button onClick={() => { setFilterPaxMin(""); setFilterPaxMax(""); }}><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {(filterPriceMin || filterPriceMax) && (
+            <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">
+              ฿{filterPriceMin || "0"}–{filterPriceMax || "∞"}
+              <button onClick={() => { setFilterPriceMin(""); setFilterPriceMax(""); }}><X className="w-3 h-3" /></button>
+            </span>
+          )}
+          {activeFilterCount > 0 && (
+            <button onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-red-500 transition-colors">ล้างทั้งหมด</button>
+          )}
+          <span className="ml-auto text-sm text-muted-foreground flex gap-3">
+            <span><span className="font-semibold text-foreground">{filtered.length}</span> orders</span>
+            <span><span className="font-semibold text-foreground">{totalPax}</span> pax</span>
+            <span className="font-semibold text-purple-600">{fmtCurrency(totalRevenue)}</span>
+          </span>
         </div>
       </div>
 
