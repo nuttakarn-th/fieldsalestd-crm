@@ -903,9 +903,9 @@ export default function OTAOrderEntry() {
 
       {/* ── Desktop Table ─────────────────────────────────────────────────────── */}
       <div className="hidden md:block rounded-xl border border-border overflow-hidden bg-card">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-muted/50 text-muted-foreground">
                 {SORT_COLS.map((col) => (
                   <th
