@@ -300,6 +300,7 @@ export default function OTAOrderEntry() {
   const [filterPriceMax, setFilterPriceMax] = useState("");
   const [showAdvFilters, setShowAdvFilters] = useState(false);
   const [showGroupSuggest, setShowGroupSuggest] = useState(false);
+  const [previewTab, setPreviewTab] = useState<"new" | "dup">("new");
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -1254,65 +1255,139 @@ export default function OTAOrderEntry() {
 
       {/* ── Import Result Modal ──────────────────────────────────────────────── */}
       {/* ── Import Preview Modal (before confirm) ───────────────────────────── */}
-      {showImportPreview && importPreview && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between p-5 border-b border-border">
-              <h2 className="font-bold text-lg">ตรวจสอบก่อน Import</h2>
-              <button onClick={() => { setShowImportPreview(false); setImportPreview(null); }} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              {/* Summary stats */}
-              <div className="grid grid-cols-3 gap-3">
+      {showImportPreview && importPreview && (() => {
+        const closePreview = () => { setShowImportPreview(false); setImportPreview(null); setPreviewTab("new"); };
+        const fmtDate = (d: string) => {
+          try { return new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }); } catch { return d; }
+        };
+        const pkgLabel = (row: Omit<OTAOrder, "id" | "created_at">) => {
+          const pkg = packages.find((p) => p.id === row.package_id);
+          return pkg?.code ?? row.package_details?.slice(0, 6) ?? "–";
+        };
+        const platColor = (p: string): string => (PLATFORM_COLORS[p as OTAPlatform] ?? "bg-gray-100 text-gray-700");
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style={{ maxHeight: "85vh" }}>
+
+              {/* Header */}
+              <div className="flex items-start justify-between p-5 pb-3 border-b border-border shrink-0">
+                <div>
+                  <h2 className="font-semibold text-base">ตรวจสอบก่อน Import</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">ตรวจสอบรายละเอียดก่อนยืนยัน</p>
+                </div>
+                <button onClick={closePreview} className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground"><X className="w-4 h-4" /></button>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2.5 px-5 pt-4 pb-3 shrink-0">
                 <div className="bg-muted rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold">{importPreview.totalRows}</div>
-                  <div className="text-xs text-muted-foreground">ทั้งหมดในไฟล์</div>
+                  <div className="text-xl font-semibold">{importPreview.totalRows}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">ทั้งหมดในไฟล์</div>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600">{importPreview.newRows.length}</div>
-                  <div className="text-xs text-green-600/80">รายการใหม่</div>
+                  <div className="text-xl font-semibold text-green-700 dark:text-green-400">{importPreview.newRows.length}</div>
+                  <div className="text-[11px] text-green-700/70 dark:text-green-400/70 mt-0.5">รายการใหม่</div>
                 </div>
                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-amber-600">{importPreview.dupOrderNums.length}</div>
-                  <div className="text-xs text-amber-600/80">ซ้ำในระบบ</div>
+                  <div className="text-xl font-semibold text-amber-700 dark:text-amber-400">{importPreview.dupOrderNums.length}</div>
+                  <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5">ซ้ำในระบบ</div>
                 </div>
               </div>
+
+              {/* Error banner */}
               {importPreview.errorRows.length > 0 && (
-                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
-                  <div className="text-sm font-semibold text-red-600 mb-2">⚠️ {importPreview.errorRows.length} แถวมีข้อผิดพลาด (จะถูกข้าม)</div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {importPreview.errorRows.map((e, i) => (
-                      <div key={i} className="text-xs text-red-600">Row {e.row}: {e.message}</div>
-                    ))}
-                  </div>
+                <div className="mx-5 mb-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2 shrink-0">
+                  <div className="text-xs font-semibold text-red-600 mb-1">⚠ {importPreview.errorRows.length} แถวผิดพลาด (จะถูกข้าม)</div>
+                  {importPreview.errorRows.slice(0, 3).map((e, i) => (
+                    <div key={i} className="text-[11px] text-red-500">Row {e.row}: {e.message}</div>
+                  ))}
+                  {importPreview.errorRows.length > 3 && <div className="text-[11px] text-red-400">และอีก {importPreview.errorRows.length - 3} รายการ</div>}
                 </div>
               )}
-              {importPreview.dupOrderNums.length > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
-                  <div className="text-sm font-semibold text-amber-700 mb-1">รายการซ้ำ (จะถูกข้าม ไม่เพิ่มซ้ำ)</div>
-                  <div className="text-xs text-amber-600 max-h-20 overflow-y-auto space-y-0.5">
-                    {importPreview.dupOrderNums.map((n, i) => <div key={i}>{n}</div>)}
-                  </div>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                กด <strong>ยืนยัน</strong> เพื่อเพิ่ม {importPreview.newRows.length} รายการใหม่เข้าระบบ
-              </p>
-            </div>
-            <div className="p-5 border-t border-border flex gap-3">
-              <button
-                onClick={() => { setShowImportPreview(false); setImportPreview(null); }}
-                className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors"
-              >ยกเลิก</button>
-              <button
-                onClick={handleImportConfirm}
-                disabled={importPreview.newRows.length === 0}
-                className="flex-1 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-semibold"
-              >✓ ยืนยันเพิ่ม {importPreview.newRows.length} รายการ</button>
+
+              {/* Tabs */}
+              <div className="flex border-b border-border px-5 shrink-0">
+                {(["new", "dup"] as const).map((t) => {
+                  const label = t === "new" ? `รายการใหม่ (${importPreview.newRows.length})` : `ซ้ำในระบบ (${importPreview.dupOrderNums.length})`;
+                  const active = previewTab === t;
+                  return (
+                    <button key={t} onClick={() => setPreviewTab(t)}
+                      className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+                        active
+                          ? t === "new"
+                            ? "border-green-600 text-green-700 dark:text-green-400"
+                            : "border-amber-500 text-amber-700 dark:text-amber-400"
+                          : "border-transparent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >{label}</button>
+                  );
+                })}
+              </div>
+
+              {/* List */}
+              <div className="overflow-y-auto flex-1 px-5 py-3 space-y-2">
+                {previewTab === "new" && (
+                  importPreview.newRows.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-6">ไม่มีรายการใหม่</p>
+                    : importPreview.newRows.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2.5 bg-muted/50 border border-border rounded-xl px-3 py-2.5">
+                        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${platColor(row.platform)}`}>{row.platform}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-medium font-mono truncate text-foreground">{row.order_number}</div>
+                          <div className="text-[11px] text-muted-foreground">{pkgLabel(row)} · {row.pax} pax · {fmtDate(row.usage_date)}</div>
+                        </div>
+                        <span className="shrink-0 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-[10px] px-2 py-0.5 rounded-full">ใหม่</span>
+                      </div>
+                    ))
+                )}
+                {previewTab === "dup" && (() => {
+                  const SHOW = 50;
+                  return (
+                    <>
+                      <p className="text-[11px] text-muted-foreground pb-1">รายการเหล่านี้มี Order # ซ้ำในระบบแล้ว จะถูกข้ามโดยอัตโนมัติ</p>
+                      {importPreview.dupOrderNums.slice(0, SHOW).map((num, i) => {
+                        const existing = orders.find((o) => o.order_number.trim().toLowerCase() === num.trim().toLowerCase());
+                        return (
+                          <div key={i} className="flex items-center gap-2.5 bg-muted/50 border border-border rounded-xl px-3 py-2.5">
+                            {existing && (
+                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${platColor(existing.platform)}`}>{existing.platform}</span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium font-mono truncate text-foreground">{num}</div>
+                              {existing && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  {(() => { const pkg = packages.find((p) => p.id === existing.package_id); return pkg?.code ?? "–"; })()} · {existing.pax} pax · {fmtDate(existing.usage_date)}
+                                </div>
+                              )}
+                            </div>
+                            <span className="shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] px-2 py-0.5 rounded-full">ซ้ำ</span>
+                          </div>
+                        );
+                      })}
+                      {importPreview.dupOrderNums.length > SHOW && (
+                        <p className="text-[11px] text-muted-foreground text-center py-1">และอีก {importPreview.dupOrderNums.length - SHOW} รายการ</p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Footer */}
+              <div className="p-5 border-t border-border flex gap-3 shrink-0">
+                <button onClick={closePreview}
+                  className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors">
+                  ยกเลิก
+                </button>
+                <button onClick={handleImportConfirm} disabled={importPreview.newRows.length === 0}
+                  className="flex-[2] px-4 py-2.5 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors font-semibold">
+                  ✓ ยืนยันเพิ่ม {importPreview.newRows.length} รายการ
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Import Result Modal (after confirm) ──────────────────────────────── */}
       {showImportResult && (
