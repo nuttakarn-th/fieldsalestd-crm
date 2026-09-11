@@ -63,6 +63,73 @@ function fmtMoney(n: number): string {
   return `฿${n.toLocaleString("th-TH")}`;
 }
 
+const TH_MONTHS_SHORT = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+/** "2026-09-25" or ISO datetime → "25 ก.ย. 69" */
+function fmtThaiDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const datePart = dateStr.split("T")[0];
+  const parts = datePart.split("-");
+  if (parts.length < 3) return null;
+  const [y, m, d] = parts;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return null;
+  const buddhistShort = String(parseInt(y, 10) + 543).slice(-2);
+  return `${parseInt(d, 10)} ${TH_MONTHS_SHORT[monthIdx]} ${buddhistShort}`;
+}
+
+/** ISO datetime → "10.35 น." */
+function fmtThaiTime(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}.${mm} น.`;
+}
+
+/** "2026-12" → "ธ.ค. 69" */
+function fmtTravelMonth(ym: string | null | undefined): string | null {
+  if (!ym) return null;
+  const parts = ym.split("-");
+  if (parts.length < 2) return null;
+  const [y, m] = parts;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (monthIdx < 0 || monthIdx > 11) return null;
+  const buddhistShort = String(parseInt(y, 10) + 543).slice(-2);
+  return `${TH_MONTHS_SHORT[monthIdx]} ${buddhistShort}`;
+}
+
+/** relative date: "X วันที่แล้ว" */
+function fmtRelativeDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days === 0) return "วันนี้";
+  if (days === 1) return "เมื่อวาน";
+  if (days < 7) return `${days} วันที่แล้ว`;
+  if (days < 30) return `${Math.floor(days / 7)} สัปดาห์ที่แล้ว`;
+  if (days < 365) return `${Math.floor(days / 30)} เดือนที่แล้ว`;
+  return `${Math.floor(days / 365)} ปีที่แล้ว`;
+}
+
+/** future date: "อีก X วัน" */
+function fmtFutureDate(dateStr: string | null | undefined): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const diffMs = d.getTime() - Date.now();
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 0) return `เกิน ${Math.abs(days)} วัน`;
+  if (days === 0) return "วันนี้";
+  if (days === 1) return "พรุ่งนี้";
+  if (days < 7) return `อีก ${days} วัน`;
+  if (days < 30) return `อีก ${Math.floor(days / 7)} สัปดาห์`;
+  return `อีก ${Math.floor(days / 30)} เดือน`;
+}
+
 interface StatusMeta {
   label: string;
   color: string;
@@ -180,63 +247,60 @@ interface ListRowProps {
   lead?: Lead;
   selected: boolean;
   onClick: () => void;
+  nextFollowup?: string | null;
 }
 
-function ListRow({ customer, lead, selected, onClick }: ListRowProps) {
+function ListRow({ customer, lead, selected, onClick, nextFollowup }: ListRowProps) {
   const meta  = statusMeta(lead?.status ?? "ใหม่");
   const value = lead?.closed_price || lead?.quoted_price;
   const rfm   = computeRFM(customer);
   const seg   = SEGMENT_STYLE[rfm.segment];
+  const lastContact = fmtRelativeDate(customer.last_contacted_at);
+  const nextFmt = nextFollowup ? fmtFutureDate(nextFollowup) : null;
   return (
     <button
       data-id={customer.customer_id}
       onClick={onClick}
       className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 transition-colors border-b border-border last:border-0 group ${
         selected
-          ? "bg-violet-50 dark:bg-violet-900/20"
-          : "hover:bg-muted/50"
+          ? "bg-violet-50/80 dark:bg-violet-900/20 border-l-2 border-l-violet-500"
+          : "hover:bg-muted/40"
       }`}
     >
-      {/* Status bar */}
-      <div className={`w-1 h-10 rounded-full shrink-0 ${meta.bar}`} />
-
-      {/* Avatar */}
       <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold ${
         selected ? "bg-violet-500" : "bg-violet-400/80"
       }`}>
         {customer.full_name.charAt(0)}
       </div>
 
-      {/* Name + segment + recency */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <p className={`text-sm font-semibold truncate leading-tight ${selected ? "text-violet-700 dark:text-violet-300" : ""}`}>
             {customer.full_name}
           </p>
-          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${seg.pill}`}>
-            {seg.label}
-          </Badge>
+          {rfm.segment !== "ทั่วไป" && (
+            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${seg.pill}`}>{seg.label}</span>
+          )}
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 ${meta.pill}`}>
-            {meta.label}
-          </Badge>
-          <p className={`text-[10px] truncate leading-tight ${RFM_SCORE_COLOR[rfm.rScore]}`}>
-            {rfm.rLabel}
-          </p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${meta.pill}`}>{meta.label}</span>
+          {lastContact && (
+            <span className="text-[9px] text-muted-foreground">📞 {lastContact}</span>
+          )}
+          {nextFmt && (
+            <span className={`text-[9px] font-medium ${nextFollowup && new Date(nextFollowup) < new Date() ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`}>
+              ⏰ {nextFmt}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Deal value / spend */}
       <div className="text-right shrink-0">
         {value ? (
-          <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
-            {fmtMoney(value)}
-          </p>
-        ) : null}
-        {customer.total_spend > 0 && (
+          <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{fmtMoney(value)}</p>
+        ) : customer.total_spend > 0 ? (
           <p className="text-[9px] text-muted-foreground tabular-nums">{fmtMoney(customer.total_spend)}</p>
-        )}
+        ) : null}
       </div>
     </button>
   );
@@ -329,145 +393,148 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
         </div>
       </div>
 
-      {/* ── RFM Profile section ── */}
+      {/* ── RFM Profile card ── */}
       {rfm && (
-        <div className="px-6 py-4 border-b border-border bg-muted/20">
-          <div className="flex items-center gap-2 mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RFM Profile</p>
-            <Badge variant="outline" className={`text-[9px] px-2 ${SEGMENT_STYLE[rfm.segment].pill}`}>
-              {SEGMENT_STYLE[rfm.segment].label}
-            </Badge>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {/* R */}
-            <div className="bg-card border rounded-xl p-3 text-center">
-              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.rScore]}`}>{rfm.rLabel}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">ล่าสุด (R)</p>
+        <div className="px-5 py-4 border-b border-border">
+          <div className="bg-card border rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RFM Profile</p>
+              <Badge variant="outline" className={`text-[9px] px-2 ${SEGMENT_STYLE[rfm.segment].pill}`}>
+                {SEGMENT_STYLE[rfm.segment].label}
+              </Badge>
             </div>
-            {/* F */}
-            <div className="bg-card border rounded-xl p-3 text-center">
-              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.fScore]}`}>{customer.total_trips} ครั้ง</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">ความถี่ (F)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.rScore]}`}>{rfm.rLabel}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">ล่าสุด (R)</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.fScore]}`}>{customer.total_trips} ครั้ง</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">ความถี่ (F)</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.mScore]}`}>{fmtMoney(customer.total_spend)}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">ยอดรวม (M)</p>
+              </div>
             </div>
-            {/* M */}
-            <div className="bg-card border rounded-xl p-3 text-center">
-              <p className={`text-sm font-bold ${RFM_SCORE_COLOR[rfm.mScore]}`}>{fmtMoney(customer.total_spend)}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">ยอดรวม (M)</p>
+            <div className="rounded-xl border border-violet-200/60 bg-violet-50/60 dark:bg-violet-900/15 dark:border-violet-800/40 px-3.5 py-2.5">
+              <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mb-1">คำแนะนำ</p>
+              <p className="text-[11px] text-foreground/70 leading-relaxed">{rfm.insight}</p>
             </div>
-          </div>
-          {/* Insight */}
-          <div className="rounded-xl border border-violet-200/60 bg-violet-50/60 dark:bg-violet-900/15 dark:border-violet-800/40 px-3.5 py-2.5">
-            <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mb-1">คำแนะนำ</p>
-            <p className="text-[11px] text-foreground/70 leading-relaxed">{rfm.insight}</p>
           </div>
         </div>
       )}
 
-      {/* ── Content: 2-column grid ── */}
-      <div className="flex-1 p-5 grid grid-cols-1 lg:grid-cols-2 gap-5 content-start">
+      {/* ── Lead history (cards) ── */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
-        {/* ── Contact card ── */}
-        <div className="bg-card border rounded-xl p-4 space-y-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
-          <InfoRow icon={<Phone className="w-4 h-4" />} label="เบอร์โทร" value={
-            <a href={`tel:${customer.phone}`} className="hover:text-violet-600 transition-colors">{customer.phone}</a>
-          } />
-          {customer.line_id && customer.line_id !== "-" && (
-            <InfoRow icon={<MessageCircle className="w-4 h-4" />} label="LINE ID" value={customer.line_id} />
-          )}
-          {customer.email && (
-            <InfoRow icon={<Mail className="w-4 h-4" />} label="อีเมล" value={customer.email} />
-          )}
-          {customer.province && (
-            <InfoRow icon={<MapPin className="w-4 h-4" />} label="จังหวัด" value={customer.province} />
-          )}
-          <InfoRow icon={<Tag className="w-4 h-4" />} label="แหล่งที่มา" value={customer.source} />
-          <InfoRow icon={<User className="w-4 h-4" />} label="สร้างโดย" value={customer.created_by} />
+        {/* Contact info + Customer data */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-card border rounded-xl p-4 space-y-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลติดต่อ</p>
+            <InfoRow icon={<Phone className="w-4 h-4" />} label="เบอร์โทร" value={
+              <a href={`tel:${customer.phone}`} className="hover:text-violet-600 transition-colors">{customer.phone}</a>
+            } />
+            {customer.line_id && customer.line_id !== "-" && (
+              <InfoRow icon={<MessageCircle className="w-4 h-4" />} label="LINE ID" value={customer.line_id} />
+            )}
+            {customer.province && (
+              <InfoRow icon={<MapPin className="w-4 h-4" />} label="จังหวัด" value={customer.province} />
+            )}
+            <InfoRow icon={<Tag className="w-4 h-4" />} label="แหล่งที่มา" value={customer.source} />
+            <InfoRow icon={<User className="w-4 h-4" />} label="Sales ที่ดูแล" value={customer.created_by} />
+          </div>
+          <div className="bg-card border rounded-xl p-4 space-y-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ข้อมูลลูกค้า</p>
+            <div className="grid grid-cols-1 gap-2">
+              <div>
+                <p className="text-muted-foreground text-[10px]">ทริปสำเร็จ</p>
+                <p className="font-bold text-violet-600">{customer.total_trips} ครั้ง</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-[10px]">ยอดใช้จริง</p>
+                <p className="font-bold text-emerald-600">{fmtMoney(customer.total_spend)}</p>
+              </div>
+              {customer.first_contact_date && (
+                <div>
+                  <p className="text-muted-foreground text-[10px]">เพิ่มเมื่อ</p>
+                  <p className="font-semibold text-sm">{thaiDate(customer.first_contact_date)}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* ── Lead history list ── */}
-        <div className="bg-card border rounded-xl overflow-hidden lg:col-span-2">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/20">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ประวัติ Lead</p>
-            <span className="text-[10px] text-muted-foreground">{leads.length} รายการ</span>
-          </div>
+        {/* LEADS */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+            LEADS ({leads.length})
+          </p>
           {leads.length === 0 ? (
             (customer.total_trips > 0 || customer.total_spend > 0) ? (
-              <div className="py-5 px-4 space-y-3">
-                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60">
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/40 flex items-center justify-center shrink-0 mt-0.5">
-                    <Banknote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">มียอดซื้อแต่ไม่มี Lead ในระบบ</p>
-                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                      ยอด <span className="font-semibold text-foreground/80">{thaiCurrency(customer.total_spend)}</span>
-                      {" · "}{customer.total_trips} ครั้ง
-                      {" — "}ข้อมูลนำเข้าจากระบบเก่า ยังไม่มีประวัติ Lead เชื่อมต่อ
-                    </p>
-                  </div>
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/60">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/40 flex items-center justify-center shrink-0 mt-0.5">
+                  <Banknote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                <button
-                  onClick={onNavigate}
-                  className="w-full text-[11px] py-2 rounded-lg border border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400 dark:hover:bg-violet-900/20 transition-colors font-medium"
-                >
-                  + เพิ่มประวัติการซื้อ / ดูโปรไฟล์เต็ม
-                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">มียอดซื้อแต่ไม่มี Lead ในระบบ</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                    ยอด <span className="font-semibold text-foreground/80">{thaiCurrency(customer.total_spend)}</span>
+                    {" · "}{customer.total_trips} ครั้ง — ข้อมูลนำเข้าจากระบบเก่า
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="py-8 text-center text-muted-foreground text-sm">ยังไม่มี Lead</div>
+              <div className="py-8 text-center text-muted-foreground border border-dashed border-border rounded-xl">
+                <p className="text-sm">ยังไม่มี Lead</p>
+              </div>
             )
           ) : (
-            <div className="divide-y divide-border">
+            <div className="space-y-2">
               {leads.map((l) => {
                 const lm = statusMeta(l.status);
                 const lv = l.closed_price || l.quoted_price;
-                // ── Lookup period travel_date จาก serviceStore ──────────────
-                const period = l.tour_id && l.period_id
-                  ? tours.find((t) => t.id === l.tour_id)?.periods?.find((p) => p.period_id === l.period_id)
-                  : null;
-                const travelDate = period?.travel_date || l.travel_month;
+                const period = l.period_id ? tours.find((t) => t.id === l.tour_id)?.periods?.find((p) => p.period_id === l.period_id) : null;
+                const tripStart = fmtThaiDate(period?.start_date);
+                const tripEnd   = fmtThaiDate(period?.end_date);
+                const tripLabel = tripStart && tripEnd ? `${tripStart} – ${tripEnd}` : tripStart || fmtTravelMonth(l.travel_month);
+                const closedLabel = fmtThaiDate(l.closed_date);
+                const closedTime  = isClosedStatus(l.status) ? fmtThaiTime(l.updated_at) : null;
                 return (
-                  <div key={l.lead_id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
-                    {/* Status bar */}
-                    <div className={`w-1 h-10 rounded-full shrink-0 ${lm.bar}`} />
-                    {/* Main info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lm.pill}`}>{lm.label}</span>
+                  <div key={l.lead_id} className="border border-border rounded-xl overflow-hidden bg-card">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className={`w-1 h-10 rounded-full shrink-0 ${lm.bar}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold truncate">{l.program || l.bu_type || "—"}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${lm.pill}`}>{lm.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
+                          {tripLabel && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{tripLabel}</span>}
+                          {l.assigned_to && <span>· {l.assigned_to}</span>}
+                        </div>
+                        {closedLabel && (
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium">
+                            ✓ จอง {closedLabel}{closedTime ? ` (${closedTime})` : ""}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1"><Users2 className="w-3 h-3" />{l.pax_count} ท่าน</span>
-                        {travelDate && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            <span className={period?.travel_date ? "text-violet-600 dark:text-violet-400 font-medium" : ""}>
-                              {travelDate}
+                      {lv ? (
+                        <div className="text-right shrink-0 space-y-0.5">
+                          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{fmtMoney(lv)}</p>
+                          {(l.discount ?? 0) > 0 ? (
+                            <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                              โปรโมชั่น -{(l.discount!).toLocaleString()}
                             </span>
-                          </span>
-                        )}
-                        {l.assigned_to && <span className="flex items-center gap-1"><User className="w-3 h-3" />{l.assigned_to}</span>}
-                      </div>
+                          ) : (
+                            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                              ราคาเต็ม
+                            </span>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
-                    {/* Value */}
-                    {lv ? (
-                      <div className="text-right shrink-0 space-y-0.5">
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{thaiCurrency(lv)}</p>
-                        {(l.discount ?? 0) > 0 ? (
-                          <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
-                            โปรโมชั่น -{l.discount!.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                            ราคาเต็ม
-                          </span>
-                        )}
-                        {l.closed_price && l.closed_date && (
-                          <p className="text-[10px] text-muted-foreground">ปิด {thaiDate(l.closed_date)}</p>
-                        )}
-                      </div>
-                    ) : null}
                   </div>
                 );
               })}
@@ -475,7 +542,7 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
           )}
         </div>
 
-        {/* ── Note card ── */}
+        {/* Note */}
         {customer.note && (
           <div className="bg-amber-50/60 dark:bg-amber-900/15 border border-amber-200/60 rounded-xl p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600/80 mb-2 flex items-center gap-1">
@@ -485,29 +552,9 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
           </div>
         )}
 
-        {/* ── History stats ── */}
-        <div className="bg-card border rounded-xl p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">ประวัติลูกค้า</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-violet-600">{customer.total_trips}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">ครั้งที่ซื้อ</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-emerald-600">{thaiCurrency(customer.total_spend) || "—"}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">ยอดซื้อรวม</p>
-            </div>
-          </div>
-          {customer.first_contact_date && (
-            <p className="text-center text-[11px] text-muted-foreground/60 mt-3 border-t border-border pt-2">
-              รู้จักกันตั้งแต่ {thaiDate(customer.first_contact_date)}
-            </p>
-          )}
-        </div>
-
-        {/* ── Interest tags ── */}
+        {/* Interest tags */}
         {(customer.interests?.length ?? 0) > 0 && (
-          <div className="bg-card border rounded-xl p-4 lg:col-span-2">
+          <div className="bg-card border rounded-xl p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">ความสนใจ</p>
             <div className="flex flex-wrap gap-1.5">
               {customer.interests!.map((tag) => (
@@ -518,7 +565,6 @@ function DetailPanel({ customer, leads, onNavigate }: DetailPanelProps) {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
@@ -537,6 +583,7 @@ export default function MarketingOBLeads() {
   const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortBy, setSortBy]             = useState<"default" | "spend" | "recent" | "frequent">("default");
+  const [filterStatus, setFilterStatus] = useState<"all" | "no_lead" | "active" | "quoted" | "closed" | "lost">("all");
 
   const obCustomers = useMemo(
     () => customers.filter((c) => c.channel === "OB"),
@@ -556,6 +603,16 @@ export default function MarketingOBLeads() {
       if (!cur || leadPriority(l.status) < leadPriority(cur.status)) {
         map.set(l.customer_id, l);
       }
+    });
+    return map;
+  }, [allLeads]);
+
+  const nextFollowupByCustomer = useMemo(() => {
+    const map = new Map<string, string>();
+    allLeads.forEach((l) => {
+      if (!l.next_followup_date || isClosedStatus(l.status) || isLostStatus(l.status)) return;
+      const cur = map.get(l.customer_id);
+      if (!cur || l.next_followup_date < cur) map.set(l.customer_id, l.next_followup_date);
     });
     return map;
   }, [allLeads]);
@@ -586,6 +643,18 @@ export default function MarketingOBLeads() {
     if (sourceFilter !== "all") {
       list = list.filter((c) => c.source === sourceFilter);
     }
+    if (filterStatus !== "all") {
+      list = list.filter((c) => {
+        const lead = latestLeadByCustomer.get(c.customer_id);
+        const st = lead?.status;
+        if (filterStatus === "no_lead")  return !st || st === "ใหม่";
+        if (filterStatus === "closed")   return st ? isClosedStatus(st) : false;
+        if (filterStatus === "lost")     return st ? isLostStatus(st) : false;
+        if (filterStatus === "quoted")   return st === "ส่ง Quote แล้ว";
+        if (filterStatus === "active")   return st ? !isClosedStatus(st) && !isLostStatus(st) && st !== "ส่ง Quote แล้ว" : false;
+        return true;
+      });
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -606,7 +675,7 @@ export default function MarketingOBLeads() {
       if (pa !== pb) return pa - pb;
       return (b.last_contacted_at ?? "").localeCompare(a.last_contacted_at ?? "");
     });
-  }, [obCustomers, search, statusGroup, sourceFilter, sortBy, latestLeadByCustomer]);
+  }, [obCustomers, search, statusGroup, sourceFilter, filterStatus, sortBy, latestLeadByCustomer]);
 
   // Export-ready records (follows current filter)
   const exportData = useMemo(() =>
@@ -771,6 +840,18 @@ export default function MarketingOBLeads() {
                 ))}
               </select>
               <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+                className={`w-full h-8 rounded-lg border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer transition ${filterStatus !== "all" ? "border-violet-400 text-violet-700 dark:text-violet-300 font-medium" : "border-border"}`}
+              >
+                <option value="all">ทุกสถานะ Lead</option>
+                <option value="no_lead">ยังไม่มี Lead</option>
+                <option value="active">กำลังติดตาม</option>
+                <option value="quoted">ส่ง Quote แล้ว</option>
+                <option value="closed">จองแล้ว</option>
+                <option value="lost">ยกเลิก</option>
+              </select>
+              <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                 className="flex-1 h-8 rounded-lg border border-border bg-background text-xs px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-violet-400 cursor-pointer"
@@ -820,6 +901,7 @@ export default function MarketingOBLeads() {
                   lead={latestLeadByCustomer.get(c.customer_id)}
                   selected={c.customer_id === selectedId}
                   onClick={() => setSelectedId(c.customer_id)}
+                  nextFollowup={nextFollowupByCustomer.get(c.customer_id)}
                 />
               ))
             )}
