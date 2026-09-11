@@ -823,7 +823,7 @@ export default function MarketingOBLeads() {
       <div className="flex gap-3 flex-1 min-h-0 overflow-hidden">
 
         {/* ── Left: list panel ── */}
-        <div className="w-96 shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
+        <div className="w-1/4 min-w-[280px] shrink-0 flex flex-col bg-card border rounded-xl overflow-hidden shadow-sm">
 
           {/* Search + Filters */}
           <div className="p-2.5 border-b border-border shrink-0 space-y-2">
