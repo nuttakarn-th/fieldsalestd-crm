@@ -268,8 +268,8 @@ export default function OTACalendar() {
             return (
               <div key={day}
                 onClick={() => openDay(day)}
-                className={`border-t border-l border-border transition-colors
-                  min-h-[60px] md:min-h-[110px] p-1 md:p-2
+                className={`border-t border-l border-border transition-colors flex flex-col
+                  min-h-[72px] md:min-h-[110px] p-1 md:p-2
                   ${isT ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
                   ${hasOrders ? "cursor-pointer hover:bg-muted/30 active:bg-muted/50" : ""}`}
               >
@@ -279,21 +279,33 @@ export default function OTACalendar() {
                     {day}
                   </span>
                   {dayPax > 0 && (
-                    <span className="text-[9px] md:text-xs text-muted-foreground font-medium leading-none">
-                      {dayPax}<span className="hidden md:inline"> pax</span>
+                    <span className="hidden md:inline text-xs text-muted-foreground font-medium leading-none">
+                      {dayPax} pax
                     </span>
                   )}
                 </div>
 
-                {/* Mobile dots */}
-                <div className="md:hidden flex flex-wrap gap-[3px] px-0.5">
-                  {groups.slice(0, 6).map((g) => (
-                    <span key={g.pkgId} className="w-2 h-2 rounded-full shrink-0 bg-purple-500" />
+                {/* Mobile B+C: mini pills + total row */}
+                <div className="md:hidden flex flex-col gap-[2px] flex-1">
+                  {groups.slice(0, 3).map((g) => (
+                    <div key={g.pkgId}
+                      className="bg-purple-100 dark:bg-purple-900/50 rounded-[3px] px-[3px] py-[1px] text-[7px] font-bold text-purple-700 dark:text-purple-300 leading-tight truncate">
+                      {g.code}·{g.totalPax}p
+                    </div>
                   ))}
-                  {groups.length > 6 && (
-                    <span className="text-[8px] text-muted-foreground leading-none self-center">+{groups.length - 6}</span>
+                  {groups.length > 3 && (
+                    <div className="text-[7px] text-muted-foreground pl-[2px]">+{groups.length - 3}</div>
                   )}
                 </div>
+                {/* Mobile bottom summary row */}
+                {dayPax > 0 && (
+                  <div className="md:hidden flex items-center justify-between border-t border-purple-200 dark:border-purple-800 mt-1 pt-[2px]">
+                    <span className="text-[8px] font-bold text-purple-600 dark:text-purple-400">{dayPax}p</span>
+                    <span className="text-[7px] font-semibold text-green-600 dark:text-green-400">
+                      {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0)).replace("฿", "")}
+                    </span>
+                  </div>
+                )}
 
                 {/* Desktop chips */}
                 <div className="hidden md:block space-y-0.5">
