@@ -289,6 +289,7 @@ export default function OTAOrderEntry() {
   const [filterPriceMin, setFilterPriceMin] = useState("");
   const [filterPriceMax, setFilterPriceMax] = useState("");
   const [showAdvFilters, setShowAdvFilters] = useState(false);
+  const [showGroupSuggest, setShowGroupSuggest] = useState(false);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -321,6 +322,17 @@ export default function OTAOrderEntry() {
     return orders.filter(o => o.usage_date.startsWith(prefix));
   }, [orders, month, year]);
   const availPlatforms = useMemo(() => [...new Set(monthOrders.map(o => o.platform))].sort(), [monthOrders]);
+
+  // Group numbers from orders whose booking_date >= today (future/active trips only)
+  const todayISO = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
+  const futureGroupNums = useMemo(() =>
+    [...new Set(
+      orders
+        .filter(o => o.group_number && (o.booking_date ?? "") >= todayISO)
+        .map(o => o.group_number!)
+    )].sort(),
+    [orders, todayISO]
+  );
   const availNats      = useMemo(() => [...new Set(monthOrders.map(o => o.nationality ?? "").filter(Boolean))].sort(), [monthOrders]);
   const availGuides    = useMemo(() => [...new Set(monthOrders.map(o => o.guide_name ?? "").filter(Boolean))].sort(), [monthOrders]);
   const availPkgCodes  = useMemo(() => [...new Set(monthOrders.map(o => packages.find(p => p.id === o.package_id)?.code ?? "").filter(Boolean))].sort(), [monthOrders, packages]);
@@ -973,9 +985,38 @@ export default function OTAOrderEntry() {
                     <label className={labelCls}>Order Number <span className="text-red-500">*</span></label>
                     <input value={form.order_number} onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))} placeholder="ORD-001" className={inputCls} />
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className={labelCls}>Group Number</label>
-                    <input value={form.group_number} onChange={(e) => setForm((f) => ({ ...f, group_number: e.target.value }))} placeholder="Optional" className={inputCls} />
+                    <input
+                      value={form.group_number}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, group_number: e.target.value }));
+                        setShowGroupSuggest(true);
+                      }}
+                      onFocus={() => setShowGroupSuggest(true)}
+                      onBlur={() => setTimeout(() => setShowGroupSuggest(false), 150)}
+                      placeholder="Optional"
+                      className={inputCls}
+                      autoComplete="off"
+                    />
+                    {showGroupSuggest && (() => {
+                      const q = form.group_number.toLowerCase();
+                      const matches = futureGroupNums.filter(g => g.toLowerCase().includes(q) && g !== form.group_number);
+                      return matches.length > 0 ? (
+                        <ul className="absolute z-50 top-full mt-1 left-0 right-0 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto text-sm">
+                          {matches.map(g => (
+                            <li key={g}
+                              onMouseDown={() => { setForm((f) => ({ ...f, group_number: g })); setShowGroupSuggest(false); }}
+                              className="px-3 py-2 cursor-pointer hover:bg-muted flex items-center gap-2">
+                              <span className="text-purple-600 font-mono text-xs">#{g}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {orders.filter(o => o.group_number === g).length} orders
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
 
