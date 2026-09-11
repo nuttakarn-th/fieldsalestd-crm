@@ -645,11 +645,29 @@ export default function OTAOrderEntry() {
 
         {/* Row 1: Month + Search + Quick Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Month nav */}
-          <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5 shrink-0">
-            <button onClick={prevMonth} className="hover:text-purple-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-sm font-semibold min-w-[110px] text-center">{monthName} {year}</span>
-            <button onClick={nextMonth} className="hover:text-purple-600 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          {/* Month dropdown */}
+          <div className="relative shrink-0">
+            <select
+              value={`${year}-${String(month).padStart(2, "0")}`}
+              onChange={(e) => {
+                const [y, m] = e.target.value.split("-").map(Number);
+                setYear(y); setMonth(m);
+              }}
+              className="appearance-none bg-muted rounded-lg pl-3 pr-8 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer border border-transparent hover:border-purple-400 transition-colors"
+            >
+              {Array.from({ length: 19 }, (_, i) => {
+                const d = new Date(today.getFullYear(), today.getMonth() - 12 + i, 1);
+                const y = d.getFullYear();
+                const m = d.getMonth() + 1;
+                const val = `${y}-${String(m).padStart(2, "0")}`;
+                return (
+                  <option key={val} value={val}>
+                    {d.toLocaleString("en", { month: "long" })} {y}
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           </div>
 
           {/* Search */}

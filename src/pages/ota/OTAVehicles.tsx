@@ -50,11 +50,6 @@ function monthBounds(year: number, month: number) {
   return { start, end };
 }
 
-const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function OTAVehicles() {
@@ -107,9 +102,6 @@ export default function OTAVehicles() {
     .filter((g) => g.vehicleType === "Bus")
     .reduce((s, g) => s + g.vehicleCount, 0);
 
-  // Year options (current year ± 1)
-  const yearOpts = [selYear - 1, selYear, selYear + 1];
-
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -124,24 +116,31 @@ export default function OTAVehicles() {
           </p>
         </div>
 
-        {/* Month / Year picker */}
-        <div className="flex items-center gap-2">
+        {/* Month dropdown */}
+        <div className="relative">
           <select
-            value={selMonth}
-            onChange={(e) => setSelMonth(Number(e.target.value))}
-            className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            value={`${selYear}-${String(selMonth).padStart(2, "0")}`}
+            onChange={(e) => {
+              const [y, m] = e.target.value.split("-").map(Number);
+              setSelYear(y); setSelMonth(m);
+            }}
+            className="appearance-none bg-background border border-border rounded-lg pl-3 pr-8 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer hover:border-purple-400 transition-colors"
           >
-            {MONTH_NAMES.map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
+            {Array.from({ length: 19 }, (_, i) => {
+              const d = new Date(today.getFullYear(), today.getMonth() - 12 + i, 1);
+              const y = d.getFullYear();
+              const m = d.getMonth() + 1;
+              const val = `${y}-${String(m).padStart(2, "0")}`;
+              return (
+                <option key={val} value={val}>
+                  {d.toLocaleString("en", { month: "long" })} {y}
+                </option>
+              );
+            })}
           </select>
-          <select
-            value={selYear}
-            onChange={(e) => setSelYear(Number(e.target.value))}
-            className="bg-background border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            {yearOpts.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </div>
 
