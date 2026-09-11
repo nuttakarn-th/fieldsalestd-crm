@@ -64,7 +64,7 @@ function FlagImg({ country, size = 40 }: { country: string; size?: number }) {
       alt={country}
       width={size} height={Math.round(size * 0.67)}
       style={{ width: size, height: "auto", objectFit: "cover" }}
-      className="rounded-sm object-cover drop-shadow-md"
+      className="object-cover drop-shadow-sm"
       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
     />
   );
