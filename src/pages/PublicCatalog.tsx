@@ -87,6 +87,7 @@ function pStatus(quota: number, total: number): PStatus {
 interface PeriodRow {
   period_id: string; start_date: string; end_date: string;
   travel_date: string; quota: number; total_seats: number; cancelled: boolean;
+  price_per_seat?: number; special_price?: number;
 }
 
 // ── Chip ─────────────────────────────────────────────────────────────────────
@@ -198,6 +199,33 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                             {st === "ok"   && <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700">ว่าง</span>}
                           </div>
                         </div>
+
+                        {/* Price */}
+                        {(() => {
+                          const sp = p.special_price ?? 0;
+                          const rp = p.price_per_seat ?? tour.price_per_seat ?? 0;
+                          if (!rp) return null;
+                          return (
+                            <div className="flex items-baseline gap-2 mb-2">
+                              {sp > 0 ? (
+                                <>
+                                  <span className="text-base font-bold text-green-700">
+                                    ฿{sp.toLocaleString("th-TH")}
+                                  </span>
+                                  <span className="text-xs text-gray-400 line-through">
+                                    ฿{rp.toLocaleString("th-TH")}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-600">🔥 ราคาพิเศษ</span>
+                                </>
+                              ) : (
+                                <span className="text-base font-bold text-gray-800">
+                                  ฿{rp.toLocaleString("th-TH")}
+                                </span>
+                              )}
+                              <span className="text-[11px] text-gray-400">/ท่าน</span>
+                            </div>
+                          );
+                        })()}
 
                         {/* Booking meter */}
                         {total > 0 && (
