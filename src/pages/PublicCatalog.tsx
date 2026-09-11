@@ -47,12 +47,14 @@ function getFlagCode(country: string): string | null {
 function FlagImg({ country, size = 40 }: { country: string; size?: number }) {
   const code = getFlagCode(country);
   if (!code) return <span className="text-4xl leading-none">✈️</span>;
+  // flagcdn.com supports fixed sizes: 20, 40, 80, 160 — always fetch w40, display via CSS
   return (
     <img
-      src={`https://flagcdn.com/w${size}/${code}.png`}
-      srcSet={`https://flagcdn.com/w${size * 2}/${code}.png 2x`}
+      src={`https://flagcdn.com/w40/${code}.png`}
+      srcSet={`https://flagcdn.com/w80/${code}.png 2x`}
       alt={country}
       width={size} height={Math.round(size * 0.67)}
+      style={{ width: size, height: "auto", objectFit: "cover" }}
       className="rounded-sm object-cover drop-shadow-md"
       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
     />
@@ -362,7 +364,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         </div>
         {/* Flag + city */}
         <div className={`relative flex items-end gap-1.5 min-w-0 max-w-[calc(100%-44px)] ${isFull ? "opacity-40" : ""}`}>
-          <FlagImg country={tour.country ?? ""} size={22} />
+          <FlagImg country={tour.country ?? ""} size={32} />
           <div className="min-w-0 pb-0.5">
             <p className="text-white font-bold text-xs sm:text-sm leading-tight truncate drop-shadow-sm">
               {tour.city || tour.country || "—"}
@@ -672,17 +674,17 @@ export default function PublicCatalog() {
 
       {/* ── Hero ── */}
       <div style={{ background: "linear-gradient(135deg,#16a34a,#059669)" }}>
-        <div className="max-w-screen-xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="max-w-screen-xl mx-auto px-4 py-4 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="text-white">
-            <p className="font-bold text-xl leading-tight">ค้นหาโปรแกรมทัวร์ Standard Tour</p>
-            <p className="text-green-100 text-sm mt-1">ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก</p>
+            <p className="font-bold text-lg sm:text-xl leading-tight">ค้นหาโปรแกรมทัวร์ Standard Tour</p>
+            <p className="text-green-100 text-xs sm:text-sm mt-1">ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <a href="tel:027370333" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0">
+            <a href="tel:027370333" className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors">
               <Phone className="w-3.5 h-3.5" /> โทรสอบถาม
             </a>
             <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-green-700 text-sm font-bold hover:bg-green-50 transition-colors">
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white text-green-700 text-sm font-bold hover:bg-green-50 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" /> LINE
             </a>
           </div>
@@ -691,45 +693,36 @@ export default function PublicCatalog() {
 
       {/* ── Filter bar ── */}
       <div className="bg-white border-b border-gray-100 sticky top-[57px] z-20 shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-4 pt-2.5 pb-2 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {/* Row 1: Search (full width) */}
+        <div className="max-w-screen-xl mx-auto px-3 pt-2 pb-1.5">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="ค้นหาชื่อโปรแกรม เมือง ประเทศ..."
-              className="pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl w-56 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
           </div>
-
-          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-
+        </div>
+        {/* Row 2: Chips — swipeable */}
+        <div className="max-w-screen-xl mx-auto px-3 pb-2 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           <Chip active={catFilter === "all"} onClick={() => setCatFilter("all")}>🗺️ ทั้งหมด</Chip>
           {CATEGORIES.map(c => (
             <Chip key={c.key} active={catFilter === c.key} onClick={() => setCatFilter(c.key)} activeBg={c.bg} activeText={c.text}>
               {c.chipLabel}
             </Chip>
           ))}
-
-          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-
-          <Chip
-            active={promoOnly}
-            onClick={() => setPromoOnly(v => !v)}
-            activeBg="#fef3c7"
-            activeText="#92400e"
-          >
+          <div className="w-px h-5 bg-gray-200 shrink-0" />
+          <Chip active={promoOnly} onClick={() => setPromoOnly(v => !v)} activeBg="#fef3c7" activeText="#92400e">
             🔥 โปรโมชั่น
           </Chip>
-
-          <div className="w-px h-5 bg-gray-200 hidden sm:block" />
-
+          <div className="w-px h-5 bg-gray-200 shrink-0" />
           <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-            className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white focus:outline-none text-gray-600">
+            className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white focus:outline-none text-gray-600 shrink-0">
             <option value="all">📅 ทุกเดือน</option>
             {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
           </select>
-
           <button onClick={() => setShowAdvanced(v => !v)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ml-auto"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all shrink-0"
             style={showAdvanced || hasAdvanced
               ? { background: "#eff6ff", color: "#2563eb", borderColor: "#bfdbfe" }
               : { background: "white", color: "#6b7280", borderColor: "#e5e7eb" }}>
