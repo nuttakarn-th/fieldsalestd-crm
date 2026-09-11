@@ -302,7 +302,9 @@ export default function OTACalendar() {
                       className="flex items-center justify-between bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-0.5 text-xs font-medium"
                       title={`${g.name} · ${g.orderCount} orders · ${g.totalPax} pax`}>
                       <span className="truncate font-mono">{g.code}</span>
-                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">{g.totalPax} pax</span>
+                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">
+                        {g.totalPax} pax{g.totalRevenue ? `/${fmtMoneyShort(g.totalRevenue).replace("฿", "")}` : ""}
+                      </span>
                     </div>
                   ))}
                   {groups.length > 4 && (
