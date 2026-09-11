@@ -273,15 +273,18 @@ export default function OTACalendar() {
                   ${isT ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
                   ${hasOrders ? "cursor-pointer hover:bg-muted/30 active:bg-muted/50" : ""}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full
+                <div className="flex items-start justify-between mb-1">
+                  <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full shrink-0
                     ${isT ? "bg-rose-500 text-white" : "text-foreground"}`}>
                     {day}
                   </span>
                   {dayPax > 0 && (
-                    <span className="hidden md:inline text-xs text-muted-foreground font-medium leading-none">
-                      {dayPax} pax
-                    </span>
+                    <div className="hidden md:flex flex-col items-end leading-tight">
+                      <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{dayPax} pax</span>
+                      <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                        {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0))}
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -307,16 +310,14 @@ export default function OTACalendar() {
                   </div>
                 )}
 
-                {/* Desktop chips */}
+                {/* Desktop chips — code + pax only (no per-chip revenue) */}
                 <div className="hidden md:block space-y-0.5">
                   {groups.slice(0, 4).map((g) => (
                     <div key={g.pkgId}
                       className="flex items-center justify-between bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-0.5 text-xs font-medium"
                       title={`${g.name} · ${g.orderCount} orders · ${g.totalPax} pax`}>
                       <span className="truncate font-mono">{g.code}</span>
-                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">
-                        {g.totalPax} pax{g.totalRevenue ? `/${fmtMoneyShort(g.totalRevenue).replace("฿", "")}` : ""}
-                      </span>
+                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">{g.totalPax}p</span>
                     </div>
                   ))}
                   {groups.length > 4 && (
