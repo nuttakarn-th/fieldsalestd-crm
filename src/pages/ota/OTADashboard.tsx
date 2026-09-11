@@ -598,7 +598,6 @@ export default function OTADashboard() {
                 type="date"
                 value={customRange.end}
                 min={customRange.start}
-                max={fmtISO(today)}
                 onChange={(e) => setCustomRange((r) => ({ ...r, end: e.target.value }))}
                 className="text-xs bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
               />
