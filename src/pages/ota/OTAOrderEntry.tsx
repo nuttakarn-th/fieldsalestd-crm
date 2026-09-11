@@ -272,6 +272,16 @@ export default function OTAOrderEntry() {
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
   const [importStats, setImportStats] = useState({ inserted: 0, updated: 0, failed: 0 });
+
+  // Import preview state (before confirm)
+  interface ImportPreviewData {
+    newRows: Omit<OTAOrder, "id" | "created_at">[];
+    dupOrderNums: string[];
+    errorRows: ImportError[];
+    totalRows: number;
+  }
+  const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
+  const [showImportPreview, setShowImportPreview] = useState(false);
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
@@ -467,20 +477,23 @@ export default function OTAOrderEntry() {
     XLSX.writeFile(wb, "OTA_Orders_Template.xlsx");
   };
 
-  // ── Import XLSX ───────────────────────────────────────────────────────────
+  // ── Import XLSX — Phase 1: Parse only, show preview ─────────────────────
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = (ev) => {
       try {
         const wb = XLSX.read(ev.target?.result, { type: "binary", cellDates: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        // Skip header row
         const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
         const errors: ImportError[] = [];
-        const validRows: Omit<OTAOrder, "id" | "created_at">[] = [];
+        const newRows: Omit<OTAOrder, "id" | "created_at">[] = [];
+        const dupOrderNums: string[] = [];
+
+        // Existing order numbers for duplicate detection
+        const existingOrderNums = new Set(orders.map((o) => o.order_number.trim().toLowerCase()));
 
         const toDate = (v: unknown): string => {
           if (!v) return today.toISOString().slice(0, 10);
@@ -488,42 +501,57 @@ export default function OTAOrderEntry() {
           return String(v).slice(0, 10);
         };
 
+        // Known platforms — trim + lowercase for comparison
+        const knownPlatforms = (platformConfigs.length > 0
+          ? platformConfigs.map((c) => c.platform)
+          : [...OTA_PLATFORMS]);
+        const knownPlatformsLower = knownPlatforms.map((p) => p.trim().toLowerCase());
+
         dataRows.forEach((row, i) => {
           const rowNum = i + 2;
-          // 16 columns: Booking Date | Usage Date | Order # | Group # | People | Platform |
-          //              Package Code | Package Details | Nationality | Guide | Pickup Hotel |
-          //              Gross Price | Commission % | Commission Amount | Discount | Net Revenue
           const [
-            bookingDate, usageDate, orderNum, groupNum, pax, platform,
+            bookingDate, usageDate, orderNum, groupNum, pax, platformRaw,
             pkgCode, pkgDetails, nationality, guide, pickupHotel,
             grossRaw, commRaw, , discountRaw, revenueRaw,
           ] = row as unknown[];
 
-          // Validate
-          if (!usageDate || !orderNum) { errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" }); return; }
-          // Platform validation — fallback to OTA_PLATFORMS ถ้า configs ยังไม่โหลด
-          const knownPlatforms = platformConfigs.length > 0
-            ? platformConfigs.map((c) => c.platform)
-            : [...OTA_PLATFORMS];
-          if (!knownPlatforms.includes(String(platform))) { errors.push({ row: rowNum, message: `Platform "${platform}" ไม่ถูกต้อง (เพิ่มใน Platforms ก่อน)` }); return; }
+          if (!usageDate || !orderNum) {
+            errors.push({ row: rowNum, message: "Usage Date และ Order # ห้ามว่าง" });
+            return;
+          }
 
-          const pkg = getPackageByCode(String(pkgCode ?? ""));
-          const grossPrice  = parseFloat(String(grossRaw ?? 0)) || 0;
-          // Commission อาจเป็น decimal (0.2) หรือ % (20) — normalize เป็น %
-          const commRawNum  = parseFloat(String(commRaw ?? 0)) || 0;
-          const commPct     = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
-          const discount    = parseFloat(String(discountRaw ?? 0)) || 0;
-          // Revenue: คำนวณใหม่เสมอ (ไม่ใช้ค่าจากไฟล์ เพราะอาจเป็น formula string)
-          const revenue     = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
-          void revenueRaw; // suppress unused warning
+          // Platform: trim + case-insensitive match
+          const platformTrimmed = String(platformRaw ?? "").trim();
+          const platformIdx = knownPlatformsLower.indexOf(platformTrimmed.toLowerCase());
+          if (platformIdx === -1) {
+            errors.push({ row: rowNum, message: `Platform "${platformTrimmed}" ไม่ถูกต้อง` });
+            return;
+          }
+          const platform = knownPlatforms[platformIdx]; // use canonical casing
 
-          validRows.push({
+          const orderNumStr = String(orderNum).trim();
+
+          // Duplicate check by order_number
+          if (existingOrderNums.has(orderNumStr.toLowerCase())) {
+            dupOrderNums.push(orderNumStr);
+            return; // skip — don't add to newRows
+          }
+
+          const pkg = getPackageByCode(String(pkgCode ?? "").trim());
+          const grossPrice = parseFloat(String(grossRaw ?? 0)) || 0;
+          const commRawNum = parseFloat(String(commRaw ?? 0)) || 0;
+          const commPct    = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
+          const discount   = parseFloat(String(discountRaw ?? 0)) || 0;
+          const revenue    = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
+          void revenueRaw;
+
+          newRows.push({
             booking_date:    toDate(bookingDate),
             usage_date:      toDate(usageDate),
-            order_number:    String(orderNum),
-            group_number:    String(groupNum ?? ""),
+            order_number:    orderNumStr,
+            group_number:    String(groupNum ?? "").trim(),
             pax:             parseInt(String(pax)) || 1,
-            platform:        String(platform) as OTAPlatform,
+            platform:        platform as OTAPlatform,
             package_id:      pkg?.id ?? "",
             package_details: String(pkgDetails ?? pkg?.name ?? ""),
             nationality:     String(nationality ?? ""),
@@ -537,32 +565,37 @@ export default function OTAOrderEntry() {
           });
         });
 
-        // Batch upsert — gets back inserted/updated/errors count
-        let inserted = 0;
-        let updated = 0;
-        let batchErrors = 0;
-        if (validRows.length > 0) {
-          const result = await importOrders(validRows);
-          inserted = result.inserted;
-          updated  = result.updated;
-          batchErrors = result.errors;
-        }
-
-        const totalFailed = errors.length + batchErrors;
-        setImportStats({ inserted, updated, failed: totalFailed });
-        setImportErrors(errors);
-        setShowImportResult(true);
-
-        if (inserted > 0 || updated > 0) {
-          toast.success(`Import สำเร็จ: เพิ่ม ${inserted} | อัปเดต ${updated} orders`);
-        }
-        if (totalFailed > 0) toast.error(`${totalFailed} rows มีข้อผิดพลาด`);
+        setImportPreview({ newRows, dupOrderNums, errorRows: errors, totalRows: dataRows.length });
+        setShowImportPreview(true);
       } catch {
         toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
       }
     };
     reader.readAsBinaryString(file);
     e.target.value = "";
+  };
+
+  // ── Import — Phase 2: Confirm insert new rows only ───────────────────────
+  const handleImportConfirm = async () => {
+    if (!importPreview) return;
+    setShowImportPreview(false);
+    const { newRows, errorRows } = importPreview;
+
+    let inserted = 0;
+    let batchErrors = 0;
+    if (newRows.length > 0) {
+      const result = await importOrders(newRows);
+      inserted  = result.inserted;
+      batchErrors = result.errors;
+    }
+
+    const totalFailed = errorRows.length + batchErrors;
+    setImportStats({ inserted, updated: 0, failed: totalFailed });
+    setImportErrors(errorRows);
+    setImportPreview(null);
+    setShowImportResult(true);
+    if (inserted > 0) toast.success(`Import สำเร็จ: เพิ่ม ${inserted} orders`);
+    if (totalFailed > 0) toast.error(`${totalFailed} rows มีข้อผิดพลาด`);
   };
 
   const fmtDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -1220,6 +1253,68 @@ export default function OTAOrderEntry() {
       })()}
 
       {/* ── Import Result Modal ──────────────────────────────────────────────── */}
+      {/* ── Import Preview Modal (before confirm) ───────────────────────────── */}
+      {showImportPreview && importPreview && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="font-bold text-lg">ตรวจสอบก่อน Import</h2>
+              <button onClick={() => { setShowImportPreview(false); setImportPreview(null); }} className="p-2 hover:bg-muted rounded-lg"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Summary stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-muted rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold">{importPreview.totalRows}</div>
+                  <div className="text-xs text-muted-foreground">ทั้งหมดในไฟล์</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">{importPreview.newRows.length}</div>
+                  <div className="text-xs text-green-600/80">รายการใหม่</div>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-amber-600">{importPreview.dupOrderNums.length}</div>
+                  <div className="text-xs text-amber-600/80">ซ้ำในระบบ</div>
+                </div>
+              </div>
+              {importPreview.errorRows.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3">
+                  <div className="text-sm font-semibold text-red-600 mb-2">⚠️ {importPreview.errorRows.length} แถวมีข้อผิดพลาด (จะถูกข้าม)</div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {importPreview.errorRows.map((e, i) => (
+                      <div key={i} className="text-xs text-red-600">Row {e.row}: {e.message}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {importPreview.dupOrderNums.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
+                  <div className="text-sm font-semibold text-amber-700 mb-1">รายการซ้ำ (จะถูกข้าม ไม่เพิ่มซ้ำ)</div>
+                  <div className="text-xs text-amber-600 max-h-20 overflow-y-auto space-y-0.5">
+                    {importPreview.dupOrderNums.map((n, i) => <div key={i}>{n}</div>)}
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground">
+                กด <strong>ยืนยัน</strong> เพื่อเพิ่ม {importPreview.newRows.length} รายการใหม่เข้าระบบ
+              </p>
+            </div>
+            <div className="p-5 border-t border-border flex gap-3">
+              <button
+                onClick={() => { setShowImportPreview(false); setImportPreview(null); }}
+                className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors"
+              >ยกเลิก</button>
+              <button
+                onClick={handleImportConfirm}
+                disabled={importPreview.newRows.length === 0}
+                className="flex-1 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-semibold"
+              >✓ ยืนยันเพิ่ม {importPreview.newRows.length} รายการ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import Result Modal (after confirm) ──────────────────────────────── */}
       {showImportResult && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-md shadow-2xl">
@@ -1232,10 +1327,6 @@ export default function OTAOrderEntry() {
                 <div className="flex-1 bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-green-600">{importStats.inserted}</div>
                   <div className="text-xs text-green-600/80">เพิ่มใหม่</div>
-                </div>
-                <div className="flex-1 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{importStats.updated}</div>
-                  <div className="text-xs text-blue-600/80">อัปเดต</div>
                 </div>
                 <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-red-600">{importStats.failed}</div>
