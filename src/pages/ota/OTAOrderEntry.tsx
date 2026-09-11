@@ -328,7 +328,7 @@ export default function OTAOrderEntry() {
   const futureGroupNums = useMemo(() =>
     [...new Set(
       orders
-        .filter(o => o.group_number && (o.booking_date ?? "") <= todayISO && o.usage_date >= todayISO)
+        .filter(o => o.group_number && o.usage_date >= todayISO)
         .map(o => o.group_number!)
     )].sort(),
     [orders, todayISO]
