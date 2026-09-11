@@ -100,9 +100,9 @@ function EmptyChart() {
 }
 
 // ── Period helpers ────────────────────────────────────────────────────────────
-type PeriodType = "day" | "week" | "month" | "quarter" | "year" | "ytd";
+type PeriodType = "day" | "week" | "month" | "quarter" | "year" | "ytd" | "custom";
 const PERIOD_LABELS: Record<PeriodType, string> = {
-  day: "วัน", week: "สัปดาห์", month: "เดือน", quarter: "ไตรมาส", year: "ปี", ytd: "YTD",
+  day: "วัน", week: "สัปดาห์", month: "เดือน", quarter: "ไตรมาส", year: "ปี", ytd: "YTD", custom: "กำหนดเอง",
 };
 
 function fmtISO(d: Date) {
@@ -112,7 +112,7 @@ function fmtISO(d: Date) {
 function computePeriod(ref: Date, type: PeriodType): { start: string; end: string; label: string; year: number; month: number } {
   const d = new Date(ref);
   let start: Date, end: Date, label: string;
-  switch (type) {
+  switch (type as Exclude<PeriodType, "custom">) {
     case "day":
       start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       end = start;
@@ -170,6 +170,7 @@ export default function OTADashboard() {
   const { orders, packages } = useOTAStore();
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [refDate, setRefDate] = useState(today);
+  const [customRange, setCustomRange] = useState({ start: fmtISO(today), end: fmtISO(today) });
   const [tab, setTab] = useState<Tab>("overview");
 
   // Platform ROI table sort
@@ -183,9 +184,20 @@ export default function OTADashboard() {
     </span>
   );
 
-  const { start: startDate, end: endDate, label: periodLabel, year, month } = useMemo(
-    () => computePeriod(refDate, periodType), [refDate, periodType]
-  );
+  const { start: startDate, end: endDate, label: periodLabel, year, month } = useMemo(() => {
+    if (periodType === "custom") {
+      const s = customRange.start || fmtISO(today);
+      const e = customRange.end || fmtISO(today);
+      const d = new Date(s);
+      return {
+        start: s, end: e,
+        label: `${s} – ${e}`,
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+      };
+    }
+    return computePeriod(refDate, periodType);
+  }, [refDate, periodType, customRange]);
 
   const monthOrders = useMemo(
     () => orders.filter((o) => o.usage_date >= startDate && o.usage_date <= endDate),
@@ -491,7 +503,7 @@ export default function OTADashboard() {
   // ── Navigation ────────────────────────────────────────────────────────────────
   const navPrev = () => setRefDate((d) => shiftRef(d, periodType, -1));
   const navNext = () => setRefDate((d) => shiftRef(d, periodType, 1));
-  const canNavNext = periodType !== "ytd" && endDate < fmtISO(today);
+  const canNavNext = periodType !== "ytd" && periodType !== "custom" && endDate < fmtISO(today);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
@@ -534,20 +546,43 @@ export default function OTADashboard() {
             ))}
           </div>
 
-          {/* Period navigator */}
-          {periodType !== "ytd" && (
+          {/* Period navigator (hidden for custom) */}
+          {periodType !== "custom" && (
             <div className="flex items-center gap-1 bg-muted rounded-lg px-2 py-1.5">
-              <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
+              {periodType !== "ytd" && (
+                <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
+              )}
+              {periodType === "ytd" && (
+                <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
+              )}
               <span className="text-sm font-semibold min-w-[120px] text-center">{periodLabel}</span>
-              <button onClick={navNext} disabled={!canNavNext}
-                className={`px-1 transition-colors ${canNavNext ? "hover:text-purple-600 text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"}`}>▶</button>
+              {periodType !== "ytd" ? (
+                <button onClick={navNext} disabled={!canNavNext}
+                  className={`px-1 transition-colors ${canNavNext ? "hover:text-purple-600 text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"}`}>▶</button>
+              ) : (
+                <span className="px-1 text-muted-foreground/30">▶</span>
+              )}
             </div>
           )}
-          {periodType === "ytd" && (
-            <div className="flex items-center gap-1 bg-muted rounded-lg px-2 py-1.5">
-              <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
-              <span className="text-sm font-semibold min-w-[120px] text-center">{periodLabel}</span>
-              <span className="px-1 text-muted-foreground/30">▶</span>
+          {/* Custom date range picker */}
+          {periodType === "custom" && (
+            <div className="flex items-center gap-1.5 bg-muted rounded-lg px-2 py-1">
+              <input
+                type="date"
+                value={customRange.start}
+                max={customRange.end}
+                onChange={(e) => setCustomRange((r) => ({ ...r, start: e.target.value }))}
+                className="text-xs bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
+              <span className="text-xs text-muted-foreground">–</span>
+              <input
+                type="date"
+                value={customRange.end}
+                min={customRange.start}
+                max={fmtISO(today)}
+                onChange={(e) => setCustomRange((r) => ({ ...r, end: e.target.value }))}
+                className="text-xs bg-background border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-purple-500"
+              />
             </div>
           )}
         </div>
