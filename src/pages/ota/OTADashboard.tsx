@@ -524,6 +524,7 @@ export default function OTADashboard() {
               commissionTotal, discountTotal,
               prevOrders, prevRevenue, prevPax,
               revenueByPlatform, platformOrderData, monthlyData, revenueByPackage, nationalityData,
+              topPickupHotels: hotelData.slice(0, 8),
             })}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
           >

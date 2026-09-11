@@ -31,6 +31,8 @@ export interface OTAReportInput {
   monthlyData: Array<{ name: string; orders: number; revenue: number; pax: number }>;
   revenueByPackage: Array<{ name: string; revenue: number; pax: number }>;
   nationalityData: Array<{ name: string; pax: number }>;
+  // Page 2 extras
+  topPickupHotels: Array<{ name: string; count: number }>;
 }
 
 // ── Colors ────────────────────────────────────────────────────────────────────
@@ -282,6 +284,23 @@ export function generateOTAReportHTML(d: OTAReportInput): string {
                  font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(124,58,237,.4);
                  z-index:999; }
     @media print { .print-btn { display:none; } }
+
+    /* ── Page 2 */
+    .page2 { page-break-before:always; padding-top:4px; }
+    .page2-hdr { display:flex; align-items:center; justify-content:space-between;
+                 padding-bottom:6px; border-bottom:2px solid #7c3aed; margin-bottom:9px; }
+    .page2-hdr-l { font-size:12px; font-weight:800; color:#1e293b; }
+    .page2-hdr-r { font-size:10px; color:#64748b; }
+    .hotel-row { display:flex; align-items:center; gap:8px; padding:5px 0;
+                 border-bottom:1px solid #f1f5f9; }
+    .hotel-row:last-child { border-bottom:none; }
+    .hotel-rank { width:18px; height:18px; border-radius:50%; display:flex; align-items:center;
+                  justify-content:center; font-size:9px; font-weight:900; color:#fff; flex-shrink:0; }
+    .hotel-name { flex:1; font-size:10px; color:#374151; }
+    .hotel-bar-bg { width:70px; background:#f1f5f9; border-radius:3px; height:7px; overflow:hidden; }
+    .hotel-bar-fill { height:100%; border-radius:3px; background:#7c3aed; }
+    .hotel-cnt { font-size:10px; font-weight:700; color:#7c3aed; min-width:32px; text-align:right; }
+    .com-rate { font-size:9px; color:#94a3b8; }
   `;
 
   return `<!DOCTYPE html>
@@ -425,11 +444,120 @@ export function generateOTAReportHTML(d: OTAReportInput): string {
   </div>
 </div>
 
-<!-- FOOTER -->
+<!-- FOOTER page 1 -->
 <div class="footer">
   <span>Standard Tour · OTA Monthly Report · ${d.monthName} ${d.year}</span>
   <span>Confidential — สำหรับฝ่ายบริหารเท่านั้น</span>
-  <span>สร้างเมื่อ ${genDate}</span>
+  <span>หน้า 1 / 2</span>
+</div>
+
+<!-- ═══════════════════════ PAGE 2 ═══════════════════════ -->
+<div class="page2">
+
+  <!-- PAGE 2 HEADER -->
+  <div class="page2-hdr">
+    <div class="page2-hdr-l">Standard Tour · OTA Monthly Report · ${d.monthName} ${d.year} — หน้า 2</div>
+    <div class="page2-hdr-r">สร้างเมื่อ ${genDate}</div>
+  </div>
+
+  <!-- ZONE P2-A: Commission by Platform + Top Pickup Hotels -->
+  <div class="row row-half" style="margin-bottom:9px">
+
+    <!-- Commission by Platform -->
+    <div class="panel">
+      <div class="stitle">Commission แยกตาม Platform</div>
+      <table>
+        <thead><tr>
+          <th>Platform</th>
+          <th class="r">Gross (฿)</th>
+          <th class="r">Commission (฿)</th>
+          <th class="r">Rate</th>
+          <th class="r">Net (฿)</th>
+        </tr></thead>
+        <tbody>
+          ${[...d.revenueByPlatform].sort((a,b) => (b.gross-b.net)-(a.gross-a.net)).map((p, i) => {
+            const comm = p.gross - p.net;
+            const rate = p.gross > 0 ? (comm / p.gross * 100).toFixed(1) : "0.0";
+            return `<tr>
+              <td><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col(p.name,i)};margin-right:4px;vertical-align:middle"></span>${p.name}</td>
+              <td class="r">${fmtB(p.gross)}</td>
+              <td class="r" style="color:#ef4444;font-weight:700">${fmtB(comm)}</td>
+              <td class="r"><span class="com-rate">${rate}%</span></td>
+              <td class="r rev-cell">${fmtB(p.net)}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8f7ff">
+            <td style="font-weight:700;font-size:10px">รวมทั้งหมด</td>
+            <td class="r" style="font-weight:700">${fmtB(d.totalGross)}</td>
+            <td class="r" style="color:#ef4444;font-weight:700">${fmtB(d.commissionTotal)}</td>
+            <td class="r"><span class="com-rate">${d.totalGross > 0 ? (d.commissionTotal/d.totalGross*100).toFixed(1) : "0.0"}%</span></td>
+            <td class="r rev-cell">${fmtB(d.totalRevenue)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Top Pickup Hotels -->
+    <div class="panel">
+      <div class="stitle">Top Pickup Hotels</div>
+      ${d.topPickupHotels.length === 0
+        ? `<div style="color:#94a3b8;font-size:10px;padding:12px 0">ไม่มีข้อมูล Pickup Hotel</div>`
+        : (() => {
+          const maxCnt = Math.max(...d.topPickupHotels.map(h => h.count), 1);
+          const rankColors = ["#7c3aed","#db2777","#f59e0b","#10b981","#3b82f6","#8b5cf6","#f97316","#14b8a6"];
+          return d.topPickupHotels.map((h, i) => `
+            <div class="hotel-row">
+              <div class="hotel-rank" style="background:${rankColors[i] ?? "#94a3b8"}">${i+1}</div>
+              <div class="hotel-name">${h.name}</div>
+              <div class="hotel-bar-bg"><div class="hotel-bar-fill" style="width:${(h.count/maxCnt*100).toFixed(0)}%;background:${rankColors[i] ?? "#7c3aed"}"></div></div>
+              <div class="hotel-cnt">${h.count} orders</div>
+            </div>`).join("");
+        })()
+      }
+    </div>
+
+  </div>
+
+  <!-- ZONE P2-B: Monthly Comparison (last 6 months) -->
+  <div class="panel" style="margin-bottom:9px">
+    <div class="stitle">เปรียบเทียบรายเดือน (6 เดือนย้อนหลัง)</div>
+    <table>
+      <thead><tr>
+        <th>เดือน</th>
+        <th class="r">Orders</th>
+        <th class="r">PAX</th>
+        <th class="r">Gross Revenue (฿)</th>
+        <th class="r">เทียบเดือนก่อน</th>
+      </tr></thead>
+      <tbody>
+        ${d.monthlyData.slice(-6).map((m, i, arr) => {
+          const prev = arr[i - 1];
+          const revDiff = prev ? m.revenue - prev.revenue : 0;
+          const revPct  = prev && prev.revenue > 0 ? (revDiff / prev.revenue * 100) : 0;
+          const trend = prev
+            ? `<span style="color:${revDiff>=0?"#16a34a":"#dc2626"};font-weight:700">${revDiff>=0?"▲":"▼"} ${Math.abs(revPct).toFixed(0)}%</span>`
+            : `<span style="color:#94a3b8;font-size:9px">—</span>`;
+          return `<tr>
+            <td style="font-weight:${i===arr.length-1?"700":"400"};color:${i===arr.length-1?"#7c3aed":"#374151"}">${m.name}</td>
+            <td class="r">${m.orders}</td>
+            <td class="r">${m.pax}</td>
+            <td class="r rev-cell">${fmtB(m.revenue)}</td>
+            <td class="r">${trend}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER page 2 -->
+  <div class="footer">
+    <span>Standard Tour · OTA Monthly Report · ${d.monthName} ${d.year}</span>
+    <span>Confidential — สำหรับฝ่ายบริหารเท่านั้น</span>
+    <span>หน้า 2 / 2</span>
+  </div>
+
 </div>
 
 </body></html>`;
