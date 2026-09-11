@@ -171,6 +171,7 @@ export default function OTADashboard() {
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [refDate, setRefDate] = useState(today);
   const [customRange, setCustomRange] = useState({ start: fmtISO(today), end: fmtISO(today) });
+  const [dateField, setDateField] = useState<"usage_date" | "booking_date">("usage_date");
   const [tab, setTab] = useState<Tab>("overview");
 
   // Platform ROI table sort
@@ -200,8 +201,8 @@ export default function OTADashboard() {
   }, [refDate, periodType, customRange]);
 
   const monthOrders = useMemo(
-    () => orders.filter((o) => o.usage_date >= startDate && o.usage_date <= endDate),
-    [orders, startDate, endDate]
+    () => orders.filter((o) => (o[dateField] ?? o.usage_date) >= startDate && (o[dateField] ?? o.usage_date) <= endDate),
+    [orders, startDate, endDate, dateField]
   );
 
   // Previous period for comparison badges
@@ -210,8 +211,8 @@ export default function OTADashboard() {
     [refDate, periodType]
   );
   const prevMonthOrders = useMemo(
-    () => orders.filter((o) => o.usage_date >= prevStart && o.usage_date <= prevEnd),
-    [orders, prevStart, prevEnd]
+    () => orders.filter((o) => (o[dateField] ?? o.usage_date) >= prevStart && (o[dateField] ?? o.usage_date) <= prevEnd),
+    [orders, prevStart, prevEnd, dateField]
   );
 
   // ── KPI values ────────────────────────────────────────────────────────────────
@@ -234,9 +235,9 @@ export default function OTADashboard() {
   const ytdRevenue = useMemo(() => {
     const ytdStart = `${year}-01-01`;
     const ytdEnd   = periodType === "ytd" ? endDate : fmtISO(today);
-    return orders.filter((o) => o.usage_date >= ytdStart && o.usage_date <= ytdEnd)
+    return orders.filter((o) => (o[dateField] ?? o.usage_date) >= ytdStart && (o[dateField] ?? o.usage_date) <= ytdEnd)
       .reduce((s, o) => s + o.revenue, 0);
-  }, [orders, year, periodType, endDate]);
+  }, [orders, year, periodType, endDate, dateField]);
 
   const commissionTotal = useMemo(
     () => monthOrders.reduce((s, o) => s + (o.gross_price * o.commission_pct) / 100, 0),
@@ -529,6 +530,24 @@ export default function OTADashboard() {
             <FileDown className="w-4 h-4" />
             <span className="hidden sm:inline">Export PDF</span>
           </button>
+
+          {/* Date field toggle */}
+          <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+            <button
+              onClick={() => setDateField("usage_date")}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                dateField === "usage_date" ? "bg-purple-600 text-white" : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="กรองตามวันที่ใช้บริการ"
+            >📅 ใช้บริการ</button>
+            <button
+              onClick={() => setDateField("booking_date")}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                dateField === "booking_date" ? "bg-purple-600 text-white" : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="กรองตามวันที่รับออร์เดอร์"
+            >🛒 รับออร์เดอร์</button>
+          </div>
 
           {/* Period type pills */}
           <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
