@@ -99,10 +99,77 @@ function EmptyChart() {
   );
 }
 
+// ── Period helpers ────────────────────────────────────────────────────────────
+type PeriodType = "day" | "week" | "month" | "quarter" | "year" | "ytd";
+const PERIOD_LABELS: Record<PeriodType, string> = {
+  day: "วัน", week: "สัปดาห์", month: "เดือน", quarter: "ไตรมาส", year: "ปี", ytd: "YTD",
+};
+
+function fmtISO(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function computePeriod(ref: Date, type: PeriodType): { start: string; end: string; label: string; year: number; month: number } {
+  const d = new Date(ref);
+  let start: Date, end: Date, label: string;
+  switch (type) {
+    case "day":
+      start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      end = start;
+      label = d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+      break;
+    case "week": {
+      const dow = d.getDay();
+      start = new Date(d); start.setDate(d.getDate() - dow);
+      end   = new Date(start); end.setDate(start.getDate() + 6);
+      label = `${start.getDate()} – ${end.getDate()} ${end.toLocaleString("en", { month: "short" })} ${end.getFullYear()}`;
+      break;
+    }
+    case "month":
+      start = new Date(d.getFullYear(), d.getMonth(), 1);
+      end   = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      label = d.toLocaleString("en", { month: "long", year: "numeric" });
+      break;
+    case "quarter": {
+      const q = Math.floor(d.getMonth() / 3);
+      start = new Date(d.getFullYear(), q * 3, 1);
+      end   = new Date(d.getFullYear(), q * 3 + 3, 0);
+      label = `Q${q + 1} ${d.getFullYear()}`;
+      break;
+    }
+    case "year":
+      start = new Date(d.getFullYear(), 0, 1);
+      end   = new Date(d.getFullYear(), 11, 31);
+      label = String(d.getFullYear());
+      break;
+    case "ytd":
+      start = new Date(d.getFullYear(), 0, 1);
+      end   = today;
+      label = `Jan – ${today.toLocaleString("en", { month: "short" })} ${d.getFullYear()}`;
+      break;
+    default:
+      start = end = d; label = "";
+  }
+  return { start: fmtISO(start), end: fmtISO(end), label, year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+function shiftRef(ref: Date, type: PeriodType, dir: 1 | -1): Date {
+  const d = new Date(ref);
+  switch (type) {
+    case "day":     d.setDate(d.getDate() + dir); break;
+    case "week":    d.setDate(d.getDate() + dir * 7); break;
+    case "month":   d.setMonth(d.getMonth() + dir); break;
+    case "quarter": d.setMonth(d.getMonth() + dir * 3); break;
+    case "year":
+    case "ytd":     d.setFullYear(d.getFullYear() + dir); break;
+  }
+  return d;
+}
+
 export default function OTADashboard() {
   const { orders, packages } = useOTAStore();
-  const [month, setMonth] = useState(today.getMonth() + 1);
-  const [year, setYear] = useState(today.getFullYear());
+  const [periodType, setPeriodType] = useState<PeriodType>("month");
+  const [refDate, setRefDate] = useState(today);
   const [tab, setTab] = useState<Tab>("overview");
 
   // Platform ROI table sort
@@ -116,20 +183,23 @@ export default function OTADashboard() {
     </span>
   );
 
-  const prefix = `${year}-${String(month).padStart(2, "0")}`;
-  const monthOrders = useMemo(
-    () => orders.filter((o) => o.usage_date.startsWith(prefix)),
-    [orders, prefix]
+  const { start: startDate, end: endDate, label: periodLabel, year, month } = useMemo(
+    () => computePeriod(refDate, periodType), [refDate, periodType]
   );
 
-  // Previous month for MoM comparison
-  const prevPrefix = useMemo(() => {
-    const d = new Date(year, month - 2, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  }, [year, month]);
+  const monthOrders = useMemo(
+    () => orders.filter((o) => o.usage_date >= startDate && o.usage_date <= endDate),
+    [orders, startDate, endDate]
+  );
+
+  // Previous period for comparison badges
+  const { start: prevStart, end: prevEnd } = useMemo(
+    () => computePeriod(shiftRef(refDate, periodType, -1), periodType),
+    [refDate, periodType]
+  );
   const prevMonthOrders = useMemo(
-    () => orders.filter((o) => o.usage_date.startsWith(prevPrefix)),
-    [orders, prevPrefix]
+    () => orders.filter((o) => o.usage_date >= prevStart && o.usage_date <= prevEnd),
+    [orders, prevStart, prevEnd]
   );
 
   // ── KPI values ────────────────────────────────────────────────────────────────
@@ -140,7 +210,7 @@ export default function OTADashboard() {
   const avgPax = totalOrders > 0 ? (totalPax / totalOrders).toFixed(1) : "0";
   const revPAX = totalPax > 0 ? totalRevenue / totalPax : 0;
   const uniqueGroups = new Set(monthOrders.map((o) => o.group_number).filter(Boolean)).size;
-  const monthName = new Date(year, month - 1, 1).toLocaleString("en", { month: "long" });
+  const monthName = new Date(year, month - 1, 1).toLocaleString("en", { month: "long" }); // kept for PDF export
 
   const momBadge = (curr: number, prev: number) =>
     prev === 0 ? undefined : { pct: ((curr - prev) / prev) * 100 };
@@ -149,10 +219,12 @@ export default function OTADashboard() {
   const prevRevenue = prevMonthOrders.reduce((s, o) => s + o.revenue, 0);
   const prevPax = prevMonthOrders.reduce((s, o) => s + o.pax, 0);
 
-  const ytdRevenue = useMemo(
-    () => orders.filter((o) => o.usage_date.startsWith(`${year}-`)).reduce((s, o) => s + o.revenue, 0),
-    [orders, year]
-  );
+  const ytdRevenue = useMemo(() => {
+    const ytdStart = `${year}-01-01`;
+    const ytdEnd   = periodType === "ytd" ? endDate : fmtISO(today);
+    return orders.filter((o) => o.usage_date >= ytdStart && o.usage_date <= ytdEnd)
+      .reduce((s, o) => s + o.revenue, 0);
+  }, [orders, year, periodType, endDate]);
 
   const commissionTotal = useMemo(
     () => monthOrders.reduce((s, o) => s + (o.gross_price * o.commission_pct) / 100, 0),
@@ -417,12 +489,9 @@ export default function OTADashboard() {
   }, [monthOrders, nationalityData, platformsInMonth]);
 
   // ── Navigation ────────────────────────────────────────────────────────────────
-  const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear((y) => y - 1); } else setMonth((m) => m - 1);
-  };
-  const nextMonth = () => {
-    if (month === 12) { setMonth(1); setYear((y) => y + 1); } else setMonth((m) => m + 1);
-  };
+  const navPrev = () => setRefDate((d) => shiftRef(d, periodType, -1));
+  const navNext = () => setRefDate((d) => shiftRef(d, periodType, 1));
+  const canNavNext = periodType !== "ytd" && endDate < fmtISO(today);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
@@ -430,9 +499,9 @@ export default function OTADashboard() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold">OTA Dashboard</h1>
-          <p className="text-muted-foreground text-xs md:text-sm hidden sm:block">วิเคราะห์ performance OTA รายเดือน</p>
+          <p className="text-muted-foreground text-xs md:text-sm hidden sm:block">วิเคราะห์ performance OTA</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <button
             onClick={() => downloadOTAReport({
               month, year, monthName,
@@ -441,22 +510,46 @@ export default function OTADashboard() {
               avgPax, revPAX, uniqueGroups, ytdRevenue,
               commissionTotal, discountTotal,
               prevOrders, prevRevenue, prevPax,
-              revenueByPlatform,
-              platformOrderData,
-              monthlyData,
-              revenueByPackage,
-              nationalityData,
+              revenueByPlatform, platformOrderData, monthlyData, revenueByPackage, nationalityData,
             })}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
           >
             <FileDown className="w-4 h-4" />
             <span className="hidden sm:inline">Export PDF</span>
           </button>
-          <div className="flex items-center gap-1.5 bg-muted rounded-lg px-3 py-1.5">
-            <button onClick={prevMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">◀</button>
-            <span className="text-sm font-semibold min-w-[110px] text-center">{monthName} {year}</span>
-            <button onClick={nextMonth} className="hover:text-purple-600 transition-colors text-muted-foreground">▶</button>
+
+          {/* Period type pills */}
+          <div className="flex items-center bg-muted rounded-lg p-0.5 gap-0.5">
+            {(Object.keys(PERIOD_LABELS) as PeriodType[]).map((p) => (
+              <button key={p}
+                onClick={() => setPeriodType(p)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  periodType === p
+                    ? "bg-purple-600 text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
           </div>
+
+          {/* Period navigator */}
+          {periodType !== "ytd" && (
+            <div className="flex items-center gap-1 bg-muted rounded-lg px-2 py-1.5">
+              <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
+              <span className="text-sm font-semibold min-w-[120px] text-center">{periodLabel}</span>
+              <button onClick={navNext} disabled={!canNavNext}
+                className={`px-1 transition-colors ${canNavNext ? "hover:text-purple-600 text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"}`}>▶</button>
+            </div>
+          )}
+          {periodType === "ytd" && (
+            <div className="flex items-center gap-1 bg-muted rounded-lg px-2 py-1.5">
+              <button onClick={navPrev} className="hover:text-purple-600 transition-colors text-muted-foreground px-1">◀</button>
+              <span className="text-sm font-semibold min-w-[120px] text-center">{periodLabel}</span>
+              <span className="px-1 text-muted-foreground/30">▶</span>
+            </div>
+          )}
         </div>
       </div>
 
