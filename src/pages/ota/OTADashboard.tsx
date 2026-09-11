@@ -105,6 +105,17 @@ export default function OTADashboard() {
   const [year, setYear] = useState(today.getFullYear());
   const [tab, setTab] = useState<Tab>("overview");
 
+  // Platform ROI table sort
+  type RoiCol = "name" | "gross" | "net" | "commission" | "rate";
+  const [roiSort, setRoiSort] = useState<{ col: RoiCol; dir: "asc" | "desc" }>({ col: "net", dir: "desc" });
+  const toggleRoiSort = (col: RoiCol) =>
+    setRoiSort((s) => ({ col, dir: s.col === col && s.dir === "desc" ? "asc" : "desc" }));
+  const SortIcon = ({ col }: { col: RoiCol }) => (
+    <span className="ml-1 text-[10px] opacity-60">
+      {roiSort.col === col ? (roiSort.dir === "desc" ? "▼" : "▲") : "⇅"}
+    </span>
+  );
+
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
   const monthOrders = useMemo(
     () => orders.filter((o) => o.usage_date.startsWith(prefix)),
@@ -629,20 +640,37 @@ export default function OTADashboard() {
           </div>
 
           <ChartCard title="Platform ROI — Commission Analysis">
-            {revenueByPlatform.length === 0 ? <EmptyChart /> : (
+            {revenueByPlatform.length === 0 ? <EmptyChart /> : (() => {
+              const roiRows = [...revenueByPlatform].sort((a, b) => {
+                const commission = (r: typeof a) => r.gross - r.net;
+                const rate = (r: typeof a) => r.gross > 0 ? (r.gross - r.net) / r.gross : 0;
+                const valA = roiSort.col === "name" ? a.name : roiSort.col === "gross" ? a.gross : roiSort.col === "net" ? a.net : roiSort.col === "commission" ? commission(a) : rate(a);
+                const valB = roiSort.col === "name" ? b.name : roiSort.col === "gross" ? b.gross : roiSort.col === "net" ? b.net : roiSort.col === "commission" ? commission(b) : rate(b);
+                if (typeof valA === "string") return roiSort.dir === "asc" ? valA.localeCompare(valB as string) : (valB as string).localeCompare(valA);
+                return roiSort.dir === "asc" ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+              });
+              return (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                      <th className="pb-2 font-medium">Platform</th>
-                      <th className="pb-2 font-medium text-right">Gross Revenue</th>
-                      <th className="pb-2 font-medium text-right">Net Revenue</th>
-                      <th className="pb-2 font-medium text-right">Commission (฿)</th>
-                      <th className="pb-2 font-medium text-right">Eff. Rate</th>
+                      {([
+                        { col: "name" as RoiCol,       label: "Platform",       align: "left"  },
+                        { col: "gross" as RoiCol,      label: "Gross Revenue",  align: "right" },
+                        { col: "net" as RoiCol,        label: "Net Revenue",    align: "right" },
+                        { col: "commission" as RoiCol, label: "Commission (฿)", align: "right" },
+                        { col: "rate" as RoiCol,       label: "Eff. Rate",      align: "right" },
+                      ] as { col: RoiCol; label: string; align: string }[]).map(({ col, label, align }) => (
+                        <th key={col}
+                          className={`pb-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors ${align === "right" ? "text-right" : ""}`}
+                          onClick={() => toggleRoiSort(col)}>
+                          {label}<SortIcon col={col} />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {revenueByPlatform.map((r) => {
+                    {roiRows.map((r) => {
                       const commission = r.gross - r.net;
                       const rate = r.gross > 0 ? (commission / r.gross) * 100 : 0;
                       return (
@@ -681,7 +709,8 @@ export default function OTADashboard() {
                   </tfoot>
                 </table>
               </div>
-            )}
+              );
+            })()}
           </ChartCard>
 
           <ChartCard title="Top Packages by Platform (Net Revenue — เดือนนี้)">
