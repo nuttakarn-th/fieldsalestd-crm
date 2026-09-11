@@ -360,7 +360,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         {/* Left: flag + destination text */}
         <div className={`flex items-center gap-2 min-w-0 flex-1 ${isFull ? "opacity-30" : ""}`}>
           <div className="shrink-0">
-            <FlagEmoji country={tour.country ?? ""} className="text-2xl sm:text-3xl leading-none" />
+            <FlagImg country={tour.country ?? ""} size={28} />
           </div>
           <div className="min-w-0">
             <p className="text-white font-bold text-xs sm:text-sm leading-tight truncate drop-shadow-sm">
