@@ -3,7 +3,7 @@
  * Tabs: Overview · Revenue · Operations · Markets
  */
 import { useMemo, useState } from "react";
-import { useOTAStore } from "@/store/otaStore";
+import { useOTAStore, OTAVehicleJoinGroup } from "@/store/otaStore";
 import {
   PieChart, Pie, Cell, Tooltip as RTooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -167,23 +167,18 @@ function shiftRef(ref: Date, type: PeriodType, dir: 1 | -1): Date {
 }
 
 // ── Vehicle Grouping Config ───────────────────────────────────────────────────
-const VEHICLE_JOIN_PAIRS: string[][] = [
-  ["CMP", "CMS"],
-  ["CML", "CMD"],
-];
-
-/** Map a package code → vehicle group key for the day.
- *  Explicit pairs → sorted joined key, e.g. "CMP+CMS"
- *  Sub-itinerary (CRW-1, CRW-2) → strip -N suffix → base code "CRW"
- *  Others → code as-is
- */
-function vehicleGroupKey(code: string): string {
-  for (const pair of VEHICLE_JOIN_PAIRS) {
-    if (pair.includes(code)) return [...pair].sort().join("+");
-  }
-  // sub-itinerary: strip trailing -<digits>
-  return code.replace(/-\d+$/, "");
+// (join groups now loaded dynamically from Supabase via otaStore)
+function buildVehicleGroupKeyFn(joinGroups: OTAVehicleJoinGroup[]): (code: string) => string {
+  return (code: string) => {
+    for (const jg of joinGroups) {
+      if (jg.package_codes.includes(code)) {
+        return jg.package_codes.slice().sort().join("+");
+      }
+    }
+    return code.replace(/-\d+$/, "");
+  };
 }
+
 
 /** Capacity rule → { count, type } */
 function calcVehicles(pax: number): { count: number; type: "Van" | "Bus" } {
@@ -203,7 +198,7 @@ interface VehicleGroup {
 }
 
 export default function OTADashboard() {
-  const { orders, packages } = useOTAStore();
+  const { orders, packages, vehicleJoinGroups } = useOTAStore();
   const [periodType, setPeriodType] = useState<PeriodType>("month");
   const [refDate, setRefDate] = useState(today);
   const [customRange, setCustomRange] = useState({ start: fmtISO(today), end: fmtISO(today) });
@@ -473,6 +468,11 @@ export default function OTADashboard() {
   }, [monthOrders]);
 
   // ── Vehicle groups (always by usage_date, regardless of dateField) ────────────
+  const vehicleGroupKeyFn = useMemo(
+    () => buildVehicleGroupKeyFn(vehicleJoinGroups),
+    [vehicleJoinGroups]
+  );
+
   const vehicleGroups = useMemo<VehicleGroup[]>(() => {
     const opsOrders = orders.filter(
       (o) => o.usage_date >= startDate && o.usage_date <= endDate
@@ -481,7 +481,7 @@ export default function OTADashboard() {
     opsOrders.forEach((o) => {
       const pkg = packages.find((p) => p.id === o.package_id);
       const code = pkg?.code ?? "Other";
-      const gk = vehicleGroupKey(code);
+      const gk = vehicleGroupKeyFn(code);
       const key = `${o.usage_date}||${gk}`;
       if (!map[key]) map[key] = { packages: new Set(), pax: 0, orders: 0 };
       map[key].packages.add(code);
@@ -501,7 +501,7 @@ export default function OTADashboard() {
         vehicleType: type,
       };
     }).sort((a, b) => a.date.localeCompare(b.date) || a.groupKey.localeCompare(b.groupKey));
-  }, [orders, packages, startDate, endDate]);
+  }, [orders, packages, startDate, endDate, vehicleGroupKeyFn]);
 
   const totalVehiclesUsed = useMemo(
     () => vehicleGroups.reduce((s, g) => s + g.vehicleCount, 0),

@@ -79,12 +79,21 @@ export interface OTAPackage {
   created_at: string;
 }
 
+export interface OTAVehicleJoinGroup {
+  id: string;
+  group_name: string;
+  package_codes: string[];
+  note: string;
+  created_at: string;
+}
+
 // ─── Store interface ──────────────────────────────────────────────────────────
 
 interface OTAState {
   orders: OTAOrder[];
   packages: OTAPackage[];
   platformConfigs: OTAPlatformConfig[];
+  vehicleJoinGroups: OTAVehicleJoinGroup[];
   loaded: boolean; // ป้องกัน seed ทับข้อมูลจาก DB
   auditLog: OTAAuditEntry[];
 
@@ -114,6 +123,11 @@ interface OTAState {
   addPlatformConfig: (p: Omit<OTAPlatformConfig, "id" | "created_at">) => Promise<string>;
   updatePlatformConfig: (id: string, patch: Partial<OTAPlatformConfig>) => Promise<void>;
   deletePlatformConfig: (id: string) => Promise<void>;
+
+  // Vehicle Join Groups
+  addVehicleJoinGroup: (g: Omit<OTAVehicleJoinGroup, "id" | "created_at">) => Promise<string>;
+  updateVehicleJoinGroup: (id: string, patch: Partial<OTAVehicleJoinGroup>) => Promise<void>;
+  deleteVehicleJoinGroup: (id: string) => Promise<void>;
 
   // Bulk import (upsert by order_number)
   importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number }>;
@@ -248,6 +262,7 @@ export const useOTAStore = create<OTAState>()(
       orders:             [],
       packages:           SEED_PACKAGES,
       platformConfigs:    [],
+      vehicleJoinGroups:  [],
       loaded:             false,
       auditLog:           [],
       highlightedOrderId: null,
@@ -311,6 +326,26 @@ export const useOTAStore = create<OTAState>()(
           console.error("[ota] load platform configs error:", cfgErr);
         } else {
           set({ platformConfigs: (cfgData ?? []).map(rowToPlatformConfig) });
+        }
+
+        // Vehicle Join Groups
+        const { data: vjgData, error: vjgErr } = await supabase
+          .from("ota_vehicle_join_groups")
+          .select("*")
+          .order("created_at", { ascending: true });
+
+        if (vjgErr) {
+          console.error("[ota] load vehicle join groups error:", vjgErr);
+        } else {
+          set({
+            vehicleJoinGroups: (vjgData ?? []).map((r) => ({
+              id:            String(r.id),
+              group_name:    String(r.group_name ?? ""),
+              package_codes: Array.isArray(r.package_codes) ? r.package_codes as string[] : [],
+              note:          String(r.note ?? ""),
+              created_at:    String(r.created_at ?? new Date().toISOString()),
+            })),
+          });
         }
       },
 
@@ -514,6 +549,39 @@ export const useOTAStore = create<OTAState>()(
           }
         }
         set((s) => ({ platformConfigs: s.platformConfigs.filter((c) => c.id !== id) }));
+      },
+
+      // ── Vehicle Join Groups ────────────────────────────────────────────────────
+
+      addVehicleJoinGroup: async (g) => {
+        const id = uid();
+        const entry: OTAVehicleJoinGroup = { ...g, id, created_at: new Date().toISOString() };
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_vehicle_join_groups").insert({
+            id, group_name: g.group_name, package_codes: g.package_codes, note: g.note,
+          });
+          if (error) { toast.error(`บันทึก Join Group ไม่สำเร็จ — ${error.message}`); return id; }
+        }
+        set((s) => ({ vehicleJoinGroups: [...s.vehicleJoinGroups, entry] }));
+        return id;
+      },
+
+      updateVehicleJoinGroup: async (id, patch) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_vehicle_join_groups").update(patch).eq("id", id);
+          if (error) { toast.error(`อัพเดต Join Group ไม่สำเร็จ — ${error.message}`); return; }
+        }
+        set((s) => ({
+          vehicleJoinGroups: s.vehicleJoinGroups.map((g) => g.id === id ? { ...g, ...patch } : g),
+        }));
+      },
+
+      deleteVehicleJoinGroup: async (id) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase.from("ota_vehicle_join_groups").delete().eq("id", id);
+          if (error) { toast.error(`ลบ Join Group ไม่สำเร็จ — ${error.message}`); return; }
+        }
+        set((s) => ({ vehicleJoinGroups: s.vehicleJoinGroups.filter((g) => g.id !== id) }));
       },
 
       // ── Bulk Import (insert all rows — order_number ไม่ unique แล้ว) ─────────
