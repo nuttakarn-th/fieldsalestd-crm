@@ -906,7 +906,7 @@ export default function OTAOrderEntry() {
         <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="bg-muted/50 text-muted-foreground">
+              <tr className="bg-card text-muted-foreground border-b border-border">
                 {SORT_COLS.map((col) => (
                   <th
                     key={col.label || "actions"}
