@@ -304,6 +304,13 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
     : rowSt === "low" ? "⚡ ใกล้เต็มแล้ว"
     : null;
 
+  // Starting price — tour-level first, fallback to min period price
+  const tourPrice = (tour as TourItem & { price_per_seat?: number }).price_per_seat ?? 0;
+  const periodPrices = (periods as PeriodRow[])
+    .map(p => p.special_price && p.special_price > 0 ? p.special_price : (p.price_per_seat ?? 0))
+    .filter(v => v > 0);
+  const startPrice = tourPrice > 0 ? tourPrice : (periodPrices.length ? Math.min(...periodPrices) : 0);
+
   const isFull = rowSt === "full";
 
   return (
@@ -400,15 +407,14 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         )}
 
         {/* Price row */}
-        {(tour as TourItem & { price_per_seat?: number }).price_per_seat
-          ? (
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] text-gray-400">ราคาเริ่มต้น/ท่าน</span>
-              <span className={`font-bold text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
-                ฿{((tour as TourItem & { price_per_seat?: number }).price_per_seat ?? 0).toLocaleString("th-TH")}
-              </span>
-            </div>
-          ) : null}
+        {startPrice > 0 ? (
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] text-gray-400">ราคาเริ่มต้น/ท่าน</span>
+            <span className={`font-bold text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
+              ฿{startPrice.toLocaleString("th-TH")}
+            </span>
+          </div>
+        ) : null}
 
         {/* Info row */}
         <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
@@ -501,7 +507,7 @@ export default function PublicCatalog() {
   const channelRef = useRef<ReturnType<NonNullable<typeof supabase>["channel"]> | null>(null);
 
   // ── Local cache (reduces Supabase egress) ──────────────────────────────────
-  const CACHE_KEY = "catalog_tours_v1";
+  const CACHE_KEY = "catalog_tours_v2";
   const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
   async function fetchTours(forceRefresh = false) {
