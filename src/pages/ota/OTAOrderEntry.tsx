@@ -323,12 +323,12 @@ export default function OTAOrderEntry() {
   }, [orders, month, year]);
   const availPlatforms = useMemo(() => [...new Set(monthOrders.map(o => o.platform))].sort(), [monthOrders]);
 
-  // Group numbers from orders whose booking_date >= today (future/active trips only)
+  // Group numbers from orders whose window booking_date <= today <= usage_date
   const todayISO = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`;
   const futureGroupNums = useMemo(() =>
     [...new Set(
       orders
-        .filter(o => o.group_number && (o.booking_date ?? "") >= todayISO)
+        .filter(o => o.group_number && (o.booking_date ?? "") <= todayISO && o.usage_date >= todayISO)
         .map(o => o.group_number!)
     )].sort(),
     [orders, todayISO]
