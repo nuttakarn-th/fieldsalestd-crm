@@ -44,10 +44,19 @@ function getFlagCode(country: string): string | null {
   for (const [k, v] of Object.entries(FLAG_CODES)) if (country?.includes(k)) return v;
   return null;
 }
+function toFlagEmoji(code: string): string {
+  return [...code.toUpperCase()]
+    .map(c => String.fromCodePoint(c.codePointAt(0)! + 0x1F1A5))
+    .join('');
+}
+function FlagEmoji({ country, className = "text-2xl sm:text-3xl" }: { country: string; className?: string }) {
+  const code = getFlagCode(country);
+  return <span className={`leading-none select-none ${className}`}>{code ? toFlagEmoji(code) : "✈️"}</span>;
+}
+// Keep FlagImg for backward compat (unused after refactor)
 function FlagImg({ country, size = 40 }: { country: string; size?: number }) {
   const code = getFlagCode(country);
   if (!code) return <span className="text-4xl leading-none">✈️</span>;
-  // flagcdn.com supports fixed sizes: 20, 40, 80, 160 — always fetch w40, display via CSS
   return (
     <img
       src={`https://flagcdn.com/w40/${code}.png`}
@@ -351,7 +360,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         {/* Left: flag + destination text */}
         <div className={`flex items-center gap-2 min-w-0 flex-1 ${isFull ? "opacity-30" : ""}`}>
           <div className="shrink-0">
-            <FlagImg country={tour.country ?? ""} size={32} />
+            <FlagEmoji country={tour.country ?? ""} className="text-2xl sm:text-3xl leading-none" />
           </div>
           <div className="min-w-0">
             <p className="text-white font-bold text-xs sm:text-sm leading-tight truncate drop-shadow-sm">
