@@ -66,6 +66,11 @@ function fmtDate(iso: string): string {
   if (isNaN(d.getTime())) return iso;
   return `${d.getDate()} ${TH_M[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
+function fmtDateShort(iso: string): string {
+  if (!iso) return "-"; const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${d.getDate()} ${TH_M[d.getMonth()]}`;
+}
 function monthKey(iso: string): string {
   if (!iso) return ""; const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -335,15 +340,15 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
 
         {/* FULL: centered "เต็มแล้ว" overlay */}
         {isFull && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/20">
-            <span className="text-2xl leading-none">🔒</span>
-            <span className="text-white font-bold text-base tracking-wide drop-shadow">เต็มทุกรอบแล้ว</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/20">
+            <span className="text-base sm:text-2xl leading-none">🔒</span>
+            <span className="text-white font-bold text-[10px] sm:text-sm tracking-wide drop-shadow">เต็มทุกรอบแล้ว</span>
           </div>
         )}
 
-        {/* Duration badge — top left */}
+        {/* Duration badge — top left (hidden on mobile 2-col) */}
         {tour.duration && (
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 hidden sm:block">
             <span className="text-[11px] font-semibold text-white bg-black/20 px-2 py-0.5 rounded-full">
               {tour.duration}
             </span>
@@ -413,14 +418,15 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
           {nextDate && rowSt !== "full" && (
             <span className="flex items-center gap-1 text-green-600 font-medium truncate">
               <ArrowRight className="w-3 h-3 shrink-0" />
-              <span className="truncate">{fmtDate(nextDate)}</span>
+              <span className="truncate sm:hidden">{fmtDateShort(nextDate)}</span>
+              <span className="truncate hidden sm:inline">{fmtDate(nextDate)}</span>
             </span>
           )}
         </div>
 
-        {/* Urgency banner */}
+        {/* Urgency banner — desktop only */}
         {urgency && (
-          <div className="mb-2 sm:mb-3 px-2 py-1 rounded-lg bg-orange-50 border border-orange-100">
+          <div className="mb-2 sm:mb-3 px-2 py-1 rounded-lg bg-orange-50 border border-orange-100 hidden sm:block">
             <p className="text-[10px] sm:text-xs font-bold text-orange-700">{urgency}</p>
           </div>
         )}
@@ -468,7 +474,7 @@ function CategorySection({
           {tours.length} โปรแกรม
         </span>
       </div>
-      <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 46vw), 1fr))" }}>
+      <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 43vw), 1fr))" }}>
         {tours.map(t => (
           <ProgramCard key={t.id} tour={t} onClick={() => onSelect(t)} />
         ))}
@@ -784,7 +790,7 @@ export default function PublicCatalog() {
           </div>
         ) : catFilter !== "all" ? (
           <div className="mt-2">
-            <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 46vw), 1fr))" }}>
+            <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 43vw), 1fr))" }}>
               {(grouped.get(catFilter) ?? []).map(t => (
                 <ProgramCard key={t.id} tour={t} onClick={() => setSelectedTour(t)} />
               ))}
