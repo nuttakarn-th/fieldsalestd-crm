@@ -332,47 +332,47 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
           : "0 1px 4px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)";
       }}
     >
-      {/* Destination hero header */}
-      <div className="relative h-14 sm:h-20 flex items-end pb-2 sm:pb-3 px-3 sm:px-4 overflow-hidden"
+      {/* Destination hero header — flex row, no absolute badges */}
+      <div className="relative h-14 sm:h-20 flex items-center justify-between px-3 sm:px-4 overflow-hidden gap-2"
            style={{ background: isFull ? "linear-gradient(135deg,#9ca3af,#6b7280)" : cat.grad }}>
-        {/* subtle highlight overlay */}
-        <div className="absolute inset-0 opacity-10" style={{
+        {/* highlight overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-10" style={{
           backgroundImage: "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.6) 0%, transparent 60%)",
         }} />
 
-        {/* FULL: centered "เต็มแล้ว" overlay */}
+        {/* FULL overlay */}
         {isFull && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/20">
-            <span className="text-base sm:text-2xl leading-none">🔒</span>
-            <span className="text-white font-bold text-[10px] sm:text-sm tracking-wide drop-shadow">เต็มทุกรอบแล้ว</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/20 pointer-events-none">
+            <span className="text-base sm:text-xl leading-none">🔒</span>
+            <span className="text-white font-bold text-[10px] sm:text-xs tracking-wide drop-shadow">เต็มทุกรอบแล้ว</span>
           </div>
         )}
 
-        {/* Duration badge — top left (hidden on mobile 2-col) */}
-        {tour.duration && (
-          <div className="absolute top-3 left-3 hidden sm:block">
-            <span className="text-[11px] font-semibold text-white bg-black/20 px-2 py-0.5 rounded-full">
-              {tour.duration}
-            </span>
+        {/* Left: flag + destination text */}
+        <div className={`flex items-center gap-2 min-w-0 flex-1 ${isFull ? "opacity-30" : ""}`}>
+          <div className="shrink-0">
+            <FlagImg country={tour.country ?? ""} size={32} />
           </div>
-        )}
-        {/* Status badge — top right */}
-        <div className="absolute top-3 right-3">
-          {rowSt === "ok"   && <span className="text-[11px] font-bold text-green-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ว่าง</span>}
-          {rowSt === "low"  && <span className="text-[11px] font-bold text-orange-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm">ใกล้เต็ม</span>}
-          {rowSt === "full" && <span className="text-[11px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shadow-sm">เต็มแล้ว</span>}
-        </div>
-        {/* Flag + city */}
-        <div className={`relative flex items-end gap-1.5 min-w-0 max-w-[calc(100%-44px)] ${isFull ? "opacity-40" : ""}`}>
-          <FlagImg country={tour.country ?? ""} size={32} />
-          <div className="min-w-0 pb-0.5">
+          <div className="min-w-0">
             <p className="text-white font-bold text-xs sm:text-sm leading-tight truncate drop-shadow-sm">
               {tour.city || tour.country || "—"}
             </p>
             {tour.country && tour.country !== tour.city && (
-              <p className="text-white/75 text-[10px] sm:text-xs leading-tight truncate">{tour.country}</p>
+              <p className="text-white/70 text-[10px] leading-tight truncate">{tour.country}</p>
             )}
           </div>
+        </div>
+
+        {/* Right: duration + status stacked */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {tour.duration && (
+            <span className="text-[10px] sm:text-[11px] font-semibold text-white/90 bg-black/20 px-2 py-0.5 rounded-full leading-none">
+              {tour.duration}
+            </span>
+          )}
+          {rowSt === "ok"   && <span className="text-[10px] sm:text-[11px] font-bold text-green-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm leading-none">ว่าง</span>}
+          {rowSt === "low"  && <span className="text-[10px] sm:text-[11px] font-bold text-orange-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm leading-none">ใกล้เต็ม</span>}
+          {rowSt === "full" && <span className="text-[10px] sm:text-[11px] font-bold text-white bg-red-500/80 px-2 py-0.5 rounded-full shadow-sm leading-none">เต็มแล้ว</span>}
         </div>
       </div>
 
