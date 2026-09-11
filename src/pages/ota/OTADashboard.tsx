@@ -166,6 +166,42 @@ function shiftRef(ref: Date, type: PeriodType, dir: 1 | -1): Date {
   return d;
 }
 
+// ── Vehicle Grouping Config ───────────────────────────────────────────────────
+const VEHICLE_JOIN_PAIRS: string[][] = [
+  ["CMP", "CMS"],
+  ["CML", "CMD"],
+];
+
+/** Map a package code → vehicle group key for the day.
+ *  Explicit pairs → sorted joined key, e.g. "CMP+CMS"
+ *  Sub-itinerary (CRW-1, CRW-2) → strip -N suffix → base code "CRW"
+ *  Others → code as-is
+ */
+function vehicleGroupKey(code: string): string {
+  for (const pair of VEHICLE_JOIN_PAIRS) {
+    if (pair.includes(code)) return [...pair].sort().join("+");
+  }
+  // sub-itinerary: strip trailing -<digits>
+  return code.replace(/-\d+$/, "");
+}
+
+/** Capacity rule → { count, type } */
+function calcVehicles(pax: number): { count: number; type: "Van" | "Bus" } {
+  if (pax > 26) return { count: 1, type: "Bus" };
+  if (pax >= 14) return { count: 2, type: "Van" };
+  return { count: 1, type: "Van" };
+}
+
+interface VehicleGroup {
+  date: string;
+  groupKey: string;
+  packages: string[];
+  orderCount: number;
+  totalPax: number;
+  vehicleCount: number;
+  vehicleType: "Van" | "Bus";
+}
+
 export default function OTADashboard() {
   const { orders, packages } = useOTAStore();
   const [periodType, setPeriodType] = useState<PeriodType>("month");
@@ -436,6 +472,42 @@ export default function OTADashboard() {
     return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
   }, [monthOrders]);
 
+  // ── Vehicle groups (always by usage_date, regardless of dateField) ────────────
+  const vehicleGroups = useMemo<VehicleGroup[]>(() => {
+    const opsOrders = orders.filter(
+      (o) => o.usage_date >= startDate && o.usage_date <= endDate
+    );
+    const map: Record<string, { packages: Set<string>; pax: number; orders: number }> = {};
+    opsOrders.forEach((o) => {
+      const pkg = packages.find((p) => p.id === o.package_id);
+      const code = pkg?.code ?? "Other";
+      const gk = vehicleGroupKey(code);
+      const key = `${o.usage_date}||${gk}`;
+      if (!map[key]) map[key] = { packages: new Set(), pax: 0, orders: 0 };
+      map[key].packages.add(code);
+      map[key].pax += o.pax;
+      map[key].orders += 1;
+    });
+    return Object.entries(map).map(([key, v]) => {
+      const [date, gk] = key.split("||");
+      const { count, type } = calcVehicles(v.pax);
+      return {
+        date,
+        groupKey: gk,
+        packages: [...v.packages].sort(),
+        orderCount: v.orders,
+        totalPax: v.pax,
+        vehicleCount: count,
+        vehicleType: type,
+      };
+    }).sort((a, b) => a.date.localeCompare(b.date) || a.groupKey.localeCompare(b.groupKey));
+  }, [orders, packages, startDate, endDate]);
+
+  const totalVehiclesUsed = useMemo(
+    () => vehicleGroups.reduce((s, g) => s + g.vehicleCount, 0),
+    [vehicleGroups]
+  );
+
   const packageData = useMemo(() => {
     const map: Record<string, { orders: number; pax: number }> = {};
     monthOrders.forEach((o) => {
@@ -635,7 +707,7 @@ export default function OTADashboard() {
         {[
           { icon: TrendingUp, label: "Avg / Order", value: avgPax, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600" },
           { icon: BarChart3,  label: "RevPAX",      value: fmtB(revPAX), color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
-          { icon: Bus,        label: "Total Groups", value: String(uniqueGroups || totalOrders), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600" },
+          { icon: Bus,        label: "Vehicles Used", value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: `${vehicleGroups.length} กรุ๊ป` },
           { icon: Layers,     label: "YTD Revenue",  value: fmtBK(ytdRevenue), color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600", sub: `ทั้งปี ${year}` },
         ].map((k) => (
           <div key={k.label} className="shrink-0 w-40 md:w-auto">
@@ -985,6 +1057,95 @@ export default function OTADashboard() {
                   <Bar dataKey="pax" fill="#db2777" name="People" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            )}
+          </ChartCard>
+
+          {/* ── Vehicle Summary ───────────────────────────────────────────── */}
+          <ChartCard title={`Vehicle Summary — ${totalVehiclesUsed} คัน / ${vehicleGroups.length} กรุ๊ป`}>
+            {vehicleGroups.length === 0 ? <EmptyChart /> : (
+              <div>
+                {/* KPI mini-bar */}
+                <div className="flex gap-4 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+                    <span className="text-xs text-muted-foreground">Van:</span>
+                    <span className="text-xs font-bold">
+                      {vehicleGroups.filter(g => g.vehicleType === "Van").reduce((s, g) => s + g.vehicleCount, 0)} คัน
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                    <span className="text-xs text-muted-foreground">Bus:</span>
+                    <span className="text-xs font-bold">
+                      {vehicleGroups.filter(g => g.vehicleType === "Bus").reduce((s, g) => s + g.vehicleCount, 0)} คัน
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">รวม:</span>
+                    <span className="text-xs font-bold text-purple-600">{totalVehiclesUsed} คัน</span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50 text-muted-foreground border-b border-border">
+                        <th className="text-left px-3 py-2 font-medium">Usage Date</th>
+                        <th className="text-left px-3 py-2 font-medium">Package Group</th>
+                        <th className="text-center px-3 py-2 font-medium">Orders</th>
+                        <th className="text-center px-3 py-2 font-medium">PAX</th>
+                        <th className="text-center px-3 py-2 font-medium">รถ</th>
+                        <th className="text-center px-3 py-2 font-medium">ประเภท</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vehicleGroups.map((g, i) => (
+                        <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                          <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                            {new Date(g.date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {g.packages.map((p) => (
+                                <span key={p} className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-[10px] font-mono font-medium">
+                                  {p}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-center tabular-nums">{g.orderCount}</td>
+                          <td className="px-3 py-2 text-center tabular-nums font-medium">{g.totalPax}</td>
+                          <td className="px-3 py-2 text-center tabular-nums font-bold text-purple-600">{g.vehicleCount}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              g.vehicleType === "Bus"
+                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                            }`}>
+                              {g.vehicleType === "Bus" ? "🚌 Bus" : "🚐 Van"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-muted/30 border-t border-border font-semibold">
+                        <td className="px-3 py-2 text-muted-foreground" colSpan={2}>รวม</td>
+                        <td className="px-3 py-2 text-center tabular-nums">
+                          {vehicleGroups.reduce((s, g) => s + g.orderCount, 0)}
+                        </td>
+                        <td className="px-3 py-2 text-center tabular-nums">
+                          {vehicleGroups.reduce((s, g) => s + g.totalPax, 0)}
+                        </td>
+                        <td className="px-3 py-2 text-center tabular-nums text-purple-600">
+                          {totalVehiclesUsed}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
             )}
           </ChartCard>
 
