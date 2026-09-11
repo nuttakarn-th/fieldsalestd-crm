@@ -97,7 +97,7 @@ function Chip({ active, onClick, children, activeBg="#d1fae5", activeText="#065f
 }) {
   return (
     <button onClick={onClick}
-      className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap"
+      className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap shrink-0"
       style={active
         ? { background: activeBg, color: activeText, borderColor: "transparent" }
         : { background: "white", color: "#6b7280", borderColor: "#e5e7eb" }}>
@@ -326,7 +326,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
       }}
     >
       {/* Destination hero header */}
-      <div className="relative h-20 flex items-end pb-3 px-4 overflow-hidden"
+      <div className="relative h-14 sm:h-20 flex items-end pb-2 sm:pb-3 px-3 sm:px-4 overflow-hidden"
            style={{ background: isFull ? "linear-gradient(135deg,#9ca3af,#6b7280)" : cat.grad }}>
         {/* subtle highlight overlay */}
         <div className="absolute inset-0 opacity-10" style={{
@@ -357,7 +357,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         </div>
         {/* Flag + city */}
         <div className={`relative flex items-end gap-2 min-w-0 ${isFull ? "opacity-40" : ""}`}>
-          <FlagImg country={tour.country ?? ""} size={40} />
+          <FlagImg country={tour.country ?? ""} size={28} />
           <div className="min-w-0 pb-0.5">
             <p className="text-white font-bold text-sm leading-tight truncate drop-shadow-sm">
               {tour.city || tour.country || "—"}
@@ -370,25 +370,25 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
       </div>
 
       {/* Card body */}
-      <div className={`p-4 ${isFull ? "opacity-50" : ""}`}>
+      <div className={`p-2.5 sm:p-4 ${isFull ? "opacity-50" : ""}`}>
         {/* Program name + code */}
-        <div className="mb-3">
-          <p className={`font-bold text-base leading-tight line-clamp-2 transition-colors ${isFull ? "text-gray-500" : "text-gray-900 group-hover:text-green-800"}`}>
+        <div className="mb-2 sm:mb-3">
+          <p className={`font-bold text-xs sm:text-base leading-tight line-clamp-2 transition-colors ${isFull ? "text-gray-500" : "text-gray-900 group-hover:text-green-800"}`}>
             {tour.title ?? tour.city}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">{tour.code}</p>
+          <p className="text-[10px] text-gray-400 mt-0.5 hidden sm:block">{tour.code}</p>
         </div>
 
         {/* Booking meter */}
         {totalSeats > 0 && (
-          <div className="mb-3">
-            <div className="h-2 rounded-full bg-gray-200 overflow-hidden mb-1.5">
+          <div className="mb-2 sm:mb-3">
+            <div className="h-1.5 sm:h-2 rounded-full bg-gray-200 overflow-hidden mb-1">
               <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
             </div>
-            <div className="flex justify-between text-[11px]">
-              <span className="text-gray-400">จองแล้ว {pct}%</span>
+            <div className="flex justify-between text-[10px] sm:text-[11px]">
+              <span className="text-gray-400 hidden sm:inline">จองแล้ว {pct}%</span>
               <span className="font-semibold" style={{ color: barColor }}>
-                {rowSt !== "full" ? `ว่าง ${totalQuota} ที่นั่ง` : "เต็มทุกรอบ"}
+                {rowSt !== "full" ? `ว่าง ${totalQuota} ที่` : "เต็มทุกรอบ"}
               </span>
             </div>
           </div>
@@ -396,49 +396,49 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
 
         {/* Price row */}
         {startPrice > 0 ? (
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] text-gray-400">ราคาเริ่มต้น/ท่าน</span>
-            <span className={`font-bold text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <span className="text-[10px] text-gray-400 hidden sm:inline">ราคาเริ่มต้น/ท่าน</span>
+            <span className={`font-bold text-xs sm:text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
               ฿{startPrice.toLocaleString("th-TH")}
             </span>
           </div>
         ) : null}
 
         {/* Info row */}
-        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
+        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-gray-500 mb-2 sm:mb-3">
           <span className="flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5 text-gray-400" />
-            {periods.length} รอบเดินทาง
+            <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400" />
+            {periods.length} รอบ
           </span>
           {nextDate && rowSt !== "full" && (
-            <span className="flex items-center gap-1 text-green-600 font-medium">
-              <ArrowRight className="w-3 h-3" />
-              รอบแรก {fmtDate(nextDate)}
+            <span className="flex items-center gap-1 text-green-600 font-medium truncate">
+              <ArrowRight className="w-3 h-3 shrink-0" />
+              <span className="truncate">{fmtDate(nextDate)}</span>
             </span>
           )}
         </div>
 
         {/* Urgency banner */}
         {urgency && (
-          <div className="mb-3 px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-100">
-            <p className="text-xs font-bold text-orange-700">{urgency}</p>
+          <div className="mb-2 sm:mb-3 px-2 py-1 rounded-lg bg-orange-50 border border-orange-100">
+            <p className="text-[10px] sm:text-xs font-bold text-orange-700">{urgency}</p>
           </div>
         )}
 
         {/* Bottom action row */}
-        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+        <div className="flex items-center gap-1.5 sm:gap-2 pt-1 border-t border-gray-100">
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold transition-colors text-white"
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-sm font-semibold transition-colors text-white"
             style={{ background: isFull ? "#9ca3af" : cat.grad }}>
-            {isFull ? "เต็มแล้ว" : "ดูรอบเดินทาง"}
-            {!isFull && <ChevronRight className="w-4 h-4" />}
+            {isFull ? "เต็มแล้ว" : "ดูรอบ"}
+            {!isFull && <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />}
           </button>
           {tour.pdf_url && (
             <a href={tour.pdf_url} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0"
               title="ดาวน์โหลด PDF">
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </a>
           )}
         </div>
@@ -468,7 +468,7 @@ function CategorySection({
           {tours.length} โปรแกรม
         </span>
       </div>
-      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+      <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 46vw), 1fr))" }}>
         {tours.map(t => (
           <ProgramCard key={t.id} tour={t} onClick={() => onSelect(t)} />
         ))}
@@ -685,7 +685,7 @@ export default function PublicCatalog() {
 
       {/* ── Filter bar ── */}
       <div className="bg-white border-b border-gray-100 sticky top-[57px] z-20 shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-4 pt-2.5 pb-2 flex flex-wrap items-center gap-2">
+        <div className="max-w-screen-xl mx-auto px-4 pt-2.5 pb-2 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
@@ -734,7 +734,7 @@ export default function PublicCatalog() {
         </div>
 
         {showAdvanced && (
-          <div className="max-w-screen-xl mx-auto px-4 pb-2.5 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-2">
+          <div className="max-w-screen-xl mx-auto px-4 pb-2.5 flex items-center gap-2 border-t border-gray-100 pt-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
             <span className="text-[11px] font-bold text-gray-400 uppercase">สถานะ:</span>
             <Chip active={stFilter === "all"}  onClick={() => setStFilter("all")}>ทุกสถานะ</Chip>
             <Chip active={stFilter === "ok"}   onClick={() => setStFilter("ok")}  activeBg="#f0fdf4" activeText="#15803d">✅ ว่าง</Chip>
@@ -784,7 +784,7 @@ export default function PublicCatalog() {
           </div>
         ) : catFilter !== "all" ? (
           <div className="mt-2">
-            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+            <div className="grid gap-2 sm:gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 46vw), 1fr))" }}>
               {(grouped.get(catFilter) ?? []).map(t => (
                 <ProgramCard key={t.id} tour={t} onClick={() => setSelectedTour(t)} />
               ))}
