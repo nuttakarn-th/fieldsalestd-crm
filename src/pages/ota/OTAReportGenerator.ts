@@ -330,7 +330,7 @@ export function generateOTAReportHTML(d: OTAReportInput): string {
 <div class="kpi-row">
   <div class="kpi p">
     <div class="kpi-lbl">💰 Net Revenue</div>
-    <div class="kpi-val">${fmtBK(d.totalRevenue)}</div>
+    <div class="kpi-val">${fmtB(d.totalRevenue)}</div>
     <div>${momHTML(d.totalRevenue, d.prevRevenue)}</div>
   </div>
   <div class="kpi k">
@@ -346,7 +346,7 @@ export function generateOTAReportHTML(d: OTAReportInput): string {
   </div>
   <div class="kpi t">
     <div class="kpi-lbl">📈 YTD Revenue</div>
-    <div class="kpi-val">${fmtBK(d.ytdRevenue)}</div>
+    <div class="kpi-val">${fmtB(d.ytdRevenue)}</div>
     <div class="kpi-sub">RevPAX ${fmtB(Math.round(d.revPAX))}/คน &nbsp;·&nbsp; ${d.uniqueGroups} กรุ๊ป</div>
   </div>
 </div>
