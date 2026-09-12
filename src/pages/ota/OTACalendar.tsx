@@ -2,7 +2,7 @@
  * OTACalendar.tsx — ตารางงานรายวัน จาก usage_date
  * v4: no "+more" truncation · Export PDF (no revenue) · Save JPG
  */
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import { useOTAStore } from "@/store/otaStore";
 import { ChevronLeft, ChevronRight, X, FileDown, Image } from "lucide-react";
 import { toJpeg } from "html-to-image";
@@ -124,7 +124,8 @@ export default function OTACalendar() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [tab, setTab] = useState<"summary" | "orders">("summary");
   const [exportingJpg, setExportingJpg] = useState(false);
-  const calendarRef = useRef<HTMLDivElement>(null);
+  const calendarRef    = useRef<HTMLDivElement>(null);
+  const exportWrapRef  = useRef<HTMLDivElement>(null);
 
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -191,22 +192,17 @@ export default function OTACalendar() {
     w.document.close();
   };
 
-  const handleSaveJPG = async () => {
-    if (!calendarRef.current || exportingJpg) return;
+  const handleSaveJPG = useCallback(async () => {
+    if (!exportWrapRef.current || exportingJpg) return;
+    // 1. Enter export mode → triggers re-render (today hidden, header shown)
     setExportingJpg(true);
+    await new Promise((r) => setTimeout(r, 120)); // wait for paint
     try {
-      // Temporarily hide revenue elements before capture
-      const revEls = calendarRef.current.querySelectorAll<HTMLElement>("[data-revenue]");
-      revEls.forEach((el) => { el.style.visibility = "hidden"; });
-
-      const dataUrl = await toJpeg(calendarRef.current, {
+      const dataUrl = await toJpeg(exportWrapRef.current, {
         quality: 0.95,
         backgroundColor: "#ffffff",
         pixelRatio: 2,
       });
-
-      revEls.forEach((el) => { el.style.visibility = ""; });
-
       const link = document.createElement("a");
       link.download = `OTA-Calendar-${monthName}-${year}.jpg`;
       link.href = dataUrl;
@@ -216,7 +212,7 @@ export default function OTACalendar() {
     } finally {
       setExportingJpg(false);
     }
-  };
+  }, [exportingJpg, monthName, year]);
 
   // ── Selected day data ──────────────────────────────────────────────────────
   const sheetGroups  = selectedDay !== null ? (byDayGrouped[selectedDay] ?? []) : [];
@@ -357,8 +353,44 @@ export default function OTACalendar() {
         </div>
       </div>
 
-      {/* Calendar */}
-      <div ref={calendarRef} className="rounded-2xl overflow-hidden border border-border shadow-sm bg-card">
+      {/* Calendar — exportWrapRef captures header + grid + footer for JPG */}
+      <div ref={exportWrapRef} style={{ background: "#fff" }}>
+
+        {/* ── Export-only header (hidden in normal view) ── */}
+        {exportingJpg && (
+          <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #e5e7eb", fontFamily: "Arial, sans-serif" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.05em", marginBottom: 2 }}>
+                  OTA (Standard Tour)
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: "#1f2937", lineHeight: 1.1, marginBottom: 4 }}>
+                  Calendar
+                </div>
+                <div style={{ fontSize: 11, color: "#6b7280" }}>Daily itinerary schedule by usage date</div>
+                <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
+                  ดาวน์โหลดเมื่อ{" "}
+                  {new Date().toLocaleString("th-TH", {
+                    year: "numeric", month: "long", day: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 20, marginTop: 4 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "#7c3aed" }}>{monthOrders.length}</div>
+                  <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 600 }}>Orders</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: "#7c3aed" }}>{totalPax}</div>
+                  <div style={{ fontSize: 10, color: "#6b7280", fontWeight: 600 }}>PAX รวม</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      <div ref={calendarRef} className="rounded-2xl overflow-hidden border border-border shadow-sm bg-card" style={exportingJpg ? { borderRadius: 0, border: "none" } : {}}>
         {/* Month nav */}
         <div className="flex items-center justify-between px-5 py-4"
           style={{ background: "linear-gradient(135deg, #4c1d95, #be185d)" }}>
@@ -398,12 +430,12 @@ export default function OTACalendar() {
                 onClick={() => openDay(day)}
                 className={`border-t border-l border-border transition-colors flex flex-col
                   min-h-[72px] md:min-h-[100px] p-1 md:p-1.5
-                  ${isT ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
+                  ${isT && !exportingJpg ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
                   ${hasOrders ? "cursor-pointer hover:bg-muted/30 active:bg-muted/50" : ""}`}
               >
                 <div className="flex items-start justify-between mb-1">
                   <span className={`text-xs md:text-sm font-semibold w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full shrink-0
-                    ${isT ? "bg-rose-500 text-white" : "text-foreground"}`}>
+                    ${isT && !exportingJpg ? "bg-rose-500 text-white" : "text-foreground"}`}>
                     {day}
                   </span>
                   {dayPax > 0 && (
@@ -451,6 +483,16 @@ export default function OTACalendar() {
           })}
         </div>
       </div>
+
+        {/* ── Export-only footer summary ── */}
+        {exportingJpg && (
+          <div style={{ padding: "10px 24px", borderTop: "1px solid #e5e7eb", display: "flex", justifyContent: "flex-end" }}>
+            <span style={{ fontSize: 9, color: "#9ca3af", fontFamily: "Arial, sans-serif" }}>
+              ข้อมูลนี้ไม่แสดงรายได้ — ใช้สำหรับการจัดสรรรถเท่านั้น
+            </span>
+          </div>
+        )}
+      </div>{/* end exportWrapRef */}
 
       {/* ─────────────────── MOBILE BOTTOM SHEET ─────────────────── */}
       {selectedDay !== null && (
