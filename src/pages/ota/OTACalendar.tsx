@@ -80,51 +80,56 @@ function buildCalendarPDF(
 <title>OTA Calendar — ${monthName} ${year}</title>
 <style>
   @page { size: A4 landscape; margin: 10mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; background: #fff; color: #1f2937; }
+  * { box-sizing: border-box; margin: 0; padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #1f2937;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* ── OTA Header (matches JPG) ── */
+  /* ── OTA Header ── */
   .ota-header { display: flex; justify-content: space-between; align-items: flex-start;
                 padding: 14px 18px 12px; border-bottom: 1px solid #e5e7eb; }
-  .ota-brand { }
-  .ota-brand .brand-sub  { font-size: 9pt; font-weight: 700; color: #7c3aed; letter-spacing: 0.04em; }
-  .ota-brand .brand-title { font-size: 20pt; font-weight: 900; color: #1f2937; line-height: 1.1; }
-  .ota-brand .brand-desc  { font-size: 8.5pt; color: #6b7280; margin-top: 2px; }
-  .ota-brand .brand-date  { font-size: 7.5pt; color: #9ca3af; margin-top: 1px; }
+  .brand-sub   { font-size: 9pt; font-weight: 700; color: #7c3aed; letter-spacing: 0.04em; }
+  .brand-title { font-size: 20pt; font-weight: 900; color: #1f2937; line-height: 1.1; }
+  .brand-desc  { font-size: 8.5pt; color: #6b7280; margin-top: 2px; }
+  .brand-date  { font-size: 7.5pt; color: #9ca3af; margin-top: 1px; }
   .ota-kpi { display: flex; gap: 24px; margin-top: 4px; }
-  .ota-kpi .kpi-item { text-align: center; }
-  .ota-kpi .kpi-num  { font-size: 24pt; font-weight: 900; color: #7c3aed; line-height: 1; }
-  .ota-kpi .kpi-lbl  { font-size: 7.5pt; color: #6b7280; font-weight: 600; margin-top: 2px; }
+  .kpi-item { text-align: center; }
+  .kpi-num  { font-size: 24pt; font-weight: 900; color: #7c3aed; line-height: 1; }
+  .kpi-lbl  { font-size: 7.5pt; color: #6b7280; font-weight: 600; margin-top: 2px; }
 
   /* ── Gradient month bar ── */
-  .month-bar { background: linear-gradient(135deg, #4c1d95, #be185d);
-               text-align: center; padding: 10px 0; color: #fff;
+  .month-bar { background: linear-gradient(135deg, #4c1d95 0%, #be185d 100%) !important;
+               text-align: center; padding: 10px 0; color: #fff !important;
                font-size: 16pt; font-weight: 800; }
 
   /* ── Day headers ── */
-  .day-headers { display: grid; grid-template-columns: repeat(7, 1fr);
-                 background: #f5f3ff; }
-  .dh { text-align: center; font-size: 7.5pt; font-weight: 700; padding: 4px 0;
-        border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
-  .dh.we { color: #be185d; } .dh.wd { color: #6d28d9; }
+  .day-headers { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .dh { text-align: center; font-size: 7.5pt; font-weight: 700; padding: 5px 0;
+        border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
+        background: #f5f3ff !important; }
+  .dh.we { color: #be185d !important; }
+  .dh.wd { color: #6d28d9 !important; }
 
   /* ── Grid ── */
   .grid { display: grid; grid-template-columns: repeat(7, 1fr);
           border-left: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb; }
   .cell { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
-          min-height: 72px; padding: 4px 5px; background: #fff; }
-  .cell.empty { background: #fafafa; }
-  .day-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
-  .day-num  { font-size: 9.5pt; font-weight: 700; color: #374151; }
-  .day-pax  { font-size: 7pt; font-weight: 700; color: #7c3aed; }
-  .chips { display: flex; flex-direction: column; gap: 2px; }
+          min-height: 75px; padding: 5px 6px; background: #fff !important; }
+  .cell.empty { background: #fafafa !important; }
+  .day-row { display: flex; justify-content: space-between; align-items: center;
+             margin-bottom: 4px; }
+  .day-num { font-size: 9.5pt; font-weight: 700; color: #374151; }
+  .day-pax { font-size: 7pt; font-weight: 700; color: #7c3aed !important; }
+  .chips { display: flex; flex-direction: column; gap: 3px; }
   .chip { display: flex; justify-content: space-between; align-items: center;
-          background: #ede9fe; border-radius: 3px; padding: 2px 5px; }
-  .chip-code { font-family: monospace; font-size: 7pt; font-weight: 700; color: #5b21b6; }
-  .chip-pax  { font-size: 6.5pt; font-weight: 600; color: #7c3aed; }
+          background: #ede9fe !important; border-radius: 4px; padding: 3px 6px; }
+  .chip-code { font-family: monospace; font-size: 7.5pt; font-weight: 700; color: #5b21b6 !important; }
+  .chip-pax  { font-size: 7pt; font-weight: 700; color: #7c3aed !important; }
 
   /* ── Footer ── */
-  .footer { padding: 6px 18px; text-align: right; font-size: 7.5pt; color: #9ca3af; border-top: 1px solid #f3f4f6; }
+  .footer { padding: 6px 18px; text-align: right; font-size: 7.5pt; color: #9ca3af;
+            border-top: 1px solid #f3f4f6; margin-top: 4px; }
 </style>
 </head>
 <body>
