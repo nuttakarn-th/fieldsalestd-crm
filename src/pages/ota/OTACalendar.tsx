@@ -42,16 +42,18 @@ function uniq(arr: (string | undefined)[]): string[] {
   return [...new Set(arr.filter(Boolean) as string[])];
 }
 
-// ── PDF export (no revenue) ────────────────────────────────────────────────────
+// ── PDF export — layout matches JPG (no revenue) ─────────────────────────────
 function buildCalendarPDF(
   year: number, month: number, monthName: string,
   byDayGrouped: Record<number, PkgGroup[]>,
-  firstDay: number, daysInMonth: number
+  firstDay: number, daysInMonth: number,
+  totalOrders: number, totalPax: number
 ): string {
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const now = new Date().toLocaleString("th-TH", {
+    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 
-  // Pre-build cells
   let cells = "";
   for (let i = 0; i < firstDay; i++) {
     cells += `<div class="cell empty"></div>`;
@@ -59,15 +61,15 @@ function buildCalendarPDF(
   for (let day = 1; day <= daysInMonth; day++) {
     const groups = byDayGrouped[day] ?? [];
     const dayPax = groups.reduce((s, g) => s + g.totalPax, 0);
-    const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-    const isT = dateStr === todayStr;
-    let chips = groups.map(g =>
+    const chips = groups.map(g =>
       `<div class="chip"><span class="chip-code">${g.code}</span><span class="chip-pax">${g.totalPax}p</span></div>`
     ).join("");
     cells += `
-      <div class="cell${isT ? " today" : ""}">
-        <div class="day-num${isT ? " today-num" : ""}">${day}</div>
-        ${dayPax > 0 ? `<div class="day-pax">${dayPax} pax</div>` : ""}
+      <div class="cell">
+        <div class="day-row">
+          <span class="day-num">${day}</span>
+          ${dayPax > 0 ? `<span class="day-pax">${dayPax} pax</span>` : ""}
+        </div>
         <div class="chips">${chips}</div>
       </div>`;
   }
@@ -77,39 +79,78 @@ function buildCalendarPDF(
 <meta charset="UTF-8"/>
 <title>OTA Calendar — ${monthName} ${year}</title>
 <style>
-  @page { size: A4 landscape; margin: 12mm; }
+  @page { size: A4 landscape; margin: 10mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Sarabun', Arial, sans-serif; background: #fff; color: #1f2937; }
-  h1 { text-align: center; font-size: 18pt; font-weight: 800; margin-bottom: 4px;
-       background: linear-gradient(90deg, #4c1d95, #be185d); -webkit-background-clip: text;
-       -webkit-text-fill-color: transparent; }
-  .sub { text-align: center; font-size: 9pt; color: #6b7280; margin-bottom: 8px; }
-  .grid { display: grid; grid-template-columns: repeat(7, 1fr); border-left: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb; }
-  .day-header { text-align: center; font-size: 8pt; font-weight: 700; padding: 4px 2px;
-                border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; background: #f5f3ff; }
-  .day-header.weekend { color: #be185d; }
-  .day-header.weekday { color: #6d28d9; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #1f2937; }
+
+  /* ── OTA Header (matches JPG) ── */
+  .ota-header { display: flex; justify-content: space-between; align-items: flex-start;
+                padding: 14px 18px 12px; border-bottom: 1px solid #e5e7eb; }
+  .ota-brand { }
+  .ota-brand .brand-sub  { font-size: 9pt; font-weight: 700; color: #7c3aed; letter-spacing: 0.04em; }
+  .ota-brand .brand-title { font-size: 20pt; font-weight: 900; color: #1f2937; line-height: 1.1; }
+  .ota-brand .brand-desc  { font-size: 8.5pt; color: #6b7280; margin-top: 2px; }
+  .ota-brand .brand-date  { font-size: 7.5pt; color: #9ca3af; margin-top: 1px; }
+  .ota-kpi { display: flex; gap: 24px; margin-top: 4px; }
+  .ota-kpi .kpi-item { text-align: center; }
+  .ota-kpi .kpi-num  { font-size: 24pt; font-weight: 900; color: #7c3aed; line-height: 1; }
+  .ota-kpi .kpi-lbl  { font-size: 7.5pt; color: #6b7280; font-weight: 600; margin-top: 2px; }
+
+  /* ── Gradient month bar ── */
+  .month-bar { background: linear-gradient(135deg, #4c1d95, #be185d);
+               text-align: center; padding: 10px 0; color: #fff;
+               font-size: 16pt; font-weight: 800; }
+
+  /* ── Day headers ── */
+  .day-headers { display: grid; grid-template-columns: repeat(7, 1fr);
+                 background: #f5f3ff; }
+  .dh { text-align: center; font-size: 7.5pt; font-weight: 700; padding: 4px 0;
+        border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .dh.we { color: #be185d; } .dh.wd { color: #6d28d9; }
+
+  /* ── Grid ── */
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr);
+          border-left: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb; }
   .cell { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
-          min-height: 80px; padding: 4px; vertical-align: top; background: #fff; }
+          min-height: 72px; padding: 4px 5px; background: #fff; }
   .cell.empty { background: #fafafa; }
-  .cell.today { background: #fdf4ff; outline: 2px solid #c026d3; outline-offset: -2px; }
-  .day-num { font-size: 10pt; font-weight: 700; color: #374151; width: 22px; height: 22px;
-             display: flex; align-items: center; justify-content: center; border-radius: 50%; }
-  .day-num.today-num { background: #be185d; color: #fff; }
-  .day-pax { font-size: 7pt; font-weight: 700; color: #7c3aed; margin: 2px 0 3px; }
+  .day-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+  .day-num  { font-size: 9.5pt; font-weight: 700; color: #374151; }
+  .day-pax  { font-size: 7pt; font-weight: 700; color: #7c3aed; }
   .chips { display: flex; flex-direction: column; gap: 2px; }
   .chip { display: flex; justify-content: space-between; align-items: center;
-          background: #ede9fe; border-radius: 3px; padding: 2px 4px; }
-  .chip-code { font-family: monospace; font-size: 7.5pt; font-weight: 700; color: #5b21b6; }
-  .chip-pax  { font-size: 7pt; font-weight: 600; color: #7c3aed; }
-  .footer { margin-top: 8px; text-align: right; font-size: 8pt; color: #9ca3af; }
+          background: #ede9fe; border-radius: 3px; padding: 2px 5px; }
+  .chip-code { font-family: monospace; font-size: 7pt; font-weight: 700; color: #5b21b6; }
+  .chip-pax  { font-size: 6.5pt; font-weight: 600; color: #7c3aed; }
+
+  /* ── Footer ── */
+  .footer { padding: 6px 18px; text-align: right; font-size: 7.5pt; color: #9ca3af; border-top: 1px solid #f3f4f6; }
 </style>
 </head>
 <body>
-  <h1>${monthName} ${year}</h1>
-  <div class="sub">OTA — Daily Itinerary Schedule &nbsp;|&nbsp; สร้างเมื่อ ${new Date().toLocaleDateString("th-TH", { day:"numeric", month:"long", year:"numeric" })}</div>
+  <div class="ota-header">
+    <div class="ota-brand">
+      <div class="brand-sub">OTA (Standard Tour)</div>
+      <div class="brand-title">Calendar</div>
+      <div class="brand-desc">Daily itinerary schedule by usage date</div>
+      <div class="brand-date">ดาวน์โหลดเมื่อ ${now}</div>
+    </div>
+    <div class="ota-kpi">
+      <div class="kpi-item">
+        <div class="kpi-num">${totalOrders}</div>
+        <div class="kpi-lbl">Orders</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-num">${totalPax}</div>
+        <div class="kpi-lbl">PAX รวม</div>
+      </div>
+    </div>
+  </div>
+  <div class="month-bar">${monthName} ${year}</div>
+  <div class="day-headers">
+    ${DAY_LABELS.map((d, i) => `<div class="dh ${i===0||i===6?"we":"wd"}">${d}</div>`).join("")}
+  </div>
   <div class="grid">
-    ${DAY_LABELS.map((d, i) => `<div class="day-header ${i===0||i===6?"weekend":"weekday"}">${d}</div>`).join("")}
     ${cells}
   </div>
   <div class="footer">ข้อมูลนี้ไม่แสดงรายได้ — ใช้สำหรับการจัดสรรรถเท่านั้น</div>
@@ -185,7 +226,7 @@ export default function OTACalendar() {
 
   // ── Export handlers ───────────────────────────────────────────────────────
   const handleExportPDF = () => {
-    const html = buildCalendarPDF(year, month, monthName, byDayGrouped, firstDay, daysInMonth);
+    const html = buildCalendarPDF(year, month, monthName, byDayGrouped, firstDay, daysInMonth, monthOrders.length, totalPax);
     const w = window.open("", "_blank", "width=1100,height=800");
     if (!w) return;
     w.document.write(html);
@@ -441,10 +482,11 @@ export default function OTACalendar() {
                   {dayPax > 0 && (
                     <div className="hidden md:flex flex-col items-end leading-tight">
                       <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{dayPax} pax</span>
-                      {/* Revenue hidden from JPG via data-revenue */}
-                      <span data-revenue className="text-[10px] text-green-600 dark:text-green-400 font-medium">
-                        {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0))}
-                      </span>
+                      {!exportingJpg && (
+                        <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                          {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0))}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -461,9 +503,11 @@ export default function OTACalendar() {
                 {dayPax > 0 && (
                   <div className="md:hidden flex items-center justify-between border-t border-purple-200 dark:border-purple-800 mt-1 pt-[2px]">
                     <span className="text-[8px] font-bold text-purple-600 dark:text-purple-400">{dayPax}p</span>
-                    <span data-revenue className="text-[7px] font-semibold text-green-600 dark:text-green-400">
-                      {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0)).replace("฿", "")}
-                    </span>
+                    {!exportingJpg && (
+                      <span className="text-[7px] font-semibold text-green-600 dark:text-green-400">
+                        {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0)).replace("฿", "")}
+                      </span>
+                    )}
                   </div>
                 )}
 
