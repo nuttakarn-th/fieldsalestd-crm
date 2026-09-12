@@ -1,10 +1,11 @@
 /**
  * OTACalendar.tsx — ตารางงานรายวัน จาก usage_date
- * v3: group by package_id + rich day popup (mobile bottom sheet + desktop modal)
+ * v4: no "+more" truncation · Export PDF (no revenue) · Save JPG
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useOTAStore } from "@/store/otaStore";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, FileDown, Image } from "lucide-react";
+import { toJpeg } from "html-to-image";
 
 const today = new Date();
 
@@ -37,9 +38,83 @@ interface PkgGroup {
   guides: string[];
 }
 
-// ── helper: unique compact list ──────────────────────────────────────────────
 function uniq(arr: (string | undefined)[]): string[] {
   return [...new Set(arr.filter(Boolean) as string[])];
+}
+
+// ── PDF export (no revenue) ────────────────────────────────────────────────────
+function buildCalendarPDF(
+  year: number, month: number, monthName: string,
+  byDayGrouped: Record<number, PkgGroup[]>,
+  firstDay: number, daysInMonth: number
+): string {
+  const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+
+  // Pre-build cells
+  let cells = "";
+  for (let i = 0; i < firstDay; i++) {
+    cells += `<div class="cell empty"></div>`;
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const groups = byDayGrouped[day] ?? [];
+    const dayPax = groups.reduce((s, g) => s + g.totalPax, 0);
+    const dateStr = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+    const isT = dateStr === todayStr;
+    let chips = groups.map(g =>
+      `<div class="chip"><span class="chip-code">${g.code}</span><span class="chip-pax">${g.totalPax}p</span></div>`
+    ).join("");
+    cells += `
+      <div class="cell${isT ? " today" : ""}">
+        <div class="day-num${isT ? " today-num" : ""}">${day}</div>
+        ${dayPax > 0 ? `<div class="day-pax">${dayPax} pax</div>` : ""}
+        <div class="chips">${chips}</div>
+      </div>`;
+  }
+
+  return `<!DOCTYPE html><html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<title>OTA Calendar — ${monthName} ${year}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', Arial, sans-serif; background: #fff; color: #1f2937; }
+  h1 { text-align: center; font-size: 18pt; font-weight: 800; margin-bottom: 4px;
+       background: linear-gradient(90deg, #4c1d95, #be185d); -webkit-background-clip: text;
+       -webkit-text-fill-color: transparent; }
+  .sub { text-align: center; font-size: 9pt; color: #6b7280; margin-bottom: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); border-left: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb; }
+  .day-header { text-align: center; font-size: 8pt; font-weight: 700; padding: 4px 2px;
+                border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; background: #f5f3ff; }
+  .day-header.weekend { color: #be185d; }
+  .day-header.weekday { color: #6d28d9; }
+  .cell { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
+          min-height: 80px; padding: 4px; vertical-align: top; background: #fff; }
+  .cell.empty { background: #fafafa; }
+  .cell.today { background: #fdf4ff; outline: 2px solid #c026d3; outline-offset: -2px; }
+  .day-num { font-size: 10pt; font-weight: 700; color: #374151; width: 22px; height: 22px;
+             display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+  .day-num.today-num { background: #be185d; color: #fff; }
+  .day-pax { font-size: 7pt; font-weight: 700; color: #7c3aed; margin: 2px 0 3px; }
+  .chips { display: flex; flex-direction: column; gap: 2px; }
+  .chip { display: flex; justify-content: space-between; align-items: center;
+          background: #ede9fe; border-radius: 3px; padding: 2px 4px; }
+  .chip-code { font-family: monospace; font-size: 7.5pt; font-weight: 700; color: #5b21b6; }
+  .chip-pax  { font-size: 7pt; font-weight: 600; color: #7c3aed; }
+  .footer { margin-top: 8px; text-align: right; font-size: 8pt; color: #9ca3af; }
+</style>
+</head>
+<body>
+  <h1>${monthName} ${year}</h1>
+  <div class="sub">OTA — Daily Itinerary Schedule &nbsp;|&nbsp; สร้างเมื่อ ${new Date().toLocaleDateString("th-TH", { day:"numeric", month:"long", year:"numeric" })}</div>
+  <div class="grid">
+    ${DAY_LABELS.map((d, i) => `<div class="day-header ${i===0||i===6?"weekend":"weekday"}">${d}</div>`).join("")}
+    ${cells}
+  </div>
+  <div class="footer">ข้อมูลนี้ไม่แสดงรายได้ — ใช้สำหรับการจัดสรรรถเท่านั้น</div>
+  <script>window.onload=()=>window.print();</script>
+</body></html>`;
 }
 
 export default function OTACalendar() {
@@ -48,6 +123,8 @@ export default function OTACalendar() {
   const [year,  setYear]  = useState(today.getFullYear());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [tab, setTab] = useState<"summary" | "orders">("summary");
+  const [exportingJpg, setExportingJpg] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -56,7 +133,6 @@ export default function OTACalendar() {
     [orders, prefix]
   );
 
-  // Group by day → by package (with nationality + guide aggregation)
   const byDayGrouped = useMemo(() => {
     const map: Record<number, PkgGroup[]> = {};
     monthOrders.forEach((o) => {
@@ -85,7 +161,6 @@ export default function OTACalendar() {
     return map;
   }, [monthOrders, packages]);
 
-  // Raw orders per day (for detail tab)
   const byDay = useMemo(() => {
     const map: Record<number, typeof orders> = {};
     monthOrders.forEach((o) => {
@@ -107,6 +182,42 @@ export default function OTACalendar() {
 
   const totalPax = monthOrders.reduce((s, o) => s + o.pax, 0);
 
+  // ── Export handlers ───────────────────────────────────────────────────────
+  const handleExportPDF = () => {
+    const html = buildCalendarPDF(year, month, monthName, byDayGrouped, firstDay, daysInMonth);
+    const w = window.open("", "_blank", "width=1100,height=800");
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+  };
+
+  const handleSaveJPG = async () => {
+    if (!calendarRef.current || exportingJpg) return;
+    setExportingJpg(true);
+    try {
+      // Temporarily hide revenue elements before capture
+      const revEls = calendarRef.current.querySelectorAll<HTMLElement>("[data-revenue]");
+      revEls.forEach((el) => { el.style.visibility = "hidden"; });
+
+      const dataUrl = await toJpeg(calendarRef.current, {
+        quality: 0.95,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+      });
+
+      revEls.forEach((el) => { el.style.visibility = ""; });
+
+      const link = document.createElement("a");
+      link.download = `OTA-Calendar-${monthName}-${year}.jpg`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("JPG export failed", err);
+    } finally {
+      setExportingJpg(false);
+    }
+  };
+
   // ── Selected day data ──────────────────────────────────────────────────────
   const sheetGroups  = selectedDay !== null ? (byDayGrouped[selectedDay] ?? []) : [];
   const sheetOrders  = selectedDay !== null ? (byDay[selectedDay] ?? []) : [];
@@ -122,7 +233,7 @@ export default function OTACalendar() {
     setTab("summary");
   };
 
-  // ── Tab content (shared between mobile + desktop) ────────────────────────
+  // ── Shared sub-components ─────────────────────────────────────────────────
   const SummaryTab = () => (
     <div className="space-y-2">
       {sheetGroups.map((g) => {
@@ -185,8 +296,8 @@ export default function OTACalendar() {
   const MetricCards = () => (
     <div className="grid grid-cols-3 gap-2 mb-4">
       {[
-        { label: "pax รวม",  value: sheetTotalPax,             color: "text-purple-600 dark:text-purple-400" },
-        { label: "orders",   value: sheetOrders.length,         color: "text-foreground" },
+        { label: "pax รวม",  value: sheetTotalPax,               color: "text-purple-600 dark:text-purple-400" },
+        { label: "orders",   value: sheetOrders.length,           color: "text-foreground" },
         { label: "revenue",  value: fmtMoneyShort(sheetTotalRev), color: "text-green-600 dark:text-green-400", isText: true },
       ].map(({ label, value, color, isText }) => (
         <div key={label} className="bg-muted/50 rounded-xl p-3 text-center">
@@ -200,15 +311,12 @@ export default function OTACalendar() {
   const TabBar = ({ className = "" }: { className?: string }) => (
     <div className={`flex gap-1.5 ${className}`}>
       {(["summary", "orders"] as const).map((t) => (
-        <button
-          key={t}
-          onClick={() => setTab(t)}
+        <button key={t} onClick={() => setTab(t)}
           className={`text-xs px-3 py-1 rounded-full transition-colors ${
             tab === t
               ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-medium"
               : "text-muted-foreground hover:bg-muted"
-          }`}
-        >
+          }`}>
           {t === "summary" ? "สรุป" : "รายละเอียด"}
         </button>
       ))}
@@ -218,19 +326,39 @@ export default function OTACalendar() {
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h1 className="text-xl md:text-2xl font-bold">Calendar</h1>
           <p className="text-muted-foreground text-xs hidden sm:block">Daily itinerary schedule by usage date</p>
         </div>
-        <div className="text-sm text-muted-foreground text-right">
-          <span className="font-semibold text-foreground">{monthOrders.length}</span> orders ·{" "}
-          <span className="font-semibold text-foreground">{totalPax}</span> pax
+        <div className="flex items-center gap-2">
+          {/* Export buttons */}
+          <button
+            onClick={handleExportPDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-muted-foreground hover:border-purple-400 hover:text-purple-600 transition-colors"
+            title="Export calendar as PDF (no revenue)"
+          >
+            <FileDown className="w-3.5 h-3.5" /> Export PDF
+          </button>
+          <button
+            onClick={handleSaveJPG}
+            disabled={exportingJpg}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-muted-foreground hover:border-purple-400 hover:text-purple-600 disabled:opacity-50 transition-colors"
+            title="Save calendar as JPG (no revenue)"
+          >
+            <Image className="w-3.5 h-3.5" />
+            {exportingJpg ? "กำลัง..." : "Save JPG"}
+          </button>
+          {/* Summary */}
+          <div className="text-sm text-muted-foreground text-right">
+            <span className="font-semibold text-foreground">{monthOrders.length}</span> orders ·{" "}
+            <span className="font-semibold text-foreground">{totalPax}</span> pax
+          </div>
         </div>
       </div>
 
       {/* Calendar */}
-      <div className="rounded-2xl overflow-hidden border border-border shadow-sm">
+      <div ref={calendarRef} className="rounded-2xl overflow-hidden border border-border shadow-sm bg-card">
         {/* Month nav */}
         <div className="flex items-center justify-between px-5 py-4"
           style={{ background: "linear-gradient(135deg, #4c1d95, #be185d)" }}>
@@ -254,9 +382,9 @@ export default function OTACalendar() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-7 bg-card">
+        <div className="grid grid-cols-7">
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`e-${i}`} className="border-t border-l border-border min-h-[60px] md:min-h-[110px] bg-muted/20" />
+            <div key={`e-${i}`} className="border-t border-l border-border min-h-[60px] md:min-h-[100px] bg-muted/20" />
           ))}
 
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
@@ -269,7 +397,7 @@ export default function OTACalendar() {
               <div key={day}
                 onClick={() => openDay(day)}
                 className={`border-t border-l border-border transition-colors flex flex-col
-                  min-h-[72px] md:min-h-[110px] p-1 md:p-2
+                  min-h-[72px] md:min-h-[100px] p-1 md:p-1.5
                   ${isT ? "ring-2 ring-inset ring-rose-500 bg-rose-50/30 dark:bg-rose-900/10" : ""}
                   ${hasOrders ? "cursor-pointer hover:bg-muted/30 active:bg-muted/50" : ""}`}
               >
@@ -281,48 +409,42 @@ export default function OTACalendar() {
                   {dayPax > 0 && (
                     <div className="hidden md:flex flex-col items-end leading-tight">
                       <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{dayPax} pax</span>
-                      <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                      {/* Revenue hidden from JPG via data-revenue */}
+                      <span data-revenue className="text-[10px] text-green-600 dark:text-green-400 font-medium">
                         {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0))}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Mobile B+C: mini pills + total row */}
+                {/* Mobile */}
                 <div className="md:hidden flex flex-col gap-[2px] flex-1">
-                  {groups.slice(0, 3).map((g) => (
+                  {groups.map((g) => (
                     <div key={g.pkgId}
                       className="bg-purple-100 dark:bg-purple-900/50 rounded-[3px] px-[3px] py-[1px] text-[7px] font-bold text-purple-700 dark:text-purple-300 leading-tight truncate">
                       {g.code}·{g.totalPax}p
                     </div>
                   ))}
-                  {groups.length > 3 && (
-                    <div className="text-[7px] text-muted-foreground pl-[2px]">+{groups.length - 3}</div>
-                  )}
                 </div>
-                {/* Mobile bottom summary row */}
                 {dayPax > 0 && (
                   <div className="md:hidden flex items-center justify-between border-t border-purple-200 dark:border-purple-800 mt-1 pt-[2px]">
                     <span className="text-[8px] font-bold text-purple-600 dark:text-purple-400">{dayPax}p</span>
-                    <span className="text-[7px] font-semibold text-green-600 dark:text-green-400">
+                    <span data-revenue className="text-[7px] font-semibold text-green-600 dark:text-green-400">
                       {fmtMoneyShort(groups.reduce((s, g) => s + g.totalRevenue, 0)).replace("฿", "")}
                     </span>
                   </div>
                 )}
 
-                {/* Desktop chips — code + pax only (no per-chip revenue) */}
-                <div className="hidden md:block space-y-0.5">
-                  {groups.slice(0, 4).map((g) => (
+                {/* Desktop chips — all groups shown (no truncation) */}
+                <div className="hidden md:flex flex-col gap-[3px]">
+                  {groups.map((g) => (
                     <div key={g.pkgId}
-                      className="flex items-center justify-between bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-0.5 text-xs font-medium"
+                      className="flex items-center justify-between bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded px-1.5 py-[3px] text-xs font-medium"
                       title={`${g.name} · ${g.orderCount} orders · ${g.totalPax} pax`}>
-                      <span className="truncate font-mono">{g.code}</span>
-                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold">{g.totalPax}p</span>
+                      <span className="truncate font-mono text-[11px]">{g.code}</span>
+                      <span className="shrink-0 ml-1 text-purple-600 dark:text-purple-300 font-semibold text-[11px]">{g.totalPax}p</span>
                     </div>
                   ))}
-                  {groups.length > 4 && (
-                    <div className="text-xs text-muted-foreground pl-1">+{groups.length - 4} more</div>
-                  )}
                 </div>
               </div>
             );
@@ -335,12 +457,9 @@ export default function OTACalendar() {
         <div className="md:hidden fixed inset-0 z-[60] flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedDay(null)} />
           <div className="relative bg-card rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col">
-            {/* Pull handle */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
-
-            {/* Header */}
             <div className="flex items-start justify-between px-5 py-3 border-b border-border shrink-0">
               <div>
                 <p className="font-semibold text-base">{fmtTHDate(sheetDateStr)}</p>
@@ -352,13 +471,7 @@ export default function OTACalendar() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Tabs */}
-            <div className="px-5 pt-3 pb-2 shrink-0">
-              <TabBar />
-            </div>
-
-            {/* Scrollable body */}
+            <div className="px-5 pt-3 pb-2 shrink-0"><TabBar /></div>
             <div className="overflow-y-auto flex-1 px-5 pb-6 space-y-0">
               <MetricCards />
               {tab === "summary" ? <SummaryTab /> : <OrdersTab />}
@@ -372,8 +485,6 @@ export default function OTACalendar() {
         <div className="hidden md:flex fixed inset-0 z-[60] items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedDay(null)} />
           <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-2xl mx-6 max-h-[80vh] flex flex-col border border-border">
-
-            {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div>
                 <p className="font-semibold text-lg">{fmtTHDate(sheetDateStr)}</p>
@@ -388,14 +499,11 @@ export default function OTACalendar() {
                 </button>
               </div>
             </div>
-
-            {/* Modal body */}
             <div className="overflow-y-auto flex-1 px-6 py-5">
-              {/* Metric Cards */}
               <div className="grid grid-cols-3 gap-3 mb-5">
                 {[
-                  { label: "pax รวม",  value: sheetTotalPax,              color: "text-purple-600 dark:text-purple-400" },
-                  { label: "orders",   value: sheetOrders.length,          color: "text-foreground" },
+                  { label: "pax รวม",  value: sheetTotalPax,               color: "text-purple-600 dark:text-purple-400" },
+                  { label: "orders",   value: sheetOrders.length,           color: "text-foreground" },
                   { label: "revenue",  value: fmtMoneyShort(sheetTotalRev), color: "text-green-600 dark:text-green-400" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="bg-muted/50 rounded-xl p-4 text-center">
@@ -404,9 +512,7 @@ export default function OTACalendar() {
                   </div>
                 ))}
               </div>
-
               {tab === "summary" ? (
-                /* Desktop summary — table */
                 <div className="rounded-xl border border-border overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
@@ -450,7 +556,6 @@ export default function OTACalendar() {
                   </table>
                 </div>
               ) : (
-                /* Desktop orders tab */
                 <div className="space-y-2">
                   {sheetOrders.map((o) => {
                     const pkg = packages.find((p) => p.id === o.package_id);
@@ -462,8 +567,8 @@ export default function OTACalendar() {
                         <span className="font-mono text-muted-foreground text-xs">{o.order_number}</span>
                         <span className="text-xs bg-muted px-2 py-0.5 rounded">{o.platform}</span>
                         <span className="font-semibold">{o.pax} pax</span>
-                        {o.nationality && <span className="text-muted-foreground text-xs">🌏 {o.nationality}</span>}
-                        {o.guide_name  && <span className="text-muted-foreground text-xs">👤 {o.guide_name}</span>}
+                        {o.nationality  && <span className="text-muted-foreground text-xs">🌏 {o.nationality}</span>}
+                        {o.guide_name   && <span className="text-muted-foreground text-xs">👤 {o.guide_name}</span>}
                         {o.pickup_hotel && <span className="text-muted-foreground text-xs">🏨 {o.pickup_hotel}</span>}
                         <span className="ml-auto text-green-600 dark:text-green-400 text-xs shrink-0">฿{o.revenue.toLocaleString()} net</span>
                       </div>
