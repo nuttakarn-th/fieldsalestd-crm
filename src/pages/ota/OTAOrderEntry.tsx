@@ -522,13 +522,15 @@ export default function OTAOrderEntry() {
   // ── Download Template ─────────────────────────────────────────────────────
   const handleDownloadTemplate = () => {
     const exampleRow = [
-      "2026-09-01", "2026-09-04", "TP-123456", "G-001",
-      2, "Trip.com", "CMP", "Chiang Mai - Ping River",
-      "Chinese", "John", 874,
+      // 0:Booking  1:Usage     2:Order#      3:Group#   4:PAX  5:Platform
+      "01/09/2026", "04/09/2026", "TP-123456", "G-001",   2,    "Trip.com",
+      // 6:PkgCode  7:PkgDetails                          8:Nationality  9:Guide
+      "CMP",       "Buatong Waterfall+Elephant Cafe",    "Chinese",    "John Guide",
+      // 10:PickupHotel       11:GrossPrice  12:Comm%  13:CommAmt(auto)  14:Discount  15:NetRevenue(auto)
+      "MAYA Hotel Chiang Mai",  2012.50,       20,       "",               0,           "",
     ];
-    const note = ["** Platform ที่ใช้ได้: " + OTA_PLATFORMS.join(" | ")];
-    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, exampleRow, note]);
-    ws["!cols"] = [12,12,14,12,8,16,14,30,14,14,14].map((w) => ({ wch: w }));
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, exampleRow]);
+    ws["!cols"] = [12,12,18,12,7,16,12,35,13,14,22,12,10,13,10,16].map((w) => ({ wch: w }));
 
     // Reference sheet — Platform list + Package codes
     const knownPlatforms = platformConfigs.length > 0
