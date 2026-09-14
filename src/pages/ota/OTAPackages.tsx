@@ -171,6 +171,15 @@ export default function OTAPackages() {
 
   const fmtB = (n: number) => n > 0 ? `฿${n.toLocaleString("th-TH")}` : "-";
 
+  const fmtDate = (iso: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString("th-TH", {
+      day: "2-digit", month: "short", year: "2-digit",
+      hour: "2-digit", minute: "2-digit",
+    });
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
@@ -220,8 +229,11 @@ export default function OTAPackages() {
                 <span className="font-mono font-bold text-purple-600 dark:text-purple-400 text-base">{pkg.code}</span>
                 <span className="text-xs text-muted-foreground">{pkg.platform_prices.length} platforms</span>
               </div>
-              {/* Line 2: name */}
-              <p className="text-sm text-foreground mb-2 line-clamp-2">{pkg.name}</p>
+              {/* Line 2: name + date */}
+              <p className="text-sm text-foreground mb-0.5 line-clamp-2">{pkg.name}</p>
+              {pkg.created_at && (
+                <p className="text-[10px] text-muted-foreground/60 mb-1.5">เพิ่มเมื่อ {fmtDate(pkg.created_at)}</p>
+              )}
               {/* Price dots */}
               <div className="flex flex-wrap gap-1.5">
                 {pkg.platform_prices.slice(0, 3).map((pp) => (
@@ -258,7 +270,12 @@ export default function OTAPackages() {
                   <td className="px-4 py-3">
                     <span className="font-mono font-bold text-purple-600 dark:text-purple-400 text-base">{pkg.code}</span>
                   </td>
-                  <td className="px-4 py-3"><span className="text-foreground">{pkg.name}</span></td>
+                  <td className="px-4 py-3">
+                    <span className="text-foreground">{pkg.name}</span>
+                    {pkg.created_at && (
+                      <div className="text-[10px] text-muted-foreground/60 mt-0.5">เพิ่มเมื่อ {fmtDate(pkg.created_at)}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {pkg.platform_prices.map((pp) => (
