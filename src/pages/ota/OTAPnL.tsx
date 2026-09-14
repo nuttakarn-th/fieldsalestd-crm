@@ -116,7 +116,7 @@ function GroupCard({ row, month, onSaveAll }: {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className={`text-sm font-bold px-2.5 py-1 rounded-xl ${isProfit ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
-            {isProfit ? "+" : ""}{fmtShort(row.profit)}
+            {isProfit ? "+" : ""}{fmtB(row.profit)}
           </span>
           {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </div>
