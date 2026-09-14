@@ -338,7 +338,7 @@ export const useOTAStore = create<OTAState>()(
           set({ packages: pkgs });
         }
 
-        // Orders — auto-sync: push localStorage orders not yet in Supabase
+        // Orders — Supabase is the single source of truth; always pull fresh
         const { data: ordData, error: ordErr } = await supabase
           .from("ota_orders")
           .select("*")
@@ -347,55 +347,7 @@ export const useOTAStore = create<OTAState>()(
         if (ordErr) {
           console.error("[ota] load orders error:", ordErr);
         } else {
-          const remoteOrders = (ordData ?? []).map(rowToOrder);
-          const remoteIds = new Set(remoteOrders.map((o) => o.id));
-
-          // หา orders ที่อยู่ใน localStorage แต่ยังไม่มีใน Supabase
-          const localOrders: OTAOrder[] = get().orders;
-          const missing = localOrders.filter((o) => !remoteIds.has(o.id));
-
-          if (missing.length > 0) {
-            console.info(`[ota] syncing ${missing.length} local orders → Supabase`);
-            const records = missing.map((o) => ({
-              id:              o.id,
-              booking_date:    o.booking_date,
-              usage_date:      o.usage_date,
-              order_number:    o.order_number,
-              group_number:    o.group_number,
-              pax:             o.pax,
-              platform:        o.platform,
-              package_id:      o.package_id || null,
-              package_details: o.package_details ?? "",
-              nationality:     o.nationality ?? "",
-              guide_name:      o.guide_name ?? "",
-              pickup_hotel:    o.pickup_hotel ?? "",
-              gross_price:     o.gross_price,
-              commission_pct:  o.commission_pct,
-              discount:        o.discount,
-              revenue:         o.revenue,
-              created_by:      o.created_by ?? "",
-              created_at:      o.created_at,
-            }));
-
-            const { error: syncErr } = await supabase
-              .from("ota_orders")
-              .upsert(records, { onConflict: "id" });
-
-            if (syncErr) {
-              console.error("[ota] auto-sync error:", syncErr);
-            } else {
-              console.info(`[ota] auto-sync complete — ${missing.length} orders uploaded`);
-            }
-
-            // Reload ใหม่อีกรอบเพื่อให้ state sync กับ Supabase ที่ถูกต้อง
-            const { data: refreshed } = await supabase
-              .from("ota_orders")
-              .select("*")
-              .order("usage_date", { ascending: false });
-            set({ orders: (refreshed ?? []).map(rowToOrder), loaded: true });
-          } else {
-            set({ orders: remoteOrders, loaded: true });
-          }
+          set({ orders: (ordData ?? []).map(rowToOrder), loaded: true });
         }
 
         // Platform Configs

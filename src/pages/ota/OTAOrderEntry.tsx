@@ -653,10 +653,18 @@ export default function OTAOrderEntry() {
           const rawPkgId = pkg?.id ?? "";
           const safePackageId = rawPkgId && !rawPkgId.startsWith("pkg-") ? rawPkgId : "";
 
-          const grossPrice = parseFloat(String(grossRaw ?? 0)) || 0;
-          const commRawNum = parseFloat(String(commRaw ?? 0)) || 0;
+          // Strip currency symbols / commas before parseFloat
+          // รองรับ: 2012.5 (number) / "฿2,012.50" / "$1,006.25" / "20.00%" / "0.20"
+          const parseNum = (v: unknown): number => {
+            if (typeof v === "number") return isNaN(v) ? 0 : v;
+            const str = String(v ?? "").replace(/[฿$€£¥,\s]/g, "").trim();
+            return parseFloat(str) || 0;
+          };
+
+          const grossPrice = parseNum(grossRaw);
+          const commRawNum = parseNum(commRaw);
           const commPct    = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
-          const discount   = parseFloat(String(discountRaw ?? 0)) || 0;
+          const discount   = parseNum(discountRaw);
           const revenue    = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
           void revenueRaw;
 
