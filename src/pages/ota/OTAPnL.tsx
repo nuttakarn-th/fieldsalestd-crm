@@ -32,12 +32,12 @@ function buildMonthOptions() {
   return opts;
 }
 function groupSortKey(code: string): string {
-  const m = code.match(/OA(\d{2})(\d{2})/);
+  const m = code.match(/[A-Z]+(\d{2})(\d{2})/);
   if (m) return `${m[1]}${m[2]}`;
   return code;
 }
 function groupDay(code: string, month: string): string {
-  const m = code.match(/OA\d{2}(\d{2})/);
+  const m = code.match(/[A-Z]+\d{2}(\d{2})/);
   if (!m) return "";
   const [yr, mo] = month.split("-");
   const day = m[1];
