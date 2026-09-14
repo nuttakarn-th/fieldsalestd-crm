@@ -498,10 +498,38 @@ export default function OTAOrderEntry() {
         // Existing order numbers for duplicate detection
         const existingOrderNums = new Set(orders.map((o) => o.order_number.trim().toLowerCase()));
 
+        // แปลงค่าจาก Excel → ISO date string "YYYY-MM-DD"
+        // รองรับ: Date object, Excel serial number (>40000), YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
         const toDate = (v: unknown): string => {
-          if (!v) return today.toISOString().slice(0, 10);
-          if (v instanceof Date) return v.toISOString().slice(0, 10);
-          return String(v).slice(0, 10);
+          if (!v && v !== 0) return "";
+          // 1. JavaScript Date object (XLSX cellDates:true)
+          if (v instanceof Date) {
+            if (isNaN(v.getTime())) return "";
+            return v.toISOString().slice(0, 10);
+          }
+          // 2. Excel serial number (เลขทศนิยม > 40000 → ประมาณปี 2009+)
+          const num = Number(v);
+          if (!isNaN(num) && num > 40000 && num < 60000) {
+            // Excel epoch: Jan 0, 1900 → offset 25569 days from Unix epoch
+            const utcMs = (num - 25569) * 86400000;
+            const d = new Date(utcMs);
+            if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+          }
+          // 3. String: try YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
+          const str = String(v).trim();
+          // YYYY-MM-DD หรือ YYYY/MM/DD
+          if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str)) {
+            const d = new Date(str.replace(/\//g, "-"));
+            if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+          }
+          // DD/MM/YYYY หรือ D/M/YYYY (ไทย/ยุโรป)
+          const dmy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+          if (dmy) {
+            const [, dd, mm, yyyy] = dmy;
+            const d = new Date(`${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`);
+            if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+          }
+          return ""; // invalid
         };
 
         // Known platforms — trim + lowercase for comparison
@@ -534,6 +562,14 @@ export default function OTAOrderEntry() {
 
           const orderNumStr = String(orderNum).trim();
 
+          // Validate dates ก่อน — ถ้า invalid → error ทันที
+          const parsedUsageDate   = toDate(usageDate);
+          const parsedBookingDate = toDate(bookingDate) || parsedUsageDate; // booking_date optional → fallback
+          if (!parsedUsageDate) {
+            errors.push({ row: rowNum, message: `Usage Date "${String(usageDate)}" ไม่ถูกต้อง — ใช้ format DD/MM/YYYY หรือ YYYY-MM-DD` });
+            return;
+          }
+
           // Duplicate check by order_number
           if (existingOrderNums.has(orderNumStr.toLowerCase())) {
             dupOrderNums.push(orderNumStr);
@@ -541,6 +577,10 @@ export default function OTAOrderEntry() {
           }
 
           const pkg = getPackageByCode(String(pkgCode ?? "").trim());
+          // ตรวจ package_id — ถ้าเป็น seed ID เก่า (ขึ้นต้นด้วย "pkg-") หรือไม่ตรงกับ UUID ใน DB → ใช้ null
+          const rawPkgId = pkg?.id ?? "";
+          const safePackageId = rawPkgId && !rawPkgId.startsWith("pkg-") ? rawPkgId : "";
+
           const grossPrice = parseFloat(String(grossRaw ?? 0)) || 0;
           const commRawNum = parseFloat(String(commRaw ?? 0)) || 0;
           const commPct    = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
@@ -549,13 +589,13 @@ export default function OTAOrderEntry() {
           void revenueRaw;
 
           newRows.push({
-            booking_date:    toDate(bookingDate),
-            usage_date:      toDate(usageDate),
+            booking_date:    parsedBookingDate,
+            usage_date:      parsedUsageDate,
             order_number:    orderNumStr,
             group_number:    String(groupNum ?? "").trim(),
             pax:             parseInt(String(pax)) || 1,
             platform:        platform as OTAPlatform,
-            package_id:      pkg?.id ?? "",
+            package_id:      safePackageId,
             package_details: String(pkgDetails ?? pkg?.name ?? ""),
             nationality:     String(nationality ?? ""),
             guide_name:      String(guide ?? ""),
