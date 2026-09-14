@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useOTAStore, OTAGroupCost } from "@/store/otaStore";
-import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Users, DollarSign, BarChart2, Package } from "lucide-react";
+import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Users, DollarSign, BarChart2, Package, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,6 +36,17 @@ function groupSortKey(code: string): string {
   if (m) return `${m[1]}${m[2]}`;
   return code;
 }
+function groupDay(code: string, month: string): string {
+  const m = code.match(/OA\d{2}(\d{2})/);
+  if (!m) return "";
+  const [yr, mo] = month.split("-");
+  const day = m[1];
+  const d = new Date(`${yr}-${mo}-${day}`);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+}
+
+type SortBy = "date" | "revenue" | "profit";
+type SortDir = "asc" | "desc";
 
 const COST_FIELDS: { key: keyof OTAGroupCost; label: string; emoji: string }[] = [
   { key: "attraction", label: "Attraction",  emoji: "🏞️" },
@@ -137,6 +148,7 @@ function GroupCard({ row, month, saveCost }: {
             )}
           </div>
           <div className="flex items-center gap-3 text-xs text-gray-400">
+            {(() => { const day = groupDay(row.code, month); return day ? <span className="text-gray-400">{day}</span> : null; })()}
             <span>{row.pax} PAX</span>
             <span>·</span>
             <span className="text-blue-600 font-medium">{fmtB(row.revenue)}</span>
@@ -215,9 +227,7 @@ function buildRows(
     const pkg = packages.find((p) => p.id === o.package_id);
     if (pkg) g.packageCodes.add(pkg.code);
   }
-  const sorted = [...groupMap.entries()].sort((a, b) =>
-    groupSortKey(a[0]).localeCompare(groupSortKey(b[0]))
-  );
+  const sorted = [...groupMap.entries()];
   const costsThisMonth = groupCosts.filter((c) => c.month === month);
   return sorted.map(([code, data], idx) => {
     const cost = costsThisMonth.find((c) => c.group_code === code) ?? {
@@ -245,13 +255,26 @@ export default function OTAPnL() {
 
   const [month, setMonth] = useState(getCurrentYM());
   const monthOptions = useMemo(() => buildMonthOptions(), []);
+  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   useEffect(() => { loadGroupCostsByMonth(month); }, [month, loadGroupCostsByMonth]);
 
-  const rows = useMemo(
+  const rawRows = useMemo(
     () => buildRows(orders, packages, groupCosts, month),
     [orders, packages, groupCosts, month]
   );
+
+  const rows = useMemo(() => {
+    const sorted = [...rawRows].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "date")    cmp = groupSortKey(a.code).localeCompare(groupSortKey(b.code));
+      if (sortBy === "revenue") cmp = a.revenue - b.revenue;
+      if (sortBy === "profit")  cmp = a.profit - b.profit;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted.map((r, i) => ({ ...r, no: i + 1 }));
+  }, [rawRows, sortBy, sortDir]);
 
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const totalCostAll = rows.reduce((s, r) => s + r.totalCost, 0);
@@ -333,7 +356,19 @@ export default function OTAPnL() {
             <div className="md:hidden space-y-2.5">
               <div className="flex items-center justify-between px-1">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{rows.length} กรุ๊ป</p>
-                <p className="text-[10px] text-gray-400">แตะเพื่อกรอกต้นทุน</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-gray-400">แตะเพื่อกรอกต้นทุน</p>
+                  <button
+                    className="text-[10px] text-purple-600 bg-purple-50 px-2 py-1 rounded-lg flex items-center gap-1"
+                    onClick={() => {
+                      if (sortBy === "date") setSortDir(d => d === "asc" ? "desc" : "asc");
+                      else { setSortBy("date"); setSortDir("asc"); }
+                    }}
+                  >
+                    {sortBy === "date" && sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : sortBy === "date" ? <ArrowDown className="w-3 h-3" /> : <ArrowUpDown className="w-3 h-3" />}
+                    วันที่
+                  </button>
+                </div>
               </div>
               {rows.map((row) => (
                 <GroupCard key={row.code} row={row} month={month} saveCost={saveCost} />
@@ -346,16 +381,46 @@ export default function OTAPnL() {
                 <thead>
                   <tr className="bg-[#1e1b4b] text-white text-xs">
                     <th className="px-3 py-3 text-center w-8">#</th>
-                    <th className="px-3 py-3 text-left min-w-[130px]">Group Code</th>
+                    <th className="px-3 py-3 text-left min-w-[130px]">
+                      <button
+                        className="flex items-center gap-1 hover:text-purple-200 transition-colors"
+                        onClick={() => { if (sortBy === "date") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("date"); setSortDir("asc"); } }}
+                      >
+                        Group Code
+                        {sortBy === "date"
+                          ? sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                          : <ArrowUpDown className="w-3 h-3 opacity-40" />}
+                      </button>
+                    </th>
                     <th className="px-3 py-3 text-center w-16">PAX</th>
-                    <th className="px-3 py-3 text-right min-w-[100px]">รายได้สุทธิ</th>
+                    <th className="px-3 py-3 text-right min-w-[100px]">
+                      <button
+                        className="flex items-center gap-1 ml-auto hover:text-purple-200 transition-colors"
+                        onClick={() => { if (sortBy === "revenue") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("revenue"); setSortDir("desc"); } }}
+                      >
+                        รายได้สุทธิ
+                        {sortBy === "revenue"
+                          ? sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                          : <ArrowUpDown className="w-3 h-3 opacity-40" />}
+                      </button>
+                    </th>
                     {COST_FIELDS.map((f) => (
                       <th key={f.key} className="px-2 py-3 text-right min-w-[85px] font-medium">
                         {f.emoji} {f.label}
                       </th>
                     ))}
                     <th className="px-3 py-3 text-right min-w-[95px]">Total Cost</th>
-                    <th className="px-3 py-3 text-right min-w-[105px]">กำไร/ขาดทุน</th>
+                    <th className="px-3 py-3 text-right min-w-[105px]">
+                      <button
+                        className="flex items-center gap-1 ml-auto hover:text-purple-200 transition-colors"
+                        onClick={() => { if (sortBy === "profit") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("profit"); setSortDir("desc"); } }}
+                      >
+                        กำไร/ขาดทุน
+                        {sortBy === "profit"
+                          ? sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                          : <ArrowUpDown className="w-3 h-3 opacity-40" />}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -366,6 +431,7 @@ export default function OTAPnL() {
                       <td className="px-3 py-2.5 text-center text-gray-300 text-xs">{row.no}</td>
                       <td className="px-3 py-2.5">
                         <div className="font-bold text-[#1e1b4b] text-sm">{row.code}</div>
+                        {(() => { const day = groupDay(row.code, month); return day ? <div className="text-[10px] text-gray-400 mt-0.5">{day}</div> : null; })()}
                         {row.packageCodes.length > 0 && (
                           <div className="text-[10px] text-purple-500 mt-0.5">{row.packageCodes.join(", ")}</div>
                         )}
