@@ -475,8 +475,30 @@ export default function OTAOrderEntry() {
     const note = ["** Platform ที่ใช้ได้: " + OTA_PLATFORMS.join(" | ")];
     const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, exampleRow, note]);
     ws["!cols"] = [12,12,14,12,8,16,14,30,14,14,14].map((w) => ({ wch: w }));
+
+    // Reference sheet — Platform list + Package codes
+    const knownPlatforms = platformConfigs.length > 0
+      ? platformConfigs.map((c) => c.platform)
+      : [...OTA_PLATFORMS];
+    const refRows: (string | number)[][] = [
+      ["=== PLATFORM ที่ใช้ได้ ===", ""],
+      ["Platform", "หมายเหตุ"],
+      ...knownPlatforms.map((p) => [p, ""]),
+      ["", ""],
+      ["=== PACKAGE CODE ===", ""],
+      ["Code", "ชื่อ Package"],
+      ...packages.map((p) => [p.code, p.name]),
+      ["", ""],
+      ["=== FORMAT วันที่ ===", ""],
+      ["ใช้ format", "DD/MM/YYYY หรือ YYYY-MM-DD เท่านั้น"],
+      ["ตัวอย่าง", "01/09/2026 หรือ 2026-09-01"],
+    ];
+    const wsRef = XLSX.utils.aoa_to_sheet(refRows);
+    wsRef["!cols"] = [{ wch: 20 }, { wch: 50 }];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.utils.book_append_sheet(wb, wsRef, "Reference");
     XLSX.writeFile(wb, "OTA_Orders_Template.xlsx");
   };
 
