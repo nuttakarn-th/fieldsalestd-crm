@@ -95,6 +95,7 @@ import OTACalendar from "./pages/ota/OTACalendar.tsx";
 import OTAPackages from "./pages/ota/OTAPackages.tsx";
 import OTAPlatforms from "./pages/ota/OTAPlatforms.tsx";
 import OTAVehicles from "./pages/ota/OTAVehicles.tsx";
+import OTAPnL from "./pages/ota/OTAPnL.tsx";
 import MarketingPortal from "./pages/MarketingPortal.tsx";
 import MarketingOBLeads from "./pages/MarketingOBLeads.tsx";
 import MarketingSalesLeads from "./pages/MarketingSalesLeads.tsx";
@@ -232,6 +233,7 @@ const App = () => (
             <Route path="dashboard"   element={<OTADashboard />} />
             <Route path="calendar"    element={<OTACalendar />} />
             <Route path="vehicles"    element={<OTAVehicles />} />
+            <Route path="pnl"         element={<OTAPnL />} />
             <Route path="packages"    element={<OTAPackages />} />
             <Route path="platforms"   element={<OTAPlatforms />} />
           </Route>

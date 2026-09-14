@@ -6,7 +6,7 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
-  ClipboardList, BarChart3, CalendarDays, Package, Settings2, ChevronLeft, ChevronRight, LogOut, Bus,
+  ClipboardList, BarChart3, CalendarDays, Package, Settings2, ChevronLeft, ChevronRight, LogOut, Bus, TrendingUp,
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import { useOTAStore } from "@/store/otaStore";
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard",   icon: BarChart3,     to: "/ota/dashboard"   },
   { label: "Calendar",    icon: CalendarDays,  to: "/ota/calendar"    },
   { label: "Vehicles",    icon: Bus,           to: "/ota/vehicles"    },
+  { label: "P&L",         icon: TrendingUp,    to: "/ota/pnl"         },
   { label: "Packages",    icon: Package,       to: "/ota/packages"    },
   { label: "Platforms",   icon: Settings2,     to: "/ota/platforms"   },
 ];

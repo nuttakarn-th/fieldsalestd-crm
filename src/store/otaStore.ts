@@ -87,6 +87,20 @@ export interface OTAVehicleJoinGroup {
   created_at: string;
 }
 
+export interface OTAGroupCost {
+  id: string;
+  group_code: string;
+  month: string;        // "YYYY-MM"
+  attraction: number;
+  meals: number;
+  car: number;
+  guide_fee: number;
+  tip_driver: number;
+  other_fee: number;
+  note: string;
+  created_at: string;
+}
+
 // ─── Store interface ──────────────────────────────────────────────────────────
 
 interface OTAState {
@@ -94,6 +108,7 @@ interface OTAState {
   packages: OTAPackage[];
   platformConfigs: OTAPlatformConfig[];
   vehicleJoinGroups: OTAVehicleJoinGroup[];
+  groupCosts: OTAGroupCost[];
   loaded: boolean; // ป้องกัน seed ทับข้อมูลจาก DB
   auditLog: OTAAuditEntry[];
 
@@ -128,6 +143,10 @@ interface OTAState {
   addVehicleJoinGroup: (g: Omit<OTAVehicleJoinGroup, "id" | "created_at">) => Promise<string>;
   updateVehicleJoinGroup: (id: string, patch: Partial<OTAVehicleJoinGroup>) => Promise<void>;
   deleteVehicleJoinGroup: (id: string) => Promise<void>;
+
+  // Group Costs (P&L)
+  upsertGroupCost: (gc: Omit<OTAGroupCost, "id" | "created_at">) => Promise<void>;
+  loadGroupCostsByMonth: (month: string) => Promise<void>;
 
   // Bulk import (upsert by order_number)
   importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number }>;
@@ -263,6 +282,7 @@ export const useOTAStore = create<OTAState>()(
       packages:           SEED_PACKAGES,
       platformConfigs:    [],
       vehicleJoinGroups:  [],
+      groupCosts:         [],
       loaded:             false,
       auditLog:           [],
       highlightedOrderId: null,
@@ -584,6 +604,76 @@ export const useOTAStore = create<OTAState>()(
         set((s) => ({ vehicleJoinGroups: s.vehicleJoinGroups.filter((g) => g.id !== id) }));
       },
 
+      // ── Group Costs (P&L) ─────────────────────────────────────────────────────
+
+      upsertGroupCost: async (gc) => {
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase
+            .from("ota_group_costs")
+            .upsert({
+              group_code: gc.group_code,
+              month:      gc.month,
+              attraction: gc.attraction,
+              meals:      gc.meals,
+              car:        gc.car,
+              guide_fee:  gc.guide_fee,
+              tip_driver: gc.tip_driver,
+              other_fee:  gc.other_fee,
+              note:       gc.note,
+            }, { onConflict: "group_code,month" });
+          if (error) { toast.error(`บันทึกต้นทุนไม่สำเร็จ — ${error.message}`); return; }
+        }
+        set((s) => {
+          const existing = s.groupCosts.find(
+            (c) => c.group_code === gc.group_code && c.month === gc.month
+          );
+          if (existing) {
+            return {
+              groupCosts: s.groupCosts.map((c) =>
+                c.group_code === gc.group_code && c.month === gc.month
+                  ? { ...c, ...gc }
+                  : c
+              ),
+            };
+          }
+          return {
+            groupCosts: [
+              ...s.groupCosts,
+              { ...gc, id: uid(), created_at: new Date().toISOString() },
+            ],
+          };
+        });
+      },
+
+      loadGroupCostsByMonth: async (month) => {
+        if (!SUPABASE_ENABLED || !supabase) return;
+        const { data, error } = await supabase
+          .from("ota_group_costs")
+          .select("*")
+          .eq("month", month);
+        if (error) { console.error("[ota] loadGroupCosts error:", error); return; }
+        const loaded = (data ?? []).map((r) => ({
+          id:         String(r.id),
+          group_code: String(r.group_code),
+          month:      String(r.month),
+          attraction: Number(r.attraction ?? 0),
+          meals:      Number(r.meals ?? 0),
+          car:        Number(r.car ?? 0),
+          guide_fee:  Number(r.guide_fee ?? 0),
+          tip_driver: Number(r.tip_driver ?? 0),
+          other_fee:  Number(r.other_fee ?? 0),
+          note:       String(r.note ?? ""),
+          created_at: String(r.created_at ?? new Date().toISOString()),
+        }));
+        // Merge: replace existing records for this month, keep other months
+        set((s) => ({
+          groupCosts: [
+            ...s.groupCosts.filter((c) => c.month !== month),
+            ...loaded,
+          ],
+        }));
+      },
+
       // ── Bulk Import (insert all rows — order_number ไม่ unique แล้ว) ─────────
 
       importOrders: async (rows) => {
@@ -664,10 +754,10 @@ export const useOTAStore = create<OTAState>()(
         get().platformConfigs.find((c) => c.platform === platform),
     }),
     {
-      name: "ota-store-v4",
-      // version 4: เพิ่ม auditLog สำหรับ OTA Notification Bell
-      version: 4,
-      migrate: () => ({ orders: [], packages: [], platformConfigs: [], loaded: false, auditLog: [] }),
+      name: "ota-store-v5",
+      // version 5: เพิ่ม groupCosts สำหรับ P&L
+      version: 5,
+      migrate: () => ({ orders: [], packages: [], platformConfigs: [], vehicleJoinGroups: [], groupCosts: [], loaded: false, auditLog: [] }),
     }
   )
 );
