@@ -6,6 +6,7 @@
 import { useState, useRef } from "react";
 import { Plus, Pencil, Trash2, X, Check, Download, Upload, AlertCircle, ChevronDown } from "lucide-react";
 import { useOTAStore, OTAPackage, OTAPlatform, OTA_PLATFORMS } from "@/store/otaStore";
+import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -31,6 +32,8 @@ interface ImportError { row: number; message: string }
 
 export default function OTAPackages() {
   const { packages, platformConfigs, addPackage, updatePackage, deletePackage, getPackageByCode } = useOTAStore();
+  const currentUser = useCurrentUser();
+  const actor = currentUser?.full_name ?? "ระบบ";
   const importRef = useRef<HTMLInputElement>(null);
 
   const [showForm, setShowForm]         = useState(false);
@@ -86,16 +89,16 @@ export default function OTAPackages() {
       .map((r) => ({ platform: r.platform.trim(), price: r.price }));
     const payload = { code: code.trim().toUpperCase(), name: name.trim(), platform_prices };
     if (editId) {
-      const ok = await updatePackage(editId, payload);
+      const ok = await updatePackage(editId, payload, actor);
       if (ok) { toast.success("แก้ไข Package สำเร็จ"); setShowForm(false); }
     } else {
-      const id = await addPackage(payload);
+      const id = await addPackage(payload, actor);
       if (id) { toast.success("เพิ่ม Package สำเร็จ"); setShowForm(false); }
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("ลบ Package นี้?")) { await deletePackage(id); toast.success("ลบ Package แล้ว"); }
+    if (confirm("ลบ Package นี้?")) { await deletePackage(id, actor); toast.success("ลบ Package แล้ว"); }
   };
 
   // ── Export XLSX ───────────────────────────────────────────────────────────────

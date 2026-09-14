@@ -6,6 +6,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Package,
 } from "lucide-react";
 import { useOTAStore } from "@/store/otaStore";
 import type { OTAAuditAction } from "@/store/otaStore";
@@ -29,10 +30,13 @@ const ACTION_META: Record<
   OTAAuditAction,
   { label: string; Icon: typeof Bell; color: string }
 > = {
-  import:       { label: "Import",    Icon: Upload, color: "text-blue-500"   },
-  add_order:    { label: "เพิ่ม",     Icon: Plus,   color: "text-green-500"  },
-  update_order: { label: "แก้ไข",    Icon: Pencil, color: "text-amber-500"  },
-  delete_order: { label: "ลบ",        Icon: Trash2, color: "text-red-500"    },
+  import:          { label: "Import",         Icon: Upload,  color: "text-blue-500"   },
+  add_order:       { label: "เพิ่ม Order",    Icon: Plus,    color: "text-green-500"  },
+  update_order:    { label: "แก้ไข Order",    Icon: Pencil,  color: "text-amber-500"  },
+  delete_order:    { label: "ลบ Order",       Icon: Trash2,  color: "text-red-500"    },
+  add_package:     { label: "เพิ่ม Package",  Icon: Package, color: "text-purple-500" },
+  update_package:  { label: "แก้ไข Package", Icon: Package, color: "text-orange-500" },
+  delete_package:  { label: "ลบ Package",     Icon: Trash2,  color: "text-red-400"   },
 };
 
 /* ── component ───────────────────────────────────────────────────────────── */
@@ -114,7 +118,7 @@ export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANoti
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
-            <span className="font-semibold text-sm">การแจ้งเตือน Order</span>
+            <span className="font-semibold text-sm">การแจ้งเตือน OTA</span>
             <button
               onClick={() => setOpen(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"

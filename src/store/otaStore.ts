@@ -59,7 +59,10 @@ export interface PlatformPrice {
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 
-export type OTAAuditAction = "import" | "add_order" | "update_order" | "delete_order";
+export type OTAAuditAction =
+  | "import"
+  | "add_order" | "update_order" | "delete_order"
+  | "add_package" | "update_package" | "delete_package";
 
 export interface OTAAuditEntry {
   id: string;
@@ -130,9 +133,9 @@ interface OTAState {
   deleteOrder: (id: string, actor?: string) => Promise<void>;
 
   // Packages
-  addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => Promise<string | null>;
-  updatePackage: (id: string, patch: Partial<OTAPackage>) => Promise<boolean>;
-  deletePackage: (id: string) => Promise<void>;
+  addPackage: (p: Omit<OTAPackage, "id" | "created_at">, actor?: string) => Promise<string | null>;
+  updatePackage: (id: string, patch: Partial<OTAPackage>, actor?: string) => Promise<boolean>;
+  deletePackage: (id: string, actor?: string) => Promise<void>;
 
   // Platform Configs
   addPlatformConfig: (p: Omit<OTAPlatformConfig, "id" | "created_at">) => Promise<string>;
@@ -473,7 +476,7 @@ export const useOTAStore = create<OTAState>()(
 
       // ── Packages ──────────────────────────────────────────────────────────
 
-      addPackage: async (p) => {
+      addPackage: async (p, actor = "ระบบ") => {
         const id = uid();
         const pkg: OTAPackage = { ...p, id, created_at: new Date().toISOString() };
 
@@ -492,10 +495,16 @@ export const useOTAStore = create<OTAState>()(
         }
 
         set((s) => ({ packages: [...s.packages, pkg] }));
+        get().pushAudit({
+          action: "add_package",
+          actor,
+          detail: `เพิ่ม Package [${p.code}] ${p.name}`,
+          order_id: null,
+        });
         return id;
       },
 
-      updatePackage: async (id, patch) => {
+      updatePackage: async (id, patch, actor = "ระบบ") => {
         if (SUPABASE_ENABLED && supabase) {
           const { error } = await supabase.from("ota_packages").update(patch).eq("id", id);
           if (error) {
@@ -504,13 +513,21 @@ export const useOTAStore = create<OTAState>()(
             return false;
           }
         }
+        const existing = get().packages.find((p) => p.id === id);
         set((s) => ({
           packages: s.packages.map((p) => (p.id === id ? { ...p, ...patch } : p)),
         }));
+        get().pushAudit({
+          action: "update_package",
+          actor,
+          detail: `แก้ไข Package [${existing?.code ?? id}] ${existing?.name ?? ""}`,
+          order_id: null,
+        });
         return true;
       },
 
-      deletePackage: async (id) => {
+      deletePackage: async (id, actor = "ระบบ") => {
+        const existing = get().packages.find((p) => p.id === id);
         if (SUPABASE_ENABLED && supabase) {
           const { error } = await supabase.from("ota_packages").delete().eq("id", id);
           if (error) {
@@ -520,6 +537,12 @@ export const useOTAStore = create<OTAState>()(
           }
         }
         set((s) => ({ packages: s.packages.filter((p) => p.id !== id) }));
+        get().pushAudit({
+          action: "delete_package",
+          actor,
+          detail: `ลบ Package [${existing?.code ?? id}] ${existing?.name ?? ""}`,
+          order_id: null,
+        });
       },
 
       // ── Platform Configs ──────────────────────────────────────────────────
