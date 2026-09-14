@@ -286,8 +286,6 @@ export default function OTAOrderEntry() {
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
-  // ราคา/คน — auto-calculates Gross Price = pricePerPerson × pax
-  const [pricePerPerson, setPricePerPerson] = useState<number>(0);
   const [sortKey, setSortKey] = useState<SortKey>("usage_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [sheetOrder, setSheetOrder] = useState<OTAOrder | null>(null);
@@ -468,7 +466,6 @@ export default function OTAOrderEntry() {
     setEditId(null);
     setCommissionMode("pct");
     setCommissionAmtDirect(0);
-    setPricePerPerson(0);
     setShowForm(true);
   };
   const openEdit = (o: OTAOrder) => {
@@ -488,8 +485,6 @@ export default function OTAOrderEntry() {
     });
     setCommissionMode("pct");
     setCommissionAmtDirect(+(gross * pct / 100).toFixed(2));
-    // ตั้งค่า ราคา/คน จาก gross_price / pax
-    setPricePerPerson(o.pax > 0 ? +(gross / o.pax).toFixed(2) : 0);
     setEditId(o.id); setShowForm(true);
   };
   const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
@@ -1234,11 +1229,11 @@ export default function OTAOrderEntry() {
                     <input type="number" min={1} value={form.pax}
                       onChange={(e) => {
                         const newPax = parseInt(e.target.value) || 1;
+                        const unitPrice = selectedPkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
                         setForm((f) => ({
                           ...f,
                           pax: newPax,
-                          // ถ้ากรอก ราคา/คน ไว้แล้ว → auto-update gross_price
-                          ...(pricePerPerson > 0 ? { gross_price: +(pricePerPerson * newPax).toFixed(2) } : {}),
+                          ...(unitPrice > 0 ? { gross_price: +(unitPrice * newPax).toFixed(2) } : {}),
                         }));
                       }}
                       className={inputCls} />
@@ -1248,12 +1243,12 @@ export default function OTAOrderEntry() {
                     <SearchCombobox
                       value={form.platform}
                       onChange={(v) => {
-                        const price = selectedPkg?.platform_prices.find((pp) => pp.platform === v)?.price ?? 0;
+                        const unitPrice = selectedPkg?.platform_prices.find((pp) => pp.platform === v)?.price ?? 0;
                         const cfg = platformConfigs.find((c) => c.platform === v);
                         setForm((f) => ({
                           ...f,
                           platform: v as OTAPlatform,
-                          gross_price: price > 0 ? price : f.gross_price,
+                          gross_price: unitPrice > 0 ? +(unitPrice * f.pax).toFixed(2) : f.gross_price,
                           commission_pct: cfg !== undefined ? cfg.commission_pct : f.commission_pct,
                         }));
                       }}
@@ -1278,8 +1273,8 @@ export default function OTAOrderEntry() {
                       value={form.package_id}
                       onChange={(v) => {
                         const pkg = packages.find((p) => p.id === v);
-                        const price = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                        setForm((f) => ({ ...f, package_id: v, gross_price: price }));
+                        const unitPrice = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                        setForm((f) => ({ ...f, package_id: v, gross_price: unitPrice > 0 ? +(unitPrice * f.pax).toFixed(2) : f.gross_price }));
                       }}
                       options={packages.map((p) => ({ value: p.id, label: p.code, sublabel: p.name }))}
                       placeholder="Select package"
@@ -1324,47 +1319,25 @@ export default function OTAOrderEntry() {
                   <input value={form.pickup_hotel} onChange={(e) => setForm((f) => ({ ...f, pickup_hotel: e.target.value }))} placeholder="Hotel name (optional)" className={inputCls} />
                 </div>
 
-                {/* Row 6.5: ราคา/คน — auto-multiplies with pax → Gross Price */}
-                <div>
-                  <label className={labelCls}>ราคา/คน (กรอกเพื่อคำนวณ Gross Price อัตโนมัติ)</label>
-                  <div className="flex items-center gap-2">
-                    <input type="number" min={0} step="0.01"
-                      value={pricePerPerson === 0 ? "" : pricePerPerson}
-                      placeholder="0.00"
-                      onChange={(e) => {
-                        const pp = parseFloat(e.target.value) || 0;
-                        setPricePerPerson(pp);
-                        const g = +(pp * form.pax).toFixed(2);
-                        if (commissionMode === "amt") {
-                          const pct = g > 0 ? +(commissionAmtDirect / g * 100).toFixed(4) : 0;
-                          setForm((f) => ({ ...f, gross_price: g, commission_pct: pct }));
-                        } else {
-                          setForm((f) => ({ ...f, gross_price: g }));
-                        }
-                      }}
-                      className={inputCls} />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                      × {form.pax} คน
-                    </span>
-                    {pricePerPerson > 0 && (
-                      <span className="text-xs font-semibold text-purple-600 whitespace-nowrap shrink-0">
-                        = ฿{(pricePerPerson * form.pax).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
                 {/* Row 7: Gross Price | Commission (with % / ฿ toggle) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Gross Price <span className="text-red-500">*</span></label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-foreground/70">Gross Price <span className="text-red-500">*</span></label>
+                      {(() => {
+                        const unitPrice = selectedPkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                        return unitPrice > 0 ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            ฿{unitPrice.toLocaleString()} × {form.pax} คน
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <input type="number" min={0} step="0.01"
                       value={form.gross_price === 0 ? "" : form.gross_price}
                       placeholder="0.00"
                       onChange={(e) => {
                         const g = parseFloat(e.target.value) || 0;
-                        // update pricePerPerson ให้สอดคล้อง
-                        setPricePerPerson(form.pax > 0 ? +(g / form.pax).toFixed(2) : 0);
                         // ถ้าอยู่ใน ฿ mode ให้ sync pct จาก amt เดิม
                         if (commissionMode === "amt") {
                           const pct = g > 0 ? +(commissionAmtDirect / g * 100).toFixed(4) : 0;
