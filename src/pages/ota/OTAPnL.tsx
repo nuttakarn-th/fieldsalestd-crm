@@ -5,7 +5,12 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useOTAStore, OTAGroupCost } from "@/store/otaStore";
-import { TrendingUp, TrendingDown, ChevronDown, ChevronUp, Users, DollarSign, BarChart2, Package, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, ChevronDown, ChevronUp,
+  Users, DollarSign, BarChart2, Package,
+  ArrowUpDown, ArrowUp, ArrowDown,
+  Pencil, Check, X,
+} from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +52,7 @@ function groupDay(code: string, month: string): string {
 
 type SortBy = "date" | "revenue" | "profit";
 type SortDir = "asc" | "desc";
+type DraftCosts = Record<string, number>;
 
 const COST_FIELDS: { key: keyof OTAGroupCost; label: string; emoji: string }[] = [
   { key: "attraction", label: "Attraction",  emoji: "🏞️" },
@@ -57,87 +63,35 @@ const COST_FIELDS: { key: keyof OTAGroupCost; label: string; emoji: string }[] =
   { key: "other_fee",  label: "Other Fee",    emoji: "📦" },
 ];
 
-// ─── Inline number input ──────────────────────────────────────────────────────
-
-function CostInput({ label, emoji, value, onSave }: {
-  label: string; emoji: string; value: number; onSave: (v: number) => void;
-}) {
-  const [draft, setDraft] = useState(value === 0 ? "" : String(value));
-
-  useEffect(() => {
-    setDraft(value === 0 ? "" : String(value));
-  }, [value]);
-
-  const commit = () => {
-    const num = parseFloat(draft.replace(/,/g, "")) || 0;
-    onSave(num);
-  };
-
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
-        {emoji} {label}
-      </label>
-      <div className="relative">
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          className="w-full pl-6 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-300 transition-all"
-          placeholder="0"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => { if (e.key === "Enter") { commit(); (e.target as HTMLInputElement).blur(); } }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Desktop inline edit cell ─────────────────────────────────────────────────
-
-function EditCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const start = () => { setDraft(value === 0 ? "" : String(value)); setEditing(true); };
-  const commit = () => { onSave(parseFloat(draft.replace(/,/g, "")) || 0); setEditing(false); };
-  if (editing) return (
-    <input autoFocus
-      className="w-full text-right text-xs border border-purple-400 rounded px-1 py-1 outline-none bg-purple-50"
-      value={draft} onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
-    />
-  );
-  return (
-    <button onClick={start}
-      className="w-full text-right text-xs py-1 px-1 rounded hover:bg-purple-50 transition-colors block"
-    >
-      {value === 0 ? <span className="text-gray-300">—</span> : fmtB(value)}
-    </button>
-  );
-}
-
 // ─── Mobile Group Card ────────────────────────────────────────────────────────
 
-function GroupCard({ row, month, saveCost }: {
+function GroupCard({ row, month, onSaveAll }: {
   row: ReturnType<typeof buildRows>[number];
   month: string;
-  saveCost: (code: string, field: keyof OTAGroupCost, val: number) => void;
+  onSaveAll: (code: string, draft: DraftCosts) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<DraftCosts>({});
   const isProfit = row.profit >= 0;
   const hasCosts = row.totalCost > 0;
 
+  // Init draft whenever row cost changes or card opens
+  useEffect(() => {
+    const d: DraftCosts = {};
+    COST_FIELDS.forEach((f) => { d[f.key as string] = row.cost[f.key] as number; });
+    setDraft(d);
+  }, [row.cost]);
+
+  const draftTotal = COST_FIELDS.reduce((s, f) => s + (draft[f.key as string] ?? 0), 0);
+  const draftProfit = row.revenue - draftTotal;
+
   return (
     <div className={`rounded-2xl border bg-white overflow-hidden shadow-sm transition-all ${open ? "border-purple-200 shadow-purple-100" : "border-gray-100"}`}>
-      {/* Card header — always visible */}
+      {/* Card header */}
       <button
         className="w-full text-left px-4 py-3.5 flex items-center gap-3"
         onClick={() => setOpen((o) => !o)}
       >
-        {/* Left: group + package */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-bold text-[#1e1b4b] text-base tracking-tight">{row.code}</span>
@@ -148,54 +102,79 @@ function GroupCard({ row, month, saveCost }: {
             )}
           </div>
           <div className="flex items-center gap-3 text-xs text-gray-400">
-            {(() => { const day = groupDay(row.code, month); return day ? <span className="text-gray-400">{day}</span> : null; })()}
+            {(() => { const day = groupDay(row.code, month); return day ? <span>{day}</span> : null; })()}
             <span>{row.pax} PAX</span>
             <span>·</span>
             <span className="text-blue-600 font-medium">{fmtB(row.revenue)}</span>
             {hasCosts && (
               <>
                 <span>·</span>
-                <span className="text-gray-400">ต้นทุน {fmtB(row.totalCost)}</span>
+                <span>ต้นทุน {fmtB(row.totalCost)}</span>
               </>
             )}
           </div>
         </div>
-
-        {/* Right: profit pill + chevron */}
         <div className="flex items-center gap-2 shrink-0">
           <span className={`text-sm font-bold px-2.5 py-1 rounded-xl ${isProfit ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>
             {isProfit ? "+" : ""}{fmtShort(row.profit)}
           </span>
-          {open
-            ? <ChevronUp className="w-4 h-4 text-gray-400" />
-            : <ChevronDown className="w-4 h-4 text-gray-400" />}
+          {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </div>
       </button>
 
-      {/* Expanded cost inputs */}
+      {/* Expanded: draft inputs + Save/Cancel */}
       {open && (
         <div className="border-t border-gray-100 px-4 pt-3 pb-4 bg-gray-50/50">
           <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-3">กรอกต้นทุน</p>
           <div className="grid grid-cols-2 gap-3">
             {COST_FIELDS.map((f) => (
-              <CostInput
-                key={f.key}
-                label={f.label}
-                emoji={f.emoji}
-                value={row.cost[f.key] as number}
-                onSave={(v) => saveCost(row.code, f.key, v)}
-              />
+              <div key={f.key as string} className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-500 font-medium uppercase tracking-wide">
+                  {f.emoji} {f.label}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="w-full pl-6 pr-2 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-300 transition-all"
+                    placeholder="0"
+                    value={draft[f.key as string] === 0 ? "" : draft[f.key as string] ?? ""}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setDraft((d) => ({ ...d, [f.key as string]: val }));
+                    }}
+                  />
+                </div>
+              </div>
             ))}
           </div>
-          {/* Summary row */}
-          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-xs text-gray-500">
-              รายได้ <span className="font-semibold text-blue-600">{fmtB(row.revenue)}</span>
-              &nbsp;− ต้นทุน <span className="font-semibold text-gray-700">{fmtB(row.totalCost)}</span>
+
+          {/* Preview + Save/Cancel */}
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>รายได้ <span className="font-semibold text-blue-600">{fmtB(row.revenue)}</span> − ต้นทุน <span className="font-semibold text-gray-700">{fmtB(draftTotal)}</span></span>
+              <span className={`font-bold ${draftProfit >= 0 ? "text-green-600" : "text-red-500"}`}>
+                {draftProfit >= 0 ? "+" : ""}{fmtB(draftProfit)}
+              </span>
             </div>
-            <div className={`flex items-center gap-1 font-bold text-sm ${isProfit ? "text-green-600" : "text-red-500"}`}>
-              {isProfit ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              {fmtB(row.profit)}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const d: DraftCosts = {};
+                  COST_FIELDS.forEach((f) => { d[f.key as string] = row.cost[f.key] as number; });
+                  setDraft(d);
+                }}
+                className="flex-1 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" /> ยกเลิก
+              </button>
+              <button
+                onClick={() => { onSaveAll(row.code, draft); setOpen(false); }}
+                className="flex-1 py-2 text-xs font-medium text-white bg-purple-600 rounded-xl hover:bg-purple-700 transition-colors flex items-center justify-center gap-1"
+              >
+                <Check className="w-3.5 h-3.5" /> บันทึก
+              </button>
             </div>
           </div>
         </div>
@@ -258,6 +237,10 @@ export default function OTAPnL() {
   const [sortBy, setSortBy] = useState<SortBy>("date");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  // Row-level edit state (desktop)
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [draftCosts, setDraftCosts] = useState<DraftCosts>({});
+
   useEffect(() => { loadGroupCostsByMonth(month); }, [month, loadGroupCostsByMonth]);
 
   const rawRows = useMemo(
@@ -281,22 +264,47 @@ export default function OTAPnL() {
   const totalProfit  = totalRevenue - totalCostAll;
   const totalPax     = rows.reduce((s, r) => s + r.pax, 0);
 
-  const saveCost = useCallback(
-    (groupCode: string, field: keyof OTAGroupCost, value: number) => {
+  // Save all cost fields for a row at once
+  const saveAllCosts = useCallback(
+    (groupCode: string, draft: DraftCosts) => {
       const existing = groupCosts.find(
         (c) => c.group_code === groupCode && c.month === month
       ) ?? { group_code: groupCode, month, attraction: 0, meals: 0, car: 0,
               guide_fee: 0, tip_driver: 0, other_fee: 0, note: "" };
-      upsertGroupCost({ ...existing, [field]: value } as Omit<OTAGroupCost, "id" | "created_at">);
+      upsertGroupCost({
+        ...existing,
+        attraction: draft["attraction"] ?? 0,
+        meals:      draft["meals"]      ?? 0,
+        car:        draft["car"]        ?? 0,
+        guide_fee:  draft["guide_fee"]  ?? 0,
+        tip_driver: draft["tip_driver"] ?? 0,
+        other_fee:  draft["other_fee"]  ?? 0,
+      } as Omit<OTAGroupCost, "id" | "created_at">);
     },
     [groupCosts, month, upsertGroupCost]
   );
 
+  // Desktop: start editing a row
+  const startEdit = (row: typeof rows[number]) => {
+    const d: DraftCosts = {};
+    COST_FIELDS.forEach((f) => { d[f.key as string] = row.cost[f.key] as number; });
+    setDraftCosts(d);
+    setEditingRow(row.code);
+  };
+
+  const cancelEdit = () => { setEditingRow(null); setDraftCosts({}); };
+
+  const confirmEdit = (row: typeof rows[number]) => {
+    saveAllCosts(row.code, draftCosts);
+    setEditingRow(null);
+    setDraftCosts({});
+  };
+
   const kpis = [
-    { label: "กรุ๊ป", value: `${rows.length}`, sub: "กรุ๊ป", icon: Package, color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "PAX รวม", value: `${totalPax.toLocaleString("th-TH")}`, sub: "คน", icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "รายได้รวม", value: fmtB(totalRevenue), sub: "", icon: DollarSign, color: "text-indigo-600", bg: "bg-indigo-50" },
-    { label: "กำไร / ขาดทุน", value: fmtB(totalProfit), sub: "", icon: BarChart2,
+    { label: "กรุ๊ป", value: `${rows.length}`, icon: Package, color: "text-purple-600", bg: "bg-purple-50" },
+    { label: "PAX รวม", value: `${totalPax.toLocaleString("th-TH")}`, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "รายได้รวม", value: fmtB(totalRevenue), icon: DollarSign, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { label: "กำไร / ขาดทุน", value: fmtB(totalProfit), icon: BarChart2,
       color: totalProfit >= 0 ? "text-green-600" : "text-red-500",
       bg:    totalProfit >= 0 ? "bg-green-50" : "bg-red-50" },
   ];
@@ -314,7 +322,7 @@ export default function OTAPnL() {
           <select
             className="appearance-none bg-purple-600 text-white text-sm font-semibold rounded-xl px-4 py-2 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm"
             value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            onChange={(e) => { setMonth(e.target.value); cancelEdit(); }}
           >
             {monthOptions.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -371,7 +379,7 @@ export default function OTAPnL() {
                 </div>
               </div>
               {rows.map((row) => (
-                <GroupCard key={row.code} row={row} month={month} saveCost={saveCost} />
+                <GroupCard key={row.code} row={row} month={month} onSaveAll={saveAllCosts} />
               ))}
             </div>
 
@@ -380,7 +388,8 @@ export default function OTAPnL() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="bg-[#1e1b4b] text-white text-xs">
-                    <th className="px-3 py-3 text-center w-8">#</th>
+                    {/* Action column */}
+                    <th className="px-2 py-3 text-center w-14"></th>
                     <th className="px-3 py-3 text-left min-w-[130px]">
                       <button
                         className="flex items-center gap-1 hover:text-purple-200 transition-colors"
@@ -405,7 +414,7 @@ export default function OTAPnL() {
                       </button>
                     </th>
                     {COST_FIELDS.map((f) => (
-                      <th key={f.key} className="px-2 py-3 text-right min-w-[85px] font-medium">
+                      <th key={f.key as string} className="px-2 py-3 text-right min-w-[85px] font-medium">
                         {f.emoji} {f.label}
                       </th>
                     ))}
@@ -424,45 +433,114 @@ export default function OTAPnL() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={row.code}
-                      className={`border-b border-gray-50 hover:bg-purple-50/20 transition-colors ${i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}
-                    >
-                      <td className="px-3 py-2.5 text-center text-gray-300 text-xs">{row.no}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="font-bold text-[#1e1b4b] text-sm">{row.code}</div>
-                        {(() => { const day = groupDay(row.code, month); return day ? <div className="text-[10px] text-gray-400 mt-0.5">{day}</div> : null; })()}
-                        {row.packageCodes.length > 0 && (
-                          <div className="text-[10px] text-purple-500 mt-0.5">{row.packageCodes.join(", ")}</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-center font-semibold text-gray-700 text-sm">{row.pax}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-blue-600 text-sm">{fmtB(row.revenue)}</td>
-                      {COST_FIELDS.map((f) => (
-                        <td key={f.key} className="px-2 py-1.5">
-                          <EditCell value={row.cost[f.key] as number} onSave={(v) => saveCost(row.code, f.key, v)} />
+                  {rows.map((row, i) => {
+                    const isEditing = editingRow === row.code;
+                    // draft total & profit for preview while editing
+                    const dTotal = isEditing
+                      ? COST_FIELDS.reduce((s, f) => s + (draftCosts[f.key as string] ?? 0), 0)
+                      : row.totalCost;
+                    const dProfit = row.revenue - dTotal;
+
+                    return (
+                      <tr key={row.code}
+                        className={`border-b border-gray-50 transition-colors
+                          ${isEditing
+                            ? "bg-amber-50/60 border-l-2 border-l-amber-400"
+                            : i % 2 === 0 ? "bg-white hover:bg-purple-50/20" : "bg-gray-50/40 hover:bg-purple-50/20"
+                          }`}
+                      >
+                        {/* Action cell */}
+                        <td className="px-2 py-2 text-center">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => confirmEdit(row)}
+                                title="บันทึก"
+                                className="p-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                title="ยกเลิก"
+                                className="p-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-600 transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => startEdit(row)}
+                              title="แก้ไขต้นทุน"
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </td>
-                      ))}
-                      <td className="px-3 py-2.5 text-right text-sm font-medium text-gray-600">{fmtB(row.totalCost)}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className={`inline-flex items-center gap-1 font-bold text-sm px-2 py-0.5 rounded-lg
-                          ${row.profit >= 0 ? "text-green-600 bg-green-50" : "text-red-500 bg-red-50"}`}>
-                          {row.profit >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {fmtB(row.profit)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+
+                        {/* Group Code */}
+                        <td className="px-3 py-2.5">
+                          <div className="font-bold text-[#1e1b4b] text-sm">{row.code}</div>
+                          {(() => { const day = groupDay(row.code, month); return day ? <div className="text-[10px] text-gray-400 mt-0.5">{day}</div> : null; })()}
+                          {row.packageCodes.length > 0 && (
+                            <div className="text-[10px] text-purple-500 mt-0.5">{row.packageCodes.join(", ")}</div>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-2.5 text-center font-semibold text-gray-700 text-sm">{row.pax}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold text-blue-600 text-sm">{fmtB(row.revenue)}</td>
+
+                        {/* Cost fields — inputs when editing, display when not */}
+                        {COST_FIELDS.map((f) => (
+                          <td key={f.key as string} className="px-2 py-1.5">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                className="w-full text-right text-xs border border-amber-300 rounded px-1.5 py-1.5 outline-none bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-300"
+                                placeholder="0"
+                                value={draftCosts[f.key as string] === 0 ? "" : draftCosts[f.key as string] ?? ""}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setDraftCosts((d) => ({ ...d, [f.key as string]: val }));
+                                }}
+                              />
+                            ) : (
+                              <span className={`block text-right text-xs py-1 px-1 ${(row.cost[f.key] as number) === 0 ? "text-gray-300" : "text-gray-700"}`}>
+                                {(row.cost[f.key] as number) === 0 ? "—" : fmtB(row.cost[f.key] as number)}
+                              </span>
+                            )}
+                          </td>
+                        ))}
+
+                        {/* Total cost — live preview while editing */}
+                        <td className="px-3 py-2.5 text-right text-sm font-medium text-gray-600">
+                          {fmtB(dTotal)}
+                        </td>
+
+                        {/* Profit — live preview while editing */}
+                        <td className="px-3 py-2.5 text-right">
+                          <span className={`inline-flex items-center gap-1 font-bold text-sm px-2 py-0.5 rounded-lg
+                            ${dProfit >= 0 ? "text-green-600 bg-green-50" : "text-red-500 bg-red-50"}`}>
+                            {dProfit >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {fmtB(dProfit)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#1e1b4b]/5 border-t-2 border-[#1e1b4b]/10 font-bold">
-                    <td colSpan={2} className="px-3 py-3 text-sm text-gray-700">รวมทั้งหมด</td>
+                    <td className="px-2 py-3" />
+                    <td colSpan={1} className="px-3 py-3 text-sm text-gray-700">รวมทั้งหมด</td>
                     <td className="px-3 py-3 text-center text-sm text-gray-700">{totalPax}</td>
                     <td className="px-3 py-3 text-right text-sm text-blue-600">{fmtB(totalRevenue)}</td>
                     {COST_FIELDS.map((f) => {
                       const total = rows.reduce((s, r) => s + (r.cost[f.key] as number), 0);
                       return (
-                        <td key={f.key} className="px-2 py-3 text-right text-xs text-gray-500">
+                        <td key={f.key as string} className="px-2 py-3 text-right text-xs text-gray-500">
                           {total > 0 ? fmtB(total) : "—"}
                         </td>
                       );
