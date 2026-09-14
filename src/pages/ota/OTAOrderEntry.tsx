@@ -277,7 +277,7 @@ export default function OTAOrderEntry() {
   // Import preview state (before confirm)
   interface ImportPreviewData {
     newRows: Omit<OTAOrder, "id" | "created_at">[];
-    dupOrderNums: string[];
+    updateRows: { id: string; data: Omit<OTAOrder, "id" | "created_at"> }[];
     errorRows: ImportError[];
     totalRows: number;
   }
@@ -301,7 +301,7 @@ export default function OTAOrderEntry() {
   const [filterPriceMax, setFilterPriceMax] = useState("");
   const [showAdvFilters, setShowAdvFilters] = useState(false);
   const [showGroupSuggest, setShowGroupSuggest] = useState(false);
-  const [previewTab, setPreviewTab] = useState<"new" | "dup">("new");
+  const [previewTab, setPreviewTab] = useState<"new" | "update">("new");
 
   // ── Format (Clear All Orders) state ────────────────────────────────────────
   // Layer 1: impact warning + checkbox
@@ -571,7 +571,7 @@ export default function OTAOrderEntry() {
         const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
         const errors: ImportError[] = [];
         const newRows: Omit<OTAOrder, "id" | "created_at">[] = [];
-        const dupOrderNums: string[] = [];
+        const updateRows: { id: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
 
         // Existing order numbers for duplicate detection
         const existingOrderNums = new Set(orders.map((o) => o.order_number.trim().toLowerCase()));
@@ -648,12 +648,6 @@ export default function OTAOrderEntry() {
             return;
           }
 
-          // Duplicate check by order_number
-          if (existingOrderNums.has(orderNumStr.toLowerCase())) {
-            dupOrderNums.push(orderNumStr);
-            return; // skip — don't add to newRows
-          }
-
           const pkg = getPackageByCode(String(pkgCode ?? "").trim());
           // ตรวจ package_id — ถ้าเป็น seed ID เก่า (ขึ้นต้นด้วย "pkg-") หรือไม่ตรงกับ UUID ใน DB → ใช้ null
           const rawPkgId = pkg?.id ?? "";
@@ -666,7 +660,7 @@ export default function OTAOrderEntry() {
           const revenue    = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
           void revenueRaw;
 
-          newRows.push({
+          const orderData: Omit<OTAOrder, "id" | "created_at"> = {
             booking_date:    parsedBookingDate,
             usage_date:      parsedUsageDate,
             order_number:    orderNumStr,
@@ -683,10 +677,18 @@ export default function OTAOrderEntry() {
             discount:        discount,
             revenue:         revenue,
             created_by:      currentUser?.full_name ?? "Import",
-          });
+          };
+
+          // Duplicate → update existing; new → insert
+          if (existingOrderNums.has(orderNumStr.toLowerCase())) {
+            const existing = orders.find((o) => o.order_number.trim().toLowerCase() === orderNumStr.toLowerCase());
+            if (existing) updateRows.push({ id: existing.id, data: orderData });
+          } else {
+            newRows.push(orderData);
+          }
         });
 
-        setImportPreview({ newRows, dupOrderNums, errorRows: errors, totalRows: dataRows.length });
+        setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length });
         setShowImportPreview(true);
       } catch {
         toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
@@ -696,26 +698,38 @@ export default function OTAOrderEntry() {
     e.target.value = "";
   };
 
-  // ── Import — Phase 2: Confirm insert new rows only ───────────────────────
+  // ── Import — Phase 2: Confirm insert new + update existing ───────────────
   const handleImportConfirm = async () => {
     if (!importPreview) return;
     setShowImportPreview(false);
-    const { newRows, errorRows } = importPreview;
+    const { newRows, updateRows, errorRows } = importPreview;
 
     let inserted = 0;
+    let updated = 0;
     let batchErrors = 0;
+
     if (newRows.length > 0) {
       const result = await importOrders(newRows);
-      inserted  = result.inserted;
+      inserted    = result.inserted;
       batchErrors = result.errors;
     }
 
+    for (const { id, data } of updateRows) {
+      try {
+        await updateOrder(id, data, currentUser?.full_name ?? "Import");
+        updated++;
+      } catch {
+        batchErrors++;
+      }
+    }
+
     const totalFailed = errorRows.length + batchErrors;
-    setImportStats({ inserted, updated: 0, failed: totalFailed });
+    setImportStats({ inserted, updated, failed: totalFailed });
     setImportErrors(errorRows);
     setImportPreview(null);
     setShowImportResult(true);
     if (inserted > 0) toast.success(`Import สำเร็จ: เพิ่ม ${inserted} orders`);
+    if (updated  > 0) toast.success(`อัพเดต ${updated} orders สำเร็จ`);
     if (totalFailed > 0) toast.error(`${totalFailed} rows มีข้อผิดพลาด`);
   };
 
@@ -1434,9 +1448,9 @@ export default function OTAOrderEntry() {
                   <div className="text-xl font-semibold text-green-700 dark:text-green-400">{importPreview.newRows.length}</div>
                   <div className="text-[11px] text-green-700/70 dark:text-green-400/70 mt-0.5">รายการใหม่</div>
                 </div>
-                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-                  <div className="text-xl font-semibold text-amber-700 dark:text-amber-400">{importPreview.dupOrderNums.length}</div>
-                  <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5">ซ้ำในระบบ</div>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                  <div className="text-xl font-semibold text-blue-700 dark:text-blue-400">{importPreview.updateRows.length}</div>
+                  <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-0.5">อัพเดต</div>
                 </div>
               </div>
 
@@ -1453,16 +1467,16 @@ export default function OTAOrderEntry() {
 
               {/* Tabs */}
               <div className="flex border-b border-border px-5 shrink-0">
-                {(["new", "dup"] as const).map((t) => {
-                  const label = t === "new" ? `รายการใหม่ (${importPreview.newRows.length})` : `ซ้ำในระบบ (${importPreview.dupOrderNums.length})`;
+                {(["new", "update"] as const).map((t) => {
+                  const label = t === "new" ? `รายการใหม่ (${importPreview.newRows.length})` : `อัพเดต (${importPreview.updateRows.length})`;
                   const active = previewTab === t;
                   return (
-                    <button key={t} onClick={() => setPreviewTab(t)}
+                    <button key={t} onClick={() => setPreviewTab(t as "new" | "update")}
                       className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
                         active
                           ? t === "new"
                             ? "border-green-600 text-green-700 dark:text-green-400"
-                            : "border-amber-500 text-amber-700 dark:text-amber-400"
+                            : "border-blue-500 text-blue-700 dark:text-blue-400"
                           : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}
                     >{label}</button>
@@ -1486,32 +1500,30 @@ export default function OTAOrderEntry() {
                       </div>
                     ))
                 )}
-                {previewTab === "dup" && (() => {
+                {previewTab === "update" && (() => {
                   const SHOW = 50;
                   return (
                     <>
-                      <p className="text-[11px] text-muted-foreground pb-1">รายการเหล่านี้มี Order # ซ้ำในระบบแล้ว จะถูกข้ามโดยอัตโนมัติ</p>
-                      {importPreview.dupOrderNums.slice(0, SHOW).map((num, i) => {
-                        const existing = orders.find((o) => o.order_number.trim().toLowerCase() === num.trim().toLowerCase());
+                      <p className="text-[11px] text-muted-foreground pb-1">รายการเหล่านี้มี Order # ในระบบแล้ว — จะอัพเดตราคา / Commission / ส่วนลด</p>
+                      {importPreview.updateRows.slice(0, SHOW).map(({ id, data }, i) => {
+                        const existing = orders.find((o) => o.id === id);
                         return (
-                          <div key={i} className="flex items-center gap-2.5 bg-muted/50 border border-border rounded-xl px-3 py-2.5">
-                            {existing && (
-                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${platColor(existing.platform)}`}>{existing.platform}</span>
-                            )}
+                          <div key={i} className="flex items-center gap-2.5 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30 rounded-xl px-3 py-2.5">
+                            <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${platColor(data.platform)}`}>{data.platform}</span>
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium font-mono truncate text-foreground">{num}</div>
-                              {existing && (
-                                <div className="text-[11px] text-muted-foreground">
-                                  {(() => { const pkg = packages.find((p) => p.id === existing.package_id); return pkg?.code ?? "–"; })()} · {existing.pax} pax · {fmtDate(existing.usage_date)}
-                                </div>
-                              )}
+                              <div className="text-xs font-medium font-mono truncate text-foreground">{data.order_number}</div>
+                              <div className="text-[11px] text-muted-foreground">
+                                ฿{existing ? existing.gross_price.toLocaleString() : "–"} → <span className="text-blue-600 dark:text-blue-400 font-medium">฿{data.gross_price.toLocaleString()}</span>
+                                {" · Net: "}
+                                <span className="text-blue-600 dark:text-blue-400 font-medium">฿{data.revenue.toLocaleString()}</span>
+                              </div>
                             </div>
-                            <span className="shrink-0 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] px-2 py-0.5 rounded-full">ซ้ำ</span>
+                            <span className="shrink-0 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-[10px] px-2 py-0.5 rounded-full">อัพเดต</span>
                           </div>
                         );
                       })}
-                      {importPreview.dupOrderNums.length > SHOW && (
-                        <p className="text-[11px] text-muted-foreground text-center py-1">และอีก {importPreview.dupOrderNums.length - SHOW} รายการ</p>
+                      {importPreview.updateRows.length > SHOW && (
+                        <p className="text-[11px] text-muted-foreground text-center py-1">และอีก {importPreview.updateRows.length - SHOW} รายการ</p>
                       )}
                     </>
                   );
@@ -1524,9 +1536,11 @@ export default function OTAOrderEntry() {
                   className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors">
                   ยกเลิก
                 </button>
-                <button onClick={handleImportConfirm} disabled={importPreview.newRows.length === 0}
+                <button
+                  onClick={handleImportConfirm}
+                  disabled={importPreview.newRows.length === 0 && importPreview.updateRows.length === 0}
                   className="flex-[2] px-4 py-2.5 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors font-semibold">
-                  ✓ ยืนยันเพิ่ม {importPreview.newRows.length} รายการ
+                  ✓ ยืนยัน{importPreview.newRows.length > 0 ? ` เพิ่ม ${importPreview.newRows.length}` : ""}{importPreview.newRows.length > 0 && importPreview.updateRows.length > 0 ? " +" : ""}{importPreview.updateRows.length > 0 ? ` อัพเดต ${importPreview.updateRows.length}` : ""} รายการ
                 </button>
               </div>
 
@@ -1724,6 +1738,10 @@ export default function OTAOrderEntry() {
                 <div className="flex-1 bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-green-600">{importStats.inserted}</div>
                   <div className="text-xs text-green-600/80">เพิ่มใหม่</div>
+                </div>
+                <div className="flex-1 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-600">{importStats.updated}</div>
+                  <div className="text-xs text-blue-600/80">อัพเดต</div>
                 </div>
                 <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-red-600">{importStats.failed}</div>
