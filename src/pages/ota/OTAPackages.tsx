@@ -85,9 +85,13 @@ export default function OTAPackages() {
       .filter((r) => r.platform.trim() && r.price > 0)
       .map((r) => ({ platform: r.platform.trim(), price: r.price }));
     const payload = { code: code.trim().toUpperCase(), name: name.trim(), platform_prices };
-    if (editId) { await updatePackage(editId, payload); toast.success("แก้ไข Package สำเร็จ"); }
-    else { await addPackage(payload); toast.success("เพิ่ม Package สำเร็จ"); }
-    setShowForm(false);
+    if (editId) {
+      const ok = await updatePackage(editId, payload);
+      if (ok) { toast.success("แก้ไข Package สำเร็จ"); setShowForm(false); }
+    } else {
+      const id = await addPackage(payload);
+      if (id) { toast.success("เพิ่ม Package สำเร็จ"); setShowForm(false); }
+    }
   };
 
   const handleDelete = async (id: string) => {

@@ -130,8 +130,8 @@ interface OTAState {
   deleteOrder: (id: string, actor?: string) => Promise<void>;
 
   // Packages
-  addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => Promise<string>;
-  updatePackage: (id: string, patch: Partial<OTAPackage>) => Promise<void>;
+  addPackage: (p: Omit<OTAPackage, "id" | "created_at">) => Promise<string | null>;
+  updatePackage: (id: string, patch: Partial<OTAPackage>) => Promise<boolean>;
   deletePackage: (id: string) => Promise<void>;
 
   // Platform Configs
@@ -487,7 +487,7 @@ export const useOTAStore = create<OTAState>()(
           if (error) {
             console.error("[ota] addPackage error:", error);
             toast.error(`บันทึก Package ไม่สำเร็จ — ${error.message}`);
-            return id;
+            return null;
           }
         }
 
@@ -501,12 +501,13 @@ export const useOTAStore = create<OTAState>()(
           if (error) {
             console.error("[ota] updatePackage error:", error);
             toast.error(`แก้ไข Package ไม่สำเร็จ — ${error.message}`);
-            return;
+            return false;
           }
         }
         set((s) => ({
           packages: s.packages.map((p) => (p.id === id ? { ...p, ...patch } : p)),
         }));
+        return true;
       },
 
       deletePackage: async (id) => {
