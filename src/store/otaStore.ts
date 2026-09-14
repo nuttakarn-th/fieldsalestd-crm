@@ -154,6 +154,9 @@ interface OTAState {
   // Bulk import (upsert by order_number)
   importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number }>;
 
+  // Format — ลบ orders ทั้งหมด (Supabase + localStorage)
+  clearAllOrders: (actor?: string) => Promise<void>;
+
   // Helpers
   getOrdersByMonth: (year: number, month: number) => OTAOrder[];
   getPackageByCode: (code: string) => OTAPackage | undefined;
@@ -810,6 +813,31 @@ export const useOTAStore = create<OTAState>()(
           detail: `Import ${rows.length} orders (ใหม่ ${inserted}, อัปเดต ${updated}${errors > 0 ? `, error ${errors}` : ""})`,
         });
         return { inserted, updated, errors };
+      },
+
+      // ── Clear All Orders ─────────────────────────────────────────────────────
+
+      clearAllOrders: async (actor = "ระบบ") => {
+        const count = get().orders.length;
+        if (SUPABASE_ENABLED && supabase) {
+          const { error } = await supabase
+            .from("ota_orders")
+            .delete()
+            .neq("id", "___never___"); // delete all rows — neq with impossible value = all rows
+          if (error) {
+            console.error("[ota] clearAllOrders error:", error);
+            toast.error(`ล้างข้อมูลไม่สำเร็จ — ${error.message}`);
+            return;
+          }
+        }
+        set({ orders: [], loaded: true });
+        get().pushAudit({
+          action: "delete_order",
+          actor,
+          detail: `Format ข้อมูล — ลบ Orders ทั้งหมด ${count} รายการ`,
+          order_id: null,
+        });
+        toast.success(`ล้างข้อมูลสำเร็จ — ${count} orders ถูกลบแล้ว`);
       },
 
       // ── Helpers ──────────────────────────────────────────────────────────────

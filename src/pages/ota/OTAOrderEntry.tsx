@@ -3,9 +3,10 @@
  * Mirror: Standard Daycation Database → Order Entry page
  * v2: + Export XLSX + Import XLSX
  */
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, X, Check, Download, Upload, AlertCircle, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useOTAStore, OTAPlatform, OTA_PLATFORMS, OTAOrder } from "@/store/otaStore";
+import { AlertTriangle } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -259,7 +260,7 @@ function MultiSelectDropdown({
 }
 
 export default function OTAOrderEntry() {
-  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
+  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, clearAllOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
   const currentUser = useCurrentUser();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -301,6 +302,59 @@ export default function OTAOrderEntry() {
   const [showAdvFilters, setShowAdvFilters] = useState(false);
   const [showGroupSuggest, setShowGroupSuggest] = useState(false);
   const [previewTab, setPreviewTab] = useState<"new" | "dup">("new");
+
+  // ── Format (Clear All Orders) state ────────────────────────────────────────
+  // Layer 1: impact warning + checkbox
+  const [showFormatL1, setShowFormatL1] = useState(false);
+  const [formatL1Checked, setFormatL1Checked] = useState(false);
+  // Layer 2: type-to-confirm
+  const [showFormatL2, setShowFormatL2] = useState(false);
+  const [formatTypeInput, setFormatTypeInput] = useState("");
+  // Layer 3: hold-to-confirm
+  const [showFormatL3, setShowFormatL3] = useState(false);
+  const [formatHoldProgress, setFormatHoldProgress] = useState(0); // 0–100
+  const formatHoldRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isFormatting, setIsFormatting] = useState(false);
+
+  const CONFIRM_WORD = "ล้างข้อมูล";
+  const HOLD_DURATION_MS = 3000;
+
+  const resetFormatState = useCallback(() => {
+    setShowFormatL1(false);
+    setShowFormatL2(false);
+    setShowFormatL3(false);
+    setFormatL1Checked(false);
+    setFormatTypeInput("");
+    setFormatHoldProgress(0);
+    if (formatHoldRef.current) clearInterval(formatHoldRef.current);
+  }, []);
+
+  const startHold = () => {
+    if (formatHoldRef.current) return;
+    const startTime = Date.now();
+    formatHoldRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min((elapsed / HOLD_DURATION_MS) * 100, 100);
+      setFormatHoldProgress(pct);
+      if (pct >= 100) {
+        if (formatHoldRef.current) clearInterval(formatHoldRef.current);
+        formatHoldRef.current = null;
+        handleFormatConfirm();
+      }
+    }, 30);
+  };
+
+  const stopHold = () => {
+    if (formatHoldRef.current) { clearInterval(formatHoldRef.current); formatHoldRef.current = null; }
+    setFormatHoldProgress(0);
+  };
+
+  const handleFormatConfirm = async () => {
+    setIsFormatting(true);
+    await clearAllOrders(currentUser?.full_name ?? "ระบบ");
+    setIsFormatting(false);
+    resetFormatState();
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -860,12 +914,20 @@ export default function OTAOrderEntry() {
         </div>
       </div>
 
-      {/* Template hint */}
+      {/* Template hint + Format button */}
       <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
         <button onClick={handleDownloadTemplate} className="text-purple-600 hover:underline flex items-center gap-1">
           <Download className="w-3 h-3" /> ดาวน์โหลด Import Template
         </button>
         <span>· รองรับ .xlsx / .xls / .csv</span>
+        <span className="ml-auto">
+          <button
+            onClick={() => { setShowFormatL1(true); setFormatL1Checked(false); }}
+            className="text-red-400 hover:text-red-600 text-[11px] transition-colors"
+          >
+            Format ข้อมูล
+          </button>
+        </span>
       </div>
 
       {/* ── Mobile Card List (compact 2-line, tap to open Bottom Sheet) ─────── */}
@@ -1470,6 +1532,182 @@ export default function OTAOrderEntry() {
           </div>
         );
       })()}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          FORMAT DIALOGS — Layer 1 / 2 / 3
+      ════════════════════════════════════════════════════════════════════════ */}
+
+      {/* Layer 1: Impact Warning + Checkbox */}
+      {showFormatL1 && (() => {
+        const totalPax   = orders.reduce((s, o) => s + o.pax, 0);
+        const totalRev   = orders.reduce((s, o) => s + o.revenue, 0);
+        const fmtB = (n: number) => `฿${n.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`;
+        return (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
+              {/* Header */}
+              <div className="flex items-center gap-3 p-5 border-b border-border">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-base text-foreground">Format ข้อมูล Order Entry</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">ขั้นตอนที่ 1 จาก 3</p>
+                </div>
+              </div>
+              {/* Impact stats */}
+              <div className="p-5 space-y-3">
+                <p className="text-sm text-foreground font-medium">ข้อมูลที่จะถูกลบถาวร:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-red-600">{orders.length}</div>
+                    <div className="text-[10px] text-red-500 mt-0.5">Orders</div>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
+                    <div className="text-xl font-bold text-red-600">{totalPax}</div>
+                    <div className="text-[10px] text-red-500 mt-0.5">Pax</div>
+                  </div>
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
+                    <div className="text-base font-bold text-red-600">{fmtB(totalRev)}</div>
+                    <div className="text-[10px] text-red-500 mt-0.5">Revenue</div>
+                  </div>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                  <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">⚠ ข้อมูลทั้งหมดจะถูกลบออกจาก Supabase และ localStorage — ไม่สามารถกู้คืนได้</p>
+                </div>
+                {/* Checkbox confirm */}
+                <label className="flex items-start gap-3 cursor-pointer select-none mt-1">
+                  <input
+                    type="checkbox"
+                    checked={formatL1Checked}
+                    onChange={(e) => setFormatL1Checked(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-red-600"
+                  />
+                  <span className="text-xs text-foreground leading-relaxed">
+                    ฉันเข้าใจว่าข้อมูลที่ลบจะ<strong>ไม่สามารถกู้คืนได้</strong> และต้องการดำเนินการต่อ
+                  </span>
+                </label>
+              </div>
+              {/* Footer */}
+              <div className="flex gap-3 p-5 pt-0">
+                <button onClick={resetFormatState}
+                  className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors">
+                  ยกเลิก
+                </button>
+                <button
+                  disabled={!formatL1Checked}
+                  onClick={() => { setShowFormatL1(false); setShowFormatL2(true); setFormatTypeInput(""); }}
+                  className="flex-[2] px-4 py-2.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-colors font-semibold">
+                  ดำเนินการต่อ →
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Layer 2: Type-to-confirm */}
+      {showFormatL2 && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center gap-3 p-5 border-b border-border">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-base text-foreground">ยืนยันการลบข้อมูล</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">ขั้นตอนที่ 2 จาก 3</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-foreground">
+                พิมพ์ <span className="font-mono font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded">{CONFIRM_WORD}</span> เพื่อยืนยัน
+              </p>
+              <input
+                autoFocus
+                type="text"
+                value={formatTypeInput}
+                onChange={(e) => setFormatTypeInput(e.target.value)}
+                placeholder={`พิมพ์ "${CONFIRM_WORD}"`}
+                className={`w-full px-4 py-2.5 text-sm border-2 rounded-xl outline-none transition-colors font-mono bg-background
+                  ${formatTypeInput === CONFIRM_WORD
+                    ? "border-green-500 text-green-700 dark:text-green-400"
+                    : "border-border focus:border-red-400"
+                  }`}
+              />
+              {formatTypeInput.length > 0 && formatTypeInput !== CONFIRM_WORD && (
+                <p className="text-xs text-red-500">ข้อความไม่ตรง — พิมพ์ให้ตรงกับ "{CONFIRM_WORD}"</p>
+              )}
+            </div>
+            <div className="flex gap-3 p-5 pt-0">
+              <button onClick={resetFormatState}
+                className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors">
+                ยกเลิก
+              </button>
+              <button
+                disabled={formatTypeInput !== CONFIRM_WORD}
+                onClick={() => { setShowFormatL2(false); setShowFormatL3(true); }}
+                className="flex-[2] px-4 py-2.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-colors font-semibold">
+                ดำเนินการต่อ →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Layer 3: Hold-to-confirm */}
+      {showFormatL3 && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center gap-3 p-5 border-b border-border">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-base text-foreground">กดค้างเพื่อลบข้อมูล</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">ขั้นตอนที่ 3 จาก 3 — ขั้นตอนสุดท้าย</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                กดปุ่มด้านล่างค้างไว้ <strong>3 วินาที</strong> เพื่อดำเนินการลบ<br/>
+                หากปล่อยก่อนครบ การลบจะถูกยกเลิก
+              </p>
+              {/* Hold button */}
+              <div className="relative select-none">
+                <button
+                  disabled={isFormatting}
+                  onMouseDown={startHold}
+                  onMouseUp={stopHold}
+                  onMouseLeave={stopHold}
+                  onTouchStart={startHold}
+                  onTouchEnd={stopHold}
+                  className="relative w-full overflow-hidden px-4 py-4 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-bold transition-colors"
+                  style={{ userSelect: "none" }}
+                >
+                  {/* Progress fill */}
+                  <div
+                    className="absolute inset-0 bg-red-800 transition-none"
+                    style={{ width: `${formatHoldProgress}%`, opacity: 0.5 }}
+                  />
+                  <span className="relative z-10">
+                    {isFormatting ? "กำลังลบข้อมูล..." : formatHoldProgress > 0 ? `กำลังลบ... ${Math.round(formatHoldProgress)}%` : "🗑 กดค้างที่นี่เพื่อลบ"}
+                  </span>
+                </button>
+              </div>
+              {formatHoldProgress > 0 && formatHoldProgress < 100 && (
+                <p className="text-xs text-center text-orange-500 font-medium animate-pulse">กดค้างต่อไป... ปล่อยเพื่อยกเลิก</p>
+              )}
+            </div>
+            <div className="p-5 pt-0">
+              <button onClick={resetFormatState} disabled={isFormatting}
+                className="w-full px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-40">
+                ยกเลิก — กลับไปหน้าหลัก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Import Result Modal (after confirm) ──────────────────────────────── */}
       {showImportResult && (
