@@ -1222,21 +1222,21 @@ export default function OTAOrderEntry() {
                   </div>
                 </div>
 
-                {/* Row 3: People | Platform (searchable) */}
+                {/* Row 3: Package Code (searchable) | Platform (searchable) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Number of People <span className="text-red-500">*</span></label>
-                    <input type="number" min={1} value={form.pax}
-                      onChange={(e) => {
-                        const newPax = parseInt(e.target.value) || 1;
-                        const unitPrice = selectedPkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                        setForm((f) => ({
-                          ...f,
-                          pax: newPax,
-                          ...(unitPrice > 0 ? { gross_price: +(unitPrice * newPax).toFixed(2) } : {}),
-                        }));
+                    <label className={labelCls}>Package Code <span className="text-red-500">*</span></label>
+                    <SearchCombobox
+                      value={form.package_id}
+                      onChange={(v) => {
+                        const pkg = packages.find((p) => p.id === v);
+                        const unitPrice = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                        setForm((f) => ({ ...f, package_id: v, gross_price: unitPrice > 0 ? +(unitPrice * f.pax).toFixed(2) : f.gross_price }));
                       }}
-                      className={inputCls} />
+                      options={packages.map((p) => ({ value: p.id, label: p.code, sublabel: p.name }))}
+                      placeholder="Select package"
+                      searchPlaceholder="Search packages..."
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Platform <span className="text-red-500">*</span></label>
@@ -1265,21 +1265,21 @@ export default function OTAOrderEntry() {
                   </div>
                 </div>
 
-                {/* Row 4: Package Code (searchable) | Package Details (auto) */}
+                {/* Row 4: Number of People | Package Details (auto) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Package Code <span className="text-red-500">*</span></label>
-                    <SearchCombobox
-                      value={form.package_id}
-                      onChange={(v) => {
-                        const pkg = packages.find((p) => p.id === v);
-                        const unitPrice = pkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
-                        setForm((f) => ({ ...f, package_id: v, gross_price: unitPrice > 0 ? +(unitPrice * f.pax).toFixed(2) : f.gross_price }));
+                    <label className={labelCls}>Number of People <span className="text-red-500">*</span></label>
+                    <input type="number" min={1} value={form.pax}
+                      onChange={(e) => {
+                        const newPax = parseInt(e.target.value) || 1;
+                        const unitPrice = selectedPkg?.platform_prices.find((pp) => pp.platform === form.platform)?.price ?? 0;
+                        setForm((f) => ({
+                          ...f,
+                          pax: newPax,
+                          ...(unitPrice > 0 ? { gross_price: +(unitPrice * newPax).toFixed(2) } : {}),
+                        }));
                       }}
-                      options={packages.map((p) => ({ value: p.id, label: p.code, sublabel: p.name }))}
-                      placeholder="Select package"
-                      searchPlaceholder="Search packages..."
-                    />
+                      className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Package Details</label>
