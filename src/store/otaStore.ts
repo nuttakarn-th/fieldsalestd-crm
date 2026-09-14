@@ -62,7 +62,8 @@ export interface PlatformPrice {
 export type OTAAuditAction =
   | "import"
   | "add_order" | "update_order" | "delete_order"
-  | "add_package" | "update_package" | "delete_package";
+  | "add_package" | "update_package" | "delete_package"
+  | "format_data";
 
 export interface OTAAuditEntry {
   id: string;
@@ -122,6 +123,8 @@ interface OTAState {
   // Audit log
   pushAudit: (e: Omit<OTAAuditEntry, "id" | "timestamp" | "read">) => void;
   markAllAuditRead: () => void;
+  deleteAuditEntry: (id: string) => void;
+  clearAuditLog: () => void;
 
   // Row highlight (notification click → scroll to row)
   highlightedOrderId: string | null;
@@ -309,6 +312,11 @@ export const useOTAStore = create<OTAState>()(
 
       markAllAuditRead: () =>
         set((s) => ({ auditLog: s.auditLog.map((e) => ({ ...e, read: true })) })),
+
+      deleteAuditEntry: (id) =>
+        set((s) => ({ auditLog: s.auditLog.filter((e) => e.id !== id) })),
+
+      clearAuditLog: () => set({ auditLog: [] }),
 
       setHighlightedOrderId: (id) => set({ highlightedOrderId: id }),
 
@@ -832,7 +840,7 @@ export const useOTAStore = create<OTAState>()(
         }
         set({ orders: [], loaded: true });
         get().pushAudit({
-          action: "delete_order",
+          action: "format_data",
           actor,
           detail: `Format ข้อมูล — ลบ Orders ทั้งหมด ${count} รายการ`,
           order_id: null,
