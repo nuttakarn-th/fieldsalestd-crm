@@ -24,6 +24,11 @@ let _authToken: string | null = null;
 
 export function setSupabaseAuthToken(token: string | null): void {
   _authToken = token;
+  // Also authenticate the Realtime WebSocket transport so postgres_changes
+  // events respect RLS on the same JWT used for HTTP requests
+  if (supabase) {
+    supabase.realtime.setAuth(token ?? undefined);
+  }
 }
 
 export function getSupabaseAuthToken(): string | null {

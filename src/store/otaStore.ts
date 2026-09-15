@@ -231,6 +231,11 @@ const SEED_PACKAGES: OTAPackage[] = [
   },
 ];
 
+// ─── Realtime dedup: track IDs mutated locally so we don't double-audit ──────
+
+const localMutations = new Set<string>(); // IDs added/updated/deleted by THIS browser
+let _realtimeSubscribed = false;          // guard against duplicate channel subscriptions
+
 // ─── Helper: map Supabase row → OTAOrder ─────────────────────────────────────
 
 function rowToOrder(r: Record<string, unknown>): OTAOrder {
@@ -381,6 +386,74 @@ export const useOTAStore = create<OTAState>()(
             })),
           });
         }
+
+        // ── Realtime subscription — ota_orders (cross-device notifications) ──
+        if (!_realtimeSubscribed) {
+          _realtimeSubscribed = true;
+
+          supabase!
+            .channel("ota_orders_realtime")
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: "ota_orders" },
+              (payload) => {
+                const { eventType } = payload;
+                const newRow = payload.new as Record<string, unknown>;
+                const oldRow = payload.old as Record<string, unknown>;
+
+                if (eventType === "INSERT") {
+                  const id = String(newRow.id ?? "");
+                  if (localMutations.has(id)) { localMutations.delete(id); return; }
+                  const order = rowToOrder(newRow);
+                  set((s) => ({
+                    orders: [order, ...s.orders.filter((o) => o.id !== order.id)],
+                  }));
+                  get().pushAudit({
+                    action:   "add_order",
+                    actor:    order.created_by || "ผู้ใช้อื่น",
+                    detail:   `[Real-time] เพิ่ม Order #${order.order_number} · ${order.platform} · ${order.pax} คน`,
+                    order_id: order.id,
+                  });
+                  toast.info(`มี Order ใหม่: #${order.order_number} (${order.platform})`);
+
+                } else if (eventType === "UPDATE") {
+                  const id = String(newRow.id ?? "");
+                  if (localMutations.has(id)) { localMutations.delete(id); return; }
+                  const updated = rowToOrder(newRow);
+                  set((s) => ({
+                    orders: s.orders.map((o) => (o.id === updated.id ? updated : o)),
+                  }));
+                  get().pushAudit({
+                    action:   "update_order",
+                    actor:    updated.created_by || "ผู้ใช้อื่น",
+                    detail:   `[Real-time] แก้ไข Order #${updated.order_number} · ${updated.platform}`,
+                    order_id: updated.id,
+                  });
+
+                } else if (eventType === "DELETE") {
+                  const id = String(oldRow.id ?? "");
+                  if (localMutations.has(id)) { localMutations.delete(id); return; }
+                  const orderNum = String(oldRow.order_number ?? id);
+                  const platform = String(oldRow.platform ?? "");
+                  set((s) => ({ orders: s.orders.filter((o) => o.id !== id) }));
+                  get().pushAudit({
+                    action:   "delete_order",
+                    actor:    "ผู้ใช้อื่น",
+                    detail:   `[Real-time] ลบ Order #${orderNum} · ${platform}`,
+                    order_id: id,
+                  });
+                }
+              }
+            )
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                console.log("[ota] Realtime subscribed to ota_orders");
+              } else if (status === "CHANNEL_ERROR") {
+                console.error("[ota] Realtime channel error — retrying disabled");
+                _realtimeSubscribed = false; // allow retry on next loadFromSupabase call
+              }
+            });
+        }
       },
 
       // ── Seed default packages manually ────────────────────────────────────
@@ -409,6 +482,7 @@ export const useOTAStore = create<OTAState>()(
         };
 
         if (SUPABASE_ENABLED && supabase) {
+          localMutations.add(id); // prevent Realtime self-echo
           const { error } = await supabase.from("ota_orders").insert({
             id:              order.id,
             booking_date:    order.booking_date,
@@ -429,6 +503,7 @@ export const useOTAStore = create<OTAState>()(
             created_by:      order.created_by ?? "",
           });
           if (error) {
+            localMutations.delete(id);
             console.error("[ota] addOrder error:", error);
             toast.error(`บันทึก Order ไม่สำเร็จ — ${error.message}`);
             return id;
@@ -447,8 +522,10 @@ export const useOTAStore = create<OTAState>()(
 
       updateOrder: async (id, patch, actor = "ระบบ") => {
         if (SUPABASE_ENABLED && supabase) {
+          localMutations.add(id); // prevent Realtime self-echo
           const { error } = await supabase.from("ota_orders").update(patch).eq("id", id);
           if (error) {
+            localMutations.delete(id);
             console.error("[ota] updateOrder error:", error);
             toast.error(`แก้ไข Order ไม่สำเร็จ — ${error.message}`);
             return;
@@ -469,8 +546,10 @@ export const useOTAStore = create<OTAState>()(
       deleteOrder: async (id, actor = "ระบบ") => {
         const existing = get().orders.find((o) => o.id === id);
         if (SUPABASE_ENABLED && supabase) {
+          localMutations.add(id); // prevent Realtime self-echo
           const { error } = await supabase.from("ota_orders").delete().eq("id", id);
           if (error) {
+            localMutations.delete(id);
             console.error("[ota] deleteOrder error:", error);
             toast.error(`ลบ Order ไม่สำเร็จ — ${error.message}`);
             return;
@@ -738,12 +817,14 @@ export const useOTAStore = create<OTAState>()(
             created_by:      row.created_by ?? "",
           }));
           inserted = records.length;
+          records.forEach((r) => localMutations.add(r.id)); // suppress Realtime self-echoes
 
           const { error } = await supabase
             .from("ota_orders")
             .insert(records);
 
           if (error) {
+            records.forEach((r) => localMutations.delete(r.id));
             console.error("[ota] importOrders error:", error.message, error.details, error.hint);
             toast.error(`Import ล้มเหลว: ${error.message}`);
             return { inserted: 0, updated: 0, errors: rows.length };
@@ -780,11 +861,14 @@ export const useOTAStore = create<OTAState>()(
       clearAllOrders: async (actor = "ระบบ") => {
         const count = get().orders.length;
         if (SUPABASE_ENABLED && supabase) {
+          // Mark all current IDs so Realtime DELETE echoes are suppressed for this browser
+          get().orders.forEach((o) => localMutations.add(o.id));
           const { error } = await supabase
             .from("ota_orders")
             .delete()
             .neq("id", "___never___"); // delete all rows — neq with impossible value = all rows
           if (error) {
+            get().orders.forEach((o) => localMutations.delete(o.id));
             console.error("[ota] clearAllOrders error:", error);
             toast.error(`ล้างข้อมูลไม่สำเร็จ — ${error.message}`);
             return;
