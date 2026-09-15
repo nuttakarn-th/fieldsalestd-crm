@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, ChevronDown, ChevronUp,
   Users, DollarSign, BarChart2, Package,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Pencil, Check, X, Download, Upload, AlertCircle,
+  Pencil, Check, X, Download, Upload, AlertCircle, AlignJustify,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -244,6 +244,7 @@ export default function OTAPnL() {
   // Row-level edit state (desktop)
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [draftCosts, setDraftCosts] = useState<DraftCosts>({});
+  const [compact, setCompact] = useState(false);
 
   useEffect(() => { loadGroupCostsByMonth(month); }, [month, loadGroupCostsByMonth]);
 
@@ -425,6 +426,17 @@ export default function OTAPnL() {
             <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Export</span>
           </button>
+          {/* Compact toggle — desktop only */}
+          <button
+            onClick={() => setCompact((c) => !c)}
+            className={`hidden md:flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-xl transition-colors ${
+              compact ? "bg-purple-100 text-purple-700" : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+            }`}
+            title={compact ? "Normal view" : "Compact view"}
+          >
+            <AlignJustify className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">{compact ? "Normal" : "Compact"}</span>
+          </button>
           {/* Month selector */}
           <div className="relative">
             <select
@@ -556,13 +568,16 @@ export default function OTAPnL() {
             </div>
 
             {/* ── Desktop Table ───────────────────────────────────────────────── */}
-            <div className="hidden md:block overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white">
+            <div
+              className="hidden md:block overflow-x-auto overflow-y-auto rounded-2xl border border-gray-100 shadow-sm bg-white"
+              style={{ maxHeight: "calc(100vh - 310px)" }}
+            >
               <table className="w-full text-sm border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-[#1e1b4b] text-white text-xs">
                     {/* Action column */}
-                    <th className="px-2 py-3 text-center w-14"></th>
-                    <th className="px-3 py-3 text-left min-w-[130px]">
+                    <th className="px-2 py-2.5 text-center w-14"></th>
+                    <th className="px-3 py-2.5 text-left min-w-[130px]">
                       <button
                         className="flex items-center gap-1 hover:text-purple-200 transition-colors"
                         onClick={() => { if (sortBy === "date") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("date"); setSortDir("asc"); } }}
@@ -573,8 +588,8 @@ export default function OTAPnL() {
                           : <ArrowUpDown className="w-3 h-3 opacity-40" />}
                       </button>
                     </th>
-                    <th className="px-3 py-3 text-center w-16">PAX</th>
-                    <th className="px-3 py-3 text-right min-w-[100px]">
+                    <th className="px-3 py-2.5 text-center w-16">PAX</th>
+                    <th className="px-3 py-2.5 text-right min-w-[100px]">
                       <button
                         className="flex items-center gap-1 ml-auto hover:text-purple-200 transition-colors"
                         onClick={() => { if (sortBy === "revenue") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("revenue"); setSortDir("desc"); } }}
@@ -586,12 +601,12 @@ export default function OTAPnL() {
                       </button>
                     </th>
                     {COST_FIELDS.map((f) => (
-                      <th key={f.key as string} className="px-2 py-3 text-right min-w-[85px] font-medium">
+                      <th key={f.key as string} className="px-2 py-2.5 text-right min-w-[85px] font-medium">
                         {f.emoji} {f.label}
                       </th>
                     ))}
-                    <th className="px-3 py-3 text-right min-w-[95px]">Total Cost</th>
-                    <th className="px-3 py-3 text-right min-w-[105px]">
+                    <th className="px-3 py-2.5 text-right min-w-[95px]">Total Cost</th>
+                    <th className="px-3 py-2.5 text-right min-w-[105px]">
                       <button
                         className="flex items-center gap-1 ml-auto hover:text-purple-200 transition-colors"
                         onClick={() => { if (sortBy === "profit") setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy("profit"); setSortDir("desc"); } }}
@@ -622,55 +637,49 @@ export default function OTAPnL() {
                           }`}
                       >
                         {/* Action cell */}
-                        <td className="px-2 py-2 text-center">
+                        <td className={`px-2 text-center ${compact ? "py-1" : "py-2"}`}>
                           {isEditing ? (
                             <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => confirmEdit(row)}
-                                title="บันทึก"
-                                className="p-1.5 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
-                              >
-                                <Check className="w-3.5 h-3.5" />
+                              <button onClick={() => confirmEdit(row)} title="บันทึก"
+                                className="p-1 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors">
+                                <Check className="w-3 h-3" />
                               </button>
-                              <button
-                                onClick={cancelEdit}
-                                title="ยกเลิก"
-                                className="p-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-600 transition-colors"
-                              >
-                                <X className="w-3.5 h-3.5" />
+                              <button onClick={cancelEdit} title="ยกเลิก"
+                                className="p-1 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-600 transition-colors">
+                                <X className="w-3 h-3" />
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => startEdit(row)}
-                              title="แก้ไขต้นทุน"
-                              className="p-1.5 rounded-lg text-gray-300 hover:text-purple-600 hover:bg-purple-50 transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
+                            <button onClick={() => startEdit(row)} title="แก้ไขต้นทุน"
+                              className="p-1 rounded-lg text-gray-300 hover:text-purple-600 hover:bg-purple-50 transition-colors">
+                              <Pencil className="w-3 h-3" />
                             </button>
                           )}
                         </td>
 
                         {/* Group Code */}
-                        <td className="px-3 py-2.5">
-                          <div className="font-bold text-[#1e1b4b] text-sm">{row.code}</div>
-                          {(() => { const day = groupDay(row.code, month); return day ? <div className="text-[10px] text-gray-400 mt-0.5">{day}</div> : null; })()}
-                          {row.packageCodes.length > 0 && (
+                        <td
+                          className={`px-3 ${compact ? "py-1" : "py-2.5"}`}
+                          title={compact ? [groupDay(row.code, month), row.packageCodes.join(", ")].filter(Boolean).join(" · ") : undefined}
+                        >
+                          <div className={`font-bold text-[#1e1b4b] ${compact ? "text-xs" : "text-sm"}`}>{row.code}</div>
+                          {!compact && (() => { const day = groupDay(row.code, month); return day ? <div className="text-[10px] text-gray-400 mt-0.5">{day}</div> : null; })()}
+                          {!compact && row.packageCodes.length > 0 && (
                             <div className="text-[10px] text-purple-500 mt-0.5">{row.packageCodes.join(", ")}</div>
                           )}
                         </td>
 
-                        <td className="px-3 py-2.5 text-center font-semibold text-gray-700 text-sm">{row.pax}</td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-blue-600 text-sm">{fmtB(row.revenue)}</td>
+                        <td className={`px-3 text-center font-semibold text-gray-700 ${compact ? "py-1 text-xs" : "py-2.5 text-sm"}`}>{row.pax}</td>
+                        <td className={`px-3 text-right font-semibold text-blue-600 ${compact ? "py-1 text-xs" : "py-2.5 text-sm"}`}>{fmtB(row.revenue)}</td>
 
                         {/* Cost fields — inputs when editing, display when not */}
                         {COST_FIELDS.map((f) => (
-                          <td key={f.key as string} className="px-2 py-1.5">
+                          <td key={f.key as string} className={`px-2 ${compact ? "py-0.5" : "py-1.5"}`}>
                             {isEditing ? (
                               <input
                                 type="number"
                                 inputMode="numeric"
-                                className="w-full text-right text-xs border border-amber-300 rounded px-1.5 py-1.5 outline-none bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-300"
+                                className="w-full text-right text-xs border border-amber-300 rounded px-1.5 py-1 outline-none bg-white focus:border-purple-400 focus:ring-1 focus:ring-purple-300"
                                 placeholder="0"
                                 value={draftCosts[f.key as string] === 0 ? "" : draftCosts[f.key as string] ?? ""}
                                 onChange={(e) => {
@@ -679,7 +688,7 @@ export default function OTAPnL() {
                                 }}
                               />
                             ) : (
-                              <span className={`block text-right text-xs py-1 px-1 ${(row.cost[f.key] as number) === 0 ? "text-gray-300" : "text-gray-700"}`}>
+                              <span className={`block text-right text-xs px-1 ${compact ? "py-0.5" : "py-1"} ${(row.cost[f.key] as number) === 0 ? "text-gray-300" : "text-gray-700"}`}>
                                 {(row.cost[f.key] as number) === 0 ? "—" : fmtB(row.cost[f.key] as number)}
                               </span>
                             )}
@@ -687,13 +696,14 @@ export default function OTAPnL() {
                         ))}
 
                         {/* Total cost — live preview while editing */}
-                        <td className="px-3 py-2.5 text-right text-sm font-medium text-gray-600">
+                        <td className={`px-3 text-right font-medium text-gray-600 ${compact ? "py-1 text-xs" : "py-2.5 text-sm"}`}>
                           {fmtB(dTotal)}
                         </td>
 
                         {/* Profit — live preview while editing */}
-                        <td className="px-3 py-2.5 text-right">
-                          <span className={`inline-flex items-center gap-1 font-bold text-sm px-2 py-0.5 rounded-lg
+                        <td className={`px-3 text-right ${compact ? "py-1" : "py-2.5"}`}>
+                          <span className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-lg
+                            ${compact ? "text-xs" : "text-sm"}
                             ${dProfit >= 0 ? "text-green-600 bg-green-50" : "text-red-500 bg-red-50"}`}>
                             {dProfit >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                             {fmtB(dProfit)}
