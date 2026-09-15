@@ -321,6 +321,8 @@ export default function OTAOrderEntry() {
   // ── Deduplicate state ───────────────────────────────────────────────────────
   const [showDedupDialog, setShowDedupDialog] = useState(false);
   const [isDeduplying, setIsDeduping] = useState(false);
+  // "all" = ทั้งหมด | "YYYY-MM" = เดือนที่เลือก
+  const [dedupScope, setDedupScope] = useState<"all" | string>("all");
 
   const CONFIRM_WORD = "ล้างข้อมูล";
   const HOLD_DURATION_MS = 3000;
@@ -371,9 +373,11 @@ export default function OTAOrderEntry() {
 
   const handleDedup = async () => {
     setIsDeduping(true);
-    await deduplicateOrders(currentUser?.full_name ?? "ระบบ");
+    const ym = dedupScope === "all" ? null : dedupScope;
+    await deduplicateOrders(ym, currentUser?.full_name ?? "ระบบ");
     setIsDeduping(false);
     setShowDedupDialog(false);
+    setDedupScope("all");
   };
 
   const handleSort = (key: SortKey) => {
@@ -1841,13 +1845,30 @@ export default function OTAOrderEntry() {
 
       {/* ── Deduplicate Dialog ───────────────────────────────────────────────── */}
       {showDedupDialog && (() => {
-        const dupCount = (() => {
+        // สร้าง list เดือนที่มี orders เรียง asc
+        const months = Array.from(
+          new Set(orders.map((o) => o.usage_date.slice(0, 7)))
+        ).sort();
+
+        // helper: นับ dup ในชุด orders ที่กำหนด
+        const countDups = (list: typeof orders) => {
           const seen = new Map<string, number>();
-          orders.forEach((o) => seen.set(o.order_number, (seen.get(o.order_number) ?? 0) + 1));
+          list.forEach((o) => seen.set(o.order_number, (seen.get(o.order_number) ?? 0) + 1));
           let extra = 0;
           seen.forEach((cnt) => { if (cnt > 1) extra += cnt - 1; });
           return extra;
-        })();
+        };
+
+        const scopeOrders = dedupScope === "all"
+          ? orders
+          : orders.filter((o) => o.usage_date.startsWith(dedupScope));
+        const dupCount = countDups(scopeOrders);
+
+        const fmtYM = (ym: string) => {
+          const d = new Date(`${ym}-01`);
+          return d.toLocaleString("th", { month: "short", year: "2-digit" });
+        };
+
         return (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
             <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
@@ -1860,31 +1881,76 @@ export default function OTAOrderEntry() {
                   <p className="text-xs text-muted-foreground mt-0.5">เก็บ 1 record ต่อ Order # (record ล่าสุด)</p>
                 </div>
               </div>
+
               <div className="p-5 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                {/* Scope selector */}
+                <p className="text-sm font-medium text-foreground">เลือกขอบเขต:</p>
+                <div className="flex flex-wrap gap-2">
+                  {/* ทั้งหมด */}
+                  <button
+                    onClick={() => setDedupScope("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                      dedupScope === "all"
+                        ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                        : "border-border hover:border-amber-300 text-muted-foreground"
+                    }`}
+                  >
+                    ทั้งหมด ({orders.length})
+                  </button>
+                  {/* รายเดือน */}
+                  {months.map((ym) => {
+                    const cnt = orders.filter((o) => o.usage_date.startsWith(ym)).length;
+                    const dups = countDups(orders.filter((o) => o.usage_date.startsWith(ym)));
+                    return (
+                      <button
+                        key={ym}
+                        onClick={() => setDedupScope(ym)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors relative ${
+                          dedupScope === ym
+                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                            : "border-border hover:border-amber-300 text-muted-foreground"
+                        }`}
+                      >
+                        {fmtYM(ym)} ({cnt})
+                        {dups > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            {dups > 9 ? "9+" : dups}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Impact stats */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
                   <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
                     <div className="text-2xl font-bold text-amber-600">{dupCount}</div>
                     <div className="text-[10px] text-amber-500 mt-0.5">Rows ที่จะถูกลบ</div>
                   </div>
                   <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-green-600">{orders.length - dupCount}</div>
+                    <div className="text-2xl font-bold text-green-600">{scopeOrders.length - dupCount}</div>
                     <div className="text-[10px] text-green-600 mt-0.5">Orders ที่จะเหลือ</div>
                   </div>
                 </div>
+
                 {dupCount === 0 ? (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl px-4 py-3">
-                    <p className="text-xs text-green-700 dark:text-green-400 font-medium">✓ ไม่พบข้อมูลซ้ำ ข้อมูลสะอาดอยู่แล้ว</p>
+                    <p className="text-xs text-green-700 dark:text-green-400 font-medium">✓ ไม่พบข้อมูลซ้ำในขอบเขตนี้</p>
                   </div>
                 ) : (
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
                     <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-                      พบ Order Number ซ้ำ {dupCount} rows — ระบบจะเก็บ record ที่ created ล่าสุดของแต่ละ Order # ไว้ แล้วลบที่เหลือ
+                      พบ {dupCount} rows ซ้ำ — ระบบจะเก็บ record ล่าสุดต่อ Order# แล้วลบที่เหลือ
                     </p>
                   </div>
                 )}
               </div>
+
               <div className="flex gap-3 p-5 pt-0">
-                <button onClick={() => setShowDedupDialog(false)} disabled={isDeduplying}
+                <button
+                  onClick={() => { setShowDedupDialog(false); setDedupScope("all"); }}
+                  disabled={isDeduplying}
                   className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-40">
                   ยกเลิก
                 </button>

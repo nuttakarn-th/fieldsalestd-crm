@@ -164,7 +164,8 @@ interface OTAState {
   clearOrdersByMonth: (yearMonth: string, actor?: string) => Promise<{ deleted: number }>;
 
   // Deduplicate — ลบ rows ที่ order_number ซ้ำ เก็บ created_at ล่าสุดไว้
-  deduplicateOrders: (actor?: string) => Promise<{ removed: number }>;
+  // yearMonth = "YYYY-MM" → dedup เฉพาะเดือนนั้น | null/undefined → dedup ทั้งหมด
+  deduplicateOrders: (yearMonth?: string | null, actor?: string) => Promise<{ removed: number }>;
 
   // Helpers
   getOrdersByMonth: (year: number, month: number) => OTAOrder[];
@@ -923,12 +924,16 @@ export const useOTAStore = create<OTAState>()(
 
       // ── Deduplicate Orders ────────────────────────────────────────────────────
 
-      deduplicateOrders: async (actor = "ระบบ") => {
+      deduplicateOrders: async (yearMonth = null, actor = "ระบบ") => {
         const allOrders = get().orders;
+        // กรองเฉพาะเดือนถ้ามี scope
+        const scope = yearMonth
+          ? allOrders.filter((o) => o.usage_date.startsWith(yearMonth))
+          : allOrders;
 
-        // จัดกลุ่มด้วย order_number
+        // จัดกลุ่มด้วย order_number ภายใน scope
         const byOrderNum = new Map<string, OTAOrder[]>();
-        allOrders.forEach((o) => {
+        scope.forEach((o) => {
           const list = byOrderNum.get(o.order_number) ?? [];
           list.push(o);
           byOrderNum.set(o.order_number, list);
@@ -941,14 +946,13 @@ export const useOTAStore = create<OTAState>()(
           const sorted = [...group].sort((a, b) =>
             b.created_at.localeCompare(a.created_at) // ล่าสุดก่อน
           );
-          sorted.slice(1).forEach((o) => toDelete.push(o.id)); // ลบที่เหลือ
+          sorted.slice(1).forEach((o) => toDelete.push(o.id));
         });
 
         if (toDelete.length === 0) { toast.info("ไม่พบข้อมูลซ้ำ"); return { removed: 0 }; }
 
         if (SUPABASE_ENABLED && supabase) {
           toDelete.forEach((id) => localMutations.add(id));
-          // ลบเป็น batch (Supabase in operator รองรับ array)
           const { error } = await supabase
             .from("ota_orders")
             .delete()
@@ -961,10 +965,11 @@ export const useOTAStore = create<OTAState>()(
           }
         }
         set((s) => ({ orders: s.orders.filter((o) => !toDelete.includes(o.id)) }));
+        const scopeLabel = yearMonth ?? "ทั้งหมด";
         get().pushAudit({
           action: "format_data",
           actor,
-          detail: `ลบ Duplicate Orders — ลบ ${toDelete.length} rows ซ้ำ (เหลือ ${allOrders.length - toDelete.length} orders)`,
+          detail: `ลบ Duplicate Orders (${scopeLabel}) — ลบ ${toDelete.length} rows ซ้ำ`,
           order_id: null,
         });
         toast.success(`ลบ Duplicates สำเร็จ — ลบไป ${toDelete.length} rows`);
