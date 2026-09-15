@@ -197,6 +197,172 @@ interface VehicleGroup {
   vehicleType: "Van" | "Bus";
 }
 
+// ─── Vehicle Calendar Grid ────────────────────────────────────────────────────
+
+function dayBg(total: number): string {
+  if (total === 0) return "bg-transparent";
+  if (total <= 2)  return "bg-green-50 border-green-200";
+  if (total <= 4)  return "bg-yellow-50 border-yellow-200";
+  if (total <= 6)  return "bg-orange-50 border-orange-200";
+  return "bg-red-50 border-red-200";
+}
+
+function VehicleCalendar({
+  vehicleGroups, year, month, totalVehiclesUsed,
+}: {
+  vehicleGroups: VehicleGroup[];
+  year: number;
+  month: number;
+  totalVehiclesUsed: number;
+}) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Per-day aggregation
+  const dayMap = useMemo(() => {
+    const m: Record<string, { van: number; bus: number; groups: VehicleGroup[] }> = {};
+    vehicleGroups.forEach((g) => {
+      if (!m[g.date]) m[g.date] = { van: 0, bus: 0, groups: [] };
+      if (g.vehicleType === "Bus") m[g.date].bus += g.vehicleCount;
+      else                          m[g.date].van += g.vehicleCount;
+      m[g.date].groups.push(g);
+    });
+    return m;
+  }, [vehicleGroups]);
+
+  // Build calendar weeks (Mon–Sun)
+  const weeks = useMemo(() => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay  = new Date(year, month, 0);
+    // week starts Monday: 0=Mon … 6=Sun
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const cells: (number | null)[] = [
+      ...Array(startOffset).fill(null),
+      ...Array.from({ length: lastDay.getDate() }, (_, i) => i + 1),
+    ];
+    // pad to full weeks
+    while (cells.length % 7 !== 0) cells.push(null);
+    const rows: (number | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+    return rows;
+  }, [year, month]);
+
+  const totalVan = vehicleGroups.filter(g => g.vehicleType === "Van").reduce((s, g) => s + g.vehicleCount, 0);
+  const totalBus = vehicleGroups.filter(g => g.vehicleType === "Bus").reduce((s, g) => s + g.vehicleCount, 0);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const DOW = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"];
+
+  const selectedGroups = selectedDate ? (dayMap[selectedDate]?.groups ?? []) : [];
+
+  return (
+    <div className="space-y-3">
+      {/* KPI strip */}
+      <div className="flex items-center gap-4 text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-purple-500" />
+          <span className="text-muted-foreground">Van:</span>
+          <span className="font-bold">{totalVan} คัน</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-500" />
+          <span className="text-muted-foreground">Bus:</span>
+          <span className="font-bold">{totalBus} คัน</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-muted-foreground">รวม:</span>
+          <span className="font-bold text-purple-600">{totalVehiclesUsed} คัน</span>
+        </span>
+        {/* Legend */}
+        <div className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="w-3 h-3 rounded-sm bg-green-100 border border-green-200 inline-block" /> 1–2
+          <span className="w-3 h-3 rounded-sm bg-yellow-100 border border-yellow-200 inline-block" /> 3–4
+          <span className="w-3 h-3 rounded-sm bg-orange-100 border border-orange-200 inline-block" /> 5–6
+          <span className="w-3 h-3 rounded-sm bg-red-100 border border-red-200 inline-block" /> 7+
+        </div>
+      </div>
+
+      {/* Calendar grid */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        {/* Day-of-week header */}
+        <div className="grid grid-cols-7 bg-muted/50 border-b border-border">
+          {DOW.map((d) => (
+            <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1.5">{d}</div>
+          ))}
+        </div>
+        {/* Weeks */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="grid grid-cols-7 border-b border-border last:border-0">
+            {week.map((day, di) => {
+              if (!day) return <div key={di} className="min-h-[56px] bg-muted/20 border-r border-border/40 last:border-0" />;
+              const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+              const info = dayMap[dateStr];
+              const total = (info?.van ?? 0) + (info?.bus ?? 0);
+              const isToday = dateStr === todayStr;
+              const isSelected = dateStr === selectedDate;
+              return (
+                <button
+                  key={di}
+                  onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                  className={`min-h-[56px] p-1.5 text-left border-r border-border/40 last:border-0 transition-all
+                    ${total > 0 ? `${dayBg(total)} border` : "hover:bg-muted/30"}
+                    ${isSelected ? "ring-2 ring-inset ring-purple-500" : ""}
+                  `}
+                >
+                  <div className={`text-[11px] font-bold mb-0.5 ${isToday ? "text-purple-600 underline" : "text-foreground"}`}>
+                    {day}
+                  </div>
+                  {total > 0 && (
+                    <div className="space-y-0.5">
+                      {(info?.van ?? 0) > 0 && (
+                        <div className="text-[10px] text-purple-700 font-semibold leading-tight">🚐 {info!.van}</div>
+                      )}
+                      {(info?.bus ?? 0) > 0 && (
+                        <div className="text-[10px] text-amber-700 font-semibold leading-tight">🚌 {info!.bus}</div>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Detail panel — shows when a day is clicked */}
+      {selectedDate && selectedGroups.length > 0 && (
+        <div className="rounded-xl border border-purple-200 bg-purple-50/50 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-purple-700">
+              {new Date(selectedDate).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })}
+              {" — "}
+              {(dayMap[selectedDate]?.van ?? 0) + (dayMap[selectedDate]?.bus ?? 0)} คัน
+            </p>
+            <button onClick={() => setSelectedDate(null)} className="text-purple-400 hover:text-purple-600 text-xs">✕</button>
+          </div>
+          <div className="space-y-1.5">
+            {selectedGroups.map((g, i) => (
+              <div key={i} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-purple-100">
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                  g.vehicleType === "Bus"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-blue-100 text-blue-700"
+                }`}>
+                  {g.vehicleType === "Bus" ? "🚌" : "🚐"} {g.vehicleCount} {g.vehicleType}
+                </span>
+                <div className="flex flex-wrap gap-1 flex-1">
+                  {g.packages.map((p) => (
+                    <span key={p} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-mono font-medium">{p}</span>
+                  ))}
+                </div>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">{g.totalPax} PAX · {g.orderCount} orders</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OTADashboard() {
   const { orders, packages, vehicleJoinGroups } = useOTAStore();
   const [periodType, setPeriodType] = useState<PeriodType>("month");
@@ -1060,92 +1226,15 @@ export default function OTADashboard() {
             )}
           </ChartCard>
 
-          {/* ── Vehicle Summary ───────────────────────────────────────────── */}
+          {/* ── Vehicle Summary — Calendar Grid ──────────────────────────── */}
           <ChartCard title={`Vehicle Summary — ${totalVehiclesUsed} คัน / ${vehicleGroups.length} กรุ๊ป`}>
             {vehicleGroups.length === 0 ? <EmptyChart /> : (
-              <div>
-                {/* KPI mini-bar */}
-                <div className="flex gap-4 mb-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
-                    <span className="text-xs text-muted-foreground">Van:</span>
-                    <span className="text-xs font-bold">
-                      {vehicleGroups.filter(g => g.vehicleType === "Van").reduce((s, g) => s + g.vehicleCount, 0)} คัน
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
-                    <span className="text-xs text-muted-foreground">Bus:</span>
-                    <span className="text-xs font-bold">
-                      {vehicleGroups.filter(g => g.vehicleType === "Bus").reduce((s, g) => s + g.vehicleCount, 0)} คัน
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">รวม:</span>
-                    <span className="text-xs font-bold text-purple-600">{totalVehiclesUsed} คัน</span>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-muted/50 text-muted-foreground border-b border-border">
-                        <th className="text-left px-3 py-2 font-medium">Usage Date</th>
-                        <th className="text-left px-3 py-2 font-medium">Package Group</th>
-                        <th className="text-center px-3 py-2 font-medium">Orders</th>
-                        <th className="text-center px-3 py-2 font-medium">PAX</th>
-                        <th className="text-center px-3 py-2 font-medium">รถ</th>
-                        <th className="text-center px-3 py-2 font-medium">ประเภท</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vehicleGroups.map((g, i) => (
-                        <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                            {new Date(g.date).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {g.packages.map((p) => (
-                                <span key={p} className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-[10px] font-mono font-medium">
-                                  {p}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-center tabular-nums">{g.orderCount}</td>
-                          <td className="px-3 py-2 text-center tabular-nums font-medium">{g.totalPax}</td>
-                          <td className="px-3 py-2 text-center tabular-nums font-bold text-purple-600">{g.vehicleCount}</td>
-                          <td className="px-3 py-2 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              g.vehicleType === "Bus"
-                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                                : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                            }`}>
-                              {g.vehicleType === "Bus" ? "🚌 Bus" : "🚐 Van"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-muted/30 border-t border-border font-semibold">
-                        <td className="px-3 py-2 text-muted-foreground" colSpan={2}>รวม</td>
-                        <td className="px-3 py-2 text-center tabular-nums">
-                          {vehicleGroups.reduce((s, g) => s + g.orderCount, 0)}
-                        </td>
-                        <td className="px-3 py-2 text-center tabular-nums">
-                          {vehicleGroups.reduce((s, g) => s + g.totalPax, 0)}
-                        </td>
-                        <td className="px-3 py-2 text-center tabular-nums text-purple-600">
-                          {totalVehiclesUsed}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
+              <VehicleCalendar
+                vehicleGroups={vehicleGroups}
+                year={year}
+                month={month}
+                totalVehiclesUsed={totalVehiclesUsed}
+              />
             )}
           </ChartCard>
 
