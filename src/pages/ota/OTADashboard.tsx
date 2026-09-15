@@ -201,17 +201,43 @@ interface VehicleGroup {
 
 // Purple heatmap: light → dark as vehicle count grows
 function heatStyle(total: number, isWeekend: boolean): {
-  bg: string; text: string; dayText: string;
+  bg: string; text: string; dayText: string; vanIcon: string; busIcon: string;
 } {
   if (total === 0) return {
     bg: isWeekend ? "bg-purple-50" : "bg-white",
     text: "text-purple-400",
     dayText: isWeekend ? "text-purple-400" : "text-slate-400",
+    vanIcon: "text-purple-300",
+    busIcon: "text-rose-300",
   };
-  if (total <= 2)  return { bg: "bg-purple-100", text: "text-purple-800",  dayText: "text-purple-700" };
-  if (total <= 4)  return { bg: "bg-purple-300", text: "text-purple-900",  dayText: "text-purple-900" };
-  if (total <= 6)  return { bg: "bg-purple-500", text: "text-white",       dayText: "text-white" };
-  return           { bg: "bg-purple-700", text: "text-white",              dayText: "text-white" };
+  if (total <= 2)  return { bg: "bg-purple-100", text: "text-purple-800",  dayText: "text-purple-700",  vanIcon: "text-purple-600",  busIcon: "text-rose-500" };
+  if (total <= 4)  return { bg: "bg-purple-300", text: "text-purple-900",  dayText: "text-purple-900",  vanIcon: "text-purple-800",  busIcon: "text-rose-600" };
+  if (total <= 6)  return { bg: "bg-purple-500", text: "text-white",       dayText: "text-white",       vanIcon: "text-purple-100",  busIcon: "text-rose-100" };
+  return           { bg: "bg-purple-700", text: "text-white",              dayText: "text-white",       vanIcon: "text-purple-100",  busIcon: "text-rose-100" };
+}
+
+// Inline SVG icons for vehicle type — renders with currentColor
+function VanIcon({ className }: { className?: string }) {
+  return (
+    <svg width="20" height="13" viewBox="0 0 24 16" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="1" y="4" width="18" height="9" rx="2" />
+      <path d="M17 4 L22 4 C23 4 23 6 23 7 L23 13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="6" cy="13.5" r="2.5" />
+      <circle cx="17" cy="13.5" r="2.5" />
+    </svg>
+  );
+}
+
+function BusIcon({ className }: { className?: string }) {
+  return (
+    <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="1" y="1" width="14" height="15" rx="2" />
+      <rect x="3" y="4" width="4" height="3" rx="0.5" fill="white" opacity="0.5" />
+      <rect x="9" y="4" width="4" height="3" rx="0.5" fill="white" opacity="0.5" />
+      <circle cx="4.5" cy="17.5" r="2" />
+      <circle cx="11.5" cy="17.5" r="2" />
+    </svg>
+  );
 }
 
 function VehicleCalendar({
@@ -270,13 +296,19 @@ function VehicleCalendar({
     <div className="space-y-3">
       {/* KPI strip */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="border border-purple-200 rounded-lg px-3 py-1.5 bg-purple-50">
-          <div className="text-[10px] text-purple-500 font-semibold leading-none">VAN</div>
-          <div className="text-lg font-black text-purple-700 leading-tight">{totalVan} <span className="text-xs font-semibold">คัน</span></div>
+        <div className="border border-purple-200 rounded-lg px-3 py-1.5 bg-purple-50 flex items-center gap-2">
+          <VanIcon className="text-purple-600 shrink-0" />
+          <div>
+            <div className="text-[10px] text-purple-500 font-semibold leading-none">VAN</div>
+            <div className="text-lg font-black text-purple-700 leading-tight">{totalVan} <span className="text-xs font-semibold">คัน</span></div>
+          </div>
         </div>
-        <div className="border border-purple-200 rounded-lg px-3 py-1.5 bg-purple-50">
-          <div className="text-[10px] text-purple-500 font-semibold leading-none">BUS</div>
-          <div className="text-lg font-black text-purple-700 leading-tight">{totalBus} <span className="text-xs font-semibold">คัน</span></div>
+        <div className="border border-rose-200 rounded-lg px-3 py-1.5 bg-rose-50 flex items-center gap-2">
+          <BusIcon className="text-rose-500 shrink-0" />
+          <div>
+            <div className="text-[10px] text-rose-500 font-semibold leading-none">BUS</div>
+            <div className="text-lg font-black text-rose-600 leading-tight">{totalBus} <span className="text-xs font-semibold">คัน</span></div>
+          </div>
         </div>
         <div className="border border-purple-300 rounded-lg px-3 py-1.5 bg-purple-100">
           <div className="text-[10px] text-purple-600 font-semibold leading-none">รวม</div>
@@ -337,7 +369,7 @@ function VehicleCalendar({
               const total   = van + bus;
               const isToday    = dateStr === todayStr;
               const isSelected = dateStr === selectedDate;
-              const { bg, text, dayText } = heatStyle(total, isWeekend);
+              const { bg, text, dayText, vanIcon, busIcon } = heatStyle(total, isWeekend);
 
               return (
                 <button
@@ -360,17 +392,19 @@ function VehicleCalendar({
                     {day}
                   </span>
 
-                  {/* Vehicle text — centered, no emoji */}
+                  {/* Vehicle icons — van (purple) + bus (pink) */}
                   {total > 0 && (
-                    <div className={`flex flex-col items-center justify-center gap-0.5 flex-1 ${text}`}>
+                    <div className="flex flex-col items-center justify-center gap-1 flex-1">
                       {van > 0 && (
-                        <span className="text-[11px] font-black tracking-wider leading-none">
-                          VAN {van}
+                        <span className={`flex items-center gap-1 font-black text-[13px] leading-none ${vanIcon}`}>
+                          <VanIcon />
+                          {van}
                         </span>
                       )}
                       {bus > 0 && (
-                        <span className="text-[11px] font-black tracking-wider leading-none opacity-90">
-                          BUS {bus}
+                        <span className={`flex items-center gap-1 font-black text-[13px] leading-none ${busIcon}`}>
+                          <BusIcon />
+                          {bus}
                         </span>
                       )}
                     </div>
@@ -397,8 +431,14 @@ function VehicleCalendar({
           <div className="space-y-1.5">
             {selectedGroups.map((g, i) => (
               <div key={i} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-purple-200 shadow-sm">
-                <span className="px-2 py-1 rounded-lg text-[10px] font-black text-white bg-purple-600 tracking-wider">
-                  {g.vehicleType === "Bus" ? "BUS" : "VAN"} {g.vehicleCount}
+                <span className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-black text-white tracking-wider ${
+                  g.vehicleType === "Bus" ? "bg-rose-500" : "bg-purple-600"
+                }`}>
+                  {g.vehicleType === "Bus"
+                    ? <BusIcon className="text-white" />
+                    : <VanIcon className="text-white" />
+                  }
+                  {g.vehicleCount}
                 </span>
                 <div className="flex flex-wrap gap-1 flex-1">
                   {g.packages.map((p) => (
