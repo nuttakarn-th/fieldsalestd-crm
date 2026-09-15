@@ -323,6 +323,7 @@ export default function OTAOrderEntry() {
   const [isDeduplying, setIsDeduping] = useState(false);
   // "all" = ทั้งหมด | "YYYY-MM" = เดือนที่เลือก
   const [dedupScope, setDedupScope] = useState<"all" | string>("all");
+  const [showDupPreview, setShowDupPreview] = useState(false);
 
   const CONFIRM_WORD = "ล้างข้อมูล";
   const HOLD_DURATION_MS = 3000;
@@ -1869,10 +1870,28 @@ export default function OTAOrderEntry() {
           return d.toLocaleString("th", { month: "short", year: "2-digit" });
         };
 
+        // สร้าง grouped duplicates สำหรับ preview
+        const dupGroups = (() => {
+          const byNum = new Map<string, OTAOrder[]>();
+          scopeOrders.forEach((o) => {
+            const list = byNum.get(o.order_number) ?? [];
+            list.push(o);
+            byNum.set(o.order_number, list);
+          });
+          const groups: { orderNum: string; keep: OTAOrder; deletions: OTAOrder[] }[] = [];
+          byNum.forEach((group, orderNum) => {
+            if (group.length <= 1) return;
+            const sorted = [...group].sort((a, b) => b.created_at.localeCompare(a.created_at));
+            groups.push({ orderNum, keep: sorted[0], deletions: sorted.slice(1) });
+          });
+          return groups.sort((a, b) => a.orderNum.localeCompare(b.orderNum));
+        })();
+
         return (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
-              <div className="flex items-center gap-3 p-5 border-b border-border">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-center gap-3 p-5 border-b border-border shrink-0">
                 <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-amber-600" />
                 </div>
@@ -1882,74 +1901,126 @@ export default function OTAOrderEntry() {
                 </div>
               </div>
 
-              <div className="p-5 space-y-3">
-                {/* Scope selector */}
-                <p className="text-sm font-medium text-foreground">เลือกขอบเขต:</p>
-                <div className="flex flex-wrap gap-2">
-                  {/* ทั้งหมด */}
-                  <button
-                    onClick={() => setDedupScope("all")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
-                      dedupScope === "all"
-                        ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                        : "border-border hover:border-amber-300 text-muted-foreground"
-                    }`}
-                  >
-                    ทั้งหมด ({orders.length})
-                  </button>
-                  {/* รายเดือน */}
-                  {months.map((ym) => {
-                    const cnt = orders.filter((o) => o.usage_date.startsWith(ym)).length;
-                    const dups = countDups(orders.filter((o) => o.usage_date.startsWith(ym)));
-                    return (
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1">
+                <div className="p-5 space-y-3">
+                  {/* Scope selector */}
+                  <p className="text-sm font-medium text-foreground">เลือกขอบเขต:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => { setDedupScope("all"); setShowDupPreview(false); }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${
+                        dedupScope === "all"
+                          ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                          : "border-border hover:border-amber-300 text-muted-foreground"
+                      }`}
+                    >
+                      ทั้งหมด ({orders.length})
+                    </button>
+                    {months.map((ym) => {
+                      const cnt = orders.filter((o) => o.usage_date.startsWith(ym)).length;
+                      const dups = countDups(orders.filter((o) => o.usage_date.startsWith(ym)));
+                      return (
+                        <button
+                          key={ym}
+                          onClick={() => { setDedupScope(ym); setShowDupPreview(false); }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors relative ${
+                            dedupScope === ym
+                              ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                              : "border-border hover:border-amber-300 text-muted-foreground"
+                          }`}
+                        >
+                          {fmtYM(ym)} ({cnt})
+                          {dups > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                              {dups > 9 ? "9+" : dups}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Impact stats */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                      <div className="text-2xl font-bold text-amber-600">{dupCount}</div>
+                      <div className="text-[10px] text-amber-500 mt-0.5">Rows ที่จะถูกลบ</div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+                      <div className="text-2xl font-bold text-green-600">{scopeOrders.length - dupCount}</div>
+                      <div className="text-[10px] text-green-600 mt-0.5">Orders ที่จะเหลือ</div>
+                    </div>
+                  </div>
+
+                  {dupCount === 0 ? (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl px-4 py-3">
+                      <p className="text-xs text-green-700 dark:text-green-400 font-medium">✓ ไม่พบข้อมูลซ้ำในขอบเขตนี้</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                          พบ {dupCount} rows ซ้ำ — ระบบจะเก็บ record ล่าสุดต่อ Order# แล้วลบที่เหลือ
+                        </p>
+                      </div>
+
+                      {/* Preview toggle */}
                       <button
-                        key={ym}
-                        onClick={() => setDedupScope(ym)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors relative ${
-                          dedupScope === ym
-                            ? "border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                            : "border-border hover:border-amber-300 text-muted-foreground"
-                        }`}
+                        onClick={() => setShowDupPreview((v) => !v)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-dashed border-amber-300 dark:border-amber-700 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                       >
-                        {fmtYM(ym)} ({cnt})
-                        {dups > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                            {dups > 9 ? "9+" : dups}
-                          </span>
-                        )}
+                        <span>{showDupPreview ? "ซ่อนรายการซ้ำ" : `ดูรายการซ้ำทั้งหมด (${dupGroups.length} กลุ่ม)`}</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${showDupPreview ? "rotate-180" : ""}`} />
                       </button>
-                    );
-                  })}
-                </div>
 
-                {/* Impact stats */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-amber-600">{dupCount}</div>
-                    <div className="text-[10px] text-amber-500 mt-0.5">Rows ที่จะถูกลบ</div>
-                  </div>
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-green-600">{scopeOrders.length - dupCount}</div>
-                    <div className="text-[10px] text-green-600 mt-0.5">Orders ที่จะเหลือ</div>
-                  </div>
+                      {/* Preview table */}
+                      {showDupPreview && (
+                        <div className="rounded-xl border border-border overflow-hidden">
+                          {/* Table header */}
+                          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-2 px-3 py-2 bg-muted/50 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            <span>Order #</span>
+                            <span className="text-center">วันที่ใช้</span>
+                            <span className="text-center">Platform</span>
+                            <span className="text-center">สถานะ</span>
+                          </div>
+                          <div className="divide-y divide-border">
+                            {dupGroups.map(({ orderNum, keep, deletions }) => (
+                              <div key={orderNum}>
+                                {/* keep row */}
+                                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-2 px-3 py-2 items-center bg-green-50/50 dark:bg-green-900/10">
+                                  <span className="text-xs font-mono font-semibold text-foreground truncate">{keep.order_number}</span>
+                                  <span className="text-[10px] text-muted-foreground tabular-nums">{keep.usage_date}</span>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{keep.platform}</span>
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 whitespace-nowrap">
+                                    ✓ เก็บ
+                                  </span>
+                                </div>
+                                {/* delete rows */}
+                                {deletions.map((d) => (
+                                  <div key={d.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-2 px-3 py-2 items-center bg-red-50/50 dark:bg-red-900/10">
+                                    <span className="text-xs font-mono text-muted-foreground truncate">{d.order_number}</span>
+                                    <span className="text-[10px] text-muted-foreground tabular-nums">{d.usage_date}</span>
+                                    <span className="text-[10px] text-muted-foreground truncate max-w-[70px]">{d.platform}</span>
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 whitespace-nowrap">
+                                      ✕ ลบ
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-
-                {dupCount === 0 ? (
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl px-4 py-3">
-                    <p className="text-xs text-green-700 dark:text-green-400 font-medium">✓ ไม่พบข้อมูลซ้ำในขอบเขตนี้</p>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-                      พบ {dupCount} rows ซ้ำ — ระบบจะเก็บ record ล่าสุดต่อ Order# แล้วลบที่เหลือ
-                    </p>
-                  </div>
-                )}
               </div>
 
-              <div className="flex gap-3 p-5 pt-0">
+              {/* Footer buttons — fixed at bottom */}
+              <div className="flex gap-3 p-5 border-t border-border shrink-0">
                 <button
-                  onClick={() => { setShowDedupDialog(false); setDedupScope("all"); }}
+                  onClick={() => { setShowDedupDialog(false); setDedupScope("all"); setShowDupPreview(false); }}
                   disabled={isDeduplying}
                   className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-40">
                   ยกเลิก
