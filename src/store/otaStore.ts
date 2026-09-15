@@ -160,6 +160,12 @@ interface OTAState {
   // Format — ลบ orders ทั้งหมด (Supabase + localStorage)
   clearAllOrders: (actor?: string) => Promise<void>;
 
+  // Format — ลบ orders เฉพาะเดือน (YYYY-MM)
+  clearOrdersByMonth: (yearMonth: string, actor?: string) => Promise<{ deleted: number }>;
+
+  // Deduplicate — ลบ rows ที่ order_number ซ้ำ เก็บ created_at ล่าสุดไว้
+  deduplicateOrders: (actor?: string) => Promise<{ removed: number }>;
+
   // Helpers
   getOrdersByMonth: (year: number, month: number) => OTAOrder[];
   getPackageByCode: (code: string) => OTAPackage | undefined;
@@ -882,6 +888,87 @@ export const useOTAStore = create<OTAState>()(
           order_id: null,
         });
         toast.success(`ล้างข้อมูลสำเร็จ — ${count} orders ถูกลบแล้ว`);
+      },
+
+      // ── Clear Orders by Month ─────────────────────────────────────────────────
+
+      clearOrdersByMonth: async (yearMonth, actor = "ระบบ") => {
+        const targets = get().orders.filter((o) => o.usage_date.startsWith(yearMonth));
+        const count = targets.length;
+        if (count === 0) { toast.info("ไม่มี orders ในเดือนนี้"); return { deleted: 0 }; }
+
+        if (SUPABASE_ENABLED && supabase) {
+          targets.forEach((o) => localMutations.add(o.id));
+          const { error } = await supabase
+            .from("ota_orders")
+            .delete()
+            .like("usage_date", `${yearMonth}%`);
+          if (error) {
+            targets.forEach((o) => localMutations.delete(o.id));
+            console.error("[ota] clearOrdersByMonth error:", error);
+            toast.error(`ลบข้อมูลเดือน ${yearMonth} ไม่สำเร็จ — ${error.message}`);
+            return { deleted: 0 };
+          }
+        }
+        set((s) => ({ orders: s.orders.filter((o) => !o.usage_date.startsWith(yearMonth)) }));
+        get().pushAudit({
+          action: "format_data",
+          actor,
+          detail: `Format เดือน ${yearMonth} — ลบ ${count} orders`,
+          order_id: null,
+        });
+        toast.success(`ลบข้อมูลเดือน ${yearMonth} สำเร็จ — ${count} orders`);
+        return { deleted: count };
+      },
+
+      // ── Deduplicate Orders ────────────────────────────────────────────────────
+
+      deduplicateOrders: async (actor = "ระบบ") => {
+        const allOrders = get().orders;
+
+        // จัดกลุ่มด้วย order_number
+        const byOrderNum = new Map<string, OTAOrder[]>();
+        allOrders.forEach((o) => {
+          const list = byOrderNum.get(o.order_number) ?? [];
+          list.push(o);
+          byOrderNum.set(o.order_number, list);
+        });
+
+        // หา IDs ที่จะลบ (เก็บ created_at ล่าสุดไว้ 1 row ต่อ order_number)
+        const toDelete: string[] = [];
+        byOrderNum.forEach((group) => {
+          if (group.length <= 1) return;
+          const sorted = [...group].sort((a, b) =>
+            b.created_at.localeCompare(a.created_at) // ล่าสุดก่อน
+          );
+          sorted.slice(1).forEach((o) => toDelete.push(o.id)); // ลบที่เหลือ
+        });
+
+        if (toDelete.length === 0) { toast.info("ไม่พบข้อมูลซ้ำ"); return { removed: 0 }; }
+
+        if (SUPABASE_ENABLED && supabase) {
+          toDelete.forEach((id) => localMutations.add(id));
+          // ลบเป็น batch (Supabase in operator รองรับ array)
+          const { error } = await supabase
+            .from("ota_orders")
+            .delete()
+            .in("id", toDelete);
+          if (error) {
+            toDelete.forEach((id) => localMutations.delete(id));
+            console.error("[ota] deduplicateOrders error:", error);
+            toast.error(`ลบ Duplicates ไม่สำเร็จ — ${error.message}`);
+            return { removed: 0 };
+          }
+        }
+        set((s) => ({ orders: s.orders.filter((o) => !toDelete.includes(o.id)) }));
+        get().pushAudit({
+          action: "format_data",
+          actor,
+          detail: `ลบ Duplicate Orders — ลบ ${toDelete.length} rows ซ้ำ (เหลือ ${allOrders.length - toDelete.length} orders)`,
+          order_id: null,
+        });
+        toast.success(`ลบ Duplicates สำเร็จ — ลบไป ${toDelete.length} rows`);
+        return { removed: toDelete.length };
       },
 
       // ── Helpers ──────────────────────────────────────────────────────────────

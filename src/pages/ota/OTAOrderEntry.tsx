@@ -260,7 +260,7 @@ function MultiSelectDropdown({
 }
 
 export default function OTAOrderEntry() {
-  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, clearAllOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
+  const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, clearAllOrders, clearOrdersByMonth, deduplicateOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
   const currentUser = useCurrentUser();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -303,8 +303,10 @@ export default function OTAOrderEntry() {
   const [showGroupSuggest, setShowGroupSuggest] = useState(false);
   const [previewTab, setPreviewTab] = useState<"new" | "update">("new");
 
-  // ── Format (Clear All Orders) state ────────────────────────────────────────
-  // Layer 1: impact warning + checkbox
+  // ── Format (Clear Orders) state ────────────────────────────────────────────
+  // scope: "all" = ลบทั้งหมด | "month" = ลบเฉพาะเดือนที่เลือก
+  const [formatScope, setFormatScope] = useState<"all" | "month">("all");
+  // Layer 1: scope picker + impact warning + checkbox
   const [showFormatL1, setShowFormatL1] = useState(false);
   const [formatL1Checked, setFormatL1Checked] = useState(false);
   // Layer 2: type-to-confirm
@@ -316,6 +318,10 @@ export default function OTAOrderEntry() {
   const formatHoldRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isFormatting, setIsFormatting] = useState(false);
 
+  // ── Deduplicate state ───────────────────────────────────────────────────────
+  const [showDedupDialog, setShowDedupDialog] = useState(false);
+  const [isDeduplying, setIsDeduping] = useState(false);
+
   const CONFIRM_WORD = "ล้างข้อมูล";
   const HOLD_DURATION_MS = 3000;
 
@@ -326,6 +332,7 @@ export default function OTAOrderEntry() {
     setFormatL1Checked(false);
     setFormatTypeInput("");
     setFormatHoldProgress(0);
+    setFormatScope("all");
     if (formatHoldRef.current) clearInterval(formatHoldRef.current);
   }, []);
 
@@ -351,9 +358,22 @@ export default function OTAOrderEntry() {
 
   const handleFormatConfirm = async () => {
     setIsFormatting(true);
-    await clearAllOrders(currentUser?.full_name ?? "ระบบ");
+    const actor = currentUser?.full_name ?? "ระบบ";
+    if (formatScope === "month") {
+      const ym = `${year}-${String(month).padStart(2, "0")}`;
+      await clearOrdersByMonth(ym, actor);
+    } else {
+      await clearAllOrders(actor);
+    }
     setIsFormatting(false);
     resetFormatState();
+  };
+
+  const handleDedup = async () => {
+    setIsDeduping(true);
+    await deduplicateOrders(currentUser?.full_name ?? "ระบบ");
+    setIsDeduping(false);
+    setShowDedupDialog(false);
   };
 
   const handleSort = (key: SortKey) => {
@@ -975,10 +995,17 @@ export default function OTAOrderEntry() {
         <span>· รองรับ .xlsx / .xls / .csv</span>
         <span className="ml-auto">
           <button
-            onClick={() => { setShowFormatL1(true); setFormatL1Checked(false); }}
+            onClick={() => { setShowFormatL1(true); setFormatL1Checked(false); setFormatScope("all"); }}
             className="text-red-400 hover:text-red-600 text-[11px] transition-colors"
           >
             Format ข้อมูล
+          </button>
+          <span className="text-border mx-1">·</span>
+          <button
+            onClick={() => setShowDedupDialog(true)}
+            className="text-amber-500 hover:text-amber-700 text-[11px] transition-colors"
+          >
+            ลบซ้ำ
           </button>
         </span>
       </div>
@@ -1610,9 +1637,14 @@ export default function OTAOrderEntry() {
 
       {/* Layer 1: Impact Warning + Checkbox */}
       {showFormatL1 && (() => {
-        const totalPax   = orders.reduce((s, o) => s + o.pax, 0);
-        const totalRev   = orders.reduce((s, o) => s + o.revenue, 0);
+        const ym = `${year}-${String(month).padStart(2, "0")}`;
+        const scopeOrders = formatScope === "month"
+          ? orders.filter((o) => o.usage_date.startsWith(ym))
+          : orders;
+        const totalPax = scopeOrders.reduce((s, o) => s + o.pax, 0);
+        const totalRev = scopeOrders.reduce((s, o) => s + o.revenue, 0);
         const fmtB = (n: number) => `฿${n.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`;
+        const scopeLabel = formatScope === "month" ? `เดือน ${monthName} ${year}` : "ทั้งหมด";
         return (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
             <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
@@ -1626,12 +1658,39 @@ export default function OTAOrderEntry() {
                   <p className="text-xs text-muted-foreground mt-0.5">ขั้นตอนที่ 1 จาก 3</p>
                 </div>
               </div>
-              {/* Impact stats */}
               <div className="p-5 space-y-3">
-                <p className="text-sm text-foreground font-medium">ข้อมูลที่จะถูกลบถาวร:</p>
+                {/* Scope toggle */}
+                <p className="text-sm font-medium text-foreground">เลือกขอบเขตที่ต้องการลบ:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["all", "month"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFormatScope(s)}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors text-left ${
+                        formatScope === s
+                          ? "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                          : "border-border hover:border-red-300 text-foreground"
+                      }`}
+                    >
+                      {s === "all" ? (
+                        <>
+                          <div className="font-semibold">ทั้งหมด</div>
+                          <div className="text-[11px] opacity-70 mt-0.5">{orders.length} orders · ทุกเดือน</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="font-semibold">เดือนนี้</div>
+                          <div className="text-[11px] opacity-70 mt-0.5">{orders.filter(o => o.usage_date.startsWith(ym)).length} orders · {monthName} {year}</div>
+                        </>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {/* Impact stats */}
+                <p className="text-sm text-foreground font-medium">ข้อมูลที่จะถูกลบ ({scopeLabel}):</p>
                 <div className="grid grid-cols-3 gap-2">
                   <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
-                    <div className="text-xl font-bold text-red-600">{orders.length}</div>
+                    <div className="text-xl font-bold text-red-600">{scopeOrders.length}</div>
                     <div className="text-[10px] text-red-500 mt-0.5">Orders</div>
                   </div>
                   <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
@@ -1644,7 +1703,7 @@ export default function OTAOrderEntry() {
                   </div>
                 </div>
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
-                  <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">⚠ ข้อมูลทั้งหมดจะถูกลบออกจาก Supabase และ localStorage — ไม่สามารถกู้คืนได้</p>
+                  <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">⚠ ข้อมูลจะถูกลบออกจาก Supabase และ localStorage — ไม่สามารถกู้คืนได้</p>
                 </div>
                 {/* Checkbox confirm */}
                 <label className="flex items-start gap-3 cursor-pointer select-none mt-1">
@@ -1779,6 +1838,67 @@ export default function OTAOrderEntry() {
           </div>
         </div>
       )}
+
+      {/* ── Deduplicate Dialog ───────────────────────────────────────────────── */}
+      {showDedupDialog && (() => {
+        const dupCount = (() => {
+          const seen = new Map<string, number>();
+          orders.forEach((o) => seen.set(o.order_number, (seen.get(o.order_number) ?? 0) + 1));
+          let extra = 0;
+          seen.forEach((cnt) => { if (cnt > 1) extra += cnt - 1; });
+          return extra;
+        })();
+        return (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl">
+              <div className="flex items-center gap-3 p-5 border-b border-border">
+                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-base text-foreground">ลบ Orders ซ้ำ</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">เก็บ 1 record ต่อ Order # (record ล่าสุด)</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-bold text-amber-600">{dupCount}</div>
+                    <div className="text-[10px] text-amber-500 mt-0.5">Rows ที่จะถูกลบ</div>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+                    <div className="text-2xl font-bold text-green-600">{orders.length - dupCount}</div>
+                    <div className="text-[10px] text-green-600 mt-0.5">Orders ที่จะเหลือ</div>
+                  </div>
+                </div>
+                {dupCount === 0 ? (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl px-4 py-3">
+                    <p className="text-xs text-green-700 dark:text-green-400 font-medium">✓ ไม่พบข้อมูลซ้ำ ข้อมูลสะอาดอยู่แล้ว</p>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
+                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                      พบ Order Number ซ้ำ {dupCount} rows — ระบบจะเก็บ record ที่ created ล่าสุดของแต่ละ Order # ไว้ แล้วลบที่เหลือ
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3 p-5 pt-0">
+                <button onClick={() => setShowDedupDialog(false)} disabled={isDeduplying}
+                  className="flex-1 px-4 py-2.5 text-sm border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-40">
+                  ยกเลิก
+                </button>
+                <button
+                  disabled={dupCount === 0 || isDeduplying}
+                  onClick={handleDedup}
+                  className="flex-[2] px-4 py-2.5 text-sm bg-amber-600 hover:bg-amber-700 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl transition-colors font-semibold">
+                  {isDeduplying ? "กำลังลบซ้ำ..." : `ลบ ${dupCount} rows ซ้ำ`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Import Result Modal (after confirm) ──────────────────────────────── */}
       {showImportResult && (
