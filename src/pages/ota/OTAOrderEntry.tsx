@@ -499,9 +499,9 @@ export default function OTAOrderEntry() {
   };
   const handleDelete = async (id: string) => { if (confirm("ลบ Order นี้?")) { await deleteOrder(id, currentUser?.full_name ?? "ระบบ"); toast.success("ลบ Order แล้ว"); } };
 
-  // ── Export XLSX ───────────────────────────────────────────────────────────
-  const handleExport = () => {
-    const rows = filtered.map((o) => {
+  // ── Export helpers ────────────────────────────────────────────────────────
+  const buildRows = (list: typeof orders) =>
+    list.map((o) => {
       const pkg = packages.find((p) => p.id === o.package_id);
       const commAmt = +(o.gross_price * o.commission_pct / 100).toFixed(2);
       return [
@@ -511,12 +511,26 @@ export default function OTAOrderEntry() {
         o.gross_price, o.commission_pct, commAmt, o.discount, o.revenue,
       ];
     });
-    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...rows]);
+
+  // Export เดือนปัจจุบัน (filtered)
+  const handleExport = () => {
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildRows(filtered)]);
     ws["!cols"] = [12,12,14,12,8,16,12,30,14,14,16,12,10,14,10,14].map((w) => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Orders");
     XLSX.writeFile(wb, `OTA_Orders_${monthName}_${year}.xlsx`);
     toast.success(`Export ${filtered.length} orders สำเร็จ`);
+  };
+
+  // Export ทั้งหมด (ทุกเดือน เรียงตาม usage_date)
+  const handleExportAll = () => {
+    const allSorted = [...orders].sort((a, b) => a.usage_date.localeCompare(b.usage_date));
+    const ws = XLSX.utils.aoa_to_sheet([EXPORT_HEADERS, ...buildRows(allSorted)]);
+    ws["!cols"] = [12,12,14,12,8,16,12,30,14,14,16,12,10,14,10,14].map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "All Orders");
+    XLSX.writeFile(wb, `OTA_Orders_ALL_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success(`Export ทั้งหมด ${allSorted.length} orders สำเร็จ`);
   };
 
   // ── Download Template ─────────────────────────────────────────────────────
@@ -769,11 +783,26 @@ export default function OTAOrderEntry() {
               <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
             </button>
           </div>
-          {/* Export */}
-          <button onClick={handleExport}
-            className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
-          </button>
+          {/* Export — dropdown มี 2 ตัวเลือก */}
+          <div className="relative group">
+            <button className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+              <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-52 bg-popover border border-border rounded-lg shadow-lg z-50 hidden group-hover:block">
+              <button onClick={handleExport}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors rounded-t-lg">
+                <div className="font-medium">Export เดือนนี้</div>
+                <div className="text-xs text-muted-foreground">{filtered.length} orders · {monthName} {year}</div>
+              </button>
+              <div className="h-px bg-border mx-2" />
+              <button onClick={handleExportAll}
+                className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors rounded-b-lg">
+                <div className="font-medium">Export ทั้งหมด</div>
+                <div className="text-xs text-muted-foreground">{orders.length} orders · ทุกเดือน</div>
+              </button>
+            </div>
+          </div>
           {/* Add */}
           <button onClick={openAdd}
             className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">

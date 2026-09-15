@@ -1067,7 +1067,7 @@ export default function OTADashboard() {
                   <YAxis tick={{ fontSize: 11 }} domain={[0, "auto"]} />
                   <RTooltip formatter={(v: number) => [`฿${(v * 1000).toLocaleString()}`, "Revenue"]} />
                   <Bar dataKey="revenue" fill="#a78bfa" name="Revenue (฿k)" radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="revenue" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} legendType="none" />
+                  <Line type="monotone" dataKey="revenue" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} tooltipType="none" legendType="none" />
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
