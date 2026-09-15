@@ -7,7 +7,7 @@ import { useOTAStore, OTAVehicleJoinGroup } from "@/store/otaStore";
 import {
   PieChart, Pie, Cell, Tooltip as RTooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  LineChart, Line, AreaChart, Area,
+  LineChart, Line, AreaChart, Area, ComposedChart,
 } from "recharts";
 import {
   ShoppingCart, Banknote, Users, TrendingUp, Bus, Layers,
@@ -1043,21 +1043,35 @@ export default function OTADashboard() {
             </ChartCard>
           </div>
 
-          <ChartCard title="Monthly Comparison (Last 12 Months)">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
-                <RTooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="orders" fill="#7c3aed" name="Orders" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="left" dataKey="pax" fill="#db2777" name="People" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="revenue" fill="#a78bfa" name="Revenue (฿k)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+          {/* Monthly Comparison — แยกเป็น 2 charts ไม่งงกว่า dual-axis เดิม */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ChartCard title="Orders & People — รายเดือน (12 เดือน)">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={monthlyData} barGap={2} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} domain={[0, "auto"]} />
+                  <RTooltip />
+                  <Legend />
+                  <Bar dataKey="orders" fill="#7c3aed" name="Orders" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="pax" fill="#db2777" name="People" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Revenue (฿k) — รายเดือน (12 เดือน)">
+              <ResponsiveContainer width="100%" height={220}>
+                <ComposedChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[0, "auto"]} />
+                  <RTooltip formatter={(v: number) => [`฿${(v * 1000).toLocaleString()}`, "Revenue"]} />
+                  <Bar dataKey="revenue" fill="#a78bfa" name="Revenue (฿k)" radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="revenue" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} legendType="none" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
 
           <ChartCard title="Platform Order Trend (Last 6 Months)">
             <ResponsiveContainer width="100%" height={240}>
