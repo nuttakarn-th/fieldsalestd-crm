@@ -217,25 +217,39 @@ function heatStyle(total: number, isWeekend: boolean): {
 }
 
 // Inline SVG icons for vehicle type — renders with currentColor
+// VAN: sloped roofline (minivan side profile) — unmistakably a van
 function VanIcon({ className }: { className?: string }) {
   return (
-    <svg width="20" height="13" viewBox="0 0 24 16" fill="currentColor" className={className} aria-hidden="true">
-      <rect x="1" y="4" width="18" height="9" rx="2" />
-      <path d="M17 4 L22 4 C23 4 23 6 23 7 L23 13" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <circle cx="6" cy="13.5" r="2.5" />
-      <circle cx="17" cy="13.5" r="2.5" />
+    <svg width="28" height="17" viewBox="0 0 44 26" fill="currentColor" className={className} aria-hidden="true">
+      {/* Lower body */}
+      <rect x="1" y="12" width="42" height="10" rx="2" />
+      {/* Cab roof — slopes up from front, flat over cargo area */}
+      <path d="M5 12 L5 6 Q5 4 7 4 L30 4 Q32 4 34 6 L42 12 Z" />
+      {/* Side window (cargo area) */}
+      <rect x="7" y="5.5" width="13" height="5" rx="0.8" fill="white" opacity="0.55" />
+      {/* Cab window */}
+      <rect x="22" y="5.5" width="10" height="5" rx="0.8" fill="white" opacity="0.55" />
+      {/* Wheels */}
+      <circle cx="12" cy="23" r="3" />
+      <circle cx="32" cy="23" r="3" />
     </svg>
   );
 }
 
+// BUS: perfectly boxy, 4 windows in a row — unmistakably a bus
 function BusIcon({ className }: { className?: string }) {
   return (
-    <svg width="13" height="15" viewBox="0 0 16 20" fill="currentColor" className={className} aria-hidden="true">
-      <rect x="1" y="1" width="14" height="15" rx="2" />
-      <rect x="3" y="4" width="4" height="3" rx="0.5" fill="white" opacity="0.5" />
-      <rect x="9" y="4" width="4" height="3" rx="0.5" fill="white" opacity="0.5" />
-      <circle cx="4.5" cy="17.5" r="2" />
-      <circle cx="11.5" cy="17.5" r="2" />
+    <svg width="28" height="17" viewBox="0 0 44 26" fill="currentColor" className={className} aria-hidden="true">
+      {/* Boxy body */}
+      <rect x="1" y="3" width="42" height="17" rx="2" />
+      {/* 4 windows in a row */}
+      <rect x="3.5" y="6.5" width="7" height="6" rx="0.8" fill="white" opacity="0.55" />
+      <rect x="13" y="6.5" width="7" height="6" rx="0.8" fill="white" opacity="0.55" />
+      <rect x="22.5" y="6.5" width="7" height="6" rx="0.8" fill="white" opacity="0.55" />
+      <rect x="32" y="6.5" width="7" height="6" rx="0.8" fill="white" opacity="0.55" />
+      {/* Wheels */}
+      <circle cx="11" cy="23" r="3" />
+      <circle cx="33" cy="23" r="3" />
     </svg>
   );
 }
