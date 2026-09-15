@@ -3,14 +3,15 @@
  * Mobile: accordion cards | Desktop: table
  */
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useOTAStore, OTAGroupCost } from "@/store/otaStore";
 import {
   TrendingUp, TrendingDown, ChevronDown, ChevronUp,
   Users, DollarSign, BarChart2, Package,
   ArrowUpDown, ArrowUp, ArrowDown,
-  Pencil, Check, X,
+  Pencil, Check, X, Download, Upload, AlertCircle,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,10 @@ function groupDay(code: string, month: string): string {
   const [yr, mo] = month.split("-");
   const day = m[1];
   const d = new Date(`${yr}-${mo}-${day}`);
-  return isNaN(d.getTime()) ? "" : d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  if (isNaN(d.getTime())) return "";
+  const dayNum = d.getDate();
+  const monthName = d.toLocaleString("en-GB", { month: "short" });
+  return `${dayNum} ${monthName} ${yr}`;
 }
 
 type SortBy = "date" | "revenue" | "profit";
@@ -300,6 +304,86 @@ export default function OTAPnL() {
     setDraftCosts({});
   };
 
+  // ── Export ────────────────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const HEADERS = [
+      "Group Code", "Date", "PAX", "รายได้สุทธิ (THB)",
+      "Attraction", "Meals", "Car", "Guide Fee", "Tip Driver", "Other Fee",
+      "Total Cost", "กำไร/ขาดทุน",
+    ];
+    const data = rows.map((r) => [
+      r.code,
+      groupDay(r.code, month),
+      r.pax,
+      r.revenue,
+      r.cost.attraction, r.cost.meals, r.cost.car,
+      r.cost.guide_fee, r.cost.tip_driver, r.cost.other_fee,
+      r.totalCost,
+      r.profit,
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...data]);
+    ws["!cols"] = [18,16,7,18,12,10,10,12,12,12,12,14].map((w) => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "P&L");
+    const [yr, mo] = month.split("-");
+    XLSX.writeFile(wb, `PnL_${yr}-${mo}.xlsx`);
+  };
+
+  // ── Import ────────────────────────────────────────────────────────────────────
+  const importRef = useRef<HTMLInputElement>(null);
+  const [importPreview, setImportPreview] = useState<{
+    rows: { code: string; draft: DraftCosts }[];
+    errors: string[];
+  } | null>(null);
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target?.result, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const dataRows = raw.slice(1).filter((r) => String(r[0] ?? "").trim());
+        const pNum = (v: unknown) => parseFloat(String(v ?? "").replace(/[฿$,\s]/g, "")) || 0;
+        const parsed: { code: string; draft: DraftCosts }[] = [];
+        const errors: string[] = [];
+        dataRows.forEach((r, i) => {
+          const code = String(r[0] ?? "").trim();
+          if (!code) { errors.push(`แถว ${i + 2}: ไม่มี Group Code`); return; }
+          // Check group code exists in this month's rows
+          if (!rows.find((row) => row.code === code)) {
+            errors.push(`แถว ${i + 2}: "${code}" ไม่พบในเดือนนี้`);
+            return;
+          }
+          parsed.push({
+            code,
+            draft: {
+              attraction: pNum(r[4]),
+              meals:      pNum(r[5]),
+              car:        pNum(r[6]),
+              guide_fee:  pNum(r[7]),
+              tip_driver: pNum(r[8]),
+              other_fee:  pNum(r[9]),
+            },
+          });
+        });
+        setImportPreview({ rows: parsed, errors });
+      } catch {
+        alert("ไม่สามารถอ่านไฟล์ได้ กรุณาใช้ไฟล์ที่ Export จากระบบ");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const confirmImport = () => {
+    if (!importPreview) return;
+    importPreview.rows.forEach(({ code, draft }) => saveAllCosts(code, draft));
+    setImportPreview(null);
+  };
+
   const kpis = [
     { label: "กรุ๊ป", value: `${rows.length}`, icon: Package, color: "text-purple-600", bg: "bg-purple-50" },
     { label: "PAX รวม", value: `${totalPax.toLocaleString("th-TH")}`, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
@@ -312,25 +396,113 @@ export default function OTAPnL() {
   return (
     <div className="min-h-screen bg-gray-50">
 
+      {/* ── Import file input (hidden) ────────────────────────────────────────── */}
+      <input ref={importRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImportFile} />
+
       {/* ── Sticky Header ──────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
-        <div>
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-2">
+        <div className="shrink-0">
           <h1 className="text-base font-bold text-[#1e1b4b] leading-tight">Profit &amp; Loss</h1>
           <p className="text-[11px] text-gray-400">ตารางสรุปกำไร-ขาดทุนรายกรุ๊ป</p>
         </div>
-        <div className="relative shrink-0">
-          <select
-            className="appearance-none bg-purple-600 text-white text-sm font-semibold rounded-xl px-4 py-2 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm"
-            value={month}
-            onChange={(e) => { setMonth(e.target.value); cancelEdit(); }}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Import */}
+          <button
+            onClick={() => importRef.current?.click()}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition-colors"
+            title="Import ต้นทุนจาก Excel"
           >
-            {monthOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-white pointer-events-none" />
+            <Upload className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+          {/* Export */}
+          <button
+            onClick={handleExport}
+            disabled={rows.length === 0}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition-colors disabled:opacity-40"
+            title="Export เป็น Excel"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+          {/* Month selector */}
+          <div className="relative">
+            <select
+              className="appearance-none bg-purple-600 text-white text-sm font-semibold rounded-xl px-4 py-2 pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm"
+              value={month}
+              onChange={(e) => { setMonth(e.target.value); cancelEdit(); }}
+            >
+              {monthOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-white pointer-events-none" />
+          </div>
         </div>
       </div>
+
+      {/* ── Import Preview Modal ──────────────────────────────────────────────── */}
+      {importPreview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-[#1e1b4b]">ยืนยันการ Import ต้นทุน</h2>
+              <button onClick={() => setImportPreview(null)} className="p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3">
+              {importPreview.errors.length > 0 && (
+                <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                    <span className="text-xs font-semibold text-red-600">{importPreview.errors.length} แถวที่ข้ามไป</span>
+                  </div>
+                  {importPreview.errors.map((e, i) => (
+                    <p key={i} className="text-xs text-red-500 ml-6">{e}</p>
+                  ))}
+                </div>
+              )}
+              {importPreview.rows.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">ไม่มีแถวที่สามารถ import ได้</p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500">จะอัพเดตต้นทุน <span className="font-semibold text-[#1e1b4b]">{importPreview.rows.length} กรุ๊ป</span></p>
+                  <div className="space-y-1.5">
+                    {importPreview.rows.map(({ code, draft }) => {
+                      const total = COST_FIELDS.reduce((s, f) => s + (draft[f.key as string] ?? 0), 0);
+                      const rev = rows.find((r) => r.code === code)?.revenue ?? 0;
+                      return (
+                        <div key={code} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                          <span className="font-semibold text-[#1e1b4b]">{code}</span>
+                          <span className="text-gray-500">ต้นทุน {fmtB(total)}</span>
+                          <span className={`font-semibold ${rev - total >= 0 ? "text-green-600" : "text-red-500"}`}>
+                            กำไร {fmtB(rev - total)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-2">
+              <button onClick={() => setImportPreview(null)}
+                className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmImport}
+                disabled={importPreview.rows.length === 0}
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-xl hover:bg-purple-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                บันทึก {importPreview.rows.length} กรุ๊ป
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4 space-y-4 pb-32">
 
