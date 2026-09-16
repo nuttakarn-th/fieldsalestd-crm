@@ -488,13 +488,16 @@ export const useServices = create<ServiceState>()(
               ...(updatedBy ? { updated_by: updatedBy, updated_at: now } : {}),
             };
           });
-          const quota = periods.filter((x) => !x.cancelled).reduce((s, x) => s + x.quota, 0);
-          return { ...t, periods, quota };
+          const activePeriods = periods.filter((x) => !x.cancelled);
+          const totalSeats = activePeriods.reduce((s, x) => s + x.total_seats, 0);
+          const quota = activePeriods.reduce((s, x) => s + x.quota, 0);
+          return { ...t, periods, total_seats: totalSeats, quota };
         });
         set({ tours: newTours });
         const updated = newTours.find((t) => t.id === tourId);
         if (updated) {
-          const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, quota: updated.quota });
+          // ส่ง total_seats ด้วยเพื่อให้ DB constraint (quota <= total_seats) ไม่ fail
+          const { error } = await sbUpdateAsync("tours", tourId, { periods: updated.periods, total_seats: updated.total_seats, quota: updated.quota });
           if (error) {
             set({ tours: preTours }); // rollback
             throw new Error("บันทึกไม่สำเร็จ กรุณาลองใหม่");
