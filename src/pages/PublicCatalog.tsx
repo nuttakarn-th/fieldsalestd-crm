@@ -17,8 +17,8 @@ const CATEGORIES = [
   {
     key: "International Tour", label: "ทัวร์ต่างประเทศ", sublabel: "International",
     short: "INT", chipLabel: "✈️ ต่างประเทศ",
-    bg: "#dcfce7", text: "#15803d", strip: "#22c55e", headerBg: "#f0fdf4",
-    grad: "linear-gradient(135deg,#22c55e,#16a34a)", icon: Globe,
+    bg: "#ede9fe", text: "#6d28d9", strip: "#8b5cf6", headerBg: "#f5f3ff",
+    grad: "linear-gradient(135deg,#8b5cf6,#7c3aed)", icon: Globe,
   },
   {
     key: "Domestic", label: "ทัวร์ในประเทศ", sublabel: "Domestic",
@@ -107,7 +107,7 @@ interface PeriodRow {
 }
 
 // ── Chip ─────────────────────────────────────────────────────────────────────
-function Chip({ active, onClick, children, activeBg="#d1fae5", activeText="#065f46" }: {
+function Chip({ active, onClick, children, activeBg="#ede9fe", activeText="#5b21b6" }: {
   active: boolean; onClick: () => void; children: React.ReactNode;
   activeBg?: string; activeText?: string;
 }) {
@@ -194,14 +194,14 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                     const total = p.total_seats > 0 ? p.total_seats : (tour.total_seats ?? 0);
                     const st = pStatus(p.quota, total);
                     const pct = total > 0 ? Math.round(((total - p.quota) / total) * 100) : 0;
-                    const barColor = st === "low" ? "#f97316" : "#22c55e";
+                    const barColor = st === "low" ? "#f97316" : "#8b5cf6";
                     const sd = p.start_date ?? p.travel_date ?? "";
                     const ed = p.end_date ?? "";
                     const isFull = st === "full";
                     const sp = p.special_price ?? 0;
                     const rp = p.price_per_seat ?? (tour as TourItem & { price_per_seat?: number }).price_per_seat ?? 0;
                     const displayPrice = sp > 0 ? sp : rp;
-                    const iconColor = isFull ? "#9ca3af" : st === "low" ? "#ea580c" : "#16a34a";
+                    const iconColor = isFull ? "#9ca3af" : st === "low" ? "#ea580c" : "#7c3aed";
                     return (
                       <div key={p.period_id}
                         className="grid items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors"
@@ -219,7 +219,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                         <div className="min-w-0">
                           {displayPrice > 0 && (
                             <div className="flex items-baseline gap-1 mb-1">
-                              <span className="text-xs font-semibold" style={{ color: isFull ? "#9ca3af" : sp > 0 ? "#b45309" : "#047857" }}>
+                              <span className="text-xs font-semibold" style={{ color: isFull ? "#9ca3af" : sp > 0 ? "#b45309" : "#7c3aed" }}>
                                 ฿{displayPrice.toLocaleString("th-TH")}
                               </span>
                               {sp > 0 && rp > 0 && (
@@ -245,7 +245,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                         <div className="shrink-0">
                           {isFull && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600">เต็มแล้ว</span>}
                           {st === "low" && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">🔥 ว่าง {p.quota}</span>}
-                          {st === "ok"  && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700">ว่าง {p.quota}</span>}
+                          {st === "ok"  && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700">ว่าง {p.quota}</span>}
                         </div>
                       </div>
                     );
@@ -257,7 +257,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
             {/* Drawer footer CTA */}
             <div className="shrink-0 p-4 border-t border-gray-100 bg-gray-50 flex gap-3">
               <a href="tel:027370333"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-green-600 text-green-700 font-semibold text-sm hover:bg-green-50 transition-colors">
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-violet-600 text-violet-700 font-semibold text-sm hover:bg-violet-50 transition-colors">
                 <Phone className="w-4 h-4" /> โทรสอบถาม
               </a>
               <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
@@ -293,7 +293,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
   const hasLow = effPeriods.some(p => pStatus(p.quota, p.total) === "low");
   const rowSt: PStatus = hasOk ? "ok" : hasLow ? "low" : "full";
   const pct = totalSeats > 0 ? Math.round(((totalSeats - totalQuota) / totalSeats) * 100) : 0;
-  const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#22c55e";
+  const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#8b5cf6";
 
   // Next departure
   const upcoming = effPeriods
@@ -379,7 +379,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
               {tour.duration}
             </span>
           )}
-          {rowSt === "ok"   && <span className="text-[10px] sm:text-[11px] font-bold text-green-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm leading-none">ว่าง</span>}
+          {rowSt === "ok"   && <span className="text-[10px] sm:text-[11px] font-bold text-violet-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm leading-none">ว่าง</span>}
           {rowSt === "low"  && <span className="text-[10px] sm:text-[11px] font-bold text-orange-700 bg-white/90 px-2 py-0.5 rounded-full shadow-sm leading-none">ใกล้เต็ม</span>}
           {rowSt === "full" && <span className="text-[10px] sm:text-[11px] font-bold text-white bg-red-500/80 px-2 py-0.5 rounded-full shadow-sm leading-none">เต็มแล้ว</span>}
         </div>
@@ -389,7 +389,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
       <div className={`p-2.5 sm:p-4 ${isFull ? "opacity-50" : ""}`}>
         {/* Program name + code */}
         <div className="mb-2 sm:mb-3">
-          <p className={`font-bold text-xs sm:text-base leading-tight line-clamp-2 transition-colors ${isFull ? "text-gray-500" : "text-gray-900 group-hover:text-green-800"}`}>
+          <p className={`font-bold text-xs sm:text-base leading-tight line-clamp-2 transition-colors ${isFull ? "text-gray-500" : "text-gray-900 group-hover:text-violet-800"}`}>
             {tour.title ?? tour.city}
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5 hidden sm:block">{tour.code}</p>
@@ -414,7 +414,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
         {startPrice > 0 ? (
           <div className="flex items-center justify-between mb-2 sm:mb-3">
             <span className="text-[10px] text-gray-400 hidden sm:inline">ราคาเริ่มต้น/ท่าน</span>
-            <span className={`font-bold text-xs sm:text-base ${isFull ? "text-gray-400" : "text-green-700"}`}>
+            <span className={`font-bold text-xs sm:text-base ${isFull ? "text-gray-400" : "text-violet-700"}`}>
               ฿{startPrice.toLocaleString("th-TH")}
             </span>
           </div>
@@ -427,7 +427,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
             {periods.length} รอบ
           </span>
           {nextDate && rowSt !== "full" && (
-            <span className="flex items-center gap-1 text-green-600 font-medium truncate">
+            <span className="flex items-center gap-1 text-violet-600 font-medium truncate">
               <ArrowRight className="w-3 h-3 shrink-0" />
               <span className="truncate sm:hidden">{fmtDateShort(nextDate)}</span>
               <span className="truncate hidden sm:inline">{fmtDate(nextDate)}</span>
@@ -663,8 +663,8 @@ export default function PublicCatalog() {
               <p className="font-bold text-sm text-gray-900 leading-tight">Standard Tour</p>
               <p className="text-[11px] text-gray-400 leading-tight hidden sm:block">แคตตาล็อกโปรแกรมทัวร์</p>
             </div>
-            <span className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700 border border-green-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-violet-50 text-violet-700 border border-violet-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
               Real-time
             </span>
           </div>
@@ -673,7 +673,7 @@ export default function PublicCatalog() {
             <button onClick={() => fetchTours(true)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"><RefreshCw className="w-4 h-4" /></button>
             <button onClick={copyLink}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-colors"
-              style={{ background: copied ? "#059669" : "#16a34a" }}>
+              style={{ background: copied ? "#6d28d9" : "#7c3aed" }}>
               <Share2 className="w-3.5 h-3.5" />
               {copied ? "คัดลอกแล้ว!" : "แชร์ลิงค์"}
             </button>
@@ -682,18 +682,18 @@ export default function PublicCatalog() {
       </header>
 
       {/* ── Hero ── */}
-      <div style={{ background: "linear-gradient(135deg,#16a34a,#059669)" }}>
+      <div style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)" }}>
         <div className="max-w-screen-xl mx-auto px-4 py-4 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div className="text-white">
             <p className="font-bold text-lg sm:text-xl leading-tight">ค้นหาโปรแกรมทัวร์ Standard Tour</p>
-            <p className="text-green-100 text-xs sm:text-sm mt-1">ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก</p>
+            <p className="text-violet-100 text-xs sm:text-sm mt-1">ดูรอบเดินทาง · ที่นั่งว่าง · ดาวน์โหลด PDF โดยไม่ต้องสมัครสมาชิก</p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto sm:shrink-0">
             <a href="tel:027370333" className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors">
               <Phone className="w-3.5 h-3.5" /> โทรสอบถาม
             </a>
             <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white text-green-700 text-sm font-bold hover:bg-green-50 transition-colors">
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white text-violet-700 text-sm font-bold hover:bg-violet-50 transition-colors">
               <MessageCircle className="w-3.5 h-3.5" /> LINE
             </a>
           </div>
@@ -708,7 +708,7 @@ export default function PublicCatalog() {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="ค้นหาชื่อโปรแกรม เมือง ประเทศ..."
-              className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-100" />
+              className="w-full pl-8 pr-8 py-1.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-100" />
             {search && <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
           </div>
         </div>
@@ -745,7 +745,7 @@ export default function PublicCatalog() {
           <div className="max-w-screen-xl mx-auto px-4 pb-2.5 flex items-center gap-2 border-t border-gray-100 pt-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
             <span className="text-[11px] font-bold text-gray-400 uppercase">สถานะ:</span>
             <Chip active={stFilter === "all"}  onClick={() => setStFilter("all")}>ทุกสถานะ</Chip>
-            <Chip active={stFilter === "ok"}   onClick={() => setStFilter("ok")}  activeBg="#f0fdf4" activeText="#15803d">✅ ว่าง</Chip>
+            <Chip active={stFilter === "ok"}   onClick={() => setStFilter("ok")}  activeBg="#f5f3ff" activeText="#6d28d9">✅ ว่าง</Chip>
             <Chip active={stFilter === "low"}  onClick={() => setStFilter("low")} activeBg="#fff7ed" activeText="#c2410c">⚠️ ใกล้เต็ม</Chip>
             <Chip active={stFilter === "full"} onClick={() => setStFilter("full")} activeBg="#fef2f2" activeText="#dc2626">🔴 เต็ม</Chip>
             <div className="w-px h-5 bg-gray-200 hidden sm:block" />
@@ -780,7 +780,7 @@ export default function PublicCatalog() {
       <div className="max-w-screen-xl mx-auto w-full px-4 pb-12 flex-1">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-gray-400">
-            <RefreshCw className="w-7 h-7 animate-spin text-green-400" />
+            <RefreshCw className="w-7 h-7 animate-spin text-violet-400" />
             <p className="text-sm">กำลังโหลดโปรแกรมทัวร์...</p>
           </div>
         ) : filteredTours.length === 0 ? (
@@ -788,7 +788,7 @@ export default function PublicCatalog() {
             <Search className="w-12 h-12 text-gray-200" />
             <p className="text-base font-semibold text-gray-500">ไม่พบโปรแกรมที่ตรงเงื่อนไข</p>
             <button onClick={() => { setSearch(""); setCatFilter("all"); setStFilter("all"); setMonthFilter("all"); setSortBy("date"); }}
-              className="text-sm text-green-600 hover:text-green-800 underline">ล้าง filter ทั้งหมด</button>
+              className="text-sm text-violet-600 hover:text-violet-800 underline">ล้าง filter ทั้งหมด</button>
           </div>
         ) : catFilter !== "all" ? (
           <div className="mt-2">
@@ -821,7 +821,7 @@ export default function PublicCatalog() {
           </div>
           <div className="flex gap-3">
             <a href="tel:027370333"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-green-600 text-green-700 font-semibold text-sm hover:bg-green-50 transition-colors">
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-violet-600 text-violet-700 font-semibold text-sm hover:bg-violet-50 transition-colors">
               <Phone className="w-4 h-4" /> 02-737-0333
             </a>
             <a href="https://line.me/ti/p/~@standardtour" target="_blank" rel="noopener noreferrer"
