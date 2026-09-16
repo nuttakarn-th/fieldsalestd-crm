@@ -55,10 +55,10 @@ const CONTINENT_COLORS: Record<string, { bg: string; text: string; border: strin
   ยุโรป:        { bg: "bg-blue-50",    text: "text-blue-700",   border: "border-blue-200",   emoji: "🏰" },
   เอเชีย:       { bg: "bg-orange-50",  text: "text-orange-700", border: "border-orange-200", emoji: "🏯" },
   อเมริกา:      { bg: "bg-red-50",     text: "text-red-700",    border: "border-red-200",    emoji: "🗽" },
-  โอเชียเนีย:   { bg: "bg-emerald-50", text: "text-emerald-700",border: "border-emerald-200",emoji: "🦘" },
+  โอเชียเนีย:   { bg: "bg-violet-50",  text: "text-violet-700", border: "border-violet-200", emoji: "🦘" },
   แอฟริกา:      { bg: "bg-amber-50",   text: "text-amber-700",  border: "border-amber-200",  emoji: "🦁" },
   ตะวันออกกลาง: { bg: "bg-purple-50",  text: "text-purple-700", border: "border-purple-200", emoji: "🕌" },
-  ในประเทศ:     { bg: "bg-teal-50",    text: "text-teal-700",   border: "border-teal-200",   emoji: "🇹🇭" },
+  ในประเทศ:     { bg: "bg-purple-50",  text: "text-purple-700", border: "border-purple-200", emoji: "🇹🇭" },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2259,7 +2259,7 @@ function PublicHeader({ lineUrl, socialLinks, phones }: {
     if (n === "instagram") return "#E1306C";
     if (n === "youtube")   return "#FF0000";
     if (n === "tiktok")    return "#010101";
-    return "#059669";
+    return "#7c3aed";
   };
 
   return (
