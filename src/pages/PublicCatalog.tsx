@@ -194,7 +194,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
                     const total = p.total_seats > 0 ? p.total_seats : (tour.total_seats ?? 0);
                     const st = pStatus(p.quota, total);
                     const pct = total > 0 ? Math.round(((total - p.quota) / total) * 100) : 0;
-                    const barColor = st === "low" ? "#f97316" : "#8b5cf6";
+                    const barColor = st === "low" ? "#f97316" : "#22c55e";
                     const sd = p.start_date ?? p.travel_date ?? "";
                     const ed = p.end_date ?? "";
                     const isFull = st === "full";
@@ -293,7 +293,7 @@ function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void })
   const hasLow = effPeriods.some(p => pStatus(p.quota, p.total) === "low");
   const rowSt: PStatus = hasOk ? "ok" : hasLow ? "low" : "full";
   const pct = totalSeats > 0 ? Math.round(((totalSeats - totalQuota) / totalSeats) * 100) : 0;
-  const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#8b5cf6";
+  const barColor = rowSt === "full" ? "#ef4444" : rowSt === "low" ? "#f97316" : "#22c55e";
 
   // Next departure
   const upcoming = effPeriods
