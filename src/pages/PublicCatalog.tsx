@@ -99,6 +99,12 @@ function pStatus(quota: number, total: number): PStatus {
   if (total > 0 && quota / total <= 0.2) return "low";
   return "ok";
 }
+/** คืน true ถ้า period ยังไม่เลยวันเดินทาง (start_date >= วันนี้) */
+function isUpcoming(dateStr: string): boolean {
+  if (!dateStr) return true;
+  const today = new Date().toISOString().slice(0, 10);
+  return dateStr >= today;
+}
 
 interface PeriodRow {
   period_id: string; start_date: string; end_date: string;
@@ -125,7 +131,7 @@ function Chip({ active, onClick, children, activeBg="#ede9fe", activeText="#5b21
 // ── Period Drawer ─────────────────────────────────────────────────────────────
 function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () => void }) {
   const cat = tour ? getCat(tour.category) : null;
-  const periods = ((tour?.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled);
+  const periods = ((tour?.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? ""));
 
   return (
     <>
@@ -276,7 +282,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
 // ── Program Card ──────────────────────────────────────────────────────────────
 function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void }) {
   const cat = getCat(tour.category);
-  const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled);
+  const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? ""));
 
   // Normalize: period total_seats=0 means "use tour.total_seats"
   const effPeriods = periods.map(p => ({
@@ -598,6 +604,7 @@ export default function PublicCatalog() {
         const matchP = periods.filter(p => {
           if (p.cancelled) return false;
           const sd = p.start_date ?? p.travel_date ?? "";
+          if (!isUpcoming(sd)) return false;
           if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
           if (stFilter !== "all") {
             const total = p.total_seats ?? t.total_seats ?? 0;
