@@ -99,11 +99,16 @@ function pStatus(quota: number, total: number): PStatus {
   if (total > 0 && quota / total <= 0.2) return "low";
   return "ok";
 }
-/** คืน true ถ้า period ยังไม่เลยวันเดินทาง (start_date >= วันนี้) */
-function isUpcoming(dateStr: string): boolean {
-  if (!dateStr) return true;
+/**
+ * คืน true ถ้า period ยังไม่หมดกำหนด
+ * — ใช้ end_date ถ้ามี (ถ้า end_date >= today ยังแสดง)
+ * — fallback เป็น start_date/travel_date ถ้าไม่มี end_date
+ */
+function isUpcoming(startDate: string, endDate?: string): boolean {
   const today = new Date().toISOString().slice(0, 10);
-  return dateStr >= today;
+  const ref = endDate || startDate;
+  if (!ref) return true;
+  return ref >= today;
 }
 
 interface PeriodRow {
@@ -131,7 +136,7 @@ function Chip({ active, onClick, children, activeBg="#ede9fe", activeText="#5b21
 // ── Period Drawer ─────────────────────────────────────────────────────────────
 function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () => void }) {
   const cat = tour ? getCat(tour.category) : null;
-  const periods = ((tour?.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? ""));
+  const periods = ((tour?.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? "", p.end_date));
 
   return (
     <>
@@ -282,7 +287,7 @@ function PeriodDrawer({ tour, onClose }: { tour: TourItem | null; onClose: () =>
 // ── Program Card ──────────────────────────────────────────────────────────────
 function ProgramCard({ tour, onClick }: { tour: TourItem; onClick: () => void }) {
   const cat = getCat(tour.category);
-  const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? ""));
+  const periods = ((tour.periods ?? []) as PeriodRow[]).filter(p => !p.cancelled && isUpcoming(p.start_date ?? p.travel_date ?? "", p.end_date));
 
   // Normalize: period total_seats=0 means "use tour.total_seats"
   const effPeriods = periods.map(p => ({
@@ -600,11 +605,11 @@ export default function PublicCatalog() {
           if (!t.code.toLowerCase().includes(q) && !(t.title ?? "").toLowerCase().includes(q) &&
               !t.city.toLowerCase().includes(q) && !t.country.toLowerCase().includes(q)) return false;
         }
-        const periods = (t.periods ?? []) as { start_date?: string; travel_date?: string; quota: number; total_seats?: number; cancelled?: boolean }[];
+        const periods = (t.periods ?? []) as { start_date?: string; end_date?: string; travel_date?: string; quota: number; total_seats?: number; cancelled?: boolean }[];
         const matchP = periods.filter(p => {
           if (p.cancelled) return false;
           const sd = p.start_date ?? p.travel_date ?? "";
-          if (!isUpcoming(sd)) return false;
+          if (!isUpcoming(sd, p.end_date)) return false;
           if (monthFilter !== "all" && monthKey(sd) !== monthFilter) return false;
           if (stFilter !== "all") {
             const total = p.total_seats ?? t.total_seats ?? 0;
