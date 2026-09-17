@@ -281,7 +281,7 @@ export default function OTAOrderEntry() {
     errorRows: ImportError[];
     totalRows: number;
     dupRows: Omit<OTAOrder, "id" | "created_at">[];  // 2nd+ occurrences of same order# in file
-    wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[]; // usage_date ≠ targetYm
+    wrongMonthRows: { original: string; rowNum: number; data: Omit<OTAOrder, "id" | "created_at"> }[]; // usage_date ≠ targetYm
     unknownPlatformRows: { rawPlatform: string; data: Omit<OTAOrder, "id" | "created_at"> }[]; // platform ไม่อยู่ใน list
     targetYm: string; // "YYYY-MM" เดือนที่ lock ไว้ตอน import
   }
@@ -620,7 +620,7 @@ export default function OTAOrderEntry() {
         const newRows: Omit<OTAOrder, "id" | "created_at">[] = [];
         const updateRows: { id: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
         const dupRows: Omit<OTAOrder, "id" | "created_at">[] = [];
-        const wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
+        const wrongMonthRows: { original: string; rowNum: number; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
         const unknownPlatformRows: { rawPlatform: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
 
         // Month lock: import targets the currently-selected month in the UI
@@ -750,7 +750,7 @@ export default function OTAOrderEntry() {
 
           // Month lock: rows with usage_date outside targetYm → wrongMonthRows (shown with banner)
           if (parsedUsageDate.slice(0, 7) !== targetYm) {
-            wrongMonthRows.push({ original: parsedUsageDate, data: orderData });
+            wrongMonthRows.push({ original: parsedUsageDate, rowNum, data: orderData });
             return; // skip normal routing; user can auto-correct later
           }
 
@@ -815,7 +815,7 @@ export default function OTAOrderEntry() {
     const newUpdateRows = [...importPreview.updateRows];
     const newDupRows    = [...importPreview.dupRows];
 
-    wrongMonthRows.forEach(({ data }) => {
+    wrongMonthRows.forEach(({ data, rowNum: _rn }) => {
       // Fix usage_date: keep DD + YYYY, replace month with target
       const day = data.usage_date.slice(8, 10); // "YYYY-MM-DD"
       const correctedDate = `${ty}-${tm}-${day}`;
@@ -1715,24 +1715,32 @@ export default function OTAOrderEntry() {
 
               {/* Wrong-month banner */}
               {importPreview.wrongMonthRows.length > 0 && !autoCorrectApplied && (() => {
-                // Summarise which months were found
-                const monthCounts: Record<string, number> = {};
-                importPreview.wrongMonthRows.forEach(({ data }) => {
+                // Summarise which months were found + row numbers
+                const monthInfo: Record<string, { count: number; rows: number[] }> = {};
+                importPreview.wrongMonthRows.forEach(({ data, rowNum }) => {
                   const ym = data.usage_date.slice(0, 7);
-                  monthCounts[ym] = (monthCounts[ym] ?? 0) + 1;
+                  if (!monthInfo[ym]) monthInfo[ym] = { count: 0, rows: [] };
+                  monthInfo[ym].count++;
+                  monthInfo[ym].rows.push(rowNum);
                 });
-                const monthList = Object.entries(monthCounts)
-                  .map(([ym, n]) => {
+                const monthList = Object.entries(monthInfo)
+                  .map(([ym, info]) => {
                     const [y, m] = ym.split("-");
                     const label = new Date(`${y}-${m}-01`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
-                    return `${label} ×${n}`;
+                    return `${label} ×${info.count}`;
                   }).join(", ");
+                // Row numbers (max 10 shown, rest collapsed)
+                const allRowNums = importPreview.wrongMonthRows.map((r) => r.rowNum).sort((a, b) => a - b);
+                const rowDisplay = allRowNums.length <= 10
+                  ? allRowNums.join(", ")
+                  : `${allRowNums.slice(0, 10).join(", ")} … (+${allRowNums.length - 10})`;
                 return (
                   <div className="mx-5 mb-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl px-3 py-2.5 shrink-0">
                     <div className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1">
                       ⚠ พบข้อมูล {importPreview.wrongMonthRows.length} แถว ที่ไม่ใช่เดือน {importPreview.targetYm}
                     </div>
-                    <div className="text-[11px] text-orange-600 dark:text-orange-400/80 mb-2">พบ: {monthList}</div>
+                    <div className="text-[11px] text-orange-600 dark:text-orange-400/80">พบ: {monthList}</div>
+                    <div className="text-[11px] text-orange-500 dark:text-orange-400/70 mb-2 font-mono">แถวที่: {rowDisplay}</div>
                     <button
                       onClick={handleAutoCorrect}
                       className="w-full py-1.5 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
