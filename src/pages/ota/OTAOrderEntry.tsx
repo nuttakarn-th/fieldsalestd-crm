@@ -716,8 +716,11 @@ export default function OTAOrderEntry() {
           const commRawNum = parseNum(commRaw);
           const commPct    = commRawNum > 0 && commRawNum <= 1 ? commRawNum * 100 : commRawNum;
           const discount   = parseNum(discountRaw);
-          const revenue    = +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
-          void revenueRaw;
+          // ใช้ค่า Net Revenue จาก column P ถ้ามี — ถ้าไม่มีค่อยคำนวณจาก formula
+          const revFromFile = parseNum(revenueRaw);
+          const revenue     = revFromFile > 0
+            ? +revFromFile.toFixed(2)
+            : +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
 
           const orderData: Omit<OTAOrder, "id" | "created_at"> = {
             booking_date:    parsedBookingDate,
