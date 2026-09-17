@@ -282,11 +282,14 @@ export default function OTAOrderEntry() {
     totalRows: number;
     dupRows: Omit<OTAOrder, "id" | "created_at">[];  // 2nd+ occurrences of same order# in file
     wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[]; // usage_date ≠ targetYm
+    unknownPlatformRows: { rawPlatform: string; data: Omit<OTAOrder, "id" | "created_at"> }[]; // platform ไม่อยู่ใน list
     targetYm: string; // "YYYY-MM" เดือนที่ lock ไว้ตอน import
   }
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [showImportPreview, setShowImportPreview] = useState(false);
   const [autoCorrectApplied, setAutoCorrectApplied] = useState(false);
+  // Platform mappings: rawName → { confirmedName, accept }
+  const [platformMappings, setPlatformMappings] = useState<Record<string, { name: string; accept: boolean }>>({});
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
@@ -305,7 +308,7 @@ export default function OTAOrderEntry() {
   const [filterPriceMax, setFilterPriceMax] = useState("");
   const [showAdvFilters, setShowAdvFilters] = useState(false);
   const [showGroupSuggest, setShowGroupSuggest] = useState(false);
-  const [previewTab, setPreviewTab] = useState<"new" | "update" | "dup">("new");
+  const [previewTab, setPreviewTab] = useState<"new" | "update" | "dup" | "unknown">("new");
   const [selectedDupRows, setSelectedDupRows] = useState<Set<number>>(new Set());
 
   // ── Format (Clear Orders) state ────────────────────────────────────────────
@@ -618,6 +621,7 @@ export default function OTAOrderEntry() {
         const updateRows: { id: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
         const dupRows: Omit<OTAOrder, "id" | "created_at">[] = [];
         const wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
+        const unknownPlatformRows: { rawPlatform: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
 
         // Month lock: import targets the currently-selected month in the UI
         const targetYm = `${year}-${String(month).padStart(2, "0")}`;
@@ -683,11 +687,8 @@ export default function OTAOrderEntry() {
           // Platform: trim + case-insensitive match
           const platformTrimmed = String(platformRaw ?? "").trim();
           const platformIdx = knownPlatformsLower.indexOf(platformTrimmed.toLowerCase());
-          if (platformIdx === -1) {
-            errors.push({ row: rowNum, message: `Platform "${platformTrimmed}" ไม่ถูกต้อง` });
-            return;
-          }
-          const platform = knownPlatforms[platformIdx]; // use canonical casing
+          const isUnknownPlatform = platformIdx === -1;
+          const platform = isUnknownPlatform ? platformTrimmed : knownPlatforms[platformIdx]; // canonical or raw
 
           const orderNumStr = String(orderNum).trim();
 
@@ -741,6 +742,12 @@ export default function OTAOrderEntry() {
             created_by:      currentUser?.full_name ?? "Import",
           };
 
+          // Unknown platform → collect separately, user will name/confirm in dialog
+          if (isUnknownPlatform) {
+            unknownPlatformRows.push({ rawPlatform: platformTrimmed, data: orderData });
+            return;
+          }
+
           // Month lock: rows with usage_date outside targetYm → wrongMonthRows (shown with banner)
           if (parsedUsageDate.slice(0, 7) !== targetYm) {
             wrongMonthRows.push({ original: parsedUsageDate, data: orderData });
@@ -773,9 +780,14 @@ export default function OTAOrderEntry() {
           }
         });
 
-        setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length, dupRows, wrongMonthRows, targetYm });
+        setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length, dupRows, wrongMonthRows, unknownPlatformRows, targetYm });
         // Pre-select ALL dup rows by default (OTA data legitimately has same order# across multiple pax/dates)
         setSelectedDupRows(new Set(dupRows.map((_, i) => i)));
+        // Initialize platform mappings: each unique unknown platform → { name: rawName, accept: true }
+        const uniqueUnknown = [...new Set(unknownPlatformRows.map((r) => r.rawPlatform))];
+        const initialMappings: Record<string, { name: string; accept: boolean }> = {};
+        uniqueUnknown.forEach((n) => { initialMappings[n] = { name: n, accept: true }; });
+        setPlatformMappings(initialMappings);
         setAutoCorrectApplied(false);
         setShowImportPreview(true);
       } catch {
@@ -828,9 +840,58 @@ export default function OTAOrderEntry() {
       }
     });
 
-    setImportPreview({ ...importPreview, newRows: newNewRows, updateRows: newUpdateRows, dupRows: newDupRows, wrongMonthRows: [] });
+    setImportPreview({ ...importPreview, newRows: newNewRows, updateRows: newUpdateRows, dupRows: newDupRows, wrongMonthRows: [], unknownPlatformRows: importPreview.unknownPlatformRows });
     setSelectedDupRows(new Set(newDupRows.map((_, i) => i)));
     setAutoCorrectApplied(true);
+  };
+
+  // ── Import — Resolve unknown-platform rows into newRows/updateRows/dupRows ─
+  const handleResolvePlatforms = () => {
+    if (!importPreview || importPreview.unknownPlatformRows.length === 0) return;
+    const { targetYm, unknownPlatformRows } = importPreview;
+
+    const newNewRows    = [...importPreview.newRows];
+    const newUpdateRows = [...importPreview.updateRows];
+    const newDupRows    = [...importPreview.dupRows];
+    const seenOrders = new Set<string>([
+      ...importPreview.newRows.map((r) => r.order_number.toLowerCase()),
+      ...importPreview.updateRows.map((r) => r.data.order_number.toLowerCase()),
+      ...importPreview.dupRows.map((r) => r.order_number.toLowerCase()),
+    ]);
+    const remainingUnknown: typeof unknownPlatformRows = [];
+
+    unknownPlatformRows.forEach(({ rawPlatform, data }) => {
+      const mapping = platformMappings[rawPlatform];
+      if (!mapping?.accept) {
+        // User rejected → leave in unknownPlatformRows (will be skipped on confirm)
+        remainingUnknown.push({ rawPlatform, data });
+        return;
+      }
+      const confirmedName = mapping.name.trim() || rawPlatform;
+      const corrected = { ...data, platform: confirmedName as OTAPlatform };
+      const onLower = corrected.order_number.toLowerCase();
+
+      if (seenOrders.has(onLower)) {
+        newDupRows.push(corrected);
+      } else {
+        seenOrders.add(onLower);
+        const existing = orders.find((o) => o.order_number.trim().toLowerCase() === onLower);
+        if (existing) {
+          const existingYm = existing.usage_date.slice(0, 7);
+          if (existingYm !== targetYm) {
+            newDupRows.push(corrected);
+          } else {
+            newUpdateRows.push({ id: existing.id, data: corrected });
+          }
+        } else {
+          newNewRows.push(corrected);
+        }
+      }
+    });
+
+    setImportPreview({ ...importPreview, newRows: newNewRows, updateRows: newUpdateRows, dupRows: newDupRows, unknownPlatformRows: remainingUnknown });
+    setSelectedDupRows(new Set(newDupRows.map((_, i) => i)));
+    setPreviewTab("new");
   };
 
   // ── Import — Phase 2: Confirm insert new + update existing ───────────────
@@ -1596,7 +1657,7 @@ export default function OTAOrderEntry() {
       {/* ── Import Result Modal ──────────────────────────────────────────────── */}
       {/* ── Import Preview Modal (before confirm) ───────────────────────────── */}
       {showImportPreview && importPreview && (() => {
-        const closePreview = () => { setShowImportPreview(false); setImportPreview(null); setPreviewTab("new"); setSelectedDupRows(new Set()); setAutoCorrectApplied(false); };
+        const closePreview = () => { setShowImportPreview(false); setImportPreview(null); setPreviewTab("new"); setSelectedDupRows(new Set()); setAutoCorrectApplied(false); setPlatformMappings({}); };
         const fmtDate = (d: string) => {
           try { return new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }); } catch { return d; }
         };
@@ -1619,26 +1680,38 @@ export default function OTAOrderEntry() {
               </div>
 
               {/* Stats */}
-              <div className={`grid gap-2.5 px-5 pt-4 pb-3 shrink-0 ${importPreview.dupRows.length > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
-                <div className="bg-muted rounded-xl p-3 text-center">
-                  <div className="text-xl font-semibold">{importPreview.totalRows}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">ทั้งหมด</div>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
-                  <div className="text-xl font-semibold text-green-700 dark:text-green-400">{importPreview.newRows.length}</div>
-                  <div className="text-[11px] text-green-700/70 dark:text-green-400/70 mt-0.5">ใหม่</div>
-                </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
-                  <div className="text-xl font-semibold text-blue-700 dark:text-blue-400">{importPreview.updateRows.length}</div>
-                  <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-0.5">อัพเดต</div>
-                </div>
-                {importPreview.dupRows.length > 0 && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
-                    <div className="text-xl font-semibold text-amber-700 dark:text-amber-400">{importPreview.dupRows.length}</div>
-                    <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5">ซ้ำในไฟล์</div>
+              {(() => {
+                const extraCols = (importPreview.dupRows.length > 0 ? 1 : 0) + (importPreview.unknownPlatformRows.length > 0 ? 1 : 0);
+                const colClass = extraCols === 2 ? "grid-cols-5" : extraCols === 1 ? "grid-cols-4" : "grid-cols-3";
+                return (
+                  <div className={`grid gap-2.5 px-5 pt-4 pb-3 shrink-0 ${colClass}`}>
+                    <div className="bg-muted rounded-xl p-3 text-center">
+                      <div className="text-xl font-semibold">{importPreview.totalRows}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">ทั้งหมด</div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-3 text-center">
+                      <div className="text-xl font-semibold text-green-700 dark:text-green-400">{importPreview.newRows.length}</div>
+                      <div className="text-[11px] text-green-700/70 dark:text-green-400/70 mt-0.5">ใหม่</div>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                      <div className="text-xl font-semibold text-blue-700 dark:text-blue-400">{importPreview.updateRows.length}</div>
+                      <div className="text-[11px] text-blue-700/70 dark:text-blue-400/70 mt-0.5">อัพเดต</div>
+                    </div>
+                    {importPreview.dupRows.length > 0 && (
+                      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 text-center">
+                        <div className="text-xl font-semibold text-amber-700 dark:text-amber-400">{importPreview.dupRows.length}</div>
+                        <div className="text-[11px] text-amber-700/70 dark:text-amber-400/70 mt-0.5">ซ้ำในไฟล์</div>
+                      </div>
+                    )}
+                    {importPreview.unknownPlatformRows.length > 0 && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 text-center">
+                        <div className="text-xl font-semibold text-purple-700 dark:text-purple-400">{importPreview.unknownPlatformRows.length}</div>
+                        <div className="text-[11px] text-purple-700/70 dark:text-purple-400/70 mt-0.5">Platform ใหม่</div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Wrong-month banner */}
               {importPreview.wrongMonthRows.length > 0 && !autoCorrectApplied && (() => {
@@ -1676,6 +1749,45 @@ export default function OTAOrderEntry() {
                 </div>
               )}
 
+              {/* Unknown platform banner */}
+              {importPreview.unknownPlatformRows.length > 0 && (() => {
+                const uniquePlatforms = [...new Set(importPreview.unknownPlatformRows.map((r) => r.rawPlatform))];
+                return (
+                  <div className="mx-5 mb-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl px-3 py-2.5 shrink-0 space-y-2">
+                    <div className="text-xs font-semibold text-purple-700 dark:text-purple-400">
+                      ✦ พบ Platform ที่ไม่อยู่ใน List ({importPreview.unknownPlatformRows.length} แถว) — กำหนดชื่อแล้วกดเพิ่ม
+                    </div>
+                    {uniquePlatforms.map((rawName) => {
+                      const mapping = platformMappings[rawName] ?? { name: rawName, accept: true };
+                      const rowCount = importPreview.unknownPlatformRows.filter((r) => r.rawPlatform === rawName).length;
+                      return (
+                        <div key={rawName} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={mapping.accept}
+                            onChange={(e) => setPlatformMappings((prev) => ({ ...prev, [rawName]: { ...mapping, accept: e.target.checked } }))}
+                            className="accent-purple-600 w-3.5 h-3.5 shrink-0"
+                          />
+                          <span className="text-[11px] text-purple-600 dark:text-purple-400 shrink-0">"{rawName}" ×{rowCount} →</span>
+                          <input
+                            value={mapping.name}
+                            onChange={(e) => setPlatformMappings((prev) => ({ ...prev, [rawName]: { ...mapping, name: e.target.value } }))}
+                            disabled={!mapping.accept}
+                            className="flex-1 min-w-0 text-xs border border-purple-300 dark:border-purple-700 rounded-lg px-2 py-1 bg-background focus:outline-none focus:ring-1 focus:ring-purple-500 disabled:opacity-40"
+                            placeholder="ชื่อ Platform ใหม่"
+                          />
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={handleResolvePlatforms}
+                      className="w-full py-1.5 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                      ✓ เพิ่มเป็น Platform ใหม่ ({importPreview.unknownPlatformRows.filter((r) => platformMappings[r.rawPlatform]?.accept !== false).length} แถว)
+                    </button>
+                  </div>
+                );
+              })()}
+
               {/* Error banner */}
               {importPreview.errorRows.length > 0 && (
                 <div className="mx-5 mb-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2 shrink-0">
@@ -1695,8 +1807,11 @@ export default function OTAOrderEntry() {
                   ...(importPreview.dupRows.length > 0
                     ? [{ key: "dup", label: `ซ้ำ (${importPreview.dupRows.length}) !`, active: "border-amber-500 text-amber-700 dark:text-amber-400" }]
                     : []),
+                  ...(importPreview.unknownPlatformRows.length > 0
+                    ? [{ key: "unknown", label: `ไม่รู้จัก (${importPreview.unknownPlatformRows.length})`, active: "border-purple-500 text-purple-700 dark:text-purple-400" }]
+                    : []),
                 ] as { key: string; label: string; active: string }[]).map((t) => (
-                  <button key={t.key} onClick={() => setPreviewTab(t.key as "new" | "update" | "dup")}
+                  <button key={t.key} onClick={() => setPreviewTab(t.key as "new" | "update" | "dup" | "unknown")}
                     className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
                       previewTab === t.key ? t.active : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
@@ -1789,6 +1904,23 @@ export default function OTAOrderEntry() {
                     </>
                   );
                 })()}
+                {previewTab === "unknown" && (
+                  importPreview.unknownPlatformRows.length === 0
+                    ? <p className="text-sm text-muted-foreground text-center py-6">ไม่มีรายการ Platform ที่ไม่รู้จัก</p>
+                    : <>
+                        <p className="text-[11px] text-muted-foreground pb-1">รายการเหล่านี้มี Platform ที่ไม่อยู่ใน list — กด "เพิ่มเป็น Platform ใหม่" ในแถบด้านบนเพื่อ route เข้า import</p>
+                        {importPreview.unknownPlatformRows.map((row, i) => (
+                          <div key={i} className="flex items-center gap-2.5 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30 rounded-xl px-3 py-2.5">
+                            <span className="shrink-0 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full text-[10px] font-medium">{row.rawPlatform}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium font-mono truncate text-foreground">{row.data.order_number}</div>
+                              <div className="text-[11px] text-muted-foreground">{row.data.pax} pax · {fmtDate(row.data.usage_date)}</div>
+                            </div>
+                            <span className="shrink-0 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 text-[10px] px-2 py-0.5 rounded-full">ไม่รู้จัก</span>
+                          </div>
+                        ))}
+                      </>
+                )}
               </div>
 
               {/* Footer */}
