@@ -155,7 +155,7 @@ interface OTAState {
   loadGroupCostsByMonth: (month: string) => Promise<void>;
 
   // Bulk import (upsert by order_number)
-  importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number }>;
+  importOrders: (rows: Omit<OTAOrder, "id" | "created_at">[]) => Promise<{ inserted: number; updated: number; errors: number; errorMessage?: string }>;
 
   // Format — ลบ orders ทั้งหมด (Supabase + localStorage)
   clearAllOrders: (actor?: string) => Promise<void>;
@@ -832,9 +832,10 @@ export const useOTAStore = create<OTAState>()(
 
           if (error) {
             records.forEach((r) => localMutations.delete(r.id));
-            console.error("[ota] importOrders error:", error.message, error.details, error.hint);
-            toast.error(`Import ล้มเหลว: ${error.message}`);
-            return { inserted: 0, updated: 0, errors: rows.length };
+            const errMsg = [error.message, error.details, error.hint].filter(Boolean).join(" | ");
+            console.error("[ota] importOrders error:", errMsg);
+            toast.error(`Import ล้มเหลว: ${error.message}`, { duration: 8000 });
+            return { inserted: 0, updated: 0, errors: rows.length, errorMessage: errMsg };
           }
 
           // Reload from DB เพื่อให้ state sync

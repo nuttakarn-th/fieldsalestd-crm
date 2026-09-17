@@ -273,6 +273,7 @@ export default function OTAOrderEntry() {
   const [importErrors, setImportErrors] = useState<ImportError[]>([]);
   const [showImportResult, setShowImportResult] = useState(false);
   const [importStats, setImportStats] = useState({ inserted: 0, updated: 0, failed: 0 });
+  const [importBatchError, setImportBatchError] = useState<string | null>(null);
 
   // Import preview state (before confirm)
   interface ImportPreviewData {
@@ -908,10 +909,12 @@ export default function OTAOrderEntry() {
     let updated = 0;
     let batchErrors = 0;
 
+    setImportBatchError(null);
     if (allInsertRows.length > 0) {
       const result = await importOrders(allInsertRows);
       inserted    = result.inserted;
       batchErrors = result.errors;
+      if (result.errorMessage) setImportBatchError(result.errorMessage);
     }
 
     for (const { id, data } of updateRows) {
@@ -2383,6 +2386,15 @@ export default function OTAOrderEntry() {
                   <div className="text-xs text-red-600/80">ผิดพลาด</div>
                 </div>
               </div>
+              {importBatchError && (
+                <div className="flex gap-2 text-sm text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                  <div>
+                    <div className="font-semibold text-xs mb-1">Supabase Error (batch insert)</div>
+                    <div className="text-xs font-mono break-all">{importBatchError}</div>
+                  </div>
+                </div>
+              )}
               {importErrors.length > 0 && (
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {importErrors.map((e, i) => (
