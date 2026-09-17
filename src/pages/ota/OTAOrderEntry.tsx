@@ -613,7 +613,7 @@ export default function OTAOrderEntry() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const wb = XLSX.read(ev.target?.result, { type: "binary", cellDates: true });
+        const wb = XLSX.read(ev.target?.result, { type: "binary", cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
         const dataRows = rows.slice(1).filter((r) => (r as unknown[]).some((c) => c !== ""));
@@ -633,19 +633,26 @@ export default function OTAOrderEntry() {
         const seenInFile = new Set<string>();
 
         // แปลงค่าจาก Excel → ISO date string "YYYY-MM-DD"
-        // รองรับ: Date object, Excel serial number (>40000), YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY
+        // cellDates:false → XLSX คืน serial number (ทศนิยม) แทน Date object
+        // ใช้ Math.floor() เอาเฉพาะส่วนวัน (integer) ตัดเวลาทิ้ง → ไม่มีปัญหา timezone
         const toDate = (v: unknown): string => {
           if (!v && v !== 0) return "";
-          // 1. JavaScript Date object (XLSX cellDates:true)
+          // 1. Fallback: JavaScript Date object (ถ้า XLSX คืน Date object ในบางกรณี)
           if (v instanceof Date) {
             if (isNaN(v.getTime())) return "";
-            return v.toISOString().slice(0, 10);
+            // ใช้ local date methods — ไม่ใช้ toISOString (timezone +7 ทำให้ shift วันได้)
+            const y = v.getFullYear();
+            const m = String(v.getMonth() + 1).padStart(2, "0");
+            const d = String(v.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
           }
           // 2. Excel serial number (เลขทศนิยม > 40000 → ประมาณปี 2009+)
+          // ใช้ Math.round() เพราะ Excel เก็บ "midnight Bangkok" เป็น serial+0.7083
+          // (= 17:00 UTC วันก่อน). Math.round() ปัดขึ้นมาให้ตรงกับวันปฏิทินที่ถูกต้อง
           const num = Number(v);
           if (!isNaN(num) && num > 40000 && num < 60000) {
-            // Excel epoch: Jan 0, 1900 → offset 25569 days from Unix epoch
-            const utcMs = (num - 25569) * 86400000;
+            const daySerial = Math.round(num); // round → วันปฏิทิน ถูกต้องทั้ง midnight UTC และ midnight Bangkok
+            const utcMs = (daySerial - 25569) * 86400000;
             const d = new Date(utcMs);
             if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
           }
@@ -819,7 +826,18 @@ export default function OTAOrderEntry() {
     wrongMonthRows.forEach(({ data, rowNum: _rn }) => {
       // Fix usage_date: keep DD + YYYY, replace month with target
       const day = data.usage_date.slice(8, 10); // "YYYY-MM-DD"
-      const correctedDate = `${ty}-${tm}-${day}`;
+      const candidate = `${ty}-${tm}-${day}`;
+      // Validate using UTC to avoid timezone-shift false positives.
+      // Date.UTC(year, month0, day) overflows gracefully: Feb 31 → March 3.
+      // If the resulting UTC month differs from the target month, the day was invalid → clamp.
+      const numY = Number(ty);
+      const numM = Number(tm); // 1-indexed
+      const numD = Number(day);
+      const testUtc = new Date(Date.UTC(numY, numM - 1, numD));
+      const correctedDate =
+        testUtc.getUTCMonth() + 1 !== numM
+          ? new Date(Date.UTC(numY, numM, 0)).toISOString().slice(0, 10) // last valid day of target month
+          : candidate;
       const corrected = { ...data, usage_date: correctedDate };
       const onLower = corrected.order_number.toLowerCase();
 
