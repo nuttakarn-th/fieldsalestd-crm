@@ -281,9 +281,12 @@ export default function OTAOrderEntry() {
     errorRows: ImportError[];
     totalRows: number;
     dupRows: Omit<OTAOrder, "id" | "created_at">[];  // 2nd+ occurrences of same order# in file
+    wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[]; // usage_date ≠ targetYm
+    targetYm: string; // "YYYY-MM" เดือนที่ lock ไว้ตอน import
   }
   const [importPreview, setImportPreview] = useState<ImportPreviewData | null>(null);
   const [showImportPreview, setShowImportPreview] = useState(false);
+  const [autoCorrectApplied, setAutoCorrectApplied] = useState(false);
   // Commission input mode: "pct" = กรอก % แล้วคำนวณยอด | "amt" = กรอกยอดแล้วคำนวณ %
   const [commissionMode, setCommissionMode] = useState<"pct" | "amt">("pct");
   const [commissionAmtDirect, setCommissionAmtDirect] = useState<number>(0);
@@ -614,6 +617,10 @@ export default function OTAOrderEntry() {
         const newRows: Omit<OTAOrder, "id" | "created_at">[] = [];
         const updateRows: { id: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
         const dupRows: Omit<OTAOrder, "id" | "created_at">[] = [];
+        const wrongMonthRows: { original: string; data: Omit<OTAOrder, "id" | "created_at"> }[] = [];
+
+        // Month lock: import targets the currently-selected month in the UI
+        const targetYm = `${year}-${String(month).padStart(2, "0")}`;
 
         // Existing order numbers for duplicate detection
         const existingOrderNums = new Set(orders.map((o) => o.order_number.trim().toLowerCase()));
@@ -731,6 +738,12 @@ export default function OTAOrderEntry() {
             created_by:      currentUser?.full_name ?? "Import",
           };
 
+          // Month lock: rows with usage_date outside targetYm → wrongMonthRows (shown with banner)
+          if (parsedUsageDate.slice(0, 7) !== targetYm) {
+            wrongMonthRows.push({ original: parsedUsageDate, data: orderData });
+            return; // skip normal routing; user can auto-correct later
+          }
+
           // File-internal duplicate → goes to dupRows (2nd+ occurrence)
           const orderNumLower = orderNumStr.toLowerCase();
           if (seenInFile.has(orderNumLower)) {
@@ -757,9 +770,10 @@ export default function OTAOrderEntry() {
           }
         });
 
-        setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length, dupRows });
+        setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length, dupRows, wrongMonthRows, targetYm });
         // Pre-select ALL dup rows by default (OTA data legitimately has same order# across multiple pax/dates)
         setSelectedDupRows(new Set(dupRows.map((_, i) => i)));
+        setAutoCorrectApplied(false);
         setShowImportPreview(true);
       } catch {
         toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
@@ -767,6 +781,53 @@ export default function OTAOrderEntry() {
     };
     reader.readAsBinaryString(file);
     e.target.value = "";
+  };
+
+  // ── Import — Auto-correct wrong-month rows ────────────────────────────────
+  const handleAutoCorrect = () => {
+    if (!importPreview || importPreview.wrongMonthRows.length === 0) return;
+    const { targetYm, wrongMonthRows } = importPreview;
+    const [ty, tm] = targetYm.split("-");
+
+    // Rebuild seenInFile from already-routed rows
+    const seenOrders = new Set<string>([
+      ...importPreview.newRows.map((r) => r.order_number.toLowerCase()),
+      ...importPreview.updateRows.map((r) => r.data.order_number.toLowerCase()),
+      ...importPreview.dupRows.map((r) => r.order_number.toLowerCase()),
+    ]);
+
+    const newNewRows    = [...importPreview.newRows];
+    const newUpdateRows = [...importPreview.updateRows];
+    const newDupRows    = [...importPreview.dupRows];
+
+    wrongMonthRows.forEach(({ data }) => {
+      // Fix usage_date: keep DD + YYYY, replace month with target
+      const day = data.usage_date.slice(8, 10); // "YYYY-MM-DD"
+      const correctedDate = `${ty}-${tm}-${day}`;
+      const corrected = { ...data, usage_date: correctedDate };
+      const onLower = corrected.order_number.toLowerCase();
+
+      if (seenOrders.has(onLower)) {
+        newDupRows.push(corrected);
+      } else {
+        seenOrders.add(onLower);
+        const existing = orders.find((o) => o.order_number.trim().toLowerCase() === onLower);
+        if (existing) {
+          const existingYm = existing.usage_date.slice(0, 7);
+          if (existingYm !== targetYm) {
+            newDupRows.push(corrected);
+          } else {
+            newUpdateRows.push({ id: existing.id, data: corrected });
+          }
+        } else {
+          newNewRows.push(corrected);
+        }
+      }
+    });
+
+    setImportPreview({ ...importPreview, newRows: newNewRows, updateRows: newUpdateRows, dupRows: newDupRows, wrongMonthRows: [] });
+    setSelectedDupRows(new Set(newDupRows.map((_, i) => i)));
+    setAutoCorrectApplied(true);
   };
 
   // ── Import — Phase 2: Confirm insert new + update existing ───────────────
@@ -1532,7 +1593,7 @@ export default function OTAOrderEntry() {
       {/* ── Import Result Modal ──────────────────────────────────────────────── */}
       {/* ── Import Preview Modal (before confirm) ───────────────────────────── */}
       {showImportPreview && importPreview && (() => {
-        const closePreview = () => { setShowImportPreview(false); setImportPreview(null); setPreviewTab("new"); setSelectedDupRows(new Set()); };
+        const closePreview = () => { setShowImportPreview(false); setImportPreview(null); setPreviewTab("new"); setSelectedDupRows(new Set()); setAutoCorrectApplied(false); };
         const fmtDate = (d: string) => {
           try { return new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }); } catch { return d; }
         };
@@ -1575,6 +1636,42 @@ export default function OTAOrderEntry() {
                   </div>
                 )}
               </div>
+
+              {/* Wrong-month banner */}
+              {importPreview.wrongMonthRows.length > 0 && !autoCorrectApplied && (() => {
+                // Summarise which months were found
+                const monthCounts: Record<string, number> = {};
+                importPreview.wrongMonthRows.forEach(({ data }) => {
+                  const ym = data.usage_date.slice(0, 7);
+                  monthCounts[ym] = (monthCounts[ym] ?? 0) + 1;
+                });
+                const monthList = Object.entries(monthCounts)
+                  .map(([ym, n]) => {
+                    const [y, m] = ym.split("-");
+                    const label = new Date(`${y}-${m}-01`).toLocaleDateString("th-TH", { month: "short", year: "2-digit" });
+                    return `${label} ×${n}`;
+                  }).join(", ");
+                return (
+                  <div className="mx-5 mb-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl px-3 py-2.5 shrink-0">
+                    <div className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1">
+                      ⚠ พบข้อมูล {importPreview.wrongMonthRows.length} แถว ที่ไม่ใช่เดือน {importPreview.targetYm}
+                    </div>
+                    <div className="text-[11px] text-orange-600 dark:text-orange-400/80 mb-2">พบ: {monthList}</div>
+                    <button
+                      onClick={handleAutoCorrect}
+                      className="w-full py-1.5 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
+                      แก้ไขเดือนอัตโนมัติ → {importPreview.targetYm} ({importPreview.wrongMonthRows.length} แถว)
+                    </button>
+                  </div>
+                );
+              })()}
+              {autoCorrectApplied && (
+                <div className="mx-5 mb-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-3 py-2 shrink-0">
+                  <div className="text-xs font-semibold text-green-700 dark:text-green-400">
+                    ✓ แก้ไขวันที่อัตโนมัติแล้ว — เปลี่ยนเดือนเป็น {importPreview?.targetYm} ทั้งหมด
+                  </div>
+                </div>
+              )}
 
               {/* Error banner */}
               {importPreview.errorRows.length > 0 && (
