@@ -900,10 +900,17 @@ export const useOTAStore = create<OTAState>()(
 
         if (SUPABASE_ENABLED && supabase) {
           targets.forEach((o) => localMutations.add(o.id));
+          // usage_date is a DATE column — use range filter instead of LIKE
+          const [y, m] = yearMonth.split("-").map(Number);
+          const startDate = `${yearMonth}-01`;
+          const nextMonth = m === 12
+            ? `${y + 1}-01-01`
+            : `${y}-${String(m + 1).padStart(2, "0")}-01`;
           const { error } = await supabase
             .from("ota_orders")
             .delete()
-            .like("usage_date", `${yearMonth}%`);
+            .gte("usage_date", startDate)
+            .lt("usage_date", nextMonth);
           if (error) {
             targets.forEach((o) => localMutations.delete(o.id));
             console.error("[ota] clearOrdersByMonth error:", error);
