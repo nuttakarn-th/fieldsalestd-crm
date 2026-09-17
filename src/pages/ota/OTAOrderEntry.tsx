@@ -737,10 +737,20 @@ export default function OTAOrderEntry() {
             dupRows.push(orderData);
           } else {
             seenInFile.add(orderNumLower);
-            // DB duplicate → update existing; truly new → insert
+            // DB duplicate → update if SAME month, or dupRows if DIFFERENT month (avoid overwriting other months)
             if (existingOrderNums.has(orderNumLower)) {
               const existing = orders.find((o) => o.order_number.trim().toLowerCase() === orderNumLower);
-              if (existing) updateRows.push({ id: existing.id, data: orderData });
+              if (existing) {
+                const existingYm = existing.usage_date.slice(0, 7); // "YYYY-MM"
+                const fileYm     = (orderData.usage_date ?? "").slice(0, 7);
+                if (existingYm !== fileYm) {
+                  // Cross-month match → insert as new (pre-selected dup), don't overwrite other month
+                  dupRows.push(orderData);
+                } else {
+                  // Same month → intentional update of existing record
+                  updateRows.push({ id: existing.id, data: orderData });
+                }
+              }
             } else {
               newRows.push(orderData);
             }
@@ -748,6 +758,8 @@ export default function OTAOrderEntry() {
         });
 
         setImportPreview({ newRows, updateRows, errorRows: errors, totalRows: dataRows.length, dupRows });
+        // Pre-select ALL dup rows by default (OTA data legitimately has same order# across multiple pax/dates)
+        setSelectedDupRows(new Set(dupRows.map((_, i) => i)));
         setShowImportPreview(true);
       } catch {
         toast.error("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบ format");
