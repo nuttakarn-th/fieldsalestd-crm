@@ -709,7 +709,7 @@ export default function OTAVehicles() {
                 <tfoot>
                   <tr className="bg-muted/40 border-t-2 border-border font-semibold text-sm">
                     <td className="px-4 py-3 text-muted-foreground" colSpan={2}>
-                      รวมทั้งเดือน — {vehicleGroups.length} กรุ๊ป
+                      รวมทั้งเดือน — {rawGroupCount} กรุ๊ป · {totalVehicles} คัน
                     </td>
                     <td className="px-4 py-3 text-center tabular-nums">
                       {vehicleGroups.reduce((s, g) => s + g.orderCount, 0)}
