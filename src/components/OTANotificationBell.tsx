@@ -52,10 +52,11 @@ const FILTER_GROUPS: { key: OTAAuditAction | "all"; label: string }[] = [
 
 interface OTANotificationBellProps {
   collapsed?: boolean;
+  iconOnly?: boolean;        // ← แสดงแค่ icon + badge ไม่มี text
   onOrderClick?: (orderId: string) => void;
 }
 
-export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANotificationBellProps) {
+export function OTANotificationBell({ collapsed = false, iconOnly = false, onOrderClick }: OTANotificationBellProps) {
   const auditLog          = useOTAStore((s) => s.auditLog);
   const markAllAuditRead  = useOTAStore((s) => s.markAllAuditRead);
   const deleteAuditEntry  = useOTAStore((s) => s.deleteAuditEntry);
@@ -110,23 +111,26 @@ export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANoti
         ref={buttonRef}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-          open
-            ? "bg-white/20 text-white"
-            : "text-white/60 hover:bg-white/10 hover:text-white"
+          "relative flex items-center justify-center rounded-lg transition-colors",
+          iconOnly
+            ? "w-8 h-8 shrink-0 text-white/60 hover:bg-white/10 hover:text-white"
+            : cn(
+                "w-full gap-3 px-3 py-2.5 text-sm",
+                open ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10 hover:text-white"
+              )
         )}
         title="การแจ้งเตือน"
       >
         <span className="relative shrink-0">
-          <Bell className="w-4 h-4" />
+          <Bell className={iconOnly ? "w-4 h-4" : "w-4 h-4"} />
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full bg-red-500 text-[9px] font-bold flex items-center justify-center text-white leading-none px-0.5">
+            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-red-500 text-[9px] font-bold flex items-center justify-center text-white leading-none px-0.5 border border-[#1e1b4b]">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
         </span>
-        {!collapsed && <span className="flex-1 text-left">การแจ้งเตือน OTA</span>}
-        {!collapsed && unread > 0 && (
+        {!iconOnly && !collapsed && <span className="flex-1 text-left">การแจ้งเตือน OTA</span>}
+        {!iconOnly && !collapsed && unread > 0 && (
           <span className="shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[9px] font-bold flex items-center justify-center text-white px-1">
             {unread > 9 ? "9+" : unread}
           </span>
@@ -137,7 +141,10 @@ export function OTANotificationBell({ collapsed = false, onOrderClick }: OTANoti
       {open && (
         <div
           ref={popoverRef}
-          className="absolute left-full bottom-0 ml-2 z-50 w-80 rounded-xl shadow-2xl border border-border bg-background text-foreground overflow-hidden flex flex-col"
+          className={cn(
+            "absolute z-50 w-80 rounded-xl shadow-2xl border border-border bg-background text-foreground overflow-hidden flex flex-col",
+            iconOnly ? "left-0 top-full mt-2" : "left-full bottom-0 ml-2"
+          )}
           style={{ maxHeight: "75vh" }}
         >
           {/* ── Header ─────────────────────────────────────────────────────── */}

@@ -82,17 +82,25 @@ export default function OTALayout() {
           collapsed ? "w-16" : "w-56"
         )}
       >
-        {/* Logo */}
+        {/* Logo + Bell */}
         <div className="flex items-center gap-2 px-4 py-4 border-b border-white/10">
           <div className="w-8 h-8 bg-purple-400 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0">
             OTA
           </div>
           {!collapsed && (
-            <div className="leading-tight min-w-0">
+            <div className="leading-tight min-w-0 flex-1">
               <div className="font-bold text-sm truncate">Standard Tour</div>
               <div className="text-xs text-purple-300 truncate">OTA Module</div>
             </div>
           )}
+          {/* Notification Bell — icon only, top-right of header */}
+          <OTANotificationBell
+            iconOnly
+            onOrderClick={(id) => {
+              setHighlightedOrderId(id);
+              navigate("/ota/order-entry");
+            }}
+          />
         </div>
 
         {/* Nav */}
@@ -170,15 +178,6 @@ export default function OTALayout() {
               {collapsed && <TooltipContent side="right">กลับ Home</TooltipContent>}
             </Tooltip>
           )}
-
-          {/* Notification bell */}
-          <OTANotificationBell
-            collapsed={collapsed}
-            onOrderClick={(id) => {
-              setHighlightedOrderId(id);
-              navigate("/ota/order-entry");
-            }}
-          />
 
           <div className="px-3 py-1">
             <UserMenu showName={!collapsed} />
