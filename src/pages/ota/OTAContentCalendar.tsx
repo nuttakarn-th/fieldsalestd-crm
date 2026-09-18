@@ -702,7 +702,7 @@ export default function OTAContentCalendar(){
                       "border rounded-xl p-1.5 min-h-[80px] sm:min-h-[90px] cursor-pointer transition-all relative overflow-hidden",
                       isSelected  ?"border-purple-500 ring-2 ring-purple-400 ring-offset-1 bg-purple-50/50":
                       isToday     ?"border-purple-300 ring-1 ring-purple-300 bg-white":
-                      pillarC     ?`${pillarC.cellBg} border-transparent hover:brightness-95`:
+                      pillarC     ?`${pillarC.cellBg} border-border/50 hover:border-border`:
                       isWeekend   ?"bg-muted/20 border-border/40 hover:border-border":
                                    "bg-card border-border hover:border-purple-300"
                     )}>
