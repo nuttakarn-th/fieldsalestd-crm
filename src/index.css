@@ -77,19 +77,19 @@
 
   .dark {
     /* Deep purple gradient — matches Hub homepage background */
-    --background: 248 65% 10%;
-    --foreground: 0 0% 96%;
-    --card: 248 30% 15%;
-    --card-foreground: 0 0% 96%;
-    --popover: 248 30% 13%;
-    --popover-foreground: 0 0% 96%;
+    --background: 248 60% 8%;
+    --foreground: 0 0% 98%;
+    --card: 248 26% 20%;           /* was 15% — much more distinct from bg */
+    --card-foreground: 0 0% 98%;
+    --popover: 248 26% 18%;
+    --popover-foreground: 0 0% 98%;
     /* Keep brand accents (purple/pink) for buttons/highlights */
     --primary: 300 75% 65%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 8% 18%;
+    --secondary: 248 20% 26%;
     --secondary-foreground: 0 0% 96%;
-    --muted: 220 8% 16%;
-    --muted-foreground: 220 8% 65%;
+    --muted: 248 18% 24%;          /* was 16% — clearly distinct from card */
+    --muted-foreground: 220 14% 82%; /* was 65% — greatly improved readability */
     --accent: 330 85% 65%;
     --accent-foreground: 0 0% 100%;
     --gold: 42 92% 60%;
@@ -100,11 +100,11 @@
     --warning-foreground: 30 60% 14%;
     --destructive: 350 80% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 8% 22%;
-    --input: 220 8% 22%;
+    --border: 248 16% 36%;          /* was 22% — clearly visible borders */
+    --input: 248 16% 28%;
     --ring: 300 75% 65%;
-    /* Override gradients for dark mode — was white-only */
-    --gradient-card: linear-gradient(180deg, hsl(220 10% 13%), hsl(220 10% 11%));
+    /* Override gradients for dark mode */
+    --gradient-card: linear-gradient(180deg, hsl(248 26% 20%), hsl(248 22% 18%));
     /* Sidebar — indigo dark theme */
     --sidebar-background: 248 45% 10%;
     --sidebar-foreground: 240 5% 90%;
@@ -126,7 +126,7 @@
     font-family: 'Kanit', system-ui, sans-serif;
   }
   .dark body {
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) fixed;
+    background: linear-gradient(135deg, #13103e 0%, #241f5c 50%, #181540 100%) fixed;
     background-attachment: fixed;
   }
   h1, h2, h3, h4 {
@@ -200,6 +200,37 @@
     z-index: 9000 !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dark mode contrast fixes
+   Override hardcoded light-theme Tailwind utilities that have no dark: variant
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Backgrounds */
+.dark .bg-white                { background-color: hsl(var(--card))  !important; }
+.dark .bg-gray-50              { background-color: hsl(var(--muted)) !important; }
+.dark .bg-gray-100             { background-color: hsl(248 18% 26%)  !important; }
+/* opacity-modifier variants (Tailwind JIT escapes / as \/) */
+.dark .bg-gray-50\/50          { background-color: hsl(var(--muted) / 0.6) !important; }
+.dark .bg-gray-50\/40          { background-color: hsl(var(--muted) / 0.5) !important; }
+
+/* Borders */
+.dark .border-gray-50          { border-color: hsl(var(--border) / 0.4) !important; }
+.dark .border-gray-100         { border-color: hsl(var(--border))       !important; }
+.dark .border-gray-200         { border-color: hsl(var(--border))       !important; }
+
+/* Text — map gray palette to legible dark-mode equivalents */
+.dark .text-gray-300           { color: hsl(220 12% 68%) !important; }
+.dark .text-gray-400           { color: hsl(220 14% 74%) !important; }
+.dark .text-gray-500           { color: hsl(220 14% 80%) !important; }
+.dark .text-gray-600           { color: hsl(220 14% 86%) !important; }
+.dark .text-gray-700           { color: hsl(0 0% 92%)    !important; }
+
+/* Hardcoded dark-navy brand color — invisible on dark backgrounds */
+.dark .text-\[\#1e1b4b\]       { color: hsl(var(--foreground)) !important; }
+
+/* Table striping in dark */
+.dark .bg-gray-50\/40          { background-color: hsl(var(--muted) / 0.35) !important; }
 
 /* ── Placeholder color — lighter across all inputs / textareas ── */
 ::placeholder {
