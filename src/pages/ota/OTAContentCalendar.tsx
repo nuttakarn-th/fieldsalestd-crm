@@ -728,7 +728,7 @@ export default function OTAContentCalendar() {
 
                     {/* Tasks */}
                     <div className="space-y-0.5 overflow-hidden">
-                      {dayTasks.slice(0, 2).map(t => {
+                      {dayTasks.map(t => {
                         const done = taskDone(t);
                         const mainPlat = platById(platforms, t.platforms[0] ?? "");
                         const c = mainPlat ? cfgByPlat(mainPlat) : null;
@@ -751,7 +751,6 @@ export default function OTAContentCalendar() {
                           </div>
                         );
                       })}
-                      {dayTasks.length > 2 && <div className="text-[9px] text-muted-foreground pl-1">+{dayTasks.length - 2}</div>}
                     </div>
 
                     {/* Pillar indicators (แสดงเมื่อไม่มี task) */}
