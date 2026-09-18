@@ -24,16 +24,20 @@ import { cn } from "@/lib/utils";
 
 interface NavItem { label: string; mobileLabel?: string; icon: typeof ClipboardList; to: string }
 
-/** ทุก item — ใช้ใน Desktop sidebar */
+/** รายการหลักใน Desktop sidebar */
 const NAV_ITEMS: NavItem[] = [
-  { label: "Order Entry",      mobileLabel: "Order",    icon: ClipboardList, to: "/ota/order-entry"       },
-  { label: "Dashboard",        mobileLabel: "Dash",     icon: BarChart3,     to: "/ota/dashboard"         },
-  { label: "Calendar",                                  icon: CalendarDays,  to: "/ota/calendar"          },
-  { label: "Vehicles",                                  icon: Bus,           to: "/ota/vehicles"          },
-  { label: "P&L",                                       icon: TrendingUp,    to: "/ota/pnl"               },
-  { label: "Packages",                                  icon: Package,       to: "/ota/packages"          },
-  { label: "Platforms",                                 icon: Settings2,     to: "/ota/platforms"         },
-  { label: "Content Calendar", mobileLabel: "Content",  icon: LayoutGrid,    to: "/ota/content-calendar"  },
+  { label: "Order Entry", mobileLabel: "Order", icon: ClipboardList, to: "/ota/order-entry" },
+  { label: "Dashboard",   mobileLabel: "Dash",  icon: BarChart3,     to: "/ota/dashboard"   },
+  { label: "Calendar",                          icon: CalendarDays,  to: "/ota/calendar"    },
+  { label: "Vehicles",                          icon: Bus,           to: "/ota/vehicles"    },
+  { label: "P&L",                               icon: TrendingUp,    to: "/ota/pnl"         },
+  { label: "Packages",                          icon: Package,       to: "/ota/packages"    },
+  { label: "Platforms",                         icon: Settings2,     to: "/ota/platforms"   },
+];
+
+/** รายการเสริม — แสดงด้านล่าง sidebar คั่นด้วย divider */
+const EXTRA_NAV_ITEMS: NavItem[] = [
+  { label: "Content Calendar", mobileLabel: "Content", icon: LayoutGrid, to: "/ota/content-calendar" },
 ];
 
 /** 4 รายการหลัก — แสดงใน Mobile Tab bar เสมอ */
@@ -119,6 +123,35 @@ export default function OTALayout() {
             ) : btn;
           })}
         </nav>
+
+        {/* Extra nav items (Content Calendar etc.) — คั่นด้วย divider */}
+        <div className="border-t border-white/10 px-2 pt-2 pb-1 space-y-1">
+          {EXTRA_NAV_ITEMS.map((item) => {
+            const active = location.pathname.startsWith(item.to);
+            const Icon = item.icon;
+            const btn = (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  active
+                    ? "bg-purple-500 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <Icon className="w-5 h-5 shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </Link>
+            );
+            return collapsed ? (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>{btn}</TooltipTrigger>
+                <TooltipContent side="right">{item.label}</TooltipContent>
+              </Tooltip>
+            ) : btn;
+          })}
+        </div>
 
         {/* User + back */}
         <div className="border-t border-white/10 px-2 py-3 space-y-1">
