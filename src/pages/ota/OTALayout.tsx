@@ -13,7 +13,7 @@ import { useState } from "react";
 import {
   ClipboardList, BarChart3, CalendarDays, Package, Settings2,
   ChevronLeft, ChevronRight, LogOut, Bus, TrendingUp, MoreHorizontal, X,
-  LayoutGrid,
+  LayoutGrid, Home,
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import { useOTAStore } from "@/store/otaStore";
@@ -155,6 +155,22 @@ export default function OTALayout() {
 
         {/* User + back */}
         <div className="border-t border-white/10 px-2 py-3 space-y-1">
+          {/* กลับ Home — แสดงเฉพาะ Role ที่ไม่ใช่ OTA */}
+          {currentUser?.role !== "OTA" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => navigate("/app")}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Home className="w-4 h-4 shrink-0" />
+                  {!collapsed && <span>กลับ Home</span>}
+                </button>
+              </TooltipTrigger>
+              {collapsed && <TooltipContent side="right">กลับ Home</TooltipContent>}
+            </Tooltip>
+          )}
+
           {/* Notification bell */}
           <OTANotificationBell
             collapsed={collapsed}
@@ -239,6 +255,16 @@ export default function OTALayout() {
                   </Link>
                 );
               })}
+              {/* กลับ Home — เฉพาะ non-OTA roles */}
+              {currentUser?.role !== "OTA" && (
+                <button
+                  onClick={() => { setMoreOpen(false); navigate("/app"); }}
+                  className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-[11px] font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Home className="w-6 h-6" />
+                  <span className="text-center leading-tight">Home</span>
+                </button>
+              )}
             </div>
           </div>
         </>
