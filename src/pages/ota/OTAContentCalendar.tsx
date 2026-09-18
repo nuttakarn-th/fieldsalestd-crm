@@ -734,17 +734,28 @@ export default function OTAContentCalendar() {
                         const c = mainPlat ? cfgByPlat(mainPlat) : null;
                         return (
                           <div key={t.id} className={cn(
-                            "text-[10px] font-medium rounded px-1.5 py-0.5 truncate",
-                            done ? "bg-muted text-muted-foreground line-through" :
+                            "text-[10px] font-medium rounded px-1.5 py-0.5 flex items-center gap-1 min-w-0",
+                            done ? "bg-muted text-muted-foreground" :
                             c    ? `${c.bg} ${c.text}` : "bg-muted text-muted-foreground")}>
-                            {t.title}
+                            {/* dots สีของแต่ละ platform */}
+                            {!done && t.platforms.length > 0 && (
+                              <span className="flex gap-0.5 shrink-0">
+                                {t.platforms.slice(0, 3).map(pid => {
+                                  const pp = platById(platforms, pid);
+                                  if (!pp) return null;
+                                  const pc = cfgByPlat(pp);
+                                  return <span key={pid} className={cn("w-1.5 h-1.5 rounded-full", pc.dot)} />;
+                                })}
+                              </span>
+                            )}
+                            <span className={cn("truncate", done && "line-through")}>{t.title}</span>
                           </div>
                         );
                       })}
                       {dayTasks.length > 2 && <div className="text-[9px] text-muted-foreground pl-1">+{dayTasks.length - 2}</div>}
                     </div>
 
-                    {/* Pillar indicators (แสดงเมื่อไม่มี task หรือแสดงเสริม) */}
+                    {/* Pillar indicators (แสดงเมื่อยังไม่มี task) */}
                     {dayPillars.length > 0 && dayTasks.length === 0 && (
                       <div className="mt-1 space-y-0.5">
                         {dayPillars.slice(0, 2).map(p => {
@@ -753,9 +764,10 @@ export default function OTAContentCalendar() {
                           const c = cfgByPlat(plat);
                           return (
                             <div key={p.id} className={cn(
-                              "text-[9px] font-medium rounded px-1 py-0.5 truncate opacity-60 border border-dashed",
+                              "text-[9px] font-medium rounded px-1 py-0.5 flex items-center gap-1 border border-dashed min-w-0",
                               c.bg, c.text)}>
-                              {plat.name}: {p.title}
+                              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", c.dot)} />
+                              <span className="truncate">{plat.name}: {p.title}</span>
                             </div>
                           );
                         })}
