@@ -30,13 +30,14 @@ const fmtBK = (n: number) => `฿${(n / 1000).toFixed(1)}k`;
 type Tab = "overview" | "revenue" | "operations" | "markets";
 
 function KPICard({
-  icon: Icon, label, value, color, sub, badge,
+  icon: Icon, label, value, color, sub, sub2, badge,
 }: {
   icon: typeof ShoppingCart;
   label: string;
   value: string;
   color: string;
   sub?: string;
+  sub2?: string;
   badge?: { pct: number };
 }) {
   return (
@@ -60,6 +61,7 @@ function KPICard({
       <div className="text-muted-foreground text-xs mb-0.5">{label}</div>
       <div className="text-xl font-bold leading-tight">{value}</div>
       {sub && <div className="text-xs text-muted-foreground mt-0.5">{sub}</div>}
+      {sub2 && <div className="text-xs text-indigo-500 mt-0.5">{sub2}</div>}
     </div>
   );
 }
@@ -775,6 +777,20 @@ export default function OTADashboard() {
     [vehicleGroups]
   );
 
+  // จำนวนกรุ๊ปดิบ ก่อนใช้ Join Rules (แต่ละ package+date = 1 กรุ๊ป)
+  const rawGroupCount = useMemo(() => {
+    const opsOrders = orders.filter(
+      (o) => o.usage_date >= startDate && o.usage_date <= endDate
+    );
+    const seen = new Set<string>();
+    opsOrders.forEach((o) => {
+      const pkg = packages.find((p) => p.id === o.package_id);
+      const code = pkg?.code ?? "Other";
+      seen.add(`${o.usage_date}||${code}`);
+    });
+    return seen.size;
+  }, [orders, packages, startDate, endDate]);
+
   const packageData = useMemo(() => {
     const map: Record<string, { orders: number; pax: number }> = {};
     monthOrders.forEach((o) => {
@@ -974,7 +990,7 @@ export default function OTADashboard() {
         {[
           { icon: TrendingUp, label: "Avg / Order", value: avgPax, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600" },
           { icon: BarChart3,  label: "RevPAX",      value: fmtB(revPAX), color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
-          { icon: Bus,        label: "Vehicles Used", value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: `${vehicleGroups.length} กรุ๊ป` },
+          { icon: Bus,        label: "Vehicles Used", value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: "คัน", sub2: rawGroupCount !== vehicleGroups.length ? `${rawGroupCount} กรุ๊ป` : undefined },
           { icon: Layers,     label: "YTD Revenue",  value: fmtBK(ytdRevenue), color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600", sub: `ทั้งปี ${year}` },
         ].map((k) => (
           <div key={k.label} className="shrink-0 w-40 md:w-auto">
@@ -1342,7 +1358,7 @@ export default function OTADashboard() {
           </ChartCard>
 
           {/* ── Vehicle Summary — Calendar Grid ──────────────────────────── */}
-          <ChartCard title={`Vehicle Summary — ${totalVehiclesUsed} คัน / ${vehicleGroups.length} กรุ๊ป`}>
+          <ChartCard title={`Vehicle Summary — ${rawGroupCount} กรุ๊ป · ${totalVehiclesUsed} คัน`}>
             {vehicleGroups.length === 0 ? <EmptyChart /> : (
               <VehicleCalendar
                 vehicleGroups={vehicleGroups}

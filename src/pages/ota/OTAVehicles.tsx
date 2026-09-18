@@ -565,14 +565,21 @@ export default function OTAVehicles() {
       {showSettings && <JoinGroupSettings packages={packages} />}
 
       {/* ── KPI strip ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* กรุ๊ปทั้งหมด (ก่อน Join) */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+          <div className="text-xs text-indigo-500 font-semibold mb-1">กรุ๊ปทั้งหมด</div>
+          <div className="text-3xl font-black text-indigo-700">{rawGroupCount}</div>
+          <div className="text-xs text-indigo-400 mt-1">โปรแกรม</div>
+        </div>
+        {/* รถรวม (หลัง Join) */}
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground mb-1">รถรวม</div>
           <div className="text-3xl font-black text-purple-600">{totalVehicles}</div>
           <div className="text-xs text-muted-foreground mt-1">
-            <span className="font-semibold text-foreground">{rawGroupCount}</span> กรุ๊ป
+            คัน
             {rawGroupCount !== vehicleGroups.length && (
-              <span className="ml-1.5 text-purple-500">→ {vehicleGroups.length} คัน</span>
+              <span className="ml-1.5 text-purple-400">(หลัง Join)</span>
             )}
           </div>
         </div>
