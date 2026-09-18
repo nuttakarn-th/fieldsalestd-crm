@@ -160,7 +160,7 @@ export default function OTALayout() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => navigate("/app")}
+                  onClick={() => navigate("/marketing")}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                 >
                   <Home className="w-4 h-4 shrink-0" />
@@ -258,7 +258,7 @@ export default function OTALayout() {
               {/* กลับ Home — เฉพาะ non-OTA roles */}
               {currentUser?.role !== "OTA" && (
                 <button
-                  onClick={() => { setMoreOpen(false); navigate("/app"); }}
+                  onClick={() => { setMoreOpen(false); navigate("/marketing"); }}
                   className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-[11px] font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
                 >
                   <Home className="w-6 h-6" />
