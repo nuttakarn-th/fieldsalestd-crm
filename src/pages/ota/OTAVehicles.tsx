@@ -647,7 +647,7 @@ export default function OTAVehicles() {
               <span className="w-1 h-4 bg-purple-600 rounded-full inline-block" />
               รายละเอียดรายกรุ๊ป — {monthLabel}
               <span className="ml-1 text-xs font-normal text-muted-foreground">
-                ({vehicleGroups.length} กรุ๊ป · {totalVehicles} คัน)
+                ({rawGroupCount} กรุ๊ป · {totalVehicles} คัน)
               </span>
             </span>
             {showTable
