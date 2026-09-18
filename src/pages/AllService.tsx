@@ -2434,7 +2434,7 @@ ${catBlocks}
                           <button onClick={() => hasPeriods && toggleExpand(t.id)}
                             className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] transition-colors mr-1.5"
                             style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"hsl(var(--border))",color:"hsl(var(--muted-foreground))",background:"hsl(var(--muted))"}}>
-                            {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
+                            {hasPeriods ? `${visiblePeriods.length} Period` : "ยังไม่มี"}
                             {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                           </button>
                           {t.continent && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{background:`${color}15`,color}}>{t.continent}</span>}
@@ -2551,7 +2551,7 @@ ${catBlocks}
                             <button onClick={() => hasPeriods && toggleExpand(t.id)}
                               className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-semibold text-[11px] mt-0.5"
                               style={hasPeriods ? {borderColor:"#374151",color:"white",background:"#1F2937"} : {borderColor:"hsl(var(--border))",color:"hsl(var(--muted-foreground))",background:"hsl(var(--muted))"}}>
-                              {hasPeriods ? (periodFilterActive && visiblePeriods.length !== t.periods!.length ? `${visiblePeriods.length}/${t.periods!.length} Period` : `${t.periods!.length} Period`) : "ยังไม่มี"}
+                              {hasPeriods ? `${visiblePeriods.length} Period` : "ยังไม่มี"}
                               {hasPeriods && (isExpanded ? <ChevronDown className="w-3 h-3 ml-0.5" /> : <ChevronRight className="w-3 h-3 ml-0.5" />)}
                             </button>
                           </div>

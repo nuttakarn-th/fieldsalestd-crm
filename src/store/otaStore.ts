@@ -240,8 +240,10 @@ const SEED_PACKAGES: OTAPackage[] = [
 
 // ─── Realtime dedup: track IDs mutated locally so we don't double-audit ──────
 
-const localMutations = new Set<string>(); // IDs added/updated/deleted by THIS browser
-let _realtimeSubscribed = false;          // guard against duplicate channel subscriptions
+const localMutations      = new Set<string>(); // order IDs added/updated/deleted by THIS browser
+const localAuditMutations = new Set<string>(); // audit IDs pushed by THIS browser (suppress Realtime echo)
+let _realtimeSubscribed      = false;          // guard: ota_orders channel
+let _auditRealtimeSubscribed = false;          // guard: ota_audit_logs channel
 
 // ─── Helper: map Supabase row → OTAOrder ─────────────────────────────────────
 
@@ -317,9 +319,27 @@ export const useOTAStore = create<OTAState>()(
           timestamp: new Date().toISOString(),
           read: false,
         };
+        // Update local state immediately (responsive UI)
         set((s) => ({
-          auditLog: [entry, ...s.auditLog].slice(0, 50), // เก็บแค่ 50 entries ล่าสุด
+          auditLog: [entry, ...s.auditLog].slice(0, 100),
         }));
+        // Persist to Supabase so ALL users (OTA + Marketing) see it
+        if (SUPABASE_ENABLED && supabase) {
+          localAuditMutations.add(entry.id); // suppress own Realtime echo
+          supabase.from("ota_audit_logs").insert({
+            id:        entry.id,
+            action:    entry.action,
+            actor:     entry.actor,
+            detail:    entry.detail,
+            order_id:  entry.order_id ?? null,
+            created_at: entry.timestamp,
+          }).then(({ error }) => {
+            if (error) {
+              console.error("[ota] pushAudit INSERT error:", error.message);
+              localAuditMutations.delete(entry.id); // undo suppression on error
+            }
+          });
+        }
       },
 
       markAllAuditRead: () =>
@@ -394,6 +414,59 @@ export const useOTAStore = create<OTAState>()(
           });
         }
 
+        // ── Load audit logs from Supabase (shared across all roles) ──────────
+        const { data: auditData } = await supabase
+          .from("ota_audit_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (auditData) {
+          const loaded: OTAAuditEntry[] = auditData.map((r) => ({
+            id:        String(r.id),
+            action:    String(r.action) as OTAAuditEntry["action"],
+            actor:     String(r.actor ?? ""),
+            detail:    String(r.detail ?? ""),
+            order_id:  r.order_id ? String(r.order_id) : null,
+            timestamp: String(r.created_at),
+            read:      false, // reset on load (per-session UI state)
+          }));
+          set({ auditLog: loaded });
+        }
+
+        // ── Realtime subscription — ota_audit_logs (new entries from any user) ─
+        if (!_auditRealtimeSubscribed) {
+          _auditRealtimeSubscribed = true;
+
+          supabase!
+            .channel("ota_audit_logs_realtime")
+            .on(
+              "postgres_changes",
+              { event: "INSERT", schema: "public", table: "ota_audit_logs" },
+              (payload) => {
+                const r = payload.new as Record<string, unknown>;
+                const id = String(r.id ?? "");
+                if (localAuditMutations.has(id)) { localAuditMutations.delete(id); return; }
+                const entry: OTAAuditEntry = {
+                  id,
+                  action:    String(r.action) as OTAAuditEntry["action"],
+                  actor:     String(r.actor ?? ""),
+                  detail:    String(r.detail ?? ""),
+                  order_id:  r.order_id ? String(r.order_id) : null,
+                  timestamp: String(r.created_at ?? new Date().toISOString()),
+                  read:      false,
+                };
+                set((s) => ({ auditLog: [entry, ...s.auditLog].slice(0, 100) }));
+              }
+            )
+            .subscribe((status) => {
+              if (status === "CHANNEL_ERROR") {
+                console.error("[ota] Audit Realtime channel error");
+                _auditRealtimeSubscribed = false;
+              }
+            });
+        }
+
         // ── Realtime subscription — ota_orders (cross-device notifications) ──
         if (!_realtimeSubscribed) {
           _realtimeSubscribed = true;
@@ -415,12 +488,6 @@ export const useOTAStore = create<OTAState>()(
                   set((s) => ({
                     orders: [order, ...s.orders.filter((o) => o.id !== order.id)],
                   }));
-                  get().pushAudit({
-                    action:   "add_order",
-                    actor:    order.created_by || "ผู้ใช้อื่น",
-                    detail:   `[Real-time] เพิ่ม Order #${order.order_number} · ${order.platform} · ${order.pax} คน`,
-                    order_id: order.id,
-                  });
                   toast.info(`มี Order ใหม่: #${order.order_number} (${order.platform})`);
 
                 } else if (eventType === "UPDATE") {
@@ -430,12 +497,6 @@ export const useOTAStore = create<OTAState>()(
                   set((s) => ({
                     orders: s.orders.map((o) => (o.id === updated.id ? updated : o)),
                   }));
-                  get().pushAudit({
-                    action:   "update_order",
-                    actor:    updated.created_by || "ผู้ใช้อื่น",
-                    detail:   `[Real-time] แก้ไข Order #${updated.order_number} · ${updated.platform}`,
-                    order_id: updated.id,
-                  });
 
                 } else if (eventType === "DELETE") {
                   const id = String(oldRow.id ?? "");
@@ -443,12 +504,6 @@ export const useOTAStore = create<OTAState>()(
                   const orderNum = String(oldRow.order_number ?? id);
                   const platform = String(oldRow.platform ?? "");
                   set((s) => ({ orders: s.orders.filter((o) => o.id !== id) }));
-                  get().pushAudit({
-                    action:   "delete_order",
-                    actor:    "ผู้ใช้อื่น",
-                    detail:   `[Real-time] ลบ Order #${orderNum} · ${platform}`,
-                    order_id: id,
-                  });
                 }
               }
             )
@@ -998,10 +1053,10 @@ export const useOTAStore = create<OTAState>()(
         get().platformConfigs.find((c) => c.platform === platform),
     }),
     {
-      name: "ota-store-v4",
-      // version 4 → กลับมาใช้ key เดิม เพื่อให้ localStorage เดิมโหลดได้ (orders ยังอยู่)
-      // groupCosts เป็น field ใหม่ ถ้าไม่มีใน old state จะเป็น undefined → ใช้ fallback [] ที่ initial state แทน
-      version: 4,
+      name: "ota-store-v5",
+      // version 5 → auditLog ย้ายไป Supabase (ota_audit_logs) เพื่อให้ทุก role เห็นของทีม
+      // ไม่ persist auditLog ใน localStorage อีกต่อไป — โหลดจาก Supabase แทน
+      version: 5,
       migrate: (state: unknown) => {
         const s = (state ?? {}) as Record<string, unknown>;
         return {
@@ -1011,7 +1066,7 @@ export const useOTAStore = create<OTAState>()(
           vehicleJoinGroups: Array.isArray(s.vehicleJoinGroups)? s.vehicleJoinGroups: [],
           groupCosts:        Array.isArray(s.groupCosts)       ? s.groupCosts       : [],
           loaded:            Boolean(s.loaded),
-          auditLog:          Array.isArray(s.auditLog)         ? s.auditLog         : [],
+          auditLog:          [], // โหลดจาก Supabase ใน loadFromSupabase แทน
         };
       },
     }
