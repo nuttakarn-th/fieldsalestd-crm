@@ -496,6 +496,18 @@ export default function OTAVehicles() {
   const totalVans     = vehicleGroups.filter((g) => g.vehicleType === "Van").reduce((s, g) => s + g.vehicleCount, 0);
   const totalBuses    = vehicleGroups.filter((g) => g.vehicleType === "Bus").reduce((s, g) => s + g.vehicleCount, 0);
 
+  // จำนวนกรุ๊ปดิบ ก่อนใช้ Join Rules (แต่ละ package+date = 1 กรุ๊ป)
+  const rawGroupCount = useMemo(() => {
+    const opsOrders = orders.filter((o) => o.usage_date >= start && o.usage_date <= end);
+    const seen = new Set<string>();
+    opsOrders.forEach((o) => {
+      const pkg  = packages.find((p) => p.id === o.package_id);
+      const code = pkg?.code ?? "Other";
+      seen.add(`${o.usage_date}||${code}`);
+    });
+    return seen.size;
+  }, [orders, packages, start, end]);
+
   const monthLabel = new Date(selYear, selMonth - 1, 1).toLocaleString("th-TH", { month: "long", year: "numeric" });
 
   return (
@@ -557,14 +569,19 @@ export default function OTAVehicles() {
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground mb-1">รถรวม</div>
           <div className="text-3xl font-black text-purple-600">{totalVehicles}</div>
-          <div className="text-xs text-muted-foreground mt-1">{vehicleGroups.length} กรุ๊ป</div>
+          <div className="text-xs text-muted-foreground mt-1">
+            <span className="font-semibold text-foreground">{rawGroupCount}</span> กรุ๊ป
+            {rawGroupCount !== vehicleGroups.length && (
+              <span className="ml-1.5 text-purple-500">→ {vehicleGroups.length} คัน</span>
+            )}
+          </div>
         </div>
         <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-center gap-3">
           <VanIcon className="text-purple-600 shrink-0" />
           <div>
             <div className="text-xs text-purple-500 font-semibold mb-0.5">Van</div>
             <div className="text-3xl font-black text-purple-700">{totalVans}</div>
-            <div className="text-xs text-purple-400 mt-0.5">{vehicleGroups.filter(g => g.vehicleType === "Van").length} กรุ๊ป</div>
+            <div className="text-xs text-purple-400 mt-0.5">{vehicleGroups.filter(g => g.vehicleType === "Van").length} คัน</div>
           </div>
         </div>
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-center gap-3">
@@ -572,7 +589,7 @@ export default function OTAVehicles() {
           <div>
             <div className="text-xs text-rose-500 font-semibold mb-0.5">Bus</div>
             <div className="text-3xl font-black text-rose-600">{totalBuses}</div>
-            <div className="text-xs text-rose-400 mt-0.5">{vehicleGroups.filter(g => g.vehicleType === "Bus").length} กรุ๊ป</div>
+            <div className="text-xs text-rose-400 mt-0.5">{vehicleGroups.filter(g => g.vehicleType === "Bus").length} คัน</div>
           </div>
         </div>
       </div>
