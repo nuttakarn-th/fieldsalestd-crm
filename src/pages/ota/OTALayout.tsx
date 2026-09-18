@@ -2,11 +2,18 @@
  * OTALayout.tsx — Dedicated sidebar layout for OTA Module
  * Route: /ota/*
  * Access: OTA role + Marketing + Marketing Manager + Admin
+ *
+ * Mobile Navigation (Option A):
+ *   Primary tab bar  : Order · Dashboard · Vehicles · P&L + "⋯ เพิ่มเติม"
+ *   Secondary overlay: Calendar · Packages · Platforms · Content Calendar
+ *   Desktop sidebar  : ไม่เปลี่ยน — แสดงทุก item เหมือนเดิม
  */
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
-  ClipboardList, BarChart3, CalendarDays, Package, Settings2, ChevronLeft, ChevronRight, LogOut, Bus, TrendingUp,
+  ClipboardList, BarChart3, CalendarDays, Package, Settings2,
+  ChevronLeft, ChevronRight, LogOut, Bus, TrendingUp, MoreHorizontal, X,
+  LayoutGrid,
 } from "lucide-react";
 import { useCurrentUser, useAuth } from "@/store/authStore";
 import { useOTAStore } from "@/store/otaStore";
@@ -15,16 +22,34 @@ import { OTANotificationBell } from "@/components/OTANotificationBell";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-interface NavItem { label: string; icon: typeof ClipboardList; to: string; end?: boolean }
+interface NavItem { label: string; mobileLabel?: string; icon: typeof ClipboardList; to: string }
 
+/** ทุก item — ใช้ใน Desktop sidebar */
 const NAV_ITEMS: NavItem[] = [
-  { label: "Order Entry", icon: ClipboardList, to: "/ota/order-entry" },
-  { label: "Dashboard",   icon: BarChart3,     to: "/ota/dashboard"   },
-  { label: "Calendar",    icon: CalendarDays,  to: "/ota/calendar"    },
-  { label: "Vehicles",    icon: Bus,           to: "/ota/vehicles"    },
-  { label: "P&L",         icon: TrendingUp,    to: "/ota/pnl"         },
-  { label: "Packages",    icon: Package,       to: "/ota/packages"    },
-  { label: "Platforms",   icon: Settings2,     to: "/ota/platforms"   },
+  { label: "Order Entry",      mobileLabel: "Order",    icon: ClipboardList, to: "/ota/order-entry"       },
+  { label: "Dashboard",        mobileLabel: "Dash",     icon: BarChart3,     to: "/ota/dashboard"         },
+  { label: "Calendar",                                  icon: CalendarDays,  to: "/ota/calendar"          },
+  { label: "Vehicles",                                  icon: Bus,           to: "/ota/vehicles"          },
+  { label: "P&L",                                       icon: TrendingUp,    to: "/ota/pnl"               },
+  { label: "Packages",                                  icon: Package,       to: "/ota/packages"          },
+  { label: "Platforms",                                 icon: Settings2,     to: "/ota/platforms"         },
+  { label: "Content Calendar", mobileLabel: "Content",  icon: LayoutGrid,    to: "/ota/content-calendar"  },
+];
+
+/** 4 รายการหลัก — แสดงใน Mobile Tab bar เสมอ */
+const PRIMARY_NAV: NavItem[] = [
+  { label: "Order Entry", mobileLabel: "Order",   icon: ClipboardList, to: "/ota/order-entry" },
+  { label: "Dashboard",   mobileLabel: "Dash",    icon: BarChart3,     to: "/ota/dashboard"   },
+  { label: "Vehicles",                            icon: Bus,           to: "/ota/vehicles"    },
+  { label: "P&L",                                 icon: TrendingUp,    to: "/ota/pnl"         },
+];
+
+/** รายการรอง — แสดงใน "More" overlay บน Mobile */
+const SECONDARY_NAV: NavItem[] = [
+  { label: "Calendar",         mobileLabel: "Calendar", icon: CalendarDays, to: "/ota/calendar"         },
+  { label: "Packages",                                  icon: Package,      to: "/ota/packages"         },
+  { label: "Platforms",                                 icon: Settings2,    to: "/ota/platforms"        },
+  { label: "Content Calendar", mobileLabel: "Content",  icon: LayoutGrid,   to: "/ota/content-calendar" },
 ];
 
 export default function OTALayout() {
@@ -33,7 +58,8 @@ export default function OTALayout() {
   const currentUser = useCurrentUser();
   const logout = useAuth((s) => s.logout);
   const setHighlightedOrderId = useOTAStore((s) => s.setHighlightedOrderId);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed]   = useState(false);
+  const [moreOpen,  setMoreOpen]    = useState(false);
 
   // ── Role guard ────────────────────────────────────────────────────────────
   const allowed = ["OTA", "Marketing", "Marketing Manager", "Admin"];
@@ -140,25 +166,86 @@ export default function OTALayout() {
         <Outlet />
       </main>
 
-      {/* ── Mobile Bottom Navigation ─────────────────────────────────────────── */}
+      {/* ── Mobile Bottom Navigation (Option A) ────────────────────────────── */}
+      {/* Desktop sidebar ซ่อน Mobile nav → md:hidden แน่นอน */}
+
+      {/* More overlay — แสดงด้านบน Tab bar */}
+      {moreOpen && (
+        <>
+          {/* backdrop */}
+          <div
+            className="fixed inset-0 z-40 md:hidden"
+            onClick={() => setMoreOpen(false)}
+          />
+          {/* grid panel */}
+          <div className="fixed bottom-[57px] left-0 right-0 z-50 md:hidden bg-[#1e1b4b] border-t border-white/10 px-4 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-white/50 font-medium">เพิ่มเติม</span>
+              <button onClick={() => setMoreOpen(false)} className="text-white/50 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {SECONDARY_NAV.map((item) => {
+                const active = location.pathname.startsWith(item.to);
+                const Icon   = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMoreOpen(false)}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-[11px] font-medium transition-colors",
+                      active
+                        ? "bg-purple-500/30 text-purple-300"
+                        : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    <Icon className="w-6 h-6" />
+                    <span className="text-center leading-tight">{item.mobileLabel ?? item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Primary tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-[#1e1b4b] border-t border-white/10 flex safe-area-inset-bottom">
-        {NAV_ITEMS.map((item) => {
+        {PRIMARY_NAV.map((item) => {
           const active = location.pathname.startsWith(item.to);
           const Icon   = item.icon;
           return (
             <Link
               key={item.to}
               to={item.to}
+              onClick={() => setMoreOpen(false)}
               className={cn(
                 "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors",
                 active ? "text-purple-300" : "text-white/50 hover:text-white"
               )}
             >
               <Icon className="w-5 h-5" />
-              <span>{item.label.split(" ")[0]}</span>
+              <span>{item.mobileLabel ?? item.label}</span>
             </Link>
           );
         })}
+
+        {/* More button */}
+        <button
+          onClick={() => setMoreOpen(v => !v)}
+          className={cn(
+            "flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors",
+            moreOpen ? "text-purple-300" : "text-white/50 hover:text-white"
+          )}
+        >
+          {moreOpen
+            ? <X className="w-5 h-5" />
+            : <MoreHorizontal className="w-5 h-5" />
+          }
+          <span>เพิ่มเติม</span>
+        </button>
       </nav>
     </div>
   );
