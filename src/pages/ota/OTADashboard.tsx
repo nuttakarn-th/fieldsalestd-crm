@@ -992,7 +992,7 @@ export default function OTADashboard() {
           { icon: BarChart3,  label: "RevPAX",         value: fmtB(revPAX),             color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
           { icon: Bus,        label: "กรุ๊ป (โปรแกรม)", value: String(rawGroupCount),    color: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600", sub: "กรุ๊ป" },
           { icon: Bus,        label: "Vehicles Used",  value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: "คัน" },
-          { icon: Layers,     label: "YTD Revenue",    value: fmtBK(ytdRevenue),        color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600",    sub: `ทั้งปี ${year}` },
+          { icon: Layers,     label: "YTD Revenue",    value: fmtB(ytdRevenue),         color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600",    sub: `ทั้งปี ${year}` },
         ].map((k) => (
           <div key={k.label} className="shrink-0 w-40 md:w-auto">
             <KPICard icon={k.icon} label={k.label} value={k.value} color={k.color} sub={k.sub} />
