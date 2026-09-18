@@ -985,13 +985,14 @@ export default function OTADashboard() {
           color="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600"
         />
       </div>
-      {/* Secondary 4 KPIs — horizontal scroll strip on mobile, grid on desktop */}
-      <div className="flex md:grid md:grid-cols-4 gap-3 overflow-x-auto pb-1 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
+      {/* Secondary 5 KPIs — horizontal scroll strip on mobile, grid on desktop */}
+      <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto pb-1 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0">
         {[
-          { icon: TrendingUp, label: "Avg / Order", value: avgPax, color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600" },
-          { icon: BarChart3,  label: "RevPAX",      value: fmtB(revPAX), color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
-          { icon: Bus,        label: "Vehicles Used", value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: "คัน", sub2: rawGroupCount !== vehicleGroups.length ? `${rawGroupCount} กรุ๊ป` : undefined },
-          { icon: Layers,     label: "YTD Revenue",  value: fmtBK(ytdRevenue), color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600", sub: `ทั้งปี ${year}` },
+          { icon: TrendingUp, label: "Avg / Order",    value: avgPax,                   color: "bg-blue-100 dark:bg-blue-900/40 text-blue-600",    sub: undefined as string | undefined },
+          { icon: BarChart3,  label: "RevPAX",         value: fmtB(revPAX),             color: "bg-violet-100 dark:bg-violet-900/40 text-violet-600", sub: "รายได้ต่อคน" },
+          { icon: Bus,        label: "กรุ๊ป (โปรแกรม)", value: String(rawGroupCount),    color: "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600", sub: "กรุ๊ป" },
+          { icon: Bus,        label: "Vehicles Used",  value: String(totalVehiclesUsed), color: "bg-orange-100 dark:bg-orange-900/40 text-orange-600", sub: "คัน" },
+          { icon: Layers,     label: "YTD Revenue",    value: fmtBK(ytdRevenue),        color: "bg-rose-100 dark:bg-rose-900/40 text-rose-600",    sub: `ทั้งปี ${year}` },
         ].map((k) => (
           <div key={k.label} className="shrink-0 w-40 md:w-auto">
             <KPICard icon={k.icon} label={k.label} value={k.value} color={k.color} sub={k.sub} />
