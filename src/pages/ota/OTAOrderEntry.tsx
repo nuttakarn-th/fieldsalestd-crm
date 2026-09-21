@@ -405,13 +405,15 @@ export default function OTAOrderEntry() {
       setMonth(d.getMonth() + 1);
       setYear(d.getFullYear());
     }
-    // รอ render รอบถัดไปแล้วค่อย scroll
+    // รอ React re-render หลังเปลี่ยนเดือน แล้วค่อย scroll (450ms เผื่อ Suspense/lazy)
     const scrollTimer = setTimeout(() => {
       const row = document.querySelector<HTMLElement>(`[data-order-id="${highlightedOrderId}"]`);
-      row?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-    // ล้าง highlight หลัง 2.5s
-    const clearTimer = setTimeout(() => setHighlightedOrderId(null), 2500);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 450);
+    // ล้าง highlight หลัง 4s (ครบ 5 รอบ × 0.7s = 3.5s + เผื่อ)
+    const clearTimer = setTimeout(() => setHighlightedOrderId(null), 4000);
     return () => { clearTimeout(scrollTimer); clearTimeout(clearTimer); };
   }, [highlightedOrderId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -963,10 +965,20 @@ export default function OTAOrderEntry() {
       {/* Flash animation keyframe */}
       <style>{`
         @keyframes row-flash {
-          0%,100% { background-color: transparent; }
-          20%,60%  { background-color: rgb(254 215 170 / 0.9); outline: 2px solid rgb(249 115 22); outline-offset: -2px; }
+          0%,100% { background-color: transparent; box-shadow: none; outline: none; }
+          20%,55%  {
+            background-color: rgb(254 240 138 / 0.85);
+            outline: 2px solid rgb(234 179 8);
+            outline-offset: -1px;
+            box-shadow: 0 0 0 4px rgb(234 179 8 / 0.35);
+          }
+          80% {
+            background-color: rgb(254 240 138 / 0.35);
+            outline: 2px solid rgb(234 179 8 / 0.5);
+            box-shadow: 0 0 0 2px rgb(234 179 8 / 0.15);
+          }
         }
-        .row-flash-anim { animation: row-flash 0.55s ease-in-out 4; }
+        .row-flash-anim { animation: row-flash 0.7s ease-in-out 5; }
       `}</style>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -1204,7 +1216,7 @@ export default function OTAOrderEntry() {
                 onClick={() => setSheetOrder(o)}
                 className={cn(
                   "w-full text-left bg-card border border-border rounded-xl px-4 py-3 shadow-sm active:scale-[0.98] transition-transform",
-                  highlightedOrderId === o.id && "row-flash-anim"
+                  highlightedOrderId === o.id && "row-flash-anim ring-2 ring-yellow-400 ring-offset-1"
                 )}
               >
                 {/* Line 1: date · platform · pax */}
