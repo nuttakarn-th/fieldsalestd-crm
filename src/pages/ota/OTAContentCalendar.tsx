@@ -752,8 +752,8 @@ export default function OTAContentCalendar(){
                               {done&&<Check className="w-2 h-2 stroke-[3]"/>}
                             </button>
                             <span className={cn("truncate flex-1",done&&"line-through opacity-60")}>{t.title}</span>
-                            {!done&&t.platforms.length>0&&(
-                              <span className="flex gap-0.5 shrink-0">
+                            {t.platforms.length>0&&(
+                              <span className={cn("flex gap-0.5 shrink-0",done&&"opacity-50")}>
                                 {t.platforms.slice(0,4).map(pid=>{
                                   const pp=platById(platforms,pid); if(!pp)return null;
                                   const pc=cfgByPlat(pp);
