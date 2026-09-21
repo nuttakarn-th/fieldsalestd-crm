@@ -731,9 +731,27 @@ export default function OTAContentCalendar(){
                         const c=mainPlat?cfgByPlat(mainPlat):null;
                         return(
                           <div key={t.id} className={cn(
-                            "text-[10px] font-medium rounded px-1.5 py-0.5 flex items-center gap-1 min-w-0",
-                            done?"bg-muted text-muted-foreground":c?`${c.bg} ${c.text}`:"bg-white/70 text-muted-foreground")}>
-                            <span className={cn("truncate flex-1",done&&"line-through")}>{t.title}</span>
+                            "text-[10px] font-medium rounded px-1 py-0.5 flex items-center gap-1 min-w-0",
+                            done
+                              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                              : c?`${c.bg} ${c.text}`:"bg-white/70 text-muted-foreground")}>
+                            {/* ── Inline checkbox — toggle done without opening panel ── */}
+                            <button
+                              onClick={(e)=>{
+                                e.stopPropagation();
+                                updateTask({...t, postedOn: done ? [] : [...t.platforms]});
+                              }}
+                              className={cn(
+                                "shrink-0 w-3 h-3 rounded-sm border flex items-center justify-center transition-colors",
+                                done
+                                  ? "bg-green-500 border-green-500 text-white"
+                                  : "border-current/30 bg-white/70 hover:border-purple-500 hover:bg-white"
+                              )}
+                              title={done?"ยกเลิกโพส":"ทำเครื่องหมายโพสแล้ว"}
+                            >
+                              {done&&<Check className="w-2 h-2 stroke-[3]"/>}
+                            </button>
+                            <span className={cn("truncate flex-1",done&&"line-through opacity-60")}>{t.title}</span>
                             {!done&&t.platforms.length>0&&(
                               <span className="flex gap-0.5 shrink-0">
                                 {t.platforms.slice(0,4).map(pid=>{
