@@ -130,7 +130,9 @@ export function CancelBookingDialog({
 
         if (count >= selectedLead.pax_count) {
           // ── ยกเลิกทั้ง lead ──────────────────────────────────────────────
-          updateLeadStatus(selectedLead.lead_id, "ยกเลิก", reason.trim() || undefined);
+          // skipQuotaAdjust=true เพราะ CancelBookingDialog จะเรียก adjustPeriodQuota เองด้านล่าง
+          // (ป้องกัน double-release: updateLeadStatus → auto quota + explicit call ซ้ำกัน)
+          updateLeadStatus(selectedLead.lead_id, "ยกเลิก", reason.trim() || undefined, { skipQuotaAdjust: true });
 
           // Audit trail: cancel booking ledger record ที่ผูก lead นี้ (ถ้ามี)
           try {

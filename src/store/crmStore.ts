@@ -654,7 +654,7 @@ interface CRMState {
   transferCustomer: (id: string, toRep: SalesRep) => void;
   addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => string;
   deleteLead: (leadId: string) => void;
-  updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string) => void;
+  updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string, opts?: { skipQuotaAdjust?: boolean }) => void;
   updateLead: (leadId: string, patch: Partial<Lead>) => void;
   addFollowupLog: (leadId: string, log: Omit<FollowupLog, "log_id" | "lead_id">) => void;
   setTarget: (month: string, rep: SalesRep, patch: Partial<Omit<MonthlyTarget, "month" | "rep">>) => void;
@@ -1705,7 +1705,7 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  updateLeadStatus: (leadId, status, lostReason) => {
+  updateLeadStatus: (leadId, status, lostReason, opts) => {
     const lead = get().leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
     const prevStatus = lead.status; // capture ก่อน update
@@ -1746,8 +1746,9 @@ export const useCRM = create<CRMState>()(
     }
 
     // ── Auto-deduct / restore tour quota ──
+    // opts.skipQuotaAdjust = true เมื่อ caller (เช่น CancelBookingDialog) จัดการ quota เองแล้ว
     const isTour = lead.bu_type === "ทัวร์ต่างประเทศ" || lead.bu_type === "ทัวร์ภายในประเทศ";
-    if (isTour && lead.tour_id) {
+    if (!opts?.skipQuotaAdjust && isTour && lead.tour_id) {
       const { adjustQuota, adjustPeriodQuota } = useServices.getState();
       if (isClosedStatus(status) && !isClosedStatus(prevStatus)) {
         if (lead.period_id) {
