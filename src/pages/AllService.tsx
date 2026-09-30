@@ -925,6 +925,30 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     const existingPeriod = pEditId
       ? tours.find((t) => t.id === pTourId)?.periods?.find((p) => p.period_id === pEditId)
       : undefined;
+
+    // ── Validate: ห้ามลด total_seats ต่ำกว่าจำนวนที่จองแล้ว ──
+    if (pEditId && !pForm.cancelled && existingPeriod) {
+      const oldBooked = Math.max(0, (existingPeriod.total_seats ?? 0) - (existingPeriod.quota ?? 0));
+      if (seats < oldBooked) {
+        toast.error(`❌ ไม่สามารถลดที่นั่งเหลือ ${seats} ได้ เนื่องจากมีลูกค้าจองแล้ว ${oldBooked} ท่าน`);
+        return;
+      }
+    }
+
+    // ── คำนวณ quota ที่ถูกต้อง ──
+    // edit: preserve booked count เมื่อ total_seats เปลี่ยน
+    //   - ถ้าผู้ใช้แตะ quota field เอง → ใช้ค่านั้น (clamp ≤ seats)
+    //   - ถ้าไม่ได้แตะ → คำนวณจาก booked เดิม: new_quota = new_seats - old_booked
+    const computeEditQuota = (): number => {
+      if (!existingPeriod) return seats;
+      const oldBooked   = Math.max(0, (existingPeriod.total_seats ?? 0) - (existingPeriod.quota ?? 0));
+      const loadedQuota = existingPeriod.quota ?? seats;
+      const userInput   = pForm.quota !== "" ? Number(pForm.quota) : loadedQuota;
+      const userChanged = userInput !== loadedQuota;
+      if (userChanged) return Math.min(userInput, seats);          // ผู้ใช้ตั้งเอง
+      return Math.max(0, seats - oldBooked);                       // preserve booked
+    };
+
     const payload: Omit<TourPeriod, "period_id"> = {
       start_date: pForm.start_date,
       end_date: pForm.end_date || undefined,
@@ -934,11 +958,11 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      // cancelled → 0; edit → ใช้ค่าจาก quota input (clamp ≤ seats); create → seats
+      // cancelled → 0; edit → preserve booked (computeEditQuota); create → seats
       quota: pForm.cancelled
         ? 0
         : pEditId
-          ? (pForm.quota !== "" ? Math.min(Number(pForm.quota), seats) : Math.min(existingPeriod?.quota ?? seats, seats))
+          ? computeEditQuota()
           : seats,
       airline_code: pForm.airline_code || undefined,
       departure_city: pForm.departure_city || undefined,
