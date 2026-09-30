@@ -2181,8 +2181,8 @@ ${catBlocks}
                   </button>
                 </div>
               )}
-              {/* 📦 Archive toggle */}
-              {archivedPeriodItems.length > 0 && (
+              {/* 📦 Archive toggle — Admin only */}
+              {role === "Admin" && archivedPeriodItems.length > 0 && (
                 <div className="flex items-center px-2 py-1.5 shrink-0">
                   <button
                     onClick={() => setShowArchived((v) => !v)}
@@ -3498,8 +3498,8 @@ ${catBlocks}
         </div>
       )}
 
-      {/* ── คลังโปรแกรม — Archived Periods ── */}
-      {effectiveShowArchived && archivedPeriodItems.length > 0 && (
+      {/* ── คลังโปรแกรม — Archived Periods (Admin only) ── */}
+      {role === "Admin" && effectiveShowArchived && archivedPeriodItems.length > 0 && (
         <div className="mt-6 px-4 sm:px-6">
           <div className="flex items-center gap-2 mb-3">
             <Archive className="w-4 h-4 text-slate-400" />
