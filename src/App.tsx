@@ -39,6 +39,9 @@ import AllService from "./pages/AllService.tsx";
 import CustomerDetail from "./pages/CustomerDetail.tsx";
 import CampaignManagement from "./pages/CampaignManagement.tsx";
 import MarketingReport from "./pages/MarketingReport.tsx";
+import SurveyB2C from "./pages/SurveyB2C.tsx";
+import SurveyB2B from "./pages/SurveyB2B.tsx";
+import PersonaSurveyDashboard from "./pages/PersonaSurveyDashboard.tsx";
 import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
@@ -174,6 +177,9 @@ const App = () => (
           <Route path="/view" element={<TourPdfViewer />} />
           <Route path="/present/:sessionId" element={<PresentView />} />
           <Route path="/war-room" element={<SalesWarRoom />} />
+          {/* ── Public Survey pages (no login required) ── */}
+          <Route path="/survey/b2c" element={<SurveyB2C />} />
+          <Route path="/survey/b2b" element={<SurveyB2B />} />
           <Route path="/catalog" element={<PublicCatalog />} />
           <Route path="/contact-info" element={<ContactInfo />} />
           <Route path="/gallery" element={<Gallery />} />
@@ -225,6 +231,7 @@ const App = () => (
             <Route path="ads-report"        element={<AdsReport />} />
             <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="okr-follower"      element={<OKRFollowerPage />} />
+            <Route path="persona-survey"    element={<PersonaSurveyDashboard />} />
           </Route>
 
           {/* ── OTA Module (OTA role + Marketing + Admin) ── */}

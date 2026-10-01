@@ -28,6 +28,7 @@ import {
   ClipboardList,
   Package,
   Settings2,
+  Smile,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -191,6 +192,7 @@ const marketingMenu: RoleMenu = {
         { title: "Campaign Management",   url: "/marketing/campaigns",        icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
+        { title: "Persona Survey",        url: "/marketing/persona-survey",   icon: Smile },
       ],
     },
     {
@@ -262,6 +264,7 @@ const obCoordinatorMenu: RoleMenu = {
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",     url: "/app/trip-manifest",   icon: ClipboardList },
+        { title: "Persona Survey",    url: "/marketing/persona-survey", icon: Smile },
       ],
     },
     {
@@ -297,6 +300,7 @@ const obManagerMenu: RoleMenu = {
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics", url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",   url: "/app/trip-manifest",   icon: ClipboardList },
+        { title: "Persona Survey",  url: "/marketing/persona-survey", icon: Smile },
       ],
     },
     {

@@ -56,6 +56,11 @@ export interface Customer {
   transferred_at?: string;
   transfer_logs?: TransferLog[];  // ประวัติการโอนลูกค้าทั้งหมด
   created_at?: string;
+  // ── Persona fields ──────────────────────────────────────────────────────────
+  persona_tag?:  string;   // สายคุ้มค่า / สายธรรมชาติ / สายกิจกรรม / สายชิลล์พรีเมียม / Outing B2B / Seminar B2B
+  age_group?:    string;   // GenZ / GenY / GenX / BabyBoomer
+  travel_style?: string;   // FullTour / Nature / NicheActivity / Chill
+  budget_range?: string;   // Value / Standard / Premium
 }
 
 export interface TransferLog {

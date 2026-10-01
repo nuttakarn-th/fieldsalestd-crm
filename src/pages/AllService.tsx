@@ -31,6 +31,8 @@ import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts } from "@/lib/shortLink";
 import { BookingLeadDialog } from "@/components/BookingLeadDialog";
 import { CancelBookingDialog } from "@/components/CancelBookingDialog";
+import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
+import type { PersonaTag } from "@/store/surveyStore";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -318,6 +320,7 @@ const blankTourForm = () => ({
   description: "", // คำอธิบาย
   note: "",
   startDate: "", returnDate: "",  // unused in new dialog — kept for useEffect
+  personaTargets: [] as string[], // Persona กลุ่มเป้าหมาย
 });
 const blankPeriodForm = () => ({
   start_date: "",
@@ -726,6 +729,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       description: t.description ?? "",
       note: t.note ?? "",
       startDate: "", returnDate: "",
+      personaTargets: t.persona_targets ?? [],
     });
     setOpen(true);
   };
@@ -747,6 +751,7 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       note: form.note || undefined,
       tour_types: form.tourTypes.length > 0 ? form.tourTypes : undefined,
       description: form.description || undefined,
+      persona_targets: form.personaTargets.length > 0 ? form.personaTargets : undefined,
     };
     if (editId) {
       updateTour(editId, { ...payload, updated_by: actorName });
@@ -3796,6 +3801,37 @@ ${catBlocks}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="Highlight หรือรายละเอียดย่อของโปรแกรม..."
               />
+            </div>
+
+            {/* ── Persona Target ── */}
+            <div>
+              <label className="text-xs font-semibold">🎭 Persona กลุ่มเป้าหมาย</label>
+              <p className="text-xs text-muted-foreground mb-2">เลือก Persona ที่เหมาะสมกับโปรแกรมนี้ (เลือกได้หลายกลุ่ม)</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_PERSONAS.map((p) => {
+                  const selected = form.personaTargets.includes(p);
+                  const colorClass = PERSONA_COLORS[p as PersonaTag];
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          personaTargets: selected
+                            ? f.personaTargets.filter((x) => x !== p)
+                            : [...f.personaTargets, p],
+                        }))
+                      }
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        selected ? colorClass : "border-border text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {PERSONA_EMOJI[p as PersonaTag]} {p}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* ── PDF Upload (optional) ── */}

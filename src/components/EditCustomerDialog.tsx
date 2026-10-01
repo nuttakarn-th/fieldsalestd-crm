@@ -10,6 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useCRM, SOURCES, type Customer, type Source, type Tier, type SalesRep } from "@/store/crmStore";
 import { useActiveSalesNames } from "@/store/authStore";
+import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS, inferPersonaFromCustomer } from "@/store/surveyStore";
+import type { PersonaTag } from "@/store/surveyStore";
 
 const SERVICE_INTERESTS = [
   { key: "ทัวร์ต่างประเทศ", label: "✈️ ทัวร์ต่างประเทศ" },
@@ -23,11 +25,24 @@ const SERVICE_INTERESTS = [
 
 export function EditCustomerDialog({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const updateCustomer = useCRM((s) => s.updateCustomer);
+  const leads = useCRM((s) => s.leads);
   const SALES_REPS = useActiveSalesNames() as SalesRep[];
   const [data, setData] = useState<Customer | null>(customer);
 
   useEffect(() => setData(customer), [customer]);
   if (!data) return null;
+
+  function handleAutoInferPersona() {
+    if (!data) return;
+    const customerLeads = leads.filter((l) => l.customer_id === data.customer_id);
+    const inferred = inferPersonaFromCustomer(data, customerLeads);
+    if (inferred) {
+      setData({ ...data, persona_tag: inferred });
+      toast.success(`🎭 ประเมิน Persona: ${inferred}`);
+    } else {
+      toast.error("ไม่มีข้อมูลเพียงพอในการประเมิน Persona");
+    }
+  }
 
   const toggleInterest = (key: string) => {
     const current = data.interests ?? [];
@@ -95,6 +110,45 @@ export function EditCustomerDialog({ customer, onClose }: { customer: Customer |
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* ── Persona ── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground">🎭 Persona</p>
+              <button
+                type="button"
+                onClick={handleAutoInferPersona}
+                className="text-xs px-2 py-1 rounded-md border border-border hover:bg-muted transition-colors"
+              >
+                ✨ ประเมินอัตโนมัติ
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {ALL_PERSONAS.map((p) => {
+                const selected = data.persona_tag === p;
+                const colorClass = PERSONA_COLORS[p as PersonaTag];
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setData({ ...data, persona_tag: selected ? undefined : p })}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                      selected
+                        ? colorClass
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {PERSONA_EMOJI[p as PersonaTag]} {p}
+                  </button>
+                );
+              })}
+            </div>
+            {data.persona_tag && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                ปัจจุบัน: <span className="font-medium text-foreground">{data.persona_tag}</span>
+              </p>
+            )}
           </div>
 
           {/* ── หมายเหตุ ── */}
