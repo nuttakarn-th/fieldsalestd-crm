@@ -9,7 +9,7 @@
  *   2. Survey Dashboard — embed PersonaSurveyDashboard
  */
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Users, BarChart2, Pencil, X, Plus, Loader2, Save, Camera, ImageOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import PersonaSurveyDashboard from "./PersonaSurveyDashboard";
@@ -290,6 +290,159 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
   );
 }
 
+// ─── Image Crop Dialog ────────────────────────────────────────────────────────
+
+function ImageCropDialog({
+  objectUrl,
+  onConfirm,
+  onCancel,
+}: {
+  objectUrl: string;
+  onConfirm: (blob: Blob) => void;
+  onCancel: () => void;
+}) {
+  const VIEWPORT = 240;
+  const OUTPUT = 400;
+  const [scale, setScale] = useState(1);
+  const [ox, setOx] = useState(0);
+  const [oy, setOy] = useState(0);
+  const drag = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const touch = useRef<{ startX: number; startY: number; ox: number; oy: number; dist?: number; scale?: number } | null>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setScale(s => Math.min(5, Math.max(1, s - e.deltaY * 0.005)));
+  };
+  const handleMouseDown = (e: React.MouseEvent) => {
+    drag.current = { startX: e.clientX, startY: e.clientY, ox, oy };
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!drag.current) return;
+    setOx(drag.current.ox + e.clientX - drag.current.startX);
+    setOy(drag.current.oy + e.clientY - drag.current.startY);
+  };
+  const handleMouseUp = () => { drag.current = null; };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touch.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, ox, oy };
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touch.current = { startX: 0, startY: 0, ox, oy, dist: Math.hypot(dx, dy), scale };
+    }
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (!touch.current) return;
+    if (e.touches.length === 1 && touch.current.dist === undefined) {
+      setOx(touch.current.ox + e.touches[0].clientX - touch.current.startX);
+      setOy(touch.current.oy + e.touches[0].clientY - touch.current.startY);
+    } else if (e.touches.length === 2 && touch.current.dist !== undefined) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      setScale(Math.min(5, Math.max(1, (touch.current.scale ?? 1) * (dist / touch.current.dist!))));
+    }
+  };
+
+  const handleConfirm = () => {
+    const img = imgRef.current;
+    if (!img) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = OUTPUT;
+    canvas.height = OUTPUT;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // base scale to cover the VIEWPORT circle
+    const baseScale = Math.max(VIEWPORT / img.naturalWidth, VIEWPORT / img.naturalHeight);
+    const totalScale = baseScale * scale;
+    const srcW = VIEWPORT / totalScale;
+    const srcH = VIEWPORT / totalScale;
+    // offset is in viewport px → convert to natural image px
+    const imgCenterX = img.naturalWidth  / 2 - ox / totalScale;
+    const imgCenterY = img.naturalHeight / 2 - oy / totalScale;
+    const srcX = Math.max(0, Math.min(img.naturalWidth  - srcW, imgCenterX - srcW / 2));
+    const srcY = Math.max(0, Math.min(img.naturalHeight - srcH, imgCenterY - srcH / 2));
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, OUTPUT, OUTPUT);
+    canvas.toBlob(blob => { if (blob) onConfirm(blob); }, "image/jpeg", 0.92);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative bg-card rounded-2xl shadow-2xl p-6 space-y-4 w-full max-w-sm"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className="font-bold text-foreground text-center">✂️ ปรับตำแหน่งรูปโปรไฟล์</h3>
+        <p className="text-xs text-muted-foreground text-center">ลากเพื่อเลื่อน · เลื่อน Scroll หรือ Slider เพื่อซูม</p>
+
+        {/* Circular viewport */}
+        <div className="flex justify-center">
+          <div
+            style={{
+              width: VIEWPORT, height: VIEWPORT, borderRadius: "50%",
+              overflow: "hidden", cursor: "grab", userSelect: "none",
+              position: "relative", border: "3px solid hsl(var(--primary))",
+              boxShadow: "0 0 0 4px hsl(var(--primary) / 0.15)",
+            }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => { touch.current = null; }}
+          >
+            <img
+              ref={imgRef}
+              src={objectUrl}
+              alt="crop preview"
+              style={{
+                position: "absolute",
+                top: "50%", left: "50%",
+                transform: `translate(calc(-50% + ${ox}px), calc(-50% + ${oy}px)) scale(${scale})`,
+                transformOrigin: "center center",
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                pointerEvents: "none",
+                maxWidth: "none",
+              }}
+              draggable={false}
+            />
+          </div>
+        </div>
+
+        {/* Zoom slider */}
+        <div className="flex items-center gap-3 px-2">
+          <span className="text-sm">🔍</span>
+          <input
+            type="range" min={1} max={5} step={0.05}
+            value={scale}
+            onChange={e => setScale(Number(e.target.value))}
+            className="flex-1 accent-primary h-1.5 rounded cursor-pointer"
+          />
+          <span className="text-xs text-muted-foreground w-8 text-right">{scale.toFixed(1)}×</span>
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button
+            type="button" onClick={onCancel}
+            className="flex-1 h-9 rounded-lg border text-sm hover:bg-muted transition-colors"
+          >ยกเลิก</button>
+          <button
+            type="button" onClick={handleConfirm}
+            className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+          >✅ ยืนยัน</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Edit Form Modal ──────────────────────────────────────────────────────────
 
 function EditModal({ persona, onSave, onClose }: {
@@ -305,6 +458,8 @@ function EditModal({ persona, onSave, onClose }: {
   const [coverPreview, setCoverPreview] = useState<string | null>(persona.cover_url ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  // ── Image crop state ──
+  const [cropObjectUrl, setCropObjectUrl] = useState<string | null>(null);
 
   function set(field: keyof PersonaProfile, value: any) {
     setForm(f => ({ ...f, [field]: value }));
@@ -319,13 +474,22 @@ function EditModal({ persona, onSave, onClose }: {
     return data.publicUrl + `?t=${Date.now()}`;
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // เลือกไฟล์ → เปิด crop dialog (ไม่อัปโหลดตรง)
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    e.target.value = ""; // reset so same file can be re-selected
+    const url = URL.createObjectURL(file);
+    setCropObjectUrl(url);
+  }
+
+  // หลัง crop confirm → อัปโหลด blob เป็น .jpg
+  async function handleCropConfirm(blob: Blob) {
+    setCropObjectUrl(null);
     setUploadingProfile(true);
     try {
-      const url = await uploadToStorage(file, `${form.id}.${ext}`);
+      const file = new File([blob], `${form.id}.jpg`, { type: "image/jpeg" });
+      const url = await uploadToStorage(file, `${form.id}.jpg`);
       setImgPreview(url);
       set("image_url", url);
     } catch (err: any) {
@@ -500,7 +664,7 @@ function EditModal({ persona, onSave, onClose }: {
                     )}
                   </div>
                   <div className="flex-1 space-y-2">
-                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} className="hidden" />
+                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageSelect} className="hidden" />
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
@@ -612,6 +776,15 @@ function EditModal({ persona, onSave, onClose }: {
           </button>
         </div>
       </div>
+
+      {/* Crop dialog — rendered outside the modal scroll container */}
+      {cropObjectUrl && (
+        <ImageCropDialog
+          objectUrl={cropObjectUrl}
+          onConfirm={handleCropConfirm}
+          onCancel={() => { URL.revokeObjectURL(cropObjectUrl); setCropObjectUrl(null); }}
+        />
+      )}
     </div>
   );
 }
