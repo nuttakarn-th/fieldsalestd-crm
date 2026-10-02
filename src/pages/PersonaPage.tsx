@@ -9,8 +9,8 @@
  *   2. Survey Dashboard — embed PersonaSurveyDashboard
  */
 
-import { useState, useEffect } from "react";
-import { Users, BarChart2, Pencil, X, Plus, Trash2, Loader2, Save } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Users, BarChart2, Pencil, X, Plus, Loader2, Save, Camera, ImageOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import PersonaSurveyDashboard from "./PersonaSurveyDashboard";
 
@@ -40,6 +40,8 @@ interface PersonaProfile {
   booking_lead_time?: string;
   content_formats?: string[];
   price_sensitivity?: string;
+  // ── Photo ──
+  image_url?: string;
 }
 
 // ─── Color Options ────────────────────────────────────────────────────────────
@@ -65,7 +67,18 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
       <div className="bg-card border rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group">
         {/* Header */}
         <div className={`bg-gradient-to-br ${p.color} p-5 relative`}>
-          <div className="text-4xl mb-2">{p.emoji}</div>
+          {p.image_url ? (
+            <div className="flex items-end gap-3 mb-2">
+              <img
+                src={p.image_url}
+                alt={p.name}
+                className="w-16 h-16 rounded-full object-cover border-2 border-white/60 shadow-lg shrink-0"
+              />
+              <div className="text-2xl mb-1">{p.emoji}</div>
+            </div>
+          ) : (
+            <div className="text-4xl mb-2">{p.emoji}</div>
+          )}
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>
             {p.tag}
           </span>
@@ -111,9 +124,26 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className={`bg-gradient-to-br ${p.color} p-6 rounded-t-2xl`}>
-              <div className="text-5xl mb-3">{p.emoji}</div>
-              <h2 className="text-white font-bold text-xl">{p.name}</h2>
-              <p className="text-white/80 text-sm">{p.age} · {p.job}</p>
+              {p.image_url ? (
+                <div className="flex items-center gap-4 mb-3">
+                  <img
+                    src={p.image_url}
+                    alt={p.name}
+                    className="w-20 h-20 rounded-full object-cover border-2 border-white/60 shadow-xl shrink-0"
+                  />
+                  <div>
+                    <div className="text-3xl mb-1">{p.emoji}</div>
+                    <h2 className="text-white font-bold text-xl">{p.name}</h2>
+                    <p className="text-white/80 text-sm">{p.age} · {p.job}</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-5xl mb-3">{p.emoji}</div>
+                  <h2 className="text-white font-bold text-xl">{p.name}</h2>
+                  <p className="text-white/80 text-sm">{p.age} · {p.job}</p>
+                </>
+              )}
               <span className={`inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>{p.tag}</span>
             </div>
             <div className="p-5 space-y-5">
@@ -244,9 +274,34 @@ function EditModal({ persona, onSave, onClose }: {
 }) {
   const [form, setForm] = useState<PersonaProfile>({ ...persona });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [imgPreview, setImgPreview] = useState<string | null>(persona.image_url ?? null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function set(field: keyof PersonaProfile, value: any) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${form.id}.${ext}`;
+    setUploading(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("persona-images")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("persona-images").getPublicUrl(path);
+      const url = data.publicUrl + `?t=${Date.now()}`; // cache-bust
+      setImgPreview(url);
+      set("image_url", url);
+    } catch (err: any) {
+      alert("อัปโหลดรูปไม่สำเร็จ: " + err.message);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSave() {
@@ -379,6 +434,49 @@ function EditModal({ persona, onSave, onClose }: {
               className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               placeholder='"ประโยคที่ represent mindset..."'
             />
+          </div>
+
+          {/* Photo Upload */}
+          <div className="border-t pt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">📸 รูปภาพ Persona</h3>
+            <div className="flex items-center gap-4">
+              {/* Preview */}
+              <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted shrink-0">
+                {imgPreview ? (
+                  <img src={imgPreview} alt="preview" className="w-full h-full object-cover" />
+                ) : (
+                  <ImageOff className="w-6 h-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors disabled:opacity-60 w-full justify-center"
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                  {uploading ? "กำลังอัปโหลด..." : "เลือกรูปภาพ"}
+                </button>
+                {form.image_url && (
+                  <button
+                    type="button"
+                    onClick={() => { setImgPreview(null); set("image_url", null); }}
+                    className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 w-full justify-center"
+                  >
+                    <X className="w-3 h-3" /> ลบรูปภาพ
+                  </button>
+                )}
+                <p className="text-xs text-muted-foreground text-center">JPG, PNG, WebP · ขนาดไม่เกิน 5MB</p>
+              </div>
+            </div>
           </div>
 
           {/* Deep Insight */}
