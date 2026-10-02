@@ -42,6 +42,7 @@ interface PersonaProfile {
   price_sensitivity?: string;
   // ── Photo ──
   image_url?: string;
+  cover_url?: string;
 }
 
 // ─── Color Options ────────────────────────────────────────────────────────────
@@ -66,29 +67,17 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
     <>
       <div className="bg-card border rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group cursor-pointer" onClick={() => setShowDetail(true)}>
 
-        {/* ── Cover ── */}
-        <div className={`relative bg-gradient-to-br ${p.color} overflow-visible`} style={{ height: "108px" }}>
-          {/* Full-bleed photo (when exists) */}
-          {p.image_url && (
-            <img
-              src={p.image_url}
-              alt={p.name}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+        {/* ── Cover banner ── */}
+        <div className={`relative bg-gradient-to-br ${p.color}`} style={{ height: "88px" }}>
+          {/* Cover image (if uploaded) */}
+          {p.cover_url && (
+            <img src={p.cover_url} alt="cover" className="absolute inset-0 w-full h-full object-cover" />
           )}
-
-          {/* Dark gradient overlay — always present to protect text */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-
-          {/* Emoji center (only when no photo) */}
-          {!p.image_url && (
-            <div className="absolute inset-0 flex items-center justify-center text-5xl select-none">
-              {p.emoji}
-            </div>
-          )}
+          {/* subtle dark tint so badge stays legible */}
+          <div className="absolute inset-0 bg-black/10" />
 
           {/* Badge — top-left */}
-          <div className="absolute top-2.5 left-3">
+          <div className="absolute top-2.5 left-3 z-10">
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>
               {p.tag}
             </span>
@@ -97,18 +86,18 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
           {/* Edit button — top-right */}
           <button
             onClick={e => { e.stopPropagation(); onEdit(p); }}
-            className="absolute top-2.5 right-2.5 bg-black/20 hover:bg-black/40 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-2.5 right-2.5 z-10 bg-black/20 hover:bg-black/50 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
             title="แก้ไข Persona"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
 
-          {/* Protruding avatar */}
-          <div className="absolute -bottom-6 left-4 w-12 h-12 rounded-full border-[3px] border-card shadow-lg overflow-hidden bg-muted z-10">
+          {/* ── Avatar — centered, protrudes below cover ── */}
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-9 z-10 w-[72px] h-[72px] rounded-full border-4 border-card shadow-xl overflow-hidden">
             {p.image_url ? (
               <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
             ) : (
-              <div className={`w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br ${p.color}`}>
+              <div className={`w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br ${p.color}`}>
                 {p.emoji}
               </div>
             )}
@@ -116,9 +105,9 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
         </div>
 
         {/* ── Body ── */}
-        <div className="pt-9 px-4 pb-4 space-y-3">
-          {/* Name */}
-          <div>
+        <div className="pt-12 px-4 pb-4 space-y-3">
+          {/* Name + age/job — centered */}
+          <div className="text-center">
             <p className="font-bold text-foreground text-sm leading-tight">{p.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{p.age} · {p.job}</p>
           </div>
@@ -127,23 +116,23 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-muted/60 rounded-xl px-3 py-2">
               <p className="text-[10px] text-muted-foreground leading-none mb-1">งบ/คน</p>
-              <p className="text-xs font-semibold text-foreground leading-tight">{p.budget}</p>
+              <p className="text-[11px] font-semibold text-foreground leading-snug line-clamp-2">{p.budget}</p>
             </div>
             <div className="bg-muted/60 rounded-xl px-3 py-2">
               <p className="text-[10px] text-muted-foreground leading-none mb-1">เดินทางกับ</p>
-              <p className="text-xs font-semibold text-foreground leading-tight truncate">{p.travel_with}</p>
+              <p className="text-[11px] font-semibold text-foreground leading-snug line-clamp-2">{p.travel_with}</p>
             </div>
           </div>
 
           {/* Channel chips */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 justify-center">
             {(p.channels ?? []).slice(0, 3).map(ch => (
               <span key={ch} className="bg-muted border border-border text-foreground text-[10px] px-2 py-0.5 rounded-full">
                 {ch}
               </span>
             ))}
             {(p.channels ?? []).length > 3 && (
-              <span className="text-[10px] text-muted-foreground px-1 self-center">+{(p.channels ?? []).length - 3}</span>
+              <span className="text-[10px] text-muted-foreground self-center">+{(p.channels ?? []).length - 3}</span>
             )}
           </div>
 
@@ -310,33 +299,55 @@ function EditModal({ persona, onSave, onClose }: {
 }) {
   const [form, setForm] = useState<PersonaProfile>({ ...persona });
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [imgPreview, setImgPreview] = useState<string | null>(persona.image_url ?? null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(persona.cover_url ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   function set(field: keyof PersonaProfile, value: any) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  async function uploadToStorage(file: File, path: string): Promise<string> {
+    const { error } = await supabase.storage
+      .from("persona-images")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+    const { data } = supabase.storage.from("persona-images").getPublicUrl(path);
+    return data.publicUrl + `?t=${Date.now()}`;
   }
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const path = `${form.id}.${ext}`;
-    setUploading(true);
+    setUploadingProfile(true);
     try {
-      const { error: uploadError } = await supabase.storage
-        .from("persona-images")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from("persona-images").getPublicUrl(path);
-      const url = data.publicUrl + `?t=${Date.now()}`; // cache-bust
+      const url = await uploadToStorage(file, `${form.id}.${ext}`);
       setImgPreview(url);
       set("image_url", url);
     } catch (err: any) {
-      alert("อัปโหลดรูปไม่สำเร็จ: " + err.message);
+      alert("อัปโหลดรูปโปรไฟล์ไม่สำเร็จ: " + err.message);
     } finally {
-      setUploading(false);
+      setUploadingProfile(false);
+    }
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    setUploadingCover(true);
+    try {
+      const url = await uploadToStorage(file, `${form.id}-cover.${ext}`);
+      setCoverPreview(url);
+      set("cover_url", url);
+    } catch (err: any) {
+      alert("อัปโหลดภาพ Cover ไม่สำเร็จ: " + err.message);
+    } finally {
+      setUploadingCover(false);
     }
   }
 
@@ -474,44 +485,76 @@ function EditModal({ persona, onSave, onClose }: {
 
           {/* Photo Upload */}
           <div className="border-t pt-5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">📸 รูปภาพ Persona</h3>
-            <div className="flex items-center gap-4">
-              {/* Preview */}
-              <div className="w-20 h-20 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted shrink-0">
-                {imgPreview ? (
-                  <img src={imgPreview} alt="preview" className="w-full h-full object-cover" />
-                ) : (
-                  <ImageOff className="w-6 h-6 text-muted-foreground" />
-                )}
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">🖼️ รูปภาพ</h3>
+            <div className="space-y-5">
+
+              {/* Profile photo */}
+              <div>
+                <p className="text-xs font-medium text-foreground mb-3">👤 รูปโปรไฟล์ <span className="text-muted-foreground font-normal">(วงกลมกลางการ์ด)</span></p>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted shrink-0">
+                    {imgPreview ? (
+                      <img src={imgPreview} alt="profile preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageOff className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} className="hidden" />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingProfile}
+                      className="flex items-center gap-2 px-3 py-2 text-xs border rounded-lg hover:bg-muted transition-colors disabled:opacity-60 w-full justify-center"
+                    >
+                      {uploadingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                      {uploadingProfile ? "กำลังอัปโหลด..." : "เลือกรูปโปรไฟล์"}
+                    </button>
+                    {form.image_url && (
+                      <button type="button" onClick={() => { setImgPreview(null); set("image_url", null); }}
+                        className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-600 w-full justify-center">
+                        <X className="w-3 h-3" /> ลบรูปโปรไฟล์
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 space-y-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-2 px-4 py-2 text-sm border rounded-lg hover:bg-muted transition-colors disabled:opacity-60 w-full justify-center"
-                >
-                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                  {uploading ? "กำลังอัปโหลด..." : "เลือกรูปภาพ"}
-                </button>
-                {form.image_url && (
-                  <button
-                    type="button"
-                    onClick={() => { setImgPreview(null); set("image_url", null); }}
-                    className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 w-full justify-center"
-                  >
-                    <X className="w-3 h-3" /> ลบรูปภาพ
-                  </button>
-                )}
-                <p className="text-xs text-muted-foreground text-center">JPG, PNG, WebP · ขนาดไม่เกิน 5MB</p>
+
+              {/* Cover image */}
+              <div>
+                <p className="text-xs font-medium text-foreground mb-3">🖼️ ภาพ Cover <span className="text-muted-foreground font-normal">(banner ด้านบนการ์ด)</span></p>
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-14 rounded-xl border-2 border-dashed border-border overflow-hidden flex items-center justify-center bg-muted shrink-0">
+                    {coverPreview ? (
+                      <img src={coverPreview} alt="cover preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${form.color} flex items-center justify-center text-xl opacity-70`}>
+                        {form.emoji}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleCoverUpload} className="hidden" />
+                    <button
+                      type="button"
+                      onClick={() => coverInputRef.current?.click()}
+                      disabled={uploadingCover}
+                      className="flex items-center gap-2 px-3 py-2 text-xs border rounded-lg hover:bg-muted transition-colors disabled:opacity-60 w-full justify-center"
+                    >
+                      {uploadingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                      {uploadingCover ? "กำลังอัปโหลด..." : "เลือกภาพ Cover"}
+                    </button>
+                    {form.cover_url && (
+                      <button type="button" onClick={() => { setCoverPreview(null); set("cover_url", null); }}
+                        className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-600 w-full justify-center">
+                        <X className="w-3 h-3" /> ลบภาพ Cover
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              <p className="text-[11px] text-muted-foreground">JPG, PNG, WebP · ไม่เกิน 5MB ต่อภาพ</p>
             </div>
           </div>
 
