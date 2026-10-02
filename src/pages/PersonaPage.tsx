@@ -35,6 +35,11 @@ interface PersonaProfile {
   quote: string;
   type: "b2c" | "b2b";
   sort_order: number;
+  // ── Deep Insight fields ──
+  decision_trigger?: string;
+  booking_lead_time?: string;
+  content_formats?: string[];
+  price_sensitivity?: string;
 }
 
 // ─── Color Options ────────────────────────────────────────────────────────────
@@ -138,6 +143,43 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
                 <h3 className="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">⚠️ Pain Points</h3>
                 <ul className="space-y-1">{(p.pain_points ?? []).map(pp => <li key={pp} className="flex items-start gap-2 text-xs"><span className="text-red-400 mt-0.5">•</span>{pp}</li>)}</ul>
               </div>
+
+              {/* Deep Insight */}
+              {(p.decision_trigger || p.booking_lead_time || p.price_sensitivity || (p.content_formats ?? []).length > 0) && (
+                <div className="border-t pt-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-3">🧠 Deep Insight</h3>
+                  <div className="space-y-3">
+                    {p.decision_trigger && (
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">⚡ Decision Trigger</p>
+                        <p className="text-xs text-foreground bg-blue-50 dark:bg-blue-950/30 rounded-lg px-3 py-2">{p.decision_trigger}</p>
+                      </div>
+                    )}
+                    {p.booking_lead_time && (
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">📅 Booking Lead Time</p>
+                        <p className="text-xs text-foreground bg-muted rounded-lg px-3 py-2">{p.booking_lead_time}</p>
+                      </div>
+                    )}
+                    {p.price_sensitivity && (
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium mb-1">💸 Price Sensitivity</p>
+                        <p className="text-xs text-foreground bg-muted rounded-lg px-3 py-2">{p.price_sensitivity}</p>
+                      </div>
+                    )}
+                    {(p.content_formats ?? []).length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground font-medium mb-1.5">📱 Content ที่ตอบสนอง</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(p.content_formats ?? []).map(f => (
+                            <span key={f} className="bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 text-xs px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-700">{f}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-4 border-t flex gap-2">
               <button onClick={() => { setShowDetail(false); onEdit(p); }} className="flex-1 py-2 text-sm border rounded-lg hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
@@ -337,6 +379,44 @@ function EditModal({ persona, onSave, onClose }: {
               className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
               placeholder='"ประโยคที่ represent mindset..."'
             />
+          </div>
+
+          {/* Deep Insight */}
+          <div className="border-t pt-5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4">🧠 Deep Insight</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">⚡ Decision Trigger — อะไรที่ทำให้กด "จอง"</label>
+                <input
+                  value={form.decision_trigger ?? ""}
+                  onChange={e => set("decision_trigger", e.target.value)}
+                  className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder='เช่น "เห็นโปรโมชั่น จ่ายภายใน 3 วัน"'
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">📅 Booking Lead Time — จองล่วงหน้านานแค่ไหน</label>
+                <input
+                  value={form.booking_lead_time ?? ""}
+                  onChange={e => set("booking_lead_time", e.target.value)}
+                  className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder='เช่น "1–2 สัปดาห์ก่อนเดินทาง"'
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">💸 Price Sensitivity</label>
+                <input
+                  value={form.price_sensitivity ?? ""}
+                  onChange={e => set("price_sensitivity", e.target.value)}
+                  className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder='เช่น "สูง — เปรียบเทียบราคา 2–3 เจ้า"'
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-2 block">📱 Content Format ที่ตอบสนอง</label>
+                <TagInput values={form.content_formats ?? []} onChange={v => set("content_formats", v)} placeholder='เช่น "Facebook Post ราคาชัด" แล้วกด Enter' />
+              </div>
+            </div>
           </div>
         </div>
 
