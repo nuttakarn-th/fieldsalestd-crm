@@ -93,6 +93,12 @@ const adminMenu: RoleMenu = {
       ],
     },
     {
+      category: "MARKETING TOOLS",
+      items: [
+        { title: "Persona Survey", url: "/marketing/persona-survey", icon: Smile },
+      ],
+    },
+    {
       category: "ADMIN",
       items: [
         { title: "Audit Log & Restore", url: "/app/audit-log", icon: History },
