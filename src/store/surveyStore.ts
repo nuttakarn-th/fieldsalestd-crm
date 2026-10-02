@@ -40,7 +40,9 @@ export interface SurveyResponse {
   q4?: number;
   phone?: string;
   name?: string;
-  source?: string;           // เช่น "QR-โรงแรม", "Facebook", "LINE"
+  source?: string;              // utm_source: เช่น "QR-โรงแรม", "LINE-Bio"
+  source_channel?: string;      // user-selected: Facebook/Instagram/TikTok/เพื่อนแนะนำ/Google/อื่นๆ
+  travel_experience?: string;   // B2C only: first_time / 1-3_times / 4_plus_times
   matched_customer_id?: string;
   submitted_at?: string;
 }

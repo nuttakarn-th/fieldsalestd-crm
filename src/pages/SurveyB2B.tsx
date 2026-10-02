@@ -78,9 +78,10 @@ export default function SurveyB2B() {
 
   const [answers, setAnswers]     = useState<Record<number, number>>({});
   const [current, setCurrent]     = useState(0);
-  const [companyName, setCompanyName] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [phone, setPhone]         = useState("");
+  const [companyName, setCompanyName]     = useState("");
+  const [contactName, setContactName]     = useState("");
+  const [phone, setPhone]                 = useState("");
+  const [sourceChannel, setSourceChannel] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [persona, setPersona]     = useState<B2BPersona | null>(null);
   const [saving, setSaving]       = useState(false);
@@ -141,6 +142,7 @@ export default function SurveyB2B() {
       phone: phone.trim() || undefined,
       name: contactName.trim() ? `${contactName.trim()} (${companyName.trim()})` : companyName.trim() || undefined,
       source: new URLSearchParams(window.location.search).get("src") ?? undefined,
+      source_channel: sourceChannel || undefined,
     });
     setSaving(false);
     setSubmitted(true);
@@ -290,6 +292,28 @@ export default function SurveyB2B() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">
+                รู้จัก Standard Tour จากที่ไหน? <span className="text-gray-400">(ไม่บังคับ)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {["Facebook", "Instagram", "TikTok", "เพื่อนแนะนำ", "Google", "อื่นๆ"].map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => setSourceChannel(sourceChannel === ch ? "" : ch)}
+                    className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
+                      sourceChannel === ch
+                        ? "border-teal-500 bg-teal-50 text-teal-700"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:border-teal-300"
+                    }`}
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <button

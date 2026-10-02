@@ -82,8 +82,10 @@ export default function SurveyB2C() {
 
   const [answers, setAnswers]     = useState<Record<number, number>>({});
   const [current, setCurrent]     = useState(0);
-  const [phone, setPhone]         = useState("");
-  const [name, setName]           = useState("");
+  const [phone, setPhone]             = useState("");
+  const [name, setName]               = useState("");
+  const [sourceChannel, setSourceChannel] = useState("");
+  const [travelExp, setTravelExp]     = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [persona, setPersona]     = useState<B2CPersona | null>(null);
   const [saving, setSaving]       = useState(false);
@@ -146,6 +148,8 @@ export default function SurveyB2C() {
       phone: phone.trim() || undefined,
       name: name.trim() || undefined,
       source: new URLSearchParams(window.location.search).get("src") ?? undefined,
+      source_channel: sourceChannel || undefined,
+      travel_experience: travelExp || undefined,
     });
     // บันทึก age_group ถ้ามีเบอร์โทร (จะ match กับ customer)
     if (phone.trim()) {
@@ -276,6 +280,55 @@ export default function SurveyB2C() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
               />
+            </div>
+
+            {/* ── คำถามเพิ่มเติม ── */}
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">
+                รู้จัก Standard Tour จากที่ไหน? <span className="text-gray-400">(ไม่บังคับ)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {["Facebook", "Instagram", "TikTok", "เพื่อนแนะนำ", "Google", "อื่นๆ"].map((ch) => (
+                  <button
+                    key={ch}
+                    type="button"
+                    onClick={() => setSourceChannel(sourceChannel === ch ? "" : ch)}
+                    className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
+                      sourceChannel === ch
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    {ch}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">
+                เคยเดินทางต่างประเทศมาแล้วกี่ครั้ง? <span className="text-gray-400">(ไม่บังคับ)</span>
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  { label: "ครั้งแรกเลย 🌟", value: "first_time" },
+                  { label: "1–3 ครั้ง ✈️", value: "1-3_times" },
+                  { label: "4+ ครั้ง 🧳", value: "4_plus_times" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTravelExp(travelExp === opt.value ? "" : opt.value)}
+                    className={`py-2 px-2 rounded-xl text-xs font-medium border transition-all text-center ${
+                      travelExp === opt.value
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <button

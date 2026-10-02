@@ -16,6 +16,18 @@
 import { useEffect, useState } from "react";
 import { useSurveyStore, ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
 import type { PersonaTag } from "@/store/surveyStore";
+import { supabase } from "@/lib/supabase";
+
+// ─── RFM per Persona ─────────────────────────────────────────────────────────
+
+interface PersonaRFM {
+  persona_tag: PersonaTag;
+  customer_count: number;
+  lead_count: number;
+  booked_count: number;
+  total_revenue: number;
+  avg_deal_value: number;
+}
 
 // ─── QR Code URLs (แสดงเพื่อให้ทีมนำไปทำ QR จริง) ───────────────────────────
 const SURVEY_URLS = {
@@ -29,11 +41,61 @@ export default function PersonaSurveyDashboard() {
   const { responses, loading, fetchResponses } = useSurveyStore();
   const [typeFilter, setTypeFilter] = useState<"all" | "b2c" | "b2b">("all");
   const [copied, setCopied] = useState<string | null>(null);
+  const [rfmData, setRfmData] = useState<PersonaRFM[]>([]);
 
   useEffect(() => {
     fetchResponses();
+    loadRFM();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadRFM() {
+    // ดึง customers ที่มี persona_tag
+    const { data: customers } = await supabase
+      .from("customers")
+      .select("customer_id, persona_tag")
+      .not("persona_tag", "is", null);
+    if (!customers || customers.length === 0) return;
+
+    // ดึง leads ของ customers เหล่านั้น
+    const ids = customers.map((c: any) => c.customer_id);
+    const { data: leads } = await supabase
+      .from("leads")
+      .select("customer_id, status, deal_value")
+      .in("customer_id", ids);
+
+    // group by persona_tag
+    const map: Record<string, PersonaRFM> = {};
+    for (const persona of ALL_PERSONAS) {
+      map[persona] = {
+        persona_tag: persona,
+        customer_count: 0,
+        lead_count: 0,
+        booked_count: 0,
+        total_revenue: 0,
+        avg_deal_value: 0,
+      };
+    }
+    for (const c of customers) {
+      const p = c.persona_tag as PersonaTag;
+      if (!map[p]) continue;
+      map[p].customer_count++;
+      const cLeads = (leads ?? []).filter((l: any) => l.customer_id === c.customer_id);
+      map[p].lead_count += cLeads.length;
+      for (const l of cLeads) {
+        if (l.status === "จองแล้ว" || l.status === "ปิดการขาย") {
+          map[p].booked_count++;
+          map[p].total_revenue += l.deal_value ?? 0;
+        }
+      }
+    }
+    for (const p of ALL_PERSONAS) {
+      if (map[p].booked_count > 0) {
+        map[p].avg_deal_value = Math.round(map[p].total_revenue / map[p].booked_count);
+      }
+    }
+    setRfmData(Object.values(map).filter((r) => r.customer_count > 0));
+  }
 
   const filtered = responses.filter((r) =>
     typeFilter === "all" ? true : r.type === typeFilter,
@@ -197,6 +259,92 @@ export default function PersonaSurveyDashboard() {
           ))}
         </div>
       </div>
+
+      {/* ── RFM × Persona Insights ── */}
+      {rfmData.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-foreground mb-3">💰 Persona × Revenue Insights</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            คำนวณจากลูกค้าใน CRM ที่มี persona_tag + ประวัติ Leads
+          </p>
+          <div className="rounded-xl border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50">
+                  <tr>
+                    {["Persona", "ลูกค้า", "Leads", "จอง", "Conversion", "Avg Deal", "Total Revenue"].map((h) => (
+                      <th key={h} className="px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rfmData
+                    .sort((a, b) => b.total_revenue - a.total_revenue)
+                    .map((row) => {
+                      const conv = row.lead_count > 0
+                        ? Math.round((row.booked_count / row.lead_count) * 100)
+                        : 0;
+                      const colorClass = PERSONA_COLORS[row.persona_tag];
+                      return (
+                        <tr key={row.persona_tag} className="hover:bg-muted/20 transition-colors">
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium ${colorClass}`}>
+                              {PERSONA_EMOJI[row.persona_tag]} {row.persona_tag}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 font-semibold text-foreground">{row.customer_count}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground">{row.lead_count}</td>
+                          <td className="px-3 py-2.5 text-green-600 font-medium">{row.booked_count}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`font-semibold ${conv >= 50 ? "text-green-600" : conv >= 25 ? "text-amber-600" : "text-muted-foreground"}`}>
+                              {conv}%
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-foreground">
+                            {row.avg_deal_value > 0
+                              ? `฿${row.avg_deal_value.toLocaleString()}`
+                              : "–"}
+                          </td>
+                          <td className="px-3 py-2.5 font-semibold text-foreground">
+                            {row.total_revenue > 0
+                              ? `฿${row.total_revenue.toLocaleString()}`
+                              : "–"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Source Channel breakdown (ถ้ามีข้อมูล) ── */}
+      {(() => {
+        const sources = responses
+          .map((r: any) => r.source_channel)
+          .filter(Boolean) as string[];
+        if (sources.length === 0) return null;
+        const counts: Record<string, number> = {};
+        for (const s of sources) counts[s] = (counts[s] ?? 0) + 1;
+        const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        return (
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-3">📡 ช่องทางที่รู้จักเรา</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {sorted.map(([ch, cnt]) => (
+                <div key={ch} className="bg-card rounded-xl border px-4 py-3 flex items-center justify-between">
+                  <span className="text-sm text-foreground font-medium">{ch}</span>
+                  <span className="text-sm font-bold text-primary">{cnt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Recent responses table ── */}
       <div>
