@@ -718,14 +718,16 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
     const sections: string[] = [];
     for (const { tour, periods } of tourMap.values()) {
+      // pkgId ต้องมี prefix "tour_" เหมือน ShareDialog → redirect ไป /tour-packages?pkg=tour_xxx
+      const pkgId = `tour_${tour.id}`;
       // Get or create short link for this tour
       let link = "";
-      const existing = await getLinksForPkg(tour.id);
+      const existing = await getLinksForPkg(pkgId);
       const liveLink = existing.find((l) => l.source === "line-share");
       if (liveLink) {
         link = shortUrl(liveLink.code);
       } else {
-        const created = await createShortLink(tour.id, "line-share");
+        const created = await createShortLink(pkgId, "line-share");
         if (created) link = shortUrl(created.code);
       }
 
