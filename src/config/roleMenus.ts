@@ -198,7 +198,7 @@ const marketingMenu: RoleMenu = {
         { title: "Campaign Management",   url: "/marketing/campaigns",        icon: Megaphone },
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
-        { title: "Persona Survey",        url: "/marketing/persona-survey",   icon: Smile },
+        { title: "Persona",                url: "/marketing/persona",          icon: Smile },
       ],
     },
     {

@@ -62,7 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Campaigns",         icon: Megaphone,     to: "/marketing/campaigns"               },
       { label: "Audience Builder",  icon: Target,        to: "/audience-builder/line-export"      },
-      { label: "Persona Survey",    icon: Smile,         to: "/marketing/persona-survey"          },
+      { label: "Persona",           icon: Users2,        to: "/marketing/persona"                 },
     ],
   },
   {

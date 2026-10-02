@@ -42,6 +42,7 @@ import MarketingReport from "./pages/MarketingReport.tsx";
 import SurveyB2C from "./pages/SurveyB2C.tsx";
 import SurveyB2B from "./pages/SurveyB2B.tsx";
 import PersonaSurveyDashboard from "./pages/PersonaSurveyDashboard.tsx";
+import PersonaPage from "./pages/PersonaPage.tsx";
 import FinancialReport from "./pages/FinancialReport.tsx";
 import PaymentInvoice from "./pages/PaymentInvoice.tsx";
 import BookingOverview from "./pages/BookingOverview.tsx";
@@ -232,6 +233,7 @@ const App = () => (
             <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="okr-follower"      element={<OKRFollowerPage />} />
             <Route path="persona-survey"    element={<PersonaSurveyDashboard />} />
+            <Route path="persona"           element={<PersonaPage />} />
           </Route>
 
           {/* ── OTA Module (OTA role + Marketing + Admin) ── */}
