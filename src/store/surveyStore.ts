@@ -15,7 +15,7 @@
  */
 
 import { create } from "zustand";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import type { Customer, Lead } from "@/store/crmStore";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
