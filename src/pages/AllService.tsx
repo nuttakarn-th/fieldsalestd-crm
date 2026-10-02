@@ -1605,9 +1605,9 @@ ${catBlocks}
           if (filterDateFrom || filterDateTo) {
             const start = p.start_date ?? "";
             if (!start) return false;
-            const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
-            // Overlap: period ต้องสิ้นสุดหลัง filterDateFrom AND เริ่มก่อน filterDateTo
-            if (filterDateFrom && end   < filterDateFrom) return false;
+            // Filter by START DATE in range (ไม่ใช่ overlap)
+            // ผู้ใช้เลือก range เพื่อดูทริปที่ "เริ่มเดินทาง" ในช่วงนั้น
+            if (filterDateFrom && start < filterDateFrom) return false;
             if (filterDateTo   && start > filterDateTo)   return false;
           }
           if (filterPricePreset) {
@@ -1650,8 +1650,9 @@ ${catBlocks}
         if (filterTags.length > 0 && !filterTags.every((tag) => (p.tags ?? []).includes(tag))) return;
         if (filterDateFrom || filterDateTo) {
           const start = p.start_date ?? "";
-          const end   = p.end_date ?? start;
-          if (filterDateFrom && end   < filterDateFrom) return;
+          if (!start) return;
+          // Filter by start date (ไม่ใช่ overlap)
+          if (filterDateFrom && start < filterDateFrom) return;
           if (filterDateTo   && start > filterDateTo)   return;
         }
         if (filterPricePreset) {
@@ -2415,8 +2416,9 @@ ${catBlocks}
                   if (filterTags.length > 0 && !filterTags.every((tag) => (p.tags ?? []).includes(tag))) return false;
                   if ((filterDateFrom || filterDateTo)) {
                     const start = p.start_date ?? "";
-                    const end   = p.end_date ?? start;
-                    if (filterDateFrom && end   < filterDateFrom) return false;
+                    if (!start) return false;
+                    // Filter by start date (ไม่ใช่ overlap)
+                    if (filterDateFrom && start < filterDateFrom) return false;
                     if (filterDateTo   && start > filterDateTo)   return false;
                   }
                   if (filterPricePreset) {
