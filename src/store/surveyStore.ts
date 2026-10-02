@@ -8,6 +8,7 @@
  *   สายธรรมชาติ      (Nature Lover)     — ชอบธรรมชาติ/ผ่อนคลาย
  *   สายกิจกรรม       (Activity Seeker)  — ชอบผจญภัย/กิจกรรม
  *   สายชิลล์พรีเมียม (Chill Premium)   — ชอบสะดวกสบาย/หรูหรา
+ *   สายหัวคณะ        (Senior Group)     — วัยเกษียณ 58+ หัวหน้ากลุ่มเพื่อน เที่ยวถี่
  *
  * ── B2B Personas ──
  *   Outing B2B   — กลุ่มออกนอกสถานที่ทีม / Team Building
@@ -24,7 +25,8 @@ export type B2CPersona =
   | "สายคุ้มค่า"
   | "สายธรรมชาติ"
   | "สายกิจกรรม"
-  | "สายชิลล์พรีเมียม";
+  | "สายชิลล์พรีเมียม"
+  | "สายหัวคณะ";
 
 export type B2BPersona = "Outing B2B" | "Seminar B2B";
 
@@ -59,17 +61,20 @@ export interface SurveyResponse {
 // Q3: q3_budget — งบประมาณ
 //   1=Value (ประหยัด)  2=Standard (มาตรฐาน)  3=Premium (สายเปย์)
 //
-// Q4: q4_age — ช่วงอายุ (เก็บเป็น age_group แยกต่างหาก ไม่ใช้ใน persona mapping)
-//   1=20-25(GenZ)  2=26-35(GenY)  3=36-45(GenX)  4=46-55(GenX/BB)  5=56+(BabyBoomer)
+// Q4: q4_age — ช่วงอายุ (ใช้ detect สายหัวคณะด้วย)
+//   1=20-25(GenZ)  2=26-35(GenY)  3=36-45(GenX)  4=46-55(GenX/BB)  5=56+(BabyBoomer/Senior)
 //
-// Logic (Top-down จาก PRD):
-//   IF q1==3 → สายกิจกรรม
+// Logic (Top-down จาก PRD + สายหัวคณะ):
+//   IF q4==5 AND q2==2 (กลุ่มเพื่อน) → สายหัวคณะ   ← Senior Group Leader
+//   ELSE IF q1==3 → สายกิจกรรม
 //   ELSE IF q1==4 AND q3==3 → สายชิลล์พรีเมียม
 //   ELSE IF q1==2 AND (q2==2 OR q2==3) → สายธรรมชาติ
 //   ELSE IF q1==1 AND (q3==1 OR q3==2) → สายคุ้มค่า
 //   ELSE → สายคุ้มค่า (fallback)
 
-export function inferPersonaB2C(q1: number, q2: number, q3: number, _q4: number): B2CPersona {
+export function inferPersonaB2C(q1: number, q2: number, q3: number, q4: number): B2CPersona {
+  // สายหัวคณะ: อายุ 56+ เดินทางกับกลุ่มเพื่อน
+  if (q4 === 5 && q2 === 2) return "สายหัวคณะ";
   if (q1 === 3) return "สายกิจกรรม";
   if (q1 === 4 && q3 === 3) return "สายชิลล์พรีเมียม";
   if (q1 === 2 && (q2 === 2 || q2 === 3)) return "สายธรรมชาติ";
@@ -82,6 +87,7 @@ export function ageGroupFromQ4(q4: number): string {
   if (q4 === 2) return "GenY";
   if (q4 === 3) return "GenX";
   if (q4 === 4) return "BabyBoomer";
+  if (q4 === 5) return "Senior";
   return "BabyBoomer";
 }
 
@@ -140,6 +146,14 @@ export function inferPersonaFromCustomer(
       const price = l.deal_value ?? 0;
       return sum + price / pax;
     }, 0) / closedLeads.length;
+
+  const avgPax =
+    closedLeads.reduce((s, l) => s + (l.pax_count ?? 1), 0) / closedLeads.length;
+
+  // สายหัวคณะ: เที่ยวถี่ (≥4 trips) + จองหลายที่นั่งต่อครั้ง (avgPax ≥ 4) + ราคาต่อหัวปานกลาง
+  if (closedLeads.length >= 4 && avgPax >= 4 && avgPricePerSeat < 15000) {
+    return "สายหัวคณะ";
+  }
 
   if (avgPricePerSeat >= 20000) return "สายชิลล์พรีเมียม";
   if (avgPricePerSeat >= 10000) return "สายธรรมชาติ";
@@ -233,6 +247,7 @@ export const PERSONA_COLORS: Record<PersonaTag, string> = {
   "สายธรรมชาติ":       "bg-green-100 text-green-800 border-green-300",
   "สายกิจกรรม":        "bg-blue-100 text-blue-800 border-blue-300",
   "สายชิลล์พรีเมียม":  "bg-purple-100 text-purple-800 border-purple-300",
+  "สายหัวคณะ":         "bg-rose-100 text-rose-800 border-rose-300",
   "Outing B2B":        "bg-orange-100 text-orange-800 border-orange-300",
   "Seminar B2B":       "bg-teal-100 text-teal-800 border-teal-300",
 };
@@ -242,6 +257,7 @@ export const PERSONA_EMOJI: Record<PersonaTag, string> = {
   "สายธรรมชาติ":       "🌿",
   "สายกิจกรรม":        "⚡",
   "สายชิลล์พรีเมียม":  "💎",
+  "สายหัวคณะ":         "👑",
   "Outing B2B":        "🏕️",
   "Seminar B2B":       "🎯",
 };
@@ -251,6 +267,7 @@ export const ALL_PERSONAS: PersonaTag[] = [
   "สายธรรมชาติ",
   "สายกิจกรรม",
   "สายชิลล์พรีเมียม",
+  "สายหัวคณะ",
   "Outing B2B",
   "Seminar B2B",
 ];
@@ -285,6 +302,12 @@ export const PERSONA_QUICK_INFO: Record<PersonaTag, {
     budget: "15,000 บ.+/คน",
     trigger: "โรงแรม 5★ วิวดี + บริการส่วนตัว",
     channels: "Instagram Aesthetic, Influencer",
+  },
+  "สายหัวคณะ": {
+    who: "วัยเกษียณ 58–70 ปี · หัวหน้ากลุ่มเพื่อน 5–15 คน",
+    budget: "6,000–12,000 บ./คน · จอง 5+ ครั้ง/ปี",
+    trigger: "OB ที่รู้จักแนะนำมา + เพื่อนกลุ่มเห็นด้วย",
+    channels: "โทรหา OB โดยตรง, Line ส่วนตัว",
   },
   "Outing B2B": {
     who: "HR Manager / Admin · จัด Outing บริษัท",
