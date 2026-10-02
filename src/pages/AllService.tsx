@@ -1605,8 +1605,7 @@ ${catBlocks}
           if (filterDateFrom || filterDateTo) {
             const start = p.start_date ?? "";
             if (!start) return false;
-            // Filter by START DATE in range (ไม่ใช่ overlap)
-            // ผู้ใช้เลือก range เพื่อดูทริปที่ "เริ่มเดินทาง" ในช่วงนั้น
+            // Filter by start date in range
             if (filterDateFrom && start < filterDateFrom) return false;
             if (filterDateTo   && start > filterDateTo)   return false;
           }
@@ -1651,7 +1650,7 @@ ${catBlocks}
         if (filterDateFrom || filterDateTo) {
           const start = p.start_date ?? "";
           if (!start) return;
-          // Filter by start date (ไม่ใช่ overlap)
+          // Filter by start date in range
           if (filterDateFrom && start < filterDateFrom) return;
           if (filterDateTo   && start > filterDateTo)   return;
         }
@@ -2417,7 +2416,7 @@ ${catBlocks}
                   if ((filterDateFrom || filterDateTo)) {
                     const start = p.start_date ?? "";
                     if (!start) return false;
-                    // Filter by start date (ไม่ใช่ overlap)
+                    // Filter by start date in range
                     if (filterDateFrom && start < filterDateFrom) return false;
                     if (filterDateTo   && start > filterDateTo)   return false;
                   }
