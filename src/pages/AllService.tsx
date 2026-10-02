@@ -2186,8 +2186,8 @@ ${catBlocks}
                   </button>
                 </div>
               )}
-              {/* 📦 Archive toggle — Admin only */}
-              {role === "Admin" && archivedPeriodItems.length > 0 && (
+              {/* 📦 Archive toggle — Admin + OB Manager */}
+              {(role === "Admin" || role === "OB Manager") && archivedPeriodItems.length > 0 && (
                 <div className="flex items-center px-2 py-1.5 shrink-0">
                   <button
                     onClick={() => setShowArchived((v) => !v)}
