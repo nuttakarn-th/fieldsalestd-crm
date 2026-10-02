@@ -28,7 +28,7 @@ import { logActivity, getDeptFromRole } from "@/lib/activityLog";
 import { supabase } from "@/lib/supabase";
 import { ShareDialog } from "@/components/ShareDialog";
 import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
-import { getAllViewCounts } from "@/lib/shortLink";
+import { getAllViewCounts, getLinksForPkg, createShortLink, shortUrl } from "@/lib/shortLink";
 import { BookingLeadDialog } from "@/components/BookingLeadDialog";
 import { CancelBookingDialog } from "@/components/CancelBookingDialog";
 import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS, PERSONA_QUICK_INFO } from "@/store/surveyStore";
@@ -645,6 +645,10 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   // ── Share dialog ──
   const [shareDialogTourId, setShareDialogTourId] = useState<string | null>(null);
   const [eventStatsOpen, setEventStatsOpen] = useState(false);
+  // ── Multi-program share dialog ──
+  const [multiShareOpen, setMultiShareOpen] = useState(false);
+  const [multiShareText, setMultiShareText] = useState("");
+  const [multiShareLoading, setMultiShareLoading] = useState(false);
 
   // ── program sort state ──
   type TourSortKey = "name" | "code" | "date" | "added";
@@ -696,6 +700,63 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       const full = new Date(iso + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
       return full.replace(/(\d{4})/, (y) => y.slice(2)); // 2569 → 69
     } catch { return iso; }
+  };
+
+  // ── Build multi-program share text ──────────────────────────────────────────
+  const buildMultiShareText = async () => {
+    setMultiShareLoading(true);
+    // Group selected periods by tour id
+    const tourMap = new Map<string, { tour: (typeof tours)[0]; periods: TourPeriod[] }>();
+    selectedPeriods.forEach((pid) => {
+      const tour = tours.find((t) => t.periods?.some((p) => p.period_id === pid));
+      if (!tour) return;
+      const period = tour.periods?.find((p) => p.period_id === pid);
+      if (!period) return;
+      if (!tourMap.has(tour.id)) tourMap.set(tour.id, { tour, periods: [] });
+      tourMap.get(tour.id)!.periods.push(period);
+    });
+
+    const sections: string[] = [];
+    for (const { tour, periods } of tourMap.values()) {
+      // Get or create short link for this tour
+      let link = "";
+      const existing = await getLinksForPkg(tour.id);
+      const liveLink = existing.find((l) => l.source === "line-share");
+      if (liveLink) {
+        link = shortUrl(liveLink.code);
+      } else {
+        const created = await createShortLink(tour.id, "line-share");
+        if (created) link = shortUrl(created.code);
+      }
+
+      const tourName = tour.title ?? tour.city;
+      const lines: string[] = [];
+      lines.push(`✈️ ${tour.code} ${tourName} (${tour.duration})`);
+
+      // Sort periods by start_date
+      const sorted = [...periods].sort((a, b) => (a.start_date ?? "") < (b.start_date ?? "") ? -1 : 1);
+      sorted.forEach((p) => {
+        const dateStr = p.travel_date ?? (p.start_date ? fmtThai(p.start_date) : "—");
+        const quota = p.quota ?? 0;
+        const total = p.total_seats ?? 0;
+        const pctLeft = total > 0 ? quota / total : 1;
+        const fireEmoji = (p.special_price && p.special_price > 0) || pctLeft <= 0.25 ? " 🔥" : "";
+        const displayPrice = p.special_price && p.special_price > 0 ? p.special_price : p.price_per_seat;
+        const priceStr = displayPrice ? `${displayPrice.toLocaleString()} บ./คน` : "";
+        const seatsStr = total > 0 ? `เหลือ ${quota}/${total} ที่นั่ง${fireEmoji}` : "";
+        const priceLine = [priceStr, seatsStr].filter(Boolean).join(" | ");
+        lines.push(`📅 ${dateStr}`);
+        if (priceLine) lines.push(`💰 ${priceLine}`);
+      });
+
+      if (link) lines.push(`🔗 ${link}`);
+      sections.push(lines.join("\n"));
+    }
+
+    const text = sections.join("\n\n---\n\n");
+    setMultiShareText(text);
+    setMultiShareOpen(true);
+    setMultiShareLoading(false);
   };
 
   React.useEffect(() => {
@@ -2856,6 +2917,13 @@ ${catBlocks}
                             <span className="text-xs font-semibold text-blue-400">เลือก {selectedPeriods.size} Period</span>
                             <div className="flex items-center gap-1 ml-2">
                               <button
+                                className="h-7 px-3 rounded-md text-xs font-semibold border border-emerald-500/40 text-emerald-400 transition-colors hover:bg-emerald-500/10 flex items-center gap-1.5 disabled:opacity-50"
+                                disabled={multiShareLoading}
+                                onClick={buildMultiShareText}
+                              >
+                                {multiShareLoading ? "⏳ กำลังสร้าง..." : "📋 สร้างข้อความแนะนำ"}
+                              </button>
+                              <button
                                 className="h-7 px-3 rounded-md text-xs font-semibold border border-blue-500/40 text-blue-400 transition-colors hover:bg-blue-500/10"
                                 onClick={() => {
                                   const rows: Record<string, unknown>[] = [];
@@ -4584,6 +4652,37 @@ ${catBlocks}
           />
         );
       })()}
+
+      {/* ── Multi-program Share Dialog ── */}
+      <Dialog open={multiShareOpen} onOpenChange={(o) => { if (!o) setMultiShareOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>📋 ข้อความแนะนำโปรแกรม</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">คัดลอกข้อความด้านล่างเพื่อส่งให้ลูกค้าผ่าน LINE / WhatsApp</p>
+            <textarea
+              readOnly
+              className="w-full h-64 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-mono resize-none focus:outline-none"
+              value={multiShareText}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setMultiShareOpen(false)}
+            >ปิด</Button>
+            <Button
+              onClick={() => {
+                navigator.clipboard.writeText(multiShareText).then(() => toast.success("คัดลอกแล้ว! 📋"));
+              }}
+              className="gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" /> คัดลอกข้อความ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EventAnalyticsDialog
         open={eventStatsOpen}
