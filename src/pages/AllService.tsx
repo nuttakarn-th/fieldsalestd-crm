@@ -742,11 +742,22 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
         const quota = p.quota ?? 0;
         const total = p.total_seats ?? 0;
         const pctLeft = total > 0 ? quota / total : 1;
-        const fireEmoji = (p.special_price && p.special_price > 0) || pctLeft <= 0.25 ? " 🔥" : "";
         const displayPrice = p.special_price && p.special_price > 0 ? p.special_price : p.price_per_seat;
         const priceStr = displayPrice ? `${displayPrice.toLocaleString()} บ./คน` : "";
-        const seatsStr = total > 0 ? `เหลือ ${quota}/${total} ที่นั่ง${fireEmoji}` : "";
-        const priceLine = [priceStr, seatsStr].filter(Boolean).join(" | ");
+
+        let statusStr: string;
+        if (p.cancelled) {
+          statusStr = "❌ ยกเลิก";
+        } else if (total > 0 && quota <= 0) {
+          statusStr = "🔴 ปิดกรุ๊ป";
+        } else {
+          const fireEmoji = (p.special_price && p.special_price > 0) || pctLeft <= 0.25 ? " 🔥" : "";
+          statusStr = total > 0 ? `เหลือ ${quota}/${total} ที่นั่ง${fireEmoji}` : "";
+        }
+
+        const priceLine = p.cancelled
+          ? statusStr  // ยกเลิก — ไม่ต้องแสดงราคา
+          : [priceStr, statusStr].filter(Boolean).join(" | ");
         lines.push(`📅 ${dateStr}`);
         if (priceLine) lines.push(`💰 ${priceLine}`);
       });
