@@ -299,6 +299,8 @@ const App = () => (
             <Route path="trip-manifest" element={<TripManifest />} />
             <Route path="incentive-pipeline" element={<IncentivePipeline />} />
             <Route path="marketing-hub" element={<MarketingHub />} />
+            {/* Persona — accessible to non-Marketing roles (OB Manager, OB Co-ordinator, Admin) */}
+            <Route path="persona" element={<PersonaPage />} />
             {/* redirect เก่า → team-resources layout */}
             <Route path="marketing-workflow" element={<Navigate to="/team-resources/workflow" replace />} />
           </Route>

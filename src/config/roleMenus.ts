@@ -95,7 +95,7 @@ const adminMenu: RoleMenu = {
     {
       category: "MARKETING TOOLS",
       items: [
-        { title: "Persona Survey", url: "/marketing/persona-survey", icon: Smile },
+        { title: "Persona", url: "/app/persona", icon: Smile },
       ],
     },
     {
@@ -270,7 +270,7 @@ const obCoordinatorMenu: RoleMenu = {
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",     url: "/app/trip-manifest",   icon: ClipboardList },
-        { title: "Persona Survey",    url: "/marketing/persona-survey", icon: Smile },
+        { title: "Persona",           url: "/app/persona",          icon: Smile },
       ],
     },
     {
@@ -306,7 +306,7 @@ const obManagerMenu: RoleMenu = {
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics", url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",   url: "/app/trip-manifest",   icon: ClipboardList },
-        { title: "Persona Survey",  url: "/marketing/persona-survey", icon: Smile },
+        { title: "Persona",         url: "/app/persona",          icon: Smile },
       ],
     },
     {
