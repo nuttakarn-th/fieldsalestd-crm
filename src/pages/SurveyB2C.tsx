@@ -87,42 +87,61 @@ export default function SurveyB2C() {
   const [sourceChannel, setSourceChannel] = useState("");
   const [travelExp, setTravelExp]     = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [persona, setPersona]     = useState<B2CPersona | null>(null);
-  const [saving, setSaving]       = useState(false);
-  const [tours, setTours]         = useState<TourItem[]>([]);
+  const [persona, setPersona]       = useState<B2CPersona | null>(null);
+  const [saving, setSaving]         = useState(false);
+  const [tours, setTours]           = useState<TourItem[]>([]);
+  const [toursMatched, setToursMatched] = useState(false); // true = filtered by persona
 
   const totalQ = questions.length;
   const progress = Math.round((current / totalQ) * 100);
 
-  // โหลดทัวร์ที่เปิดบริการอยู่
-  useEffect(() => {
-    async function loadTours() {
-      const { data } = await supabase
+  async function loadTours(personaTag?: string) {
+    // 1st pass: ดึงทัวร์ที่ tag ด้วย persona นี้
+    if (personaTag) {
+      const { data: matched } = await supabase
         .from("tours")
-        .select("id, city, title, country, duration, periods")
+        .select("id, city, title, country, duration, periods, persona_targets")
         .eq("is_published", true)
         .eq("archived", false)
+        .contains("persona_targets", [personaTag])
         .order("updated_at", { ascending: false })
         .limit(6);
-      if (!data) return;
-      const items: TourItem[] = data.map((t: any) => {
-        // หา period ที่ใกล้สุดในอนาคต
-        const futurePeriods = (t.periods ?? [])
-          .filter((p: any) => !p.cancelled && p.start_date && new Date(p.start_date) >= new Date())
-          .sort((a: any, b: any) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
-        return {
-          id: t.id,
-          city: t.city,
-          title: t.title,
-          country: t.country,
-          duration: t.duration,
-          nextPeriod: futurePeriods[0]?.start_date,
-        };
-      }).filter((t) => t.nextPeriod); // แสดงเฉพาะที่มี period ข้างหน้า
-      setTours(items);
+      const items = toTourItems(matched ?? []);
+      if (items.length > 0) {
+        setTours(items);
+        setToursMatched(true);
+        return;
+      }
     }
-    loadTours();
-  }, []);
+    // fallback: ทัวร์ทั่วไป
+    const { data } = await supabase
+      .from("tours")
+      .select("id, city, title, country, duration, periods")
+      .eq("is_published", true)
+      .eq("archived", false)
+      .order("updated_at", { ascending: false })
+      .limit(5);
+    setTours(toTourItems(data ?? []));
+    setToursMatched(false);
+  }
+
+  function toTourItems(data: any[]): TourItem[] {
+    return data.map((t: any) => {
+      const futurePeriods = (t.periods ?? [])
+        .filter((p: any) => !p.cancelled && p.start_date && new Date(p.start_date) >= new Date())
+        .sort((a: any, b: any) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+      return {
+        id: t.id,
+        city: t.city,
+        title: t.title,
+        country: t.country,
+        duration: t.duration,
+        nextPeriod: futurePeriods[0]?.start_date,
+      };
+    }).filter((t) => t.nextPeriod);
+  }
+
+  useEffect(() => { loadTours(); }, []);
 
   function handleSelect(qIndex: number, value: number) {
     const updated = { ...answers, [qIndex + 1]: value };
@@ -141,6 +160,7 @@ export default function SurveyB2C() {
     const tag = inferPersonaB2C(q1, q2, q3, q4);
     const ageGroup = ageGroupFromQ4(q4);
     setPersona(tag);
+    loadTours(tag); // โหลดทัวร์ที่ match persona นี้
     await submitSurvey({
       type: "b2c",
       persona_tag: tag,
@@ -172,6 +192,7 @@ export default function SurveyB2C() {
       "สายธรรมชาติ":      "ลุยชมวิว อุทยาน เมืองโบราณ เดินเท้าชมธรรมชาติ",
       "สายกิจกรรม":       "ทริปธีมชัดเจน วิ่งเทรล / คาเฟ่ทัวร์ / กิจกรรมเฉพาะทาง",
       "สายชิลล์พรีเมียม": "Slow Travel โรงแรม 4-5 ดาว ตารางหลวม มีเวลาอิสระ",
+      "สายหัวคณะ":        "จัดกรุ๊ปเพื่อน เราดูแลทุกขั้นตอน ราคาพิเศษสำหรับหัวคณะ",
     };
 
     return (
@@ -190,7 +211,7 @@ export default function SurveyB2C() {
             </p>
             <div className="space-y-3 pt-2">
               <a
-                href="https://lin.ee/your-line-id"
+                href="https://line.me/R/ti/p/@standardtour"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors"
@@ -204,7 +225,9 @@ export default function SurveyB2C() {
           {tours.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-sm font-bold text-gray-700 px-1">
-                🗓️ โปรแกรมทัวร์ที่เปิดให้บริการอยู่ตอนนี้
+                {toursMatched
+                  ? `🎯 โปรแกรมที่ตรงกับสไตล์ ${persona}`
+                  : "🗓️ โปรแกรมทัวร์ที่เปิดให้บริการอยู่ตอนนี้"}
               </h2>
               {tours.map((t) => (
                 <a
