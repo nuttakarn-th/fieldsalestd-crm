@@ -31,7 +31,7 @@ import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts } from "@/lib/shortLink";
 import { BookingLeadDialog } from "@/components/BookingLeadDialog";
 import { CancelBookingDialog } from "@/components/CancelBookingDialog";
-import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
+import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS, PERSONA_QUICK_INFO } from "@/store/surveyStore";
 import type { PersonaTag } from "@/store/surveyStore";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
@@ -3806,29 +3806,63 @@ ${catBlocks}
             {/* ── Persona Target ── */}
             <div>
               <label className="text-xs font-semibold">🎭 Persona กลุ่มเป้าหมาย</label>
-              <p className="text-xs text-muted-foreground mb-2">เลือก Persona ที่เหมาะสมกับโปรแกรมนี้ (เลือกได้หลายกลุ่ม)</p>
+              <p className="text-xs text-muted-foreground mb-2">เลือก Persona ที่เหมาะสมกับโปรแกรมนี้ (เลือกได้หลายกลุ่ม) · <span className="italic">Hover เพื่อดูรายละเอียด</span></p>
               <div className="flex flex-wrap gap-2">
                 {ALL_PERSONAS.map((p) => {
                   const selected = form.personaTargets.includes(p);
                   const colorClass = PERSONA_COLORS[p as PersonaTag];
+                  const info = PERSONA_QUICK_INFO[p as PersonaTag];
                   return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() =>
-                        setForm((f) => ({
-                          ...f,
-                          personaTargets: selected
-                            ? f.personaTargets.filter((x) => x !== p)
-                            : [...f.personaTargets, p],
-                        }))
-                      }
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                        selected ? colorClass : "border-border text-muted-foreground hover:border-primary/40"
-                      }`}
-                    >
-                      {PERSONA_EMOJI[p as PersonaTag]} {p}
-                    </button>
+                    <div key={p} className="relative group/persona">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            personaTargets: selected
+                              ? f.personaTargets.filter((x) => x !== p)
+                              : [...f.personaTargets, p],
+                          }))
+                        }
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                          selected ? colorClass : "border-border text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {PERSONA_EMOJI[p as PersonaTag]} {p}
+                      </button>
+                      {/* Hover tooltip */}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none
+                                      opacity-0 group-hover/persona:opacity-100 scale-95 group-hover/persona:scale-100
+                                      transition-all duration-150 origin-bottom">
+                        <div className="bg-popover border shadow-lg rounded-xl p-3 w-56 text-left">
+                          <p className="font-semibold text-xs text-foreground mb-2">
+                            {PERSONA_EMOJI[p as PersonaTag]} {p}
+                          </p>
+                          <div className="space-y-1.5">
+                            <div className="flex gap-2 items-start">
+                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 mt-0.5">👤</span>
+                              <span className="text-[10px] text-foreground leading-relaxed">{info.who}</span>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 mt-0.5">💵</span>
+                              <span className="text-[10px] text-foreground">{info.budget}</span>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 mt-0.5">⚡</span>
+                              <span className="text-[10px] text-foreground leading-relaxed">{info.trigger}</span>
+                            </div>
+                            <div className="flex gap-2 items-start">
+                              <span className="text-[10px] text-muted-foreground w-4 shrink-0 mt-0.5">📱</span>
+                              <span className="text-[10px] text-foreground">{info.channels}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Arrow */}
+                        <div className="flex justify-center">
+                          <div className="w-2 h-2 bg-popover border-r border-b rotate-45 -mt-1 shadow-sm" />
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>

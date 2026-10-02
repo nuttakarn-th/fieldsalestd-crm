@@ -254,3 +254,48 @@ export const ALL_PERSONAS: PersonaTag[] = [
   "Outing B2B",
   "Seminar B2B",
 ];
+
+/** Quick info สำหรับ Hover Tooltip บนหน้า Program */
+export const PERSONA_QUICK_INFO: Record<PersonaTag, {
+  who: string;
+  budget: string;
+  trigger: string;
+  channels: string;
+}> = {
+  "สายคุ้มค่า": {
+    who: "ครอบครัว (สามี/ภรรยา + ลูก) · 35–50 ปี",
+    budget: "4,000–8,000 บ./คน",
+    trigger: "โปรโมชั่นราคาพิเศษ + เพื่อนแนะนำ",
+    channels: "Facebook, Line กลุ่มครอบครัว",
+  },
+  "สายธรรมชาติ": {
+    who: "คู่รัก / กลุ่มเพื่อน · 25–38 ปี",
+    budget: "8,000–15,000 บ./คน",
+    trigger: "รูปสวย + รีวิวจริง + ที่พักไม่แออัด",
+    channels: "Instagram, Reels, Blog รีวิว",
+  },
+  "สายกิจกรรม": {
+    who: "กลุ่มเพื่อน / solo · 20–35 ปี",
+    budget: "5,000–12,000 บ./คน",
+    trigger: "Activity ใหม่ที่ไม่เคยทำ + Challenge",
+    channels: "TikTok, YouTube Vlog",
+  },
+  "สายชิลล์พรีเมียม": {
+    who: "คู่รัก / solo professional · 30–45 ปี",
+    budget: "15,000 บ.+/คน",
+    trigger: "โรงแรม 5★ วิวดี + บริการส่วนตัว",
+    channels: "Instagram Aesthetic, Influencer",
+  },
+  "Outing B2B": {
+    who: "HR Manager / Admin · จัด Outing บริษัท",
+    budget: "งบต่อหัวตายตัว (ยืดหยุ่นได้)",
+    trigger: "ราคาต่อหัวชัด + ใบเสนอราคาพร้อม",
+    channels: "Email, Line Official, PDF Proposal",
+  },
+  "Seminar B2B": {
+    who: "Training Manager / L&D · จัด Seminar",
+    budget: "Quality > ราคา",
+    trigger: "Venue ครบ + Portfolio งานที่เคยทำ",
+    channels: "LinkedIn, Email Formal",
+  },
+};
