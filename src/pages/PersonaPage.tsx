@@ -64,55 +64,91 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
 
   return (
     <>
-      <div className="bg-card border rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group">
-        {/* Header */}
-        <div className={`bg-gradient-to-br ${p.color} p-5 relative`}>
-          {p.image_url ? (
-            <div className="flex items-end gap-3 mb-2">
-              <img
-                src={p.image_url}
-                alt={p.name}
-                className="w-16 h-16 rounded-full object-cover border-2 border-white/60 shadow-lg shrink-0"
-              />
-              <div className="text-2xl mb-1">{p.emoji}</div>
-            </div>
-          ) : (
-            <div className="text-4xl mb-2">{p.emoji}</div>
+      <div className="bg-card border rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group cursor-pointer" onClick={() => setShowDetail(true)}>
+
+        {/* ── Cover ── */}
+        <div className={`relative bg-gradient-to-br ${p.color} overflow-visible`} style={{ height: "108px" }}>
+          {/* Full-bleed photo (when exists) */}
+          {p.image_url && (
+            <img
+              src={p.image_url}
+              alt={p.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
           )}
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>
-            {p.tag}
-          </span>
-          {/* Edit button */}
+
+          {/* Dark gradient overlay — always present to protect text */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+
+          {/* Emoji center (only when no photo) */}
+          {!p.image_url && (
+            <div className="absolute inset-0 flex items-center justify-center text-5xl select-none">
+              {p.emoji}
+            </div>
+          )}
+
+          {/* Badge — top-left */}
+          <div className="absolute top-2.5 left-3">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>
+              {p.tag}
+            </span>
+          </div>
+
+          {/* Edit button — top-right */}
           <button
-            onClick={() => onEdit(p)}
-            className="absolute top-3 right-3 bg-white/20 hover:bg-white/40 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={e => { e.stopPropagation(); onEdit(p); }}
+            className="absolute top-2.5 right-2.5 bg-black/20 hover:bg-black/40 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
             title="แก้ไข Persona"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
+
+          {/* Protruding avatar */}
+          <div className="absolute -bottom-6 left-4 w-12 h-12 rounded-full border-[3px] border-card shadow-lg overflow-hidden bg-muted z-10">
+            {p.image_url ? (
+              <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br ${p.color}`}>
+                {p.emoji}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="p-4 space-y-3 cursor-pointer" onClick={() => setShowDetail(true)}>
+        {/* ── Body ── */}
+        <div className="pt-9 px-4 pb-4 space-y-3">
+          {/* Name */}
           <div>
-            <p className="font-bold text-foreground text-base">{p.name}</p>
-            <p className="text-xs text-muted-foreground">{p.age} · {p.job}</p>
+            <p className="font-bold text-foreground text-sm leading-tight">{p.name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{p.age} · {p.job}</p>
           </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-14 shrink-0">เดินกับ</span>
-              <span className="text-foreground">{p.travel_with}</span>
+
+          {/* Stats mini-grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-muted/60 rounded-xl px-3 py-2">
+              <p className="text-[10px] text-muted-foreground leading-none mb-1">งบ/คน</p>
+              <p className="text-xs font-semibold text-foreground leading-tight">{p.budget}</p>
             </div>
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-14 shrink-0">งบ/คน</span>
-              <span className="text-foreground font-medium">{p.budget}</span>
-            </div>
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-14 shrink-0">ช่องทาง</span>
-              <span className="text-foreground">{(p.channels ?? []).join(", ")}</span>
+            <div className="bg-muted/60 rounded-xl px-3 py-2">
+              <p className="text-[10px] text-muted-foreground leading-none mb-1">เดินทางกับ</p>
+              <p className="text-xs font-semibold text-foreground leading-tight truncate">{p.travel_with}</p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2.5 leading-relaxed">
+
+          {/* Channel chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {(p.channels ?? []).slice(0, 3).map(ch => (
+              <span key={ch} className="bg-muted border border-border text-foreground text-[10px] px-2 py-0.5 rounded-full">
+                {ch}
+              </span>
+            ))}
+            {(p.channels ?? []).length > 3 && (
+              <span className="text-[10px] text-muted-foreground px-1 self-center">+{(p.channels ?? []).length - 3}</span>
+            )}
+          </div>
+
+          {/* Quote */}
+          <p className="text-[11px] text-muted-foreground italic border-l-2 border-primary/30 pl-2.5 leading-relaxed line-clamp-2">
             {p.quote}
           </p>
         </div>
