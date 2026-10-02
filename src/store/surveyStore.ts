@@ -45,102 +45,65 @@ export interface SurveyResponse {
   submitted_at?: string;
 }
 
-// ─── B2C Persona Logic ───────────────────────────────────────────────────────
+// ─── B2C Persona Logic (ตรง PRD) ─────────────────────────────────────────────
 //
-// Q1: งบประมาณต่อคน?
-//   1=น้อยกว่า 5,000   2=5,000–10,000   3=10,000–20,000   4=มากกว่า 20,000
+// Q1: q1_style — สไตล์การเที่ยว
+//   1=FullTour (แพ็กเกจจัดครบ)  2=Nature (ลุยธรรมชาติ)
+//   3=NicheActivity (กิจกรรมเฉพาะทาง)  4=Chill (พักผ่อน/ชิลล์)
 //
-// Q2: ชอบทริปแบบไหน?
-//   1=แบบเต็มโปรแกรม/จัดการทุกอย่าง   2=ธรรมชาติ/ผ่อนคลาย
-//   3=กิจกรรมผจญภัย/ท้าทาย           4=หรูหรา/สบาย
+// Q2: q2_companion — ผู้ร่วมเดินทาง
+//   1=Solo  2=Friends/Couple  3=Family
 //
-// Q3: คนเดินทางด้วยกัน?
-//   1=คนเดียว   2=คู่/เพื่อน   3=ครอบครัว   4=กลุ่มใหญ่
+// Q3: q3_budget — งบประมาณ
+//   1=Value (ประหยัด)  2=Standard (มาตรฐาน)  3=Premium (สายเปย์)
 //
-// Q4: สิ่งสำคัญที่สุดในการเลือกทัวร์?
-//   1=ราคา   2=สถานที่/เส้นทาง   3=กิจกรรม/ประสบการณ์   4=ความสะดวก/บริการ
+// Q4: q4_age — ช่วงอายุ (เก็บเป็น age_group แยกต่างหาก ไม่ใช้ใน persona mapping)
+//   1=20-25(GenZ)  2=26-35(GenY)  3=36-45(GenX)  4=46-55(GenX/BB)  5=56+(BabyBoomer)
+//
+// Logic (Top-down จาก PRD):
+//   IF q1==3 → สายกิจกรรม
+//   ELSE IF q1==4 AND q3==3 → สายชิลล์พรีเมียม
+//   ELSE IF q1==2 AND (q2==2 OR q2==3) → สายธรรมชาติ
+//   ELSE IF q1==1 AND (q3==1 OR q3==2) → สายคุ้มค่า
+//   ELSE → สายคุ้มค่า (fallback)
 
-export function inferPersonaB2C(q1: number, q2: number, q3: number, q4: number): B2CPersona {
-  // Score matrix
-  let scoreValue   = 0; // สายคุ้มค่า
-  let scoreNature  = 0; // สายธรรมชาติ
-  let scoreActive  = 0; // สายกิจกรรม
-  let scoreChill   = 0; // สายชิลล์พรีเมียม
-
-  // Q1: งบ
-  if (q1 === 1) scoreValue   += 3;
-  if (q1 === 2) { scoreValue += 1; scoreNature += 1; }
-  if (q1 === 3) { scoreNature += 1; scoreActive += 1; }
-  if (q1 === 4) scoreChill   += 3;
-
-  // Q2: ประเภททริป
-  if (q2 === 1) scoreValue   += 2;
-  if (q2 === 2) scoreNature  += 3;
-  if (q2 === 3) scoreActive  += 3;
-  if (q2 === 4) scoreChill   += 3;
-
-  // Q3: กลุ่ม
-  if (q3 === 1) { scoreActive += 1; scoreChill += 1; }
-  if (q3 === 2) { scoreNature += 1; scoreChill += 1; }
-  if (q3 === 3) { scoreValue  += 1; scoreNature += 1; }
-  if (q3 === 4) scoreValue    += 2;
-
-  // Q4: ปัจจัยเลือก
-  if (q4 === 1) scoreValue   += 3;
-  if (q4 === 2) scoreNature  += 2;
-  if (q4 === 3) scoreActive  += 2;
-  if (q4 === 4) scoreChill   += 2;
-
-  const max = Math.max(scoreValue, scoreNature, scoreActive, scoreChill);
-  if (max === scoreValue)  return "สายคุ้มค่า";
-  if (max === scoreNature) return "สายธรรมชาติ";
-  if (max === scoreActive) return "สายกิจกรรม";
-  return "สายชิลล์พรีเมียม";
+export function inferPersonaB2C(q1: number, q2: number, q3: number, _q4: number): B2CPersona {
+  if (q1 === 3) return "สายกิจกรรม";
+  if (q1 === 4 && q3 === 3) return "สายชิลล์พรีเมียม";
+  if (q1 === 2 && (q2 === 2 || q2 === 3)) return "สายธรรมชาติ";
+  if (q1 === 1 && (q3 === 1 || q3 === 2)) return "สายคุ้มค่า";
+  return "สายคุ้มค่า"; // fallback
 }
 
-// ─── B2B Persona Logic ───────────────────────────────────────────────────────
+export function ageGroupFromQ4(q4: number): string {
+  if (q4 === 1) return "GenZ";
+  if (q4 === 2) return "GenY";
+  if (q4 === 3) return "GenX";
+  if (q4 === 4) return "BabyBoomer";
+  return "BabyBoomer";
+}
+
+// ─── B2B Persona Logic (ตรง PRD) ─────────────────────────────────────────────
 //
-// Q1: จุดประสงค์หลัก?
-//   1=Team Building/สันทนาการ   2=ประชุม/สัมมนา   3=รางวัลพนักงาน   4=งานเลี้ยง/ปาร์ตี้
+// Q1: q1_purpose — จุดประสงค์
+//   1=Outing (พาพนักงานพักผ่อน/team building)  2=Seminar (สัมมนา/ดูงาน)
 //
-// Q2: จำนวนผู้เข้าร่วม?
-//   1=น้อยกว่า 20 คน   2=20-50 คน   3=50-100 คน   4=มากกว่า 100 คน
+// Q2: q2_role — บทบาทในองค์กร
+//   1=HR/Admin  2=เลขา/ฝ่ายจัดซื้อ  3=Executive/ผู้บริหาร
 //
-// Q3: ต้องการสิ่งอำนวยความสะดวกอะไร?
-//   1=ห้องประชุม/โปรเจกเตอร์   2=กิจกรรมกลุ่ม   3=อาหาร/เครื่องดื่ม   4=ที่พักสำหรับหมู่คณะ
+// Q3: q3_size — จำนวนคน
+//   1=10-20 คน  2=21-50 คน  3=50+ คน
 //
-// Q4: งบประมาณต่อหัว?
-//   1=น้อยกว่า 2,000   2=2,000–5,000   3=5,000–10,000   4=มากกว่า 10,000
+// Q4: q4_challenge — ความท้าทาย
+//   1=BudgetControl  2=MassSatisfaction  3=VIPCare
+//
+// Logic (Top-down จาก PRD):
+//   IF q1==2 OR q4==3 → Seminar B2B
+//   ELSE → Outing B2B
 
-export function inferPersonaB2B(q1: number, q2: number, q3: number, q4: number): B2BPersona {
-  let scoreSeminar = 0;
-  let scoreOuting  = 0;
-
-  // Q1
-  if (q1 === 1) scoreOuting  += 3;
-  if (q1 === 2) scoreSeminar += 3;
-  if (q1 === 3) { scoreOuting += 2; scoreSeminar += 1; }
-  if (q1 === 4) scoreOuting  += 2;
-
-  // Q2 — กลุ่มใหญ่ → Seminar
-  if (q2 === 1) scoreOuting  += 1;
-  if (q2 === 2) { scoreOuting += 1; scoreSeminar += 1; }
-  if (q2 === 3) scoreSeminar += 2;
-  if (q2 === 4) scoreSeminar += 3;
-
-  // Q3
-  if (q3 === 1) scoreSeminar += 3;
-  if (q3 === 2) scoreOuting  += 3;
-  if (q3 === 3) { scoreOuting += 1; scoreSeminar += 1; }
-  if (q3 === 4) scoreOuting  += 2;
-
-  // Q4 — งบสูง → Seminar
-  if (q4 === 1) scoreOuting  += 1;
-  if (q4 === 2) scoreOuting  += 1;
-  if (q4 === 3) scoreSeminar += 1;
-  if (q4 === 4) scoreSeminar += 2;
-
-  return scoreSeminar >= scoreOuting ? "Seminar B2B" : "Outing B2B";
+export function inferPersonaB2B(q1: number, _q2: number, _q3: number, q4: number): B2BPersona {
+  if (q1 === 2 || q4 === 3) return "Seminar B2B";
+  return "Outing B2B";
 }
 
 // ─── Auto-Inference from Customer/Lead data ──────────────────────────────────
