@@ -1592,28 +1592,31 @@ ${catBlocks}
         if (!has) return false;
       }
       // ── date range + price filter — ต้องเป็น period เดียวกันที่ผ่านทั้งคู่ ──
-      // (เดิมเช็คแยกกันคนละ .some() → tour โผล่มาได้ทั้งที่ไม่มี period ไหนผ่านทั้ง 2 เงื่อนไขพร้อมกัน
-      //  ทำให้ list โปรแกรมมี แต่เปิดดูแล้ว period ว่างเปล่า — แก้ให้ตรวจ period เดียวกันเหมือน visiblePeriods)
+      // Fix: ไม่ guard ด้วย periods.length > 0 อีกต่อไป
+      //   → tour ที่มี 0 period จะ has=false และถูกซ่อนเมื่อ filter active
+      //   → ยังต้อง exclude cancelled/archived ตาม toggle เพื่อไม่ให้ period ที่ซ่อนอยู่
+      //     ทำให้ tour โผล่ขึ้นมาโดยไม่มี visible period
       if (filterDateFrom || filterDateTo || filterPricePreset) {
         const periods = t.periods ?? [];
-        if (periods.length > 0) {
-          const has = periods.some((p) => {
-            if (filterDateFrom || filterDateTo) {
-              const start = p.start_date ?? "";
-              if (!start) return false;
-              const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
-              // Overlap: period ต้องเริ่มก่อน/เท่ากับ filterDateTo AND สิ้นสุดหลัง/เท่ากับ filterDateFrom
-              if (filterDateFrom && end   < filterDateFrom) return false;
-              if (filterDateTo   && start > filterDateTo)   return false;
-            }
-            if (filterPricePreset) {
-              const ep = effectivePrice(p);
-              if (ep < activePriceMin || ep > activePriceMax) return false;
-            }
-            return true;
-          });
-          if (!has) return false;
-        }
+        const has = periods.some((p) => {
+          // ข้ามสถานะที่ซ่อนอยู่ใน UI — ไม่นับเป็น "match"
+          if (!effectiveShowCancelled && p.cancelled) return false;
+          if (!effectiveShowArchived  && p.archived)  return false;
+          if (filterDateFrom || filterDateTo) {
+            const start = p.start_date ?? "";
+            if (!start) return false;
+            const end = p.end_date ?? start; // ถ้าไม่มีวันกลับ ให้ถือว่า 1 วัน
+            // Overlap: period ต้องสิ้นสุดหลัง filterDateFrom AND เริ่มก่อน filterDateTo
+            if (filterDateFrom && end   < filterDateFrom) return false;
+            if (filterDateTo   && start > filterDateTo)   return false;
+          }
+          if (filterPricePreset) {
+            const ep = effectivePrice(p);
+            if (ep < activePriceMin || ep > activePriceMax) return false;
+          }
+          return true;
+        });
+        if (!has) return false;
       }
       return true;
     });
