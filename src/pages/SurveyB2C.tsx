@@ -4,15 +4,16 @@
  * Public page — ไม่ต้อง Login
  * Route: /survey/b2c
  *
- * คำถาม 4 ข้อตาม PRD:
- *   Q1: สไตล์การเที่ยว (q1_style)
- *   Q2: ผู้ร่วมเดินทาง (q2_companion)
- *   Q3: งบประมาณ (q3_budget)
- *   Q4: ช่วงอายุ (q4_age)
+ * คำถาม 5 ข้อ (v379 — Scoring Matrix):
+ *   Q1: โซนปลายทาง (q1_region)
+ *   Q2: สไตล์การเที่ยว (q2_style)
+ *   Q3: จำนวนวัน (q3_days)
+ *   Q4: งบประมาณ (q4_budget)
+ *   Q5: Pain point (q5_pain)
  */
 
 import { useState, useEffect } from "react";
-import { inferPersonaB2C, ageGroupFromQ4, useSurveyStore, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
+import { inferPersonaB2C, useSurveyStore, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
 import type { B2CPersona } from "@/store/surveyStore";
 import { supabase } from "@/lib/supabase";
 
@@ -27,50 +28,61 @@ interface TourItem {
   nextPeriod?: string; // ISO date
 }
 
-// ─── Questions (ตาม PRD) ──────────────────────────────────────────────────────
+// ─── Questions (v379 — 5 ข้อ Scoring Matrix) ──────────────────────────────────
 
 const questions = [
   {
     id: 1,
-    question: "สไตล์การเที่ยวต่างประเทศแบบไหนที่เป็นตัวคุณที่สุด?",
-    emoji: "✈️",
+    question: "ใน 1 ปีข้างหน้า คุณเล็งอยากไปเที่ยวโซนไหนมากที่สุด?",
+    emoji: "🗺️",
     options: [
-      { value: 1, label: "ชอบแพ็กเกจทัวร์ที่จัดให้ครบ คุ้มค่า มีไกด์ดูแลตลอดทริป", emoji: "🗺️" },
-      { value: 2, label: "เน้นลุยชมธรรมชาติสวยๆ เดินเยอะได้", emoji: "🌿" },
-      { value: 3, label: "ไปเพื่อทำกิจกรรมที่อินเป็นพิเศษ (วิ่งเทรล / ชิมคาเฟ่ดัง)", emoji: "⚡" },
-      { value: 4, label: "เน้นพักผ่อน ตารางหลวมๆ นอนโรงแรมดี ชิล", emoji: "🛋️" },
+      { value: 1, label: "เอเชียตะวันออก (ญี่ปุ่น เกาหลี จีน ไต้หวัน)", emoji: "🗾" },
+      { value: 2, label: "อาเซียนใกล้ๆ (เวียดนาม บาหลี สิงคโปร์)", emoji: "🌴" },
+      { value: 3, label: "ยุโรป หรือเส้นทางระยะไกล", emoji: "🏰" },
+      { value: 4, label: "เที่ยวในประเทศ (ทะเล หรือภูเขา)", emoji: "🏖️" },
     ],
   },
   {
     id: 2,
-    question: "ทริปหน้า เล็งไว้ว่าจะไปกับใคร?",
-    emoji: "👥",
+    question: "เห็นโปรแกรมแบบไหนแล้วรู้สึก 'อยากจองเลย!' ที่สุด?",
+    emoji: "✈️",
     options: [
-      { value: 1, label: "ไปคนเดียวลุยๆ", emoji: "🧍" },
-      { value: 2, label: "ไปกับแก๊งเพื่อน / แฟน", emoji: "👫" },
-      { value: 3, label: "พาครอบครัว (มีเด็กหรือผู้ใหญ่) ไปด้วย", emoji: "👨‍👩‍👧‍👦" },
+      { value: 1, label: "ธรรมชาติ ภูเขา อากาศดีๆ ไปสูดออกซิเจน", emoji: "🌿" },
+      { value: 2, label: "สายคาเฟ่ ชิลๆ ถ่ายรูปสวย ช้อปปิ้งในเมือง", emoji: "🛋️" },
+      { value: 3, label: "กิจกรรมเฉพาะทาง (สกี ดำน้ำ วิ่งเทรล ฯลฯ)", emoji: "⚡" },
+      { value: 4, label: "สายกินตะลุย / เจาะลึกวัฒนธรรมท้องถิ่น", emoji: "🍜" },
     ],
   },
   {
     id: 3,
-    question: "งบประมาณต่อคน/ทริป ที่รู้สึกว่า 'จ่ายแล้วแฮปปี้ คุ้มค่า'?",
-    emoji: "💰",
+    question: "กี่วันที่รู้สึกว่า 'ลางานได้สบายใจ และเที่ยวพอดี'?",
+    emoji: "📅",
     options: [
-      { value: 1, label: "เน้นประหยัด", emoji: "🪙" },
-      { value: 2, label: "จ่ายราคามาตรฐาน ขอให้สมกับประสบการณ์", emoji: "💳" },
-      { value: 3, label: "สายเปย์ เน้นความสะดวกสบาย พรีเมียมเป็นหลัก", emoji: "💎" },
+      { value: 1, label: "3–4 วัน (คร่อมเสาร์-อาทิตย์ เบาๆ)", emoji: "🏃" },
+      { value: 2, label: "5–6 วัน (ทริปมาตรฐาน เที่ยวเต็มอิ่ม)", emoji: "🧳" },
+      { value: 3, label: "7 วันขึ้นไป (สายเก็บครบ เดินทางไกล)", emoji: "🌍" },
     ],
   },
   {
     id: 4,
-    question: "ขอทราบช่วงอายุของคุณสักนิด (เพื่อปรับสปีดการเดินทัวร์ให้พอดี!)",
-    emoji: "🎂",
+    question: "งบประมาณต่อคน/ทริป ที่รู้สึกว่า 'จ่ายแล้วคุ้มค่า สบายใจ'?",
+    emoji: "💰",
     options: [
-      { value: 1, label: "20–25 ปี", emoji: "🌟" },
-      { value: 2, label: "26–35 ปี", emoji: "⭐" },
-      { value: 3, label: "36–45 ปี", emoji: "✨" },
-      { value: 4, label: "46–55 ปี", emoji: "🌠" },
-      { value: 5, label: "56 ปีขึ้นไป", emoji: "☀️" },
+      { value: 1, label: "ต่ำกว่า 25,000 บาท", emoji: "🪙" },
+      { value: 2, label: "25,000–45,000 บาท", emoji: "💳" },
+      { value: 3, label: "45,000–65,000 บาท", emoji: "💎" },
+      { value: 4, label: "65,000 บาทขึ้นไป เน้นพรีเมียม", emoji: "👑" },
+    ],
+  },
+  {
+    id: 5,
+    question: "อะไรทำให้คุณมักลังเล ไม่จองทัวร์ทั่วไป?",
+    emoji: "🤔",
+    options: [
+      { value: 1, label: "ตารางแน่นเกิน ไม่มีเวลาอิสระเลย", emoji: "⏱️" },
+      { value: 2, label: "สถานที่ในโปรแกรมซ้ำซาก / ไม่น่าสนใจ", emoji: "😴" },
+      { value: 3, label: "กังวลอาหาร / ที่พักไม่ตอบโจทย์", emoji: "🍽️" },
+      { value: 4, label: "วันเดินทางไม่ตรงกับช่วงที่สะดวก", emoji: "📆" },
     ],
   },
 ];
@@ -154,27 +166,24 @@ export default function SurveyB2C() {
   }
 
   async function handleSubmit() {
-    const { 1: q1, 2: q2, 3: q3, 4: q4 } = answers;
+    const { 1: q1, 2: q2, 3: q3, 4: q4, 5: q5 } = answers;
     if (!q1 || !q2 || !q3 || !q4) return;
     setSaving(true);
-    const tag = inferPersonaB2C(q1, q2, q3, q4);
-    const ageGroup = ageGroupFromQ4(q4);
+    // Scoring matrix — ใช้ q5 และ travel_experience เป็น bonus signal
+    const tag = inferPersonaB2C(q1, q2, q3, q4, q5, travelExp || undefined);
     setPersona(tag);
-    loadTours(tag); // โหลดทัวร์ที่ match persona นี้
+    loadTours(tag);
     await submitSurvey({
       type: "b2c",
       persona_tag: tag,
       q1, q2, q3, q4,
+      q5: q5 ?? undefined,
       phone: phone.trim() || undefined,
       name: name.trim() || undefined,
       source: new URLSearchParams(window.location.search).get("src") ?? undefined,
       source_channel: sourceChannel || undefined,
       travel_experience: travelExp || undefined,
     });
-    // บันทึก age_group ถ้ามีเบอร์โทร (จะ match กับ customer)
-    if (phone.trim()) {
-      supabase.from("customers").update({ age_group: ageGroup }).eq("phone", phone.trim()).then(() => {});
-    }
     setSaving(false);
     setSubmitted(true);
   }
@@ -189,10 +198,11 @@ export default function SurveyB2C() {
     const colorClass = PERSONA_COLORS[persona];
     const personaDescriptions: Record<B2CPersona, string> = {
       "สายคุ้มค่า":       "ทัวร์เส้นทางยอดฮิต เก็บแลนด์มาร์คครบ คุ้มทุกบาท",
-      "สายธรรมชาติ":      "ลุยชมวิว อุทยาน เมืองโบราณ เดินเท้าชมธรรมชาติ",
-      "สายกิจกรรม":       "ทริปธีมชัดเจน วิ่งเทรล / คาเฟ่ทัวร์ / กิจกรรมเฉพาะทาง",
+      "สายธรรมชาติ":      "ลุยชมวิว อุทยาน ธรรมชาติต่างประเทศที่ยังไม่แมส เดินเท้าชมวิว",
+      "สายกิจกรรม":       "ทริปธีมชัดเจน สกีญี่ปุ่น / ดำน้ำ / กิจกรรม extreme ที่ทำได้จริง",
       "สายชิลล์พรีเมียม": "Slow Travel โรงแรม 4-5 ดาว ตารางหลวม มีเวลาอิสระ",
       "สายหัวคณะ":        "จัดกรุ๊ปเพื่อน เราดูแลทุกขั้นตอน ราคาพิเศษสำหรับหัวคณะ",
+      "สายมือใหม่":       "ทีมงานช่วย visa ครบ ไกด์ดูแลตลอดทริป ไม่ต้องกลัวหลง เที่ยวต่างประเทศครั้งแรกก็ทำได้!",
     };
 
     return (
