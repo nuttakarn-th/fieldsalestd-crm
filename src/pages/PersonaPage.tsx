@@ -967,7 +967,7 @@ export default function PersonaPage() {
   const [personas, setPersonas] = useState<PersonaProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<PersonaProfile | null>(null);
-  const [typeFilter, setTypeFilter] = useState<"all" | "b2c" | "b2b" | "trp">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "ob" | "trp" | "tk">("all");
 
   useEffect(() => { loadPersonas(); }, []);
 
@@ -993,10 +993,13 @@ export default function PersonaPage() {
     }
   }
 
-  const filtered = personas.filter(p => typeFilter === "all" || p.type === typeFilter);
-  const b2c = filtered.filter(p => p.type === "b2c");
-  const b2b = filtered.filter(p => p.type === "b2b");
-  const trp = filtered.filter(p => p.type === "trp");
+  const showOb  = typeFilter === "all" || typeFilter === "ob";
+  const showTrp = typeFilter === "all" || typeFilter === "trp";
+  const showTk  = typeFilter === "all" || typeFilter === "tk";
+  const b2c = showOb  ? personas.filter(p => p.type === "b2c") : [];
+  const b2b = showOb  ? personas.filter(p => p.type === "b2b") : [];
+  const trp = showTrp ? personas.filter(p => p.type === "trp") : [];
+  const tk  = showTk  ? personas.filter(p => p.type === "tk")  : [];
   const trpAll = personas.filter(p => p.type === "trp");
 
   return (
@@ -1008,7 +1011,7 @@ export default function PersonaPage() {
             <div>
               <h1 className="text-lg font-bold text-foreground">🎭 Persona</h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                ✈️ OB {personas.filter(p => p.type === "b2c").length + personas.filter(p => p.type === "b2b").length} กลุ่ม (B2C · B2B) · 🚗 TRP {trpAll.length} กลุ่ม
+                ✈️ OB {personas.filter(p => p.type === "b2c" || p.type === "b2b").length} กลุ่ม · 🚗 TRP {trpAll.length} กลุ่ม · 🎫 TK {personas.filter(p => p.type === "tk").length} กลุ่ม
               </p>
             </div>
             <div className="flex bg-muted rounded-xl p-1 gap-1">
@@ -1032,22 +1035,24 @@ export default function PersonaPage() {
       {/* ── Content ── */}
       {tab === "cards" && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
-          {/* Filter */}
+          {/* Filter — ระดับแผนก */}
           <div className="flex flex-wrap gap-2">
-            {(["all", "b2c", "b2b", "trp"] as const).map(f => (
+            {([
+              { key: "all", label: "ทั้งหมด" },
+              { key: "ob",  label: "OB — ทัวร์" },
+              { key: "trp", label: "TRP — รถเช่า" },
+              { key: "tk",  label: "TK — จองตั๋ว" },
+            ] as const).map(({ key, label }) => (
               <button
-                key={f}
-                onClick={() => setTypeFilter(f)}
+                key={key}
+                onClick={() => setTypeFilter(key)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  typeFilter === f
+                  typeFilter === key
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-card text-muted-foreground border-border hover:border-primary/50"
                 }`}
               >
-                {f === "all" ? "ทั้งหมด"
-                  : f === "b2c" ? "OB — B2C"
-                  : f === "b2b" ? "OB — B2B"
-                  : "TRP — รถเช่า"}
+                {label}
               </button>
             ))}
           </div>
@@ -1101,6 +1106,27 @@ export default function PersonaPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {trp.map(p => <TrpPersonaCard key={p.id} p={p} onEdit={setEditing} />)}
                   </div>
+                </div>
+              )}
+
+              {showTk && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🎫</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      TK — จองตั๋ว
+                    </h2>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  {tk.length === 0 ? (
+                    <div className="border-2 border-dashed border-border rounded-2xl py-10 text-center text-muted-foreground text-xs">
+                      ยังไม่มี Persona ของแผนก TK — จะเพิ่มในอนาคต
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {tk.map(p => <TrpPersonaCard key={p.id} p={p} onEdit={setEditing} />)}
+                    </div>
+                  )}
                 </div>
               )}
             </>
