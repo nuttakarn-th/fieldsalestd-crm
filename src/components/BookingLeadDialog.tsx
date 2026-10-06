@@ -7,7 +7,7 @@
  *           → addCustomer + addLead (status=จองแล้ว, tour_id/period_id pre-filled)
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +67,9 @@ export function BookingLeadDialog({
   const awaitBookingInserts  = useCRM((s) => s.awaitBookingInserts);
   const addBooking           = useBookingLedger((s) => s.addBooking);
   const customers            = useCRM((s) => s.customers);
+  const leads                = useCRM((s) => s.leads);
 
+  const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState<"choice" | "form">("choice");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [activeSugg, setActiveSugg] = useState<"name" | "phone" | null>(null);
@@ -79,6 +81,9 @@ export function BookingLeadDialog({
   const [source,   setSource]   = useState<Source>("Walk-in");
   const [note,     setNote]     = useState("");
   const [saving,   setSaving]   = useState(false);
+  // Duplicate guard
+  const [dupWarning, setDupWarning] = useState<{ name: string; seats: number } | null>(null);
+  const [bypassDupCheck, setBypassDupCheck] = useState(false);
   // Price — default ราคาเต็ม, แก้เป็นราคาโปรได้
   const [actualPricePerSeat, setActualPricePerSeat] = useState(pricePerSeat);
   // Form state — trip manifest (optional)
@@ -126,6 +131,7 @@ export function BookingLeadDialog({
     setRoomType(""); setRoomPartner(""); setFoodPref("ปกติ"); setFoodOther("");
     setDepositAmount(""); setDepositDate(""); setBalanceDueDate("");
     setPassportName(""); setEmergencyContact(""); setSpecialRequests("");
+    setDupWarning(null); setBypassDupCheck(false);
   }
 
   function handleClose() {
@@ -154,6 +160,29 @@ export function BookingLeadDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!fullName.trim()) { toast.error("กรุณากรอกชื่อลูกค้า"); return; }
+
+    // ── Duplicate check ──────────────────────────────────────────────────────────
+    // ตรวจว่ามีการจองซ้ำในรอบเดียวกันมั้ย (phone หรือ customer_id ตรงกัน)
+    if (!bypassDupCheck) {
+      const phoneNorm = normalizePhone(phone.trim());
+      const dup = leads.find((l) => {
+        if (l.period_id !== periodId) return false;
+        if (l.status === "ยกเลิก") return false; // ไม่นับรายการที่ยกเลิกแล้ว
+        if (selectedCustomer) return l.customer_id === selectedCustomer.customer_id;
+        if (phoneNorm.length >= 9) {
+          const cust = customers.find((c) => c.customer_id === l.customer_id);
+          return !!cust && normalizePhone(cust.phone ?? "") === phoneNorm;
+        }
+        return false;
+      });
+      if (dup) {
+        const dupName = customers.find((c) => c.customer_id === dup.customer_id)?.full_name ?? fullName.trim();
+        setDupWarning({ name: dupName, seats: dup.pax_count ?? 1 });
+        return; // หยุดก่อน — รอ user ยืนยัน
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────────
+
     setSaving(true);
     try {
       await onConfirmQuota?.(); // ตัด quota — ถ้า fail ให้หยุดทันที
@@ -301,7 +330,7 @@ export function BookingLeadDialog({
 
         {/* ── Step 2: form ── */}
         {step === "form" && (
-          <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
           <div className="space-y-3 pt-1 overflow-y-auto flex-1 pr-1">
             {/* Name */}
             <div className="space-y-1">
@@ -538,6 +567,45 @@ export function BookingLeadDialog({
             </div>
 
             </div>{/* end scrollable zone */}
+
+            {/* ── Duplicate warning banner ── */}
+            {dupWarning && (
+              <div className="shrink-0 rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 space-y-2 mt-2">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                  ⚠️ พบการจองซ้ำในรอบนี้
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                  <span className="font-medium">"{dupWarning.name}"</span> มีการจองรอบนี้แล้ว{" "}
+                  <span className="font-semibold">{dupWarning.seats} ที่นั่ง</span>
+                  <br />
+                  ต้องการเพิ่มเป็นรายการจองใหม่อีก {seats} ที่นั่งหรือไม่?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 text-xs h-7 border-amber-400 text-amber-700 hover:bg-amber-100"
+                    onClick={() => setDupWarning(null)}
+                  >
+                    ← ยกเลิก
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="flex-1 text-xs h-7 bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => {
+                      setBypassDupCheck(true);
+                      setDupWarning(null);
+                      // trigger form submit หลัง state อัปเดต
+                      setTimeout(() => formRef.current?.requestSubmit(), 0);
+                    }}
+                  >
+                    ยืนยัน — เพิ่มรายการใหม่
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Actions — fixed at bottom, outside scroll */}
             <div className="flex gap-2 pt-2 shrink-0 border-t mt-2">
