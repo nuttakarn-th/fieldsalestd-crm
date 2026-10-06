@@ -228,6 +228,14 @@ export default function SurveyB2C() {
               >
                 💬 คุยกับเราที่ LINE
               </a>
+              <a
+                href="https://standardtour-hub.vercel.app/tour-packages"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm transition-colors text-center"
+              >
+                🗺️ ดูโปรแกรมทัวร์ทั้งหมด
+              </a>
             </div>
           </div>
 
