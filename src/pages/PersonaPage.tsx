@@ -729,8 +729,8 @@ function EditModal({ persona, onSave, onClose }: {
                   onChange={e => set("type", e.target.value)}
                   className="w-full text-sm border rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
-                  <option value="b2c">B2C — ลูกค้าบุคคล</option>
-                  <option value="b2b">B2B — องค์กร</option>
+                  <option value="b2c">OB — B2C (ลูกค้าบุคคล)</option>
+                  <option value="b2b">OB — B2B (องค์กร)</option>
                   <option value="trp">TRP — รถเช่าพร้อมคนขับ</option>
                 </select>
               </div>
@@ -1008,7 +1008,7 @@ export default function PersonaPage() {
             <div>
               <h1 className="text-lg font-bold text-foreground">🎭 Persona</h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                โปรไฟล์กลุ่มลูกค้า Standard Tour — B2C {personas.filter(p => p.type === "b2c").length} กลุ่ม · B2B {personas.filter(p => p.type === "b2b").length} กลุ่ม · TRP {trpAll.length} กลุ่ม
+                ✈️ OB {personas.filter(p => p.type === "b2c").length + personas.filter(p => p.type === "b2b").length} กลุ่ม (B2C · B2B) · 🚗 TRP {trpAll.length} กลุ่ม
               </p>
             </div>
             <div className="flex bg-muted rounded-xl p-1 gap-1">
@@ -1044,7 +1044,10 @@ export default function PersonaPage() {
                     : "bg-card text-muted-foreground border-border hover:border-primary/50"
                 }`}
               >
-                {f === "all" ? "ทั้งหมด" : f === "b2c" ? "B2C — ลูกค้าบุคคล" : f === "b2b" ? "B2B — องค์กร" : "TRP — รถเช่า"}
+                {f === "all" ? "ทั้งหมด"
+                  : f === "b2c" ? "OB — B2C"
+                  : f === "b2b" ? "OB — B2B"
+                  : "TRP — รถเช่า"}
               </button>
             ))}
           </div>
@@ -1055,31 +1058,46 @@ export default function PersonaPage() {
             </div>
           ) : (
             <>
-              {b2c.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                    👤 B2C — ลูกค้าบุคคล ({b2c.length} กลุ่ม)
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {b2c.map(p => <PersonaCard key={p.id} p={p} onEdit={setEditing} />)}
+              {(b2c.length > 0 || b2b.length > 0) && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">✈️</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      OB — ทัวร์ต่าง/ในประเทศ
+                    </h2>
+                    <div className="flex-1 border-t border-border" />
                   </div>
-                </div>
-              )}
-              {b2b.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                    🏢 B2B — องค์กร ({b2b.length} กลุ่ม)
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {b2b.map(p => <PersonaCard key={p.id} p={p} onEdit={setEditing} />)}
-                  </div>
+                  {b2c.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2 pl-1">
+                        👤 B2C — ลูกค้าบุคคล ({b2c.length} กลุ่ม)
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {b2c.map(p => <PersonaCard key={p.id} p={p} onEdit={setEditing} />)}
+                      </div>
+                    </div>
+                  )}
+                  {b2b.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2 pl-1">
+                        🏢 B2B — องค์กร ({b2b.length} กลุ่ม)
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {b2b.map(p => <PersonaCard key={p.id} p={p} onEdit={setEditing} />)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {trp.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                    <Car className="w-3.5 h-3.5" /> TRP — รถเช่าพร้อมคนขับ ({trp.length} กลุ่ม)
-                  </h2>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Car className="w-3.5 h-3.5 text-muted-foreground" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      TRP — รถเช่าพร้อมคนขับ
+                    </h2>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {trp.map(p => <TrpPersonaCard key={p.id} p={p} onEdit={setEditing} />)}
                   </div>
