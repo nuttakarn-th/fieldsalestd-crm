@@ -10,7 +10,8 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
-import { Users, BarChart2, Pencil, X, Plus, Loader2, Save, Camera, ImageOff } from "lucide-react";
+import { Users, BarChart2, Pencil, X, Plus, Loader2, Save, Camera, ImageOff, Car } from "lucide-react";
+import { TbWorld, TbBuildingStore, TbUsersGroup, TbDeviceMobile } from "react-icons/tb";
 import { supabase } from "@/lib/supabase";
 import PersonaSurveyDashboard from "./PersonaSurveyDashboard";
 
@@ -33,7 +34,8 @@ interface PersonaProfile {
   motivations: string[];
   pain_points: string[];
   quote: string;
-  type: "b2c" | "b2b";
+  type: "b2c" | "b2b" | "trp";
+  persona_key?: string;
   sort_order: number;
   // ── Deep Insight fields ──
   decision_trigger?: string;
@@ -57,6 +59,172 @@ const COLOR_OPTIONS = [
   { label: "🌸 Pink",    color: "from-pink-400 to-rose-600",      badge: "bg-pink-100 text-pink-800 border-pink-300" },
   { label: "🔷 Indigo",  color: "from-indigo-400 to-blue-700",    badge: "bg-indigo-100 text-indigo-800 border-indigo-300" },
 ];
+
+// ─── TRP Icon Map ─────────────────────────────────────────────────────────────
+
+const TRP_ICON_MAP: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
+  TbWorld,
+  TbBuildingStore,
+  TbUsersGroup,
+  TbDeviceMobile,
+};
+
+// ─── TRP Persona Card ─────────────────────────────────────────────────────────
+
+function TrpPersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProfile) => void }) {
+  const [showDetail, setShowDetail] = useState(false);
+  const Icon = TRP_ICON_MAP[p.emoji] ?? TbWorld;
+
+  // Color config per segment tag
+  const segmentStyle: Record<string, { bg: string; iconBg: string; iconColor: string; border: string; chipBg: string; chipText: string }> = {
+    R1: { bg: "from-blue-500 to-indigo-600",    iconBg: "bg-blue-100",   iconColor: "text-blue-700",   border: "border-blue-200",   chipBg: "bg-blue-700",   chipText: "text-white" },
+    R2: { bg: "from-purple-500 to-violet-600",  iconBg: "bg-purple-100", iconColor: "text-purple-700", border: "border-purple-200", chipBg: "bg-purple-700", chipText: "text-white" },
+    R3: { bg: "from-green-500 to-emerald-700",  iconBg: "bg-green-100",  iconColor: "text-green-700",  border: "border-green-200",  chipBg: "bg-green-700",  chipText: "text-white" },
+    R4: { bg: "from-teal-500 to-cyan-700",      iconBg: "bg-teal-100",   iconColor: "text-teal-700",   border: "border-teal-200",   chipBg: "bg-teal-700",   chipText: "text-white" },
+  };
+  const style = segmentStyle[p.tag] ?? segmentStyle["R1"];
+
+  return (
+    <>
+      <div
+        className="bg-card border rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group cursor-pointer"
+        onClick={() => setShowDetail(true)}
+      >
+        {/* ── Top banner ── */}
+        <div className={`relative bg-gradient-to-br ${style.bg} h-16`}>
+          {/* Segment code chip — top-right */}
+          <div className="absolute top-2.5 right-2.5 z-10">
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${style.chipBg} ${style.chipText}`}>
+              {p.tag}
+            </span>
+          </div>
+          {/* Edit button — top-left */}
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(p); }}
+            className="absolute top-2.5 left-2.5 z-10 bg-black/20 hover:bg-black/50 text-white rounded-lg p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="แก้ไข Persona"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* ── Icon block — centered, protrudes below banner ── */}
+        <div className="flex justify-center -mt-8 pb-0 relative z-10">
+          <div className={`w-16 h-16 rounded-2xl border-4 border-card shadow-lg ${style.iconBg} ${style.iconColor} flex items-center justify-center`}>
+            <Icon size={32} className={style.iconColor} />
+          </div>
+        </div>
+
+        {/* ── Body ── */}
+        <div className="pt-3 px-4 pb-4 space-y-3">
+          {/* Name — centered */}
+          <div className="text-center">
+            <p className="font-bold text-foreground text-sm leading-tight">{p.name}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">TRP — รถเช่าพร้อมคนขับ</p>
+          </div>
+
+          {/* Keyword chips (channels field) */}
+          {(p.channels ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {(p.channels ?? []).slice(0, 4).map(ch => (
+                <span key={ch} className={`text-[10px] px-2 py-0.5 rounded-full border ${style.border} ${style.iconColor} bg-opacity-10`}>
+                  {ch}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Quote */}
+          {p.quote && (
+            <p className="text-[11px] text-muted-foreground italic border-l-2 border-primary/30 pl-2.5 leading-relaxed line-clamp-2">
+              {p.quote}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Detail modal ── */}
+      {showDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowDetail(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Modal header */}
+            <div className={`bg-gradient-to-br ${style.bg} p-6 rounded-t-2xl flex items-center gap-4`}>
+              <div className={`w-16 h-16 rounded-2xl ${style.iconBg} ${style.iconColor} flex items-center justify-center shrink-0`}>
+                <Icon size={36} />
+              </div>
+              <div>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${style.chipBg} ${style.chipText} mb-1`}>{p.tag}</span>
+                <h2 className="text-white font-bold text-xl">{p.name}</h2>
+                <p className="text-white/80 text-sm">TRP — รถเช่าพร้อมคนขับ</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-5">
+              {p.quote && (
+                <blockquote className="text-sm italic border-l-4 border-primary/30 pl-4 py-1 bg-muted/30 rounded-r-lg">{p.quote}</blockquote>
+              )}
+              {(p.channels ?? []).length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Keywords / ลักษณะเด่น</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(p.channels ?? []).map(ch => (
+                      <span key={ch} className={`text-xs px-2.5 py-1 rounded-full border ${style.border} ${style.iconColor}`}>{ch}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(p.motivations ?? []).length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-green-600 mb-2">✅ สิ่งที่ให้ความสำคัญ</h3>
+                  <ul className="space-y-1">{(p.motivations ?? []).map(m => <li key={m} className="flex items-start gap-2 text-xs"><span className="text-green-500 mt-0.5">•</span>{m}</li>)}</ul>
+                </div>
+              )}
+              {(p.pain_points ?? []).length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-red-500 mb-2">⚠️ Pain Points</h3>
+                  <ul className="space-y-1">{(p.pain_points ?? []).map(pp => <li key={pp} className="flex items-start gap-2 text-xs"><span className="text-red-400 mt-0.5">•</span>{pp}</li>)}</ul>
+                </div>
+              )}
+              {(p.travel_with || p.frequency || p.budget) && (
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">รายละเอียดการใช้บริการ</h3>
+                  <div className="space-y-1.5">
+                    {p.travel_with && <div className="flex gap-3"><span className="text-muted-foreground w-28 shrink-0 text-xs">ขนาดกลุ่ม</span><span className="text-foreground text-xs">{p.travel_with}</span></div>}
+                    {p.frequency && <div className="flex gap-3"><span className="text-muted-foreground w-28 shrink-0 text-xs">ความถี่</span><span className="text-foreground text-xs">{p.frequency}</span></div>}
+                    {p.budget && <div className="flex gap-3"><span className="text-muted-foreground w-28 shrink-0 text-xs">งบ/ทริป</span><span className="text-foreground text-xs">{p.budget}</span></div>}
+                  </div>
+                </div>
+              )}
+              {(p.decision_trigger || p.price_sensitivity) && (
+                <div className="border-t pt-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-3">🧠 Insight</h3>
+                  {p.decision_trigger && (
+                    <div className="mb-2">
+                      <p className="text-xs text-muted-foreground font-medium mb-1">⚡ Decision Trigger</p>
+                      <p className="text-xs text-foreground bg-blue-50 dark:bg-blue-950/30 rounded-lg px-3 py-2">{p.decision_trigger}</p>
+                    </div>
+                  )}
+                  {p.price_sensitivity && (
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium mb-1">💸 Price Sensitivity</p>
+                      <p className="text-xs text-foreground bg-muted rounded-lg px-3 py-2">{p.price_sensitivity}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t flex gap-2">
+              <button onClick={() => { setShowDetail(false); onEdit(p); }} className="flex-1 py-2 text-sm border rounded-lg hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> แก้ไข
+              </button>
+              <button onClick={() => setShowDetail(false)} className="flex-1 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">ปิด</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // ─── Persona Card ─────────────────────────────────────────────────────────────
 
@@ -563,6 +731,7 @@ function EditModal({ persona, onSave, onClose }: {
                 >
                   <option value="b2c">B2C — ลูกค้าบุคคล</option>
                   <option value="b2b">B2B — องค์กร</option>
+                  <option value="trp">TRP — รถเช่าพร้อมคนขับ</option>
                 </select>
               </div>
               <div>
@@ -798,7 +967,7 @@ export default function PersonaPage() {
   const [personas, setPersonas] = useState<PersonaProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<PersonaProfile | null>(null);
-  const [typeFilter, setTypeFilter] = useState<"all" | "b2c" | "b2b">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "b2c" | "b2b" | "trp">("all");
 
   useEffect(() => { loadPersonas(); }, []);
 
@@ -827,6 +996,8 @@ export default function PersonaPage() {
   const filtered = personas.filter(p => typeFilter === "all" || p.type === typeFilter);
   const b2c = filtered.filter(p => p.type === "b2c");
   const b2b = filtered.filter(p => p.type === "b2b");
+  const trp = filtered.filter(p => p.type === "trp");
+  const trpAll = personas.filter(p => p.type === "trp");
 
   return (
     <div className="min-h-screen bg-background">
@@ -837,7 +1008,7 @@ export default function PersonaPage() {
             <div>
               <h1 className="text-lg font-bold text-foreground">🎭 Persona</h1>
               <p className="text-xs text-muted-foreground mt-0.5">
-                โปรไฟล์กลุ่มลูกค้า Standard Tour — B2C 4 กลุ่ม · B2B 2 กลุ่ม
+                โปรไฟล์กลุ่มลูกค้า Standard Tour — B2C {personas.filter(p => p.type === "b2c").length} กลุ่ม · B2B {personas.filter(p => p.type === "b2b").length} กลุ่ม · TRP {trpAll.length} กลุ่ม
               </p>
             </div>
             <div className="flex bg-muted rounded-xl p-1 gap-1">
@@ -862,8 +1033,8 @@ export default function PersonaPage() {
       {tab === "cards" && (
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
           {/* Filter */}
-          <div className="flex gap-2">
-            {(["all", "b2c", "b2b"] as const).map(f => (
+          <div className="flex flex-wrap gap-2">
+            {(["all", "b2c", "b2b", "trp"] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setTypeFilter(f)}
@@ -873,7 +1044,7 @@ export default function PersonaPage() {
                     : "bg-card text-muted-foreground border-border hover:border-primary/50"
                 }`}
               >
-                {f === "all" ? "ทั้งหมด" : f === "b2c" ? "B2C — ลูกค้าบุคคล" : "B2B — องค์กร"}
+                {f === "all" ? "ทั้งหมด" : f === "b2c" ? "B2C — ลูกค้าบุคคล" : f === "b2b" ? "B2B — องค์กร" : "TRP — รถเช่า"}
               </button>
             ))}
           </div>
@@ -901,6 +1072,16 @@ export default function PersonaPage() {
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {b2b.map(p => <PersonaCard key={p.id} p={p} onEdit={setEditing} />)}
+                  </div>
+                </div>
+              )}
+              {trp.length > 0 && (
+                <div>
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                    <Car className="w-3.5 h-3.5" /> TRP — รถเช่าพร้อมคนขับ ({trp.length} กลุ่ม)
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {trp.map(p => <TrpPersonaCard key={p.id} p={p} onEdit={setEditing} />)}
                   </div>
                 </div>
               )}
