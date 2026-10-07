@@ -15,6 +15,7 @@ import {
   LEAD_STATUSES, OB_LEAD_STATUSES, OB_STAGE_META,
   type Source, type SalesRep, type BUType, type Urgency, type LeadStatus,
 } from "@/store/crmStore";
+import PersonaMatcher from "@/components/PersonaMatcher";
 import { useActiveSalesNames, useActiveOBTeamNames, useAuth } from "@/store/authStore";
 import { useServices } from "@/store/serviceStore";
 
@@ -921,6 +922,16 @@ export function CustomerLeadDialog({
             </div>
           )}
         </div>
+
+        {/* ══ Persona Matcher ════════════════════════════════════════════════════ */}
+        <PersonaMatcher
+          source={source}
+          buType={buType}
+          paxStr={pax}
+          budget={budget}
+          tourType={tourType}
+          company={company}
+        />
 
         {/* ══ Smart Status ═══════════════════════════════════════════════════════ */}
         <div className="border-t pt-3 bg-muted/20 rounded-lg px-3 pb-3 space-y-2">
