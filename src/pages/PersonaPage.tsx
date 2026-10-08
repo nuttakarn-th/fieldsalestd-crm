@@ -241,12 +241,12 @@ function PersonaCard({ p, onEdit }: { p: PersonaProfile; onEdit: (p: PersonaProf
           {p.cover_url && (
             <img src={p.cover_url} alt="cover" className="absolute inset-0 w-full h-full object-cover" />
           )}
-          {/* subtle dark tint so badge stays legible */}
-          <div className="absolute inset-0 bg-black/10" />
+          {/* gradient tint ด้านบนให้ badge อ่านชัด */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-transparent" />
 
           {/* Badge — top-left */}
           <div className="absolute top-2.5 left-3 z-10">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${p.badge_color}`}>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/90 backdrop-blur-sm text-gray-800 shadow-sm border border-white/60">
               {p.tag}
             </span>
           </div>
