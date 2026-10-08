@@ -712,6 +712,26 @@ const CANCEL_COLORS: Record<string, string> = {
 function CancellationTab() {
   const tours = useServices((s) => s.tours);
   const [filterYear, setFilterYear] = useState<number | "all">("all");
+  // actual bookings per period_id from bookings table
+  const [actualBookings, setActualBookings] = useState<Map<string, number>>(new Map());
+
+  // load actual bookings for cancelled periods from Supabase
+  useState(() => {
+    if (!SUPABASE_ENABLED || !supabase) return;
+    (async () => {
+      const { data } = await supabase
+        .from("bookings")
+        .select("period_id, seats, status");
+      if (data) {
+        const map = new Map<string, number>();
+        for (const b of data as { period_id: string; seats: number; status: string }[]) {
+          if (b.status === "cancelled") continue;
+          map.set(b.period_id, (map.get(b.period_id) ?? 0) + (b.seats ?? 0));
+        }
+        setActualBookings(map);
+      }
+    })();
+  });
 
   const availableYears = useMemo(() => {
     const ys = new Set<number>();
@@ -742,13 +762,14 @@ function CancellationTab() {
     return rows.sort((a, b) => new Date(b.start_date!).getTime() - new Date(a.start_date!).getTime());
   }, [tours, filterYear]);
 
-  // KPI: revenue lost = (total_seats) * price (what could have been)
+  // KPI: revenue lost = actual booked seats * price (from bookings table)
   const revenueLost = useMemo(() =>
     cancelled.reduce((s, p) => {
       const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
         ? p.special_price : p.price_per_seat;
-      return s + p.total_seats * price * 0.6; // assume 60% would have filled
-    }, 0), [cancelled]);
+      const booked = actualBookings.get(p.period_id) ?? 0;
+      return s + booked * price;
+    }, 0), [cancelled, actualBookings]);
 
   // Total periods (all, for rate calc)
   const totalPeriods = useMemo(() => {
@@ -1112,7 +1133,8 @@ function CancellationTab() {
             <tbody>
               {cancelled.slice(0, 20).map((p) => {
                 const color = CANCEL_COLORS[p.cancel_reason ?? "อื่นๆ"] ?? "#9ca3af";
-                const bookedBeforeCancel = p.total_seats - p.quota;
+                // ใช้ยอดจองจริงจาก bookings table (ไม่ใช่ quota ซึ่งไม่น่าเชื่อถือ)
+                const bookedBeforeCancel = actualBookings.get(p.period_id) ?? 0;
                 const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
                   ? p.special_price : p.price_per_seat;
                 const revLost = bookedBeforeCancel * price;
@@ -1136,9 +1158,12 @@ function CancellationTab() {
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       {bookedBeforeCancel > 0 ? (
-                        <span className="font-bold text-orange-600">{bookedBeforeCancel} คน</span>
+                        <div>
+                          <span className="font-bold text-orange-600">{bookedBeforeCancel} คน</span>
+                          <p className="text-[9px] text-muted-foreground">จาก bookings จริง</p>
+                        </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground text-xs">0 / ไม่มีจอง</span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-right">
