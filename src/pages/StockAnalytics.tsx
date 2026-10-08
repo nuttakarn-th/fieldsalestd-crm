@@ -712,26 +712,9 @@ const CANCEL_COLORS: Record<string, string> = {
 function CancellationTab() {
   const tours = useServices((s) => s.tours);
   const [filterYear, setFilterYear] = useState<number | "all">("all");
-  // actual bookings per period_id from bookings table
-  const [actualBookings, setActualBookings] = useState<Map<string, number>>(new Map());
-
-  // load actual bookings for cancelled periods from Supabase
-  useState(() => {
-    if (!SUPABASE_ENABLED || !supabase) return;
-    (async () => {
-      const { data } = await supabase
-        .from("bookings")
-        .select("period_id, seats, status");
-      if (data) {
-        const map = new Map<string, number>();
-        for (const b of data as { period_id: string; seats: number; status: string }[]) {
-          if (b.status === "cancelled") continue;
-          map.set(b.period_id, (map.get(b.period_id) ?? 0) + (b.seats ?? 0));
-        }
-        setActualBookings(map);
-      }
-    })();
-  });
+  // ใช้ total_seats - quota เป็นยอดจองก่อนยกเลิก (เหมือนกับที่ UI หน้าหลักแสดง)
+  const getBookedSeats = (p: CancelledPeriod) =>
+    Math.max(0, (p.total_seats ?? 0) - (p.quota ?? 0));
 
   const availableYears = useMemo(() => {
     const ys = new Set<number>();
@@ -762,14 +745,14 @@ function CancellationTab() {
     return rows.sort((a, b) => new Date(b.start_date!).getTime() - new Date(a.start_date!).getTime());
   }, [tours, filterYear]);
 
-  // KPI: revenue lost = actual booked seats * price (from bookings table)
+  // KPI: revenue lost = booked seats (total_seats - quota) * price
   const revenueLost = useMemo(() =>
     cancelled.reduce((s, p) => {
       const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
         ? p.special_price : p.price_per_seat;
-      const booked = actualBookings.get(p.period_id) ?? 0;
+      const booked = getBookedSeats(p);
       return s + booked * price;
-    }, 0), [cancelled, actualBookings]);
+    }, 0), [cancelled]);
 
   // Total periods (all, for rate calc)
   const totalPeriods = useMemo(() => {
@@ -1133,8 +1116,7 @@ function CancellationTab() {
             <tbody>
               {cancelled.slice(0, 20).map((p) => {
                 const color = CANCEL_COLORS[p.cancel_reason ?? "อื่นๆ"] ?? "#9ca3af";
-                // ใช้ยอดจองจริงจาก bookings table (ไม่ใช่ quota ซึ่งไม่น่าเชื่อถือ)
-                const bookedBeforeCancel = actualBookings.get(p.period_id) ?? 0;
+                const bookedBeforeCancel = getBookedSeats(p);
                 const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
                   ? p.special_price : p.price_per_seat;
                 const revLost = bookedBeforeCancel * price;
