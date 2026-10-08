@@ -31,8 +31,11 @@ import { EventAnalyticsDialog } from "@/components/EventAnalyticsDialog";
 import { getAllViewCounts, getLinksForPkg, createShortLink, shortUrl } from "@/lib/shortLink";
 import { BookingLeadDialog } from "@/components/BookingLeadDialog";
 import { CancelBookingDialog } from "@/components/CancelBookingDialog";
-import { ALL_PERSONAS, PERSONA_EMOJI, PERSONA_COLORS, PERSONA_QUICK_INFO } from "@/store/surveyStore";
-import type { PersonaTag } from "@/store/surveyStore";
+import {
+  SERVICE_PERSONA_TAGS, SERVICE_PERSONA_EMOJI, SERVICE_PERSONA_COLORS,
+  SERVICE_PERSONA_QUICK_INFO, SERVICE_PERSONA_LABELS,
+  type ServicePersonaTag,
+} from "@/store/surveyStore";
 
 const TOUR_CATS: TourCategory[] = ["International Tour", "Domestic", "Incentive"];
 const SEAT_MATS: SeatMaterial[] = ["ไม่ระบุ", "หนัง", "ผ้า", "กำมะหยี่"];
@@ -3893,10 +3896,10 @@ ${catBlocks}
               <label className="text-xs font-semibold">🎭 Persona กลุ่มเป้าหมาย</label>
               <p className="text-xs text-muted-foreground mb-2">เลือก Persona ที่เหมาะสมกับโปรแกรมนี้ (เลือกได้หลายกลุ่ม) · <span className="italic">Hover เพื่อดูรายละเอียด</span></p>
               <div className="flex flex-wrap gap-2">
-                {ALL_PERSONAS.map((p) => {
+                {SERVICE_PERSONA_TAGS.map((p) => {
                   const selected = form.personaTargets.includes(p);
-                  const colorClass = PERSONA_COLORS[p as PersonaTag];
-                  const info = PERSONA_QUICK_INFO[p as PersonaTag];
+                  const colorClass = SERVICE_PERSONA_COLORS[p as ServicePersonaTag];
+                  const info = SERVICE_PERSONA_QUICK_INFO[p as ServicePersonaTag];
                   return (
                     <div key={p} className="relative group/persona">
                       <button
@@ -3913,7 +3916,7 @@ ${catBlocks}
                           selected ? colorClass : "border-border text-muted-foreground hover:border-primary/40"
                         }`}
                       >
-                        {PERSONA_EMOJI[p as PersonaTag]} {p}
+                        {SERVICE_PERSONA_EMOJI[p as ServicePersonaTag]} {SERVICE_PERSONA_LABELS[p as ServicePersonaTag]}
                       </button>
                       {/* Hover tooltip */}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none
@@ -3921,7 +3924,7 @@ ${catBlocks}
                                       transition-all duration-150 origin-bottom">
                         <div className="bg-popover border shadow-lg rounded-xl p-3 w-56 text-left">
                           <p className="font-semibold text-xs text-foreground mb-2">
-                            {PERSONA_EMOJI[p as PersonaTag]} {p}
+                            {SERVICE_PERSONA_EMOJI[p as ServicePersonaTag]} {p} · {SERVICE_PERSONA_LABELS[p as ServicePersonaTag]}
                           </p>
                           <div className="space-y-1.5">
                             <div className="flex gap-2 items-start">

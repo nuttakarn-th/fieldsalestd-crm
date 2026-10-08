@@ -429,3 +429,81 @@ export const PERSONA_QUICK_INFO: Record<PersonaTag, {
     channels: "LinkedIn, Email Formal",
   },
 };
+
+// ─── New 4+3 Persona System — ใช้สำหรับ Service Program Tagging ─────────────
+// (แยกออกจาก Survey ไม่กระทบ scoring matrix เดิม)
+
+export const SERVICE_PERSONA_TAGS = ["C1", "C2a", "C2b", "C3", "B1", "B2", "B3"] as const;
+export type ServicePersonaTag = typeof SERVICE_PERSONA_TAGS[number];
+
+export const SERVICE_PERSONA_LABELS: Record<ServicePersonaTag, string> = {
+  C1:  "ครอบครัวไทยใจกว้าง",
+  C2a: "เพื่อนสายสนุก",
+  C2b: "คู่รัก/ทริปส่วนตัว",
+  C3:  "วัยเกษียณใจสู้",
+  B1:  "บริษัทเอกชน Incentive",
+  B2:  "ราชการ / การศึกษา",
+  B3:  "เอเจนซี่ & คู่ค้า",
+};
+
+export const SERVICE_PERSONA_EMOJI: Record<ServicePersonaTag, string> = {
+  C1: "👨‍👩‍👧‍👦", C2a: "🎯", C2b: "💑", C3: "🌸",
+  B1: "🏆", B2: "🎓", B3: "🤝",
+};
+
+export const SERVICE_PERSONA_COLORS: Record<ServicePersonaTag, string> = {
+  C1:  "bg-orange-100 text-orange-800 border-orange-300",
+  C2a: "bg-pink-100 text-pink-800 border-pink-300",
+  C2b: "bg-purple-100 text-purple-800 border-purple-300",
+  C3:  "bg-rose-100 text-rose-800 border-rose-300",
+  B1:  "bg-emerald-100 text-emerald-800 border-emerald-300",
+  B2:  "bg-sky-100 text-sky-800 border-sky-300",
+  B3:  "bg-amber-100 text-amber-800 border-amber-300",
+};
+
+export const SERVICE_PERSONA_QUICK_INFO: Record<ServicePersonaTag, {
+  who: string; budget: string; trigger: string; channels: string;
+}> = {
+  C1: {
+    who: "พ่อแม่ 38–55 ปี + ลูก · ครอบครัว 4–8 คน",
+    budget: "฿18,000–35,000/ท่าน",
+    trigger: "ปิดเทอม มี.ค. / ต.ค. / ส.ค.",
+    channels: "Facebook, Line OA, Referral",
+  },
+  C2a: {
+    who: "กลุ่มเพื่อน 22–35 ปี · 3–8 คน",
+    budget: "฿12,000–25,000/ท่าน",
+    trigger: "วันหยุดยาว / Photo Spot ฮิต",
+    channels: "TikTok, Instagram, Facebook Group",
+  },
+  C2b: {
+    who: "คู่รัก / Solo 25–45 ปี · 1–2 คน",
+    budget: "฿20,000–60,000+/ท่าน",
+    trigger: "ความเป็นส่วนตัว / วันพิเศษ",
+    channels: "Instagram, Google, Referral",
+  },
+  C3: {
+    who: "วัยเกษียณ 55–75 ปี · กลุ่มเพื่อน 6–20 คน",
+    budget: "฿22,000–60,000/ท่าน",
+    trigger: "เพื่อนชวน / Pace ช้า / ดูแลดี",
+    channels: "Line OA, Word-of-Mouth",
+  },
+  B1: {
+    who: "HR Manager / MD · บริษัทเอกชน",
+    budget: "฿1.5M–10M/กรุ๊ป",
+    trigger: "Reward / Incentive ประจำปี",
+    channels: "Referral, Field Sale, Line OA",
+  },
+  B2: {
+    who: "รองผอ. / เลขาวิชาการ · ราชการ / มหาวิทยาลัย",
+    budget: "฿500K–3M/โครงการ",
+    trigger: "ศึกษาดูงาน / พัฒนาบุคลากร / ปิดงบ ก.ย.",
+    channels: "Field Sale, Referral",
+  },
+  B3: {
+    who: "เจ้าของ / ผจก.ทัวร์ · Sub-contractor",
+    budget: "ราคา Net สุทธิ",
+    trigger: "ตอบไว / ราคาดี / Repeat Business",
+    channels: "Agent Network, Line ตรง",
+  },
+};
