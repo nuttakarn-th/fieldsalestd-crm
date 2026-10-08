@@ -266,7 +266,7 @@ export default function StockAnalytics() {
 
   const [yearA, setYearA] = useState(CE_NOW);          // ปีปัจจุบัน (หลัก)
   const [yearB, setYearB] = useState(CE_NOW - 1);      // ปีเปรียบเทียบ
-  const [activeTab, setActiveTab] = useState<"yoy" | "pacing" | "predictive">("yoy");
+  const [activeTab, setActiveTab] = useState<"yoy" | "pacing" | "predictive" | "ranking">("yoy");
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
   const [pacingData, setPacingData] = useState<{ date: string; booked: number; label: string }[]>([]);
@@ -408,7 +408,7 @@ export default function StockAnalytics() {
 
         {/* ── Tab switcher ── */}
         <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit">
-          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"]] as const).map(([tab, label]) => (
+          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"], ["ranking", "🏆 Program Ranking"]] as const).map(([tab, label]) => (
             <button key={tab} type="button"
               onClick={() => { setActiveTab(tab); if (tab === "pacing") loadPacingData(); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -673,7 +673,266 @@ export default function StockAnalytics() {
           <PredictiveTab allPeriods={allPeriods} yearA={yearA} />
         )}
 
+        {/* ── RANKING TAB ── */}
+        {activeTab === "ranking" && (
+          <ProgramRankingTab />
+        )}
+
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROGRAM RANKING TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type ProgramStat = {
+  tourId: string;
+  tourCode: string;
+  country: string;
+  category: string;
+  periods: number;
+  totalSeats: number;
+  booked: number;
+  rate: number;        // %
+  revenue: number;
+};
+
+function ProgramRankingTab() {
+  const tours = useServices((s) => s.tours);
+  const [sortBy, setSortBy] = useState<"booked" | "rate" | "revenue">("booked");
+  const [filterYear, setFilterYear] = useState<number | "all">("all");
+
+  // derive available years from data
+  const availableYears = useMemo(() => {
+    const ys = new Set<number>();
+    for (const t of tours) {
+      for (const p of t.periods ?? []) {
+        if (p.start_date) ys.add(new Date(p.start_date).getFullYear());
+      }
+    }
+    return [...ys].sort((a, b) => b - a);
+  }, [tours]);
+
+  // aggregate by tour
+  const programStats = useMemo((): ProgramStat[] => {
+    return tours.map((t) => {
+      const periods = (t.periods ?? []).filter((p) => {
+        if (!p.start_date || p.cancelled) return false;
+        if (filterYear !== "all") {
+          return new Date(p.start_date).getFullYear() === filterYear;
+        }
+        return true;
+      });
+      const totalSeats = periods.reduce((s, p) => s + p.total_seats, 0);
+      const booked = periods.reduce((s, p) => s + (p.total_seats - p.quota), 0);
+      const revenue = periods.reduce((s, p) => {
+        const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
+          ? p.special_price : p.price_per_seat;
+        return s + (p.total_seats - p.quota) * price;
+      }, 0);
+      return {
+        tourId: t.id,
+        tourCode: t.code,
+        country: t.country,
+        category: t.category,
+        periods: periods.length,
+        totalSeats,
+        booked,
+        rate: totalSeats > 0 ? Math.round(booked / totalSeats * 100) : 0,
+        revenue,
+      };
+    }).filter((s) => s.periods > 0 || filterYear === "all");
+  }, [tours, filterYear]);
+
+  const sorted = useMemo(() => {
+    return [...programStats].sort((a, b) =>
+      sortBy === "booked" ? b.booked - a.booked
+      : sortBy === "rate" ? b.rate - a.rate
+      : b.revenue - a.revenue
+    );
+  }, [programStats, sortBy]);
+
+  const top10 = sorted.slice(0, 10);
+  const bottom10 = [...sorted].reverse().slice(0, 10).filter((s) => s.booked >= 0);
+
+  const rankColor = (rank: number) => {
+    if (rank === 0) return "bg-amber-400 text-white"; // gold
+    if (rank === 1) return "bg-slate-300 text-slate-800"; // silver
+    if (rank === 2) return "bg-orange-300 text-white";   // bronze
+    return "bg-muted text-muted-foreground";
+  };
+
+  function ProgramRow({ prog, rank, isBottom }: { prog: ProgramStat; rank: number; isBottom?: boolean }) {
+    const rateColor = prog.rate >= 75 ? "#EF4444" : prog.rate >= 50 ? "#F97316" : prog.rate >= 30 ? "#EAB308" : "#10B981";
+    return (
+      <tr className="border-t border-border/40 hover:bg-muted/10 transition-colors">
+        <td className="px-3 py-2.5 text-center">
+          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${rankColor(rank)}`}>
+            {rank + 1}
+          </span>
+        </td>
+        <td className="px-3 py-2.5">
+          <p className="text-xs font-bold text-foreground leading-tight">{prog.tourCode}</p>
+          <p className="text-[10px] text-muted-foreground">{prog.country} · {prog.category}</p>
+        </td>
+        <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{prog.periods}</td>
+        <td className="px-3 py-2.5 text-right text-xs font-bold text-foreground">{prog.booked.toLocaleString()}</td>
+        <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{prog.totalSeats.toLocaleString()}</td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center justify-end gap-1.5">
+            <div className="w-14 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${prog.rate}%`, background: rateColor }} />
+            </div>
+            <span className="text-xs font-bold w-8 text-right" style={{ color: rateColor }}>{prog.rate}%</span>
+          </div>
+        </td>
+        <td className="px-3 py-2.5 text-right text-xs font-semibold text-violet-600">{fmtMB(prog.revenue)}</td>
+        <td className="px-3 py-2.5 text-center">
+          {isBottom ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40">
+              ⚠ ลด/ปรับรูปแบบ
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40">
+              🔥 เพิ่ม Period
+            </span>
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Controls row ── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Year filter */}
+        <div className="flex items-center gap-2 bg-muted/40 rounded-xl px-3 py-1.5">
+          <CalendarDays className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">ปี</span>
+          <select
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="text-xs font-bold bg-transparent border-0 outline-none text-violet-600 cursor-pointer"
+          >
+            <option value="all">ทั้งหมด</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>พ.ศ. {BE(y)}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Sort by */}
+        <div className="flex gap-1 bg-muted/40 rounded-xl p-1">
+          {([["booked", "จำนวนจอง"], ["rate", "Booking Rate"], ["revenue", "มูลค่า"]] as const).map(([key, label]) => (
+            <button key={key} type="button"
+              onClick={() => setSortBy(key)}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${sortBy === key ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >{label}</button>
+          ))}
+        </div>
+
+        <span className="text-xs text-muted-foreground">
+          {programStats.length} โปรแกรม · เรียงตาม {sortBy === "booked" ? "จำนวนจอง" : sortBy === "rate" ? "Booking Rate" : "มูลค่า"}
+        </span>
+      </div>
+
+      {/* ── Top 10 ── */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b flex items-center gap-2">
+          <span className="text-base">🏆</span>
+          <h2 className="text-sm font-bold text-foreground">Top 10 โปรแกรมศักยภาพสูง</h2>
+          <span className="text-xs text-muted-foreground ml-1">— แนะนำเพิ่ม Period รอบถัดไป</span>
+        </div>
+        {top10.length === 0 ? (
+          <div className="px-5 py-10 text-center text-xs text-muted-foreground">ไม่มีข้อมูล</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/20 text-muted-foreground">
+                  <th className="text-center px-3 py-2 font-semibold w-10">#</th>
+                  <th className="text-left px-3 py-2 font-semibold">โปรแกรม</th>
+                  <th className="text-right px-3 py-2 font-semibold">Period</th>
+                  <th className="text-right px-3 py-2 font-semibold">จอง</th>
+                  <th className="text-right px-3 py-2 font-semibold">ที่นั่งรวม</th>
+                  <th className="text-right px-3 py-2 font-semibold">Booking Rate</th>
+                  <th className="text-right px-3 py-2 font-semibold">มูลค่าโดยประมาณ</th>
+                  <th className="text-center px-3 py-2 font-semibold">แนะนำ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top10.map((prog, i) => (
+                  <ProgramRow key={prog.tourId} prog={prog} rank={i} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Bottom 10 ── */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b flex items-center gap-2">
+          <span className="text-base">📉</span>
+          <h2 className="text-sm font-bold text-foreground">Bottom 10 โปรแกรมศักยภาพต่ำ</h2>
+          <span className="text-xs text-muted-foreground ml-1">— พิจารณาลด Period หรือปรับรูปแบบ</span>
+        </div>
+        {bottom10.length === 0 ? (
+          <div className="px-5 py-10 text-center text-xs text-muted-foreground">ไม่มีข้อมูล</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/20 text-muted-foreground">
+                  <th className="text-center px-3 py-2 font-semibold w-10">#</th>
+                  <th className="text-left px-3 py-2 font-semibold">โปรแกรม</th>
+                  <th className="text-right px-3 py-2 font-semibold">Period</th>
+                  <th className="text-right px-3 py-2 font-semibold">จอง</th>
+                  <th className="text-right px-3 py-2 font-semibold">ที่นั่งรวม</th>
+                  <th className="text-right px-3 py-2 font-semibold">Booking Rate</th>
+                  <th className="text-right px-3 py-2 font-semibold">มูลค่าโดยประมาณ</th>
+                  <th className="text-center px-3 py-2 font-semibold">แนะนำ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bottom10.map((prog, i) => (
+                  <ProgramRow key={prog.tourId} prog={prog} rank={i} isBottom />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Insight summary card ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/40 rounded-2xl p-4">
+          <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 mb-1">🔥 ควรเพิ่ม Period</p>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+            {sorted.filter((s) => s.rate >= 75).length}
+          </p>
+          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">โปรแกรม fill rate ≥ 75%</p>
+        </div>
+        <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/40 rounded-2xl p-4">
+          <p className="text-xs font-bold text-blue-700 dark:text-blue-300 mb-1">✓ สถานะดี</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+            {sorted.filter((s) => s.rate >= 40 && s.rate < 75).length}
+          </p>
+          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">โปรแกรม fill rate 40–74%</p>
+        </div>
+        <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/40 rounded-2xl p-4">
+          <p className="text-xs font-bold text-red-700 dark:text-red-300 mb-1">⚠ ควรปรับแผน</p>
+          <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+            {sorted.filter((s) => s.rate < 40 && s.periods > 0).length}
+          </p>
+          <p className="text-[10px] text-red-600 dark:text-red-400 mt-1">โปรแกรม fill rate &lt; 40%</p>
+        </div>
+      </div>
+
     </div>
   );
 }
