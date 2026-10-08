@@ -1104,23 +1104,28 @@ function CancellationTab() {
                 <th className="text-left px-4 py-2 font-semibold">โปรแกรม</th>
                 <th className="text-left px-3 py-2 font-semibold">วันเดินทาง</th>
                 <th className="text-left px-3 py-2 font-semibold">เหตุผล</th>
-                <th className="text-right px-3 py-2 font-semibold">ที่นั่ง</th>
+                <th className="text-right px-3 py-2 font-semibold">จองก่อนยกเลิก</th>
+                <th className="text-right px-3 py-2 font-semibold text-red-500">มูลค่าสูญเสีย</th>
                 <th className="text-left px-4 py-2 font-semibold">ผู้ยกเลิก</th>
               </tr>
             </thead>
             <tbody>
               {cancelled.slice(0, 20).map((p) => {
                 const color = CANCEL_COLORS[p.cancel_reason ?? "อื่นๆ"] ?? "#9ca3af";
+                const bookedBeforeCancel = p.total_seats - p.quota;
+                const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
+                  ? p.special_price : p.price_per_seat;
+                const revLost = bookedBeforeCancel * price;
                 return (
                   <tr key={p.period_id} className="border-t border-border/40 hover:bg-muted/10">
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2.5">
                       <p className="font-semibold text-foreground leading-tight truncate max-w-[180px]">{p.tourTitle}</p>
                       <p className="text-[10px] text-muted-foreground">{p.tourCode}</p>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                    <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
                       {new Date(p.start_date!).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2.5">
                       {p.cancel_reason ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: color }}>
                           {p.cancel_reason}
@@ -1129,8 +1134,21 @@ function CancellationTab() {
                         <span className="text-muted-foreground text-[10px]">ไม่ระบุ</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right font-medium">{p.total_seats}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{p.updated_by ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {bookedBeforeCancel > 0 ? (
+                        <span className="font-bold text-orange-600">{bookedBeforeCancel} คน</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {revLost > 0 ? (
+                        <span className="font-bold text-red-500">{fmtMB(revLost)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{p.updated_by ?? "—"}</td>
                   </tr>
                 );
               })}
