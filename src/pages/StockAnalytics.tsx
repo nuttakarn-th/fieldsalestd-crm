@@ -8,7 +8,7 @@ import {
   LineChart, Line, Cell, PieChart, Pie,
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus, CalendarDays, Globe, Users, Wallet, BarChart3, Camera, Activity, Clock, Lightbulb, AlertTriangle, CheckCircle2, Bell } from "lucide-react";
-import { useServices } from "@/store/serviceStore";
+import { useServices, CANCEL_REASONS } from "@/store/serviceStore";
 import type { TourPeriod, TourItem } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useAtRiskPeriods } from "@/components/AtRiskNotification";
@@ -266,7 +266,7 @@ export default function StockAnalytics() {
 
   const [yearA, setYearA] = useState(CE_NOW);          // ปีปัจจุบัน (หลัก)
   const [yearB, setYearB] = useState(CE_NOW - 1);      // ปีเปรียบเทียบ
-  const [activeTab, setActiveTab] = useState<"yoy" | "pacing" | "predictive" | "ranking">("yoy");
+  const [activeTab, setActiveTab] = useState<"yoy" | "pacing" | "predictive" | "ranking" | "cancellation">("yoy");
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotMsg, setSnapshotMsg] = useState<string | null>(null);
   const [pacingData, setPacingData] = useState<{ date: string; booked: number; label: string }[]>([]);
@@ -408,7 +408,7 @@ export default function StockAnalytics() {
 
         {/* ── Tab switcher ── */}
         <div className="flex gap-1 bg-muted/40 rounded-xl p-1 w-fit">
-          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"], ["ranking", "🏆 Program Ranking"]] as const).map(([tab, label]) => (
+          {([["yoy", "📊 YoY เปรียบเทียบ"], ["pacing", "📈 Pacing & Snapshot"], ["predictive", "🔮 Predictive"], ["ranking", "🏆 Program Ranking"], ["cancellation", "❌ Cancellation"]] as const).map(([tab, label]) => (
             <button key={tab} type="button"
               onClick={() => { setActiveTab(tab); if (tab === "pacing") loadPacingData(); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === tab ? "bg-card shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
@@ -678,7 +678,471 @@ export default function StockAnalytics() {
           <ProgramRankingTab />
         )}
 
+        {/* ── CANCELLATION TAB ── */}
+        {activeTab === "cancellation" && (
+          <CancellationTab />
+        )}
+
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CANCELLATION ANALYTICS TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+type CancelledPeriod = TourPeriod & {
+  tourCode: string;
+  tourTitle: string;
+  country: string;
+  category: string;
+};
+
+const CANCEL_COLORS: Record<string, string> = {
+  "กรุ๊ปไม่เต็ม":          "#ef4444",
+  "สายการบินยกเลิก":       "#f97316",
+  "ปัญหาวีซ่า":            "#f59e0b",
+  "เลื่อนวันเดินทาง":      "#8b5cf6",
+  "เหตุสุดวิสัย":          "#6366f1",
+  "ปัญหาประเทศปลายทาง":   "#3b82f6",
+  "อื่นๆ":                "#9ca3af",
+};
+
+function CancellationTab() {
+  const tours = useServices((s) => s.tours);
+  const [filterYear, setFilterYear] = useState<number | "all">("all");
+
+  const availableYears = useMemo(() => {
+    const ys = new Set<number>();
+    for (const t of tours) {
+      for (const p of t.periods ?? []) {
+        if (p.start_date && p.cancelled) ys.add(new Date(p.start_date).getFullYear());
+      }
+    }
+    return [...ys].sort((a, b) => b - a);
+  }, [tours]);
+
+  // flat list of cancelled periods with parent meta
+  const cancelled = useMemo((): CancelledPeriod[] => {
+    const rows: CancelledPeriod[] = [];
+    for (const t of tours) {
+      for (const p of t.periods ?? []) {
+        if (!p.cancelled || !p.start_date) continue;
+        if (filterYear !== "all" && new Date(p.start_date).getFullYear() !== filterYear) continue;
+        rows.push({
+          ...p,
+          tourCode: t.code,
+          tourTitle: t.title || t.city || t.code,
+          country: t.country,
+          category: t.category,
+        });
+      }
+    }
+    return rows.sort((a, b) => new Date(b.start_date!).getTime() - new Date(a.start_date!).getTime());
+  }, [tours, filterYear]);
+
+  // KPI: revenue lost = (total_seats) * price (what could have been)
+  const revenueLost = useMemo(() =>
+    cancelled.reduce((s, p) => {
+      const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
+        ? p.special_price : p.price_per_seat;
+      return s + p.total_seats * price * 0.6; // assume 60% would have filled
+    }, 0), [cancelled]);
+
+  // Total periods (all, for rate calc)
+  const totalPeriods = useMemo(() => {
+    let n = 0;
+    for (const t of tours) {
+      for (const p of t.periods ?? []) {
+        if (!p.start_date) continue;
+        if (filterYear !== "all" && new Date(p.start_date).getFullYear() !== filterYear) continue;
+        n++;
+      }
+    }
+    return n;
+  }, [tours, filterYear]);
+
+  const cancelRate = totalPeriods > 0 ? Math.round(cancelled.length / totalPeriods * 100) : 0;
+
+  // Days before departure (updated_at vs start_date) — estimate
+  const avgDays = useMemo(() => {
+    const diffs = cancelled
+      .filter((p) => p.updated_at && p.start_date)
+      .map((p) => {
+        const start = new Date(p.start_date!).getTime();
+        const cancelled_at = new Date(p.updated_at!).getTime();
+        return Math.max(0, Math.round((start - cancelled_at) / 86400000));
+      });
+    if (diffs.length === 0) return null;
+    return Math.round(diffs.reduce((s, d) => s + d, 0) / diffs.length);
+  }, [cancelled]);
+
+  // By reason
+  const byReason = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of cancelled) {
+      const r = p.cancel_reason || "อื่นๆ";
+      map.set(r, (map.get(r) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [cancelled]);
+
+  // By month
+  const byMonth = useMemo(() =>
+    MONTHS_TH.map((label, i) => ({
+      label,
+      count: cancelled.filter((p) => new Date(p.start_date!).getMonth() === i).length,
+    })), [cancelled]);
+
+  const maxMonthCount = Math.max(...byMonth.map((m) => m.count), 1);
+
+  // By program (cancellation rate)
+  const byProgram = useMemo(() => {
+    const map = new Map<string, { title: string; country: string; code: string; total: number; cancelled: number }>();
+    for (const t of tours) {
+      const key = t.id;
+      let total = 0, canc = 0;
+      for (const p of t.periods ?? []) {
+        if (!p.start_date) continue;
+        if (filterYear !== "all" && new Date(p.start_date).getFullYear() !== filterYear) continue;
+        total++;
+        if (p.cancelled) canc++;
+      }
+      if (total > 0) {
+        map.set(key, { title: t.title || t.city || t.code, country: t.country, code: t.code, total, cancelled: canc });
+      }
+    }
+    return [...map.values()]
+      .filter((r) => r.cancelled > 0)
+      .sort((a, b) => (b.cancelled / b.total) - (a.cancelled / a.total))
+      .slice(0, 10);
+  }, [tours, filterYear]);
+
+  // Timeline buckets
+  const timeline = useMemo(() => {
+    const buckets = [
+      { label: "≤ 7 วัน", desc: "ฉุกเฉิน", color: "#ef4444", count: 0 },
+      { label: "8–14 วัน", desc: "สาย", color: "#f97316", count: 0 },
+      { label: "15–30 วัน", desc: "พอไหว", color: "#f59e0b", count: 0 },
+      { label: "31–60 วัน", desc: "ดี", color: "#10b981", count: 0 },
+      { label: "> 60 วัน", desc: "ดีมาก", color: "#6366f1", count: 0 },
+    ];
+    for (const p of cancelled) {
+      if (!p.updated_at || !p.start_date) continue;
+      const days = Math.max(0, Math.round(
+        (new Date(p.start_date!).getTime() - new Date(p.updated_at!).getTime()) / 86400000
+      ));
+      if (days <= 7) buckets[0].count++;
+      else if (days <= 14) buckets[1].count++;
+      else if (days <= 30) buckets[2].count++;
+      else if (days <= 60) buckets[3].count++;
+      else buckets[4].count++;
+    }
+    return buckets;
+  }, [cancelled]);
+
+  const maxTl = Math.max(...timeline.map((b) => b.count), 1);
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Year filter ── */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 bg-muted/40 rounded-xl px-3 py-1.5">
+          <CalendarDays className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground font-medium">ปี</span>
+          <select
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="text-xs font-bold bg-transparent border-0 outline-none text-violet-600 cursor-pointer"
+          >
+            <option value="all">ทั้งหมด</option>
+            {availableYears.map((y) => (
+              <option key={y} value={y}>พ.ศ. {BE(y)}</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {cancelled.length} period ที่ยกเลิก จากทั้งหมด {totalPeriods} period
+        </span>
+      </div>
+
+      {/* ── KPI Row ── */}
+      {cancelled.length === 0 ? (
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-10 text-center text-muted-foreground text-sm">
+          ✅ ไม่มี period ที่ถูกยกเลิก{filterYear !== "all" ? ` ในปี พ.ศ. ${BE(filterYear as number)}` : ""}
+        </div>
+      ) : (<>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">❌ Period ยกเลิก</p>
+          <p className="text-2xl font-bold text-red-500">{cancelled.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">จาก {totalPeriods} period ทั้งหมด</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">📊 Cancellation Rate</p>
+          <p className={`text-2xl font-bold ${cancelRate >= 20 ? "text-red-500" : cancelRate >= 10 ? "text-amber-500" : "text-emerald-600"}`}>
+            {cancelRate}%
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">Benchmark อุตสาหกรรม ~10%</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">💸 Revenue ที่หายไป (ประมาณ)</p>
+          <p className="text-2xl font-bold text-orange-500">{fmtMB(revenueLost)}</p>
+          <p className="text-xs text-muted-foreground mt-1">คาดว่า fill 60% ถ้าไม่ยกเลิก</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">⏱ แจ้งยกเลิกเฉลี่ย</p>
+          {avgDays !== null ? (
+            <>
+              <p className={`text-2xl font-bold ${avgDays <= 14 ? "text-red-500" : avgDays <= 30 ? "text-amber-500" : "text-emerald-600"}`}>
+                {avgDays} วัน
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">ก่อนวันเดินทาง {avgDays <= 14 ? "⚠ ช้าเกินไป" : avgDays <= 30 ? "พอไหว" : "ดี"}</p>
+            </>
+          ) : (
+            <p className="text-2xl font-bold text-muted-foreground">—</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Reason breakdown + Timeline ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Reasons */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b flex items-center gap-2">
+            <span className="text-base">📋</span>
+            <h2 className="text-sm font-bold text-foreground">เหตุผลการยกเลิก</h2>
+          </div>
+          <div className="p-5 space-y-3">
+            {byReason.length === 0 && (
+              <p className="text-xs text-muted-foreground">ยังไม่ระบุเหตุผล</p>
+            )}
+            {byReason.map(([reason, count]) => {
+              const color = CANCEL_COLORS[reason] ?? "#9ca3af";
+              const pct = Math.round(count / cancelled.length * 100);
+              return (
+                <div key={reason} className="flex items-center gap-3">
+                  <div className="text-xs font-medium text-foreground w-36 shrink-0 truncate">{reason}</div>
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                  </div>
+                  <div className="text-xs font-bold w-8 text-right" style={{ color }}>{count}</div>
+                  <div className="text-xs text-muted-foreground w-8 text-right">{pct}%</div>
+                </div>
+              );
+            })}
+            {byReason.some(([r]) => r === "อื่นๆ" || !r) && (
+              <p className="text-[10px] text-muted-foreground pt-1">
+                💡 "อื่นๆ" หมายถึงไม่ได้ระบุ — กรุณาเลือกเหตุผลให้ครบตอนยกเลิก
+              </p>
+            )}
+            {/* benchmark bar */}
+            <div className="mt-2 pt-3 border-t border-border/50 flex items-center gap-2">
+              <div className="text-[10px] text-muted-foreground w-36 shrink-0">สาเหตุป้องกันได้</div>
+              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-violet-400" style={{
+                  width: `${Math.round(
+                    (byReason.filter(([r]) => ["กรุ๊ปไม่เต็ม","ลูกค้ายกเลิกกลุ่ม"].includes(r)).reduce((s, [,c]) => s + c, 0) / Math.max(cancelled.length, 1)) * 100
+                  )}%`
+                }} />
+              </div>
+              <div className="text-xs font-bold text-violet-600 w-8 text-right">
+                {Math.round(
+                  (byReason.filter(([r]) => ["กรุ๊ปไม่เต็ม","ลูกค้ายกเลิกกลุ่ม"].includes(r)).reduce((s, [,c]) => s + c, 0) / Math.max(cancelled.length, 1)) * 100
+                )}%
+              </div>
+              <div className="text-[10px] text-muted-foreground w-8 text-right">ของทั้งหมด</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Timeline */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b flex items-center gap-2">
+            <span className="text-base">⏳</span>
+            <h2 className="text-sm font-bold text-foreground">แจ้งยกเลิกกี่วันก่อนเดินทาง?</h2>
+            <span className="text-xs text-muted-foreground">ยิ่งช้ายิ่งเสียหายมาก</span>
+          </div>
+          <div className="p-5">
+            <div className="flex items-end gap-3 h-28 mb-4">
+              {timeline.map((b) => (
+                <div key={b.label} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-xs font-bold" style={{ color: b.color }}>{b.count}</span>
+                  <div className="w-full rounded-t-md transition-all" style={{
+                    height: `${Math.max(4, Math.round(b.count / maxTl * 80))}px`,
+                    background: b.color,
+                    opacity: b.count === 0 ? 0.2 : 1,
+                  }} />
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground leading-tight">{b.label}</p>
+                    <p className="text-[9px] font-bold" style={{ color: b.color }}>{b.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {timeline[0].count + timeline[1].count > 0 && (
+              <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/30 text-xs">
+                <p className="font-bold text-red-600 dark:text-red-400">
+                  ⚠ {timeline[0].count + timeline[1].count} period ยกเลิกใน 14 วันก่อนเดินทาง
+                </p>
+                <p className="text-red-400 dark:text-red-400/70 mt-0.5 text-[10px]">
+                  = ค่า Airline refund แทบไม่ได้ + ลูกค้าเสียความเชื่อมั่น
+                </p>
+              </div>
+            )}
+            {timeline[0].count === 0 && timeline[1].count === 0 && (
+              <div className="px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/30 text-xs text-emerald-700 dark:text-emerald-400">
+                ✅ ไม่มีการยกเลิกกระชั้นชิด — ทีมมีการวางแผนดี
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Monthly trend ── */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
+        <h2 className="text-sm font-bold text-foreground mb-4">การยกเลิกรายเดือน</h2>
+        <div className="flex items-end gap-2 h-20">
+          {byMonth.map(({ label, count }) => (
+            <div key={label} className="flex-1 flex flex-col items-center gap-1">
+              {count > 0 && <span className="text-[10px] font-bold text-red-500">{count}</span>}
+              <div
+                className="w-full rounded-t-sm transition-all"
+                style={{
+                  height: `${Math.max(2, Math.round(count / maxMonthCount * 56))}px`,
+                  background: count === 0 ? "#f3f4f6" : count >= 5 ? "#ef4444" : count >= 3 ? "#f97316" : "#fbbf24",
+                }}
+              />
+              <span className="text-[9px] text-muted-foreground">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Program Cancellation Rate ── */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b flex items-center gap-2">
+          <span className="text-base">🗂</span>
+          <h2 className="text-sm font-bold text-foreground">โปรแกรมที่ยกเลิกบ่อยที่สุด</h2>
+          <span className="text-xs text-muted-foreground ml-1">Top 10 — เรียงตาม Cancel Rate</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/20 text-muted-foreground">
+                <th className="text-left px-4 py-2 font-semibold">โปรแกรม</th>
+                <th className="text-right px-3 py-2 font-semibold">Period ทั้งหมด</th>
+                <th className="text-right px-3 py-2 font-semibold">ยกเลิก</th>
+                <th className="text-right px-3 py-2 font-semibold">Cancel Rate</th>
+                <th className="text-center px-4 py-2 font-semibold">แนะนำ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byProgram.map((prog) => {
+                const rate = Math.round(prog.cancelled / prog.total * 100);
+                const rateColor = rate >= 50 ? "#ef4444" : rate >= 30 ? "#f97316" : "#f59e0b";
+                return (
+                  <tr key={prog.code} className="border-t border-border/40 hover:bg-muted/10 transition-colors">
+                    <td className="px-4 py-2.5">
+                      <p className="font-bold text-foreground leading-tight">{prog.title}</p>
+                      <p className="text-[10px] text-muted-foreground">{prog.code} · {prog.country}</p>
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">{prog.total}</td>
+                    <td className="px-3 py-2.5 text-right font-bold text-red-500">{prog.cancelled}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${rate}%`, background: rateColor }} />
+                        </div>
+                        <span className="font-bold w-8 text-right" style={{ color: rateColor }}>{rate}%</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      {rate >= 50 ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200 dark:bg-red-500/15 dark:text-red-300">
+                          ⚠ พิจารณาปิด
+                        </span>
+                      ) : rate >= 30 ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300">
+                          ⚡ เฝ้าระวัง
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300">
+                          📌 ติดตาม
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {byProgram.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">ไม่มีข้อมูล</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-2.5 border-t bg-muted/10 flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-100 dark:bg-red-500/30 border border-red-300 inline-block"/>⚠ Cancel rate ≥ 50% — ควรพิจารณาปิดหรือ merge โปรแกรม</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-100 dark:bg-amber-500/30 border border-amber-300 inline-block"/>⚡ 30–49% — ปรับ minimum pax หรือ lead gen เพิ่ม</span>
+        </div>
+      </div>
+
+      {/* ── Recent cancelled log ── */}
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b flex items-center gap-2">
+          <Clock className="w-4 h-4 text-red-500" />
+          <h2 className="text-sm font-bold text-foreground">Period ที่ยกเลิกล่าสุด</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-muted/20 text-muted-foreground">
+                <th className="text-left px-4 py-2 font-semibold">โปรแกรม</th>
+                <th className="text-left px-3 py-2 font-semibold">วันเดินทาง</th>
+                <th className="text-left px-3 py-2 font-semibold">เหตุผล</th>
+                <th className="text-right px-3 py-2 font-semibold">ที่นั่ง</th>
+                <th className="text-left px-4 py-2 font-semibold">ผู้ยกเลิก</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cancelled.slice(0, 20).map((p) => {
+                const color = CANCEL_COLORS[p.cancel_reason ?? "อื่นๆ"] ?? "#9ca3af";
+                return (
+                  <tr key={p.period_id} className="border-t border-border/40 hover:bg-muted/10">
+                    <td className="px-4 py-2">
+                      <p className="font-semibold text-foreground leading-tight truncate max-w-[180px]">{p.tourTitle}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.tourCode}</p>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                      {new Date(p.start_date!).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}
+                    </td>
+                    <td className="px-3 py-2">
+                      {p.cancel_reason ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: color }}>
+                          {p.cancel_reason}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-[10px]">ไม่ระบุ</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium">{p.total_seats}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{p.updated_by ?? "—"}</td>
+                  </tr>
+                );
+              })}
+              {cancelled.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">ไม่มีข้อมูล</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      </>)}
     </div>
   );
 }
