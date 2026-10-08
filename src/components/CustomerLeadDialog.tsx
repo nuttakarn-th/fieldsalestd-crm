@@ -238,6 +238,7 @@ export function CustomerLeadDialog({
   const [flightDetail, setFlightDetail]   = useState("");
   const [travelMonth, setTravelMonth]     = useState(ALL_MONTHS_KEY);
   const [pax, setPax]                     = useState("1");
+  const [isFirstTime, setIsFirstTime]     = useState(false);
   const [urgency, setUrgency]             = useState<Urgency>("Warm");
 
   // ── Social handle (conditional on source) ───────────────────────────────────
@@ -666,6 +667,23 @@ export function CustomerLeadDialog({
             </div>
           </div>
 
+          {/* First-time toggle */}
+          <button
+            type="button"
+            onClick={() => setIsFirstTime((v) => !v)}
+            className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+              isFirstTime
+                ? "border-amber-300 bg-amber-50 text-amber-700"
+                : "border-dashed border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300"
+            }`}
+          >
+            <span className="text-base">{isFirstTime ? "🌟" : "✈️"}</span>
+            <span className="font-medium">
+              {isFirstTime ? "มือใหม่ — ยังไม่เคยเดินทางต่างประเทศ" : "เคยเดินทางต่างประเทศมาก่อนแล้ว"}
+            </span>
+            <span className="ml-auto text-[10px] font-normal opacity-60">คลิกเพื่อสลับ</span>
+          </button>
+
           {/* Tour selectors */}
           {(buType === "ทัวร์ต่างประเทศ" || buType === "ทัวร์ภายในประเทศ") && (
             <>
@@ -931,6 +949,7 @@ export function CustomerLeadDialog({
           budget={budget}
           tourType={tourType}
           company={company}
+          isFirstTime={isFirstTime}
         />
 
         {/* ══ Smart Status ═══════════════════════════════════════════════════════ */}

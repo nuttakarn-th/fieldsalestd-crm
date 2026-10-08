@@ -1,8 +1,6 @@
 /**
- * PersonaMatcher.tsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Real-time Persona Suggestion Panel for Lead Form
- * แสดงผลทันทีเมื่อ user กรอก source / buType / pax / budget / tourType / company
+ * PersonaMatcher.tsx — v2 (4+3 system)
+ * Real-time Persona Suggestion Panel สำหรับ Lead Form
  */
 
 import { useMemo } from "react";
@@ -10,30 +8,32 @@ import type { Source, BUType } from "@/store/crmStore";
 import { scorePersona } from "@/lib/personaScorer";
 
 interface Props {
-  source:   Source | "";
-  buType:   BUType | "";
-  paxStr:   string;          // raw string from input, may be empty
-  budget:   string;
-  tourType: string;
-  company:  string;
+  source:      Source | "";
+  buType:      BUType | "";
+  paxStr:      string;
+  budget:      string;
+  tourType:    string;
+  company:     string;
+  isFirstTime: boolean;
 }
 
-export default function PersonaMatcher({ source, buType, paxStr, budget, tourType, company }: Props) {
+export default function PersonaMatcher({
+  source, buType, paxStr, budget, tourType, company, isFirstTime,
+}: Props) {
   const result = useMemo(() => {
     if (!source || !buType) return null;
-    const pax = parseInt(paxStr) || 1;
     return scorePersona({
       source:   source as Source,
       buType:   buType as BUType,
-      pax,
+      pax:      parseInt(paxStr) || 1,
       budget:   budget   || "",
       tourType: tourType || "",
       company:  company  || "",
+      isFirstTime,
     });
-  }, [source, buType, paxStr, budget, tourType, company]);
+  }, [source, buType, paxStr, budget, tourType, company, isFirstTime]);
 
   if (!result || !result.topMatch) {
-    // ยังไม่มีข้อมูลพอ → แสดง placeholder เบาๆ
     return (
       <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-3 text-center">
         <p className="text-xs text-gray-400">
@@ -43,18 +43,14 @@ export default function PersonaMatcher({ source, buType, paxStr, budget, tourTyp
     );
   }
 
-  const top = result.topMatch;
+  const top     = result.topMatch;
   const runners = result.allScores.slice(1, 3).filter((s) => s.score > 0);
 
-  // confidence color
   const confColor =
-    top.confidence >= 70
-      ? "text-green-600"
-      : top.confidence >= 50
-      ? "text-yellow-600"
-      : "text-gray-500";
+    top.confidence >= 70 ? "text-green-600" :
+    top.confidence >= 50 ? "text-yellow-600" : "text-gray-500";
 
-  const deptLabel: Record<string, string> = {
+  const deptBadge: Record<string, string> = {
     OB_B2C: "OB · B2C",
     OB_B2B: "OB · B2B",
     TRP:    "TRP",
@@ -67,30 +63,36 @@ export default function PersonaMatcher({ source, buType, paxStr, budget, tourTyp
       <div className="flex items-center gap-2 border-b border-purple-100 bg-white/60 px-3 py-2">
         <span className="text-sm">🧭</span>
         <span className="text-xs font-semibold text-purple-700">Persona Matcher</span>
+
+        {/* Dept badge */}
         <span className="ml-auto rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-600">
-          {deptLabel[result.dept] ?? result.dept}
-          {result.isB2B ? " · B2B ✓" : ""}
+          {deptBadge[result.dept] ?? result.dept}
+          {result.isB2B ? " · B2B" : ""}
         </span>
+
+        {/* First-time flag */}
+        {result.isFirstTime && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+            🌟 มือใหม่
+          </span>
+        )}
       </div>
 
-      {/* Top match */}
       <div className="px-3 py-2.5">
+        {/* Top match */}
         <div className="flex items-start gap-2.5">
-          {/* Emoji badge */}
           <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${top.color} text-lg shadow-sm`}>
             {top.emoji}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2">
-              <p className="text-sm font-bold text-gray-800 leading-tight">
-                {top.tag}
-              </p>
-              <span className={`text-[11px] font-medium ${confColor}`}>
+              <p className="text-sm font-bold text-gray-800 leading-tight">{top.tag}</p>
+              <p className="text-[11px] text-gray-500 truncate">{top.label.split("—")[1]?.trim()}</p>
+              <span className={`ml-auto text-[11px] font-medium shrink-0 ${confColor}`}>
                 {top.confidence}%
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 truncate">{top.label}</p>
 
             {/* Confidence bar */}
             <div className="mt-1.5 h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
@@ -100,12 +102,17 @@ export default function PersonaMatcher({ source, buType, paxStr, budget, tourTyp
               />
             </div>
 
-            {/* Reason */}
-            <p className="mt-1 text-[10px] text-gray-400 leading-tight line-clamp-2">
-              {top.reason}
-            </p>
+            <p className="mt-1 text-[10px] text-gray-400 leading-tight">{top.reason}</p>
           </div>
         </div>
+
+        {/* First-time extra hint */}
+        {result.isFirstTime && (
+          <div className="mt-2 rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-1.5">
+            <p className="text-[11px] font-medium text-amber-700">🌟 มือใหม่ — ปรับ approach</p>
+            <p className="text-[10px] text-amber-600 mt-0.5">ส่งรีวิว + FAQ ก่อน · อธิบาย process จองทัวร์ · อย่ารีบ pitch ราคา</p>
+          </div>
+        )}
 
         {/* Suggested actions */}
         {top.actions.length > 0 && (
@@ -122,9 +129,7 @@ export default function PersonaMatcher({ source, buType, paxStr, budget, tourTyp
         {/* Runners up */}
         {runners.length > 0 && (
           <div className="mt-2.5 border-t border-purple-100 pt-2">
-            <p className="mb-1 text-[10px] font-medium text-gray-400 uppercase tracking-wide">
-              อาจจะเป็น
-            </p>
+            <p className="mb-1 text-[10px] font-medium text-gray-400 uppercase tracking-wide">อาจจะเป็น</p>
             <div className="flex flex-wrap gap-1.5">
               {runners.map((r) => (
                 <span
