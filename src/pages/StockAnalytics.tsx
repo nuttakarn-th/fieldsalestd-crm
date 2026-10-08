@@ -719,16 +719,28 @@ function ProgramRankingTab() {
   // aggregate by tour
   const programStats = useMemo((): ProgramStat[] => {
     return tours.map((t) => {
-      const periods = (t.periods ?? []).filter((p) => {
+      const allPeriods = t.periods ?? [];
+
+      // Period COUNT — นับทุก period ที่เคยสร้าง (รวม cancelled + archived + past)
+      const periodCount = allPeriods.filter((p) => {
+        if (!p.start_date) return false;
+        if (filterYear !== "all") {
+          return new Date(p.start_date).getFullYear() === filterYear;
+        }
+        return true;
+      }).length;
+
+      // Booking STATS — เฉพาะ period ที่ไม่ได้ cancelled (มียอดจองจริง)
+      const activePeriods = allPeriods.filter((p) => {
         if (!p.start_date || p.cancelled) return false;
         if (filterYear !== "all") {
           return new Date(p.start_date).getFullYear() === filterYear;
         }
         return true;
       });
-      const totalSeats = periods.reduce((s, p) => s + p.total_seats, 0);
-      const booked = periods.reduce((s, p) => s + (p.total_seats - p.quota), 0);
-      const revenue = periods.reduce((s, p) => {
+      const totalSeats = activePeriods.reduce((s, p) => s + p.total_seats, 0);
+      const booked = activePeriods.reduce((s, p) => s + (p.total_seats - p.quota), 0);
+      const revenue = activePeriods.reduce((s, p) => {
         const price = (p.special_price && p.special_price > 0 && p.special_price < p.price_per_seat)
           ? p.special_price : p.price_per_seat;
         return s + (p.total_seats - p.quota) * price;
@@ -739,13 +751,13 @@ function ProgramRankingTab() {
         tourTitle: t.title || t.city || t.code,
         country: t.country,
         category: t.category,
-        periods: periods.length,
+        periods: periodCount,
         totalSeats,
         booked,
         rate: totalSeats > 0 ? Math.round(booked / totalSeats * 100) : 0,
         revenue,
       };
-    }).filter((s) => s.periods > 0 || filterYear === "all");
+    }).filter((s) => s.periods > 0);
   }, [tours, filterYear]);
 
   const sorted = useMemo(() => {
@@ -858,7 +870,7 @@ function ProgramRankingTab() {
                 <tr className="bg-muted/20 text-muted-foreground">
                   <th className="text-center px-3 py-2 font-semibold w-10">#</th>
                   <th className="text-left px-3 py-2 font-semibold">โปรแกรม</th>
-                  <th className="text-right px-3 py-2 font-semibold">Period</th>
+                  <th className="text-right px-3 py-2 font-semibold" title="จำนวน Period ทั้งหมดที่เคยสร้าง (รวม archived + past ยกเว้น cancelled)">Period ทั้งหมด</th>
                   <th className="text-right px-3 py-2 font-semibold">จอง</th>
                   <th className="text-right px-3 py-2 font-semibold">ที่นั่งรวม</th>
                   <th className="text-right px-3 py-2 font-semibold">Booking Rate</th>
@@ -892,7 +904,7 @@ function ProgramRankingTab() {
                 <tr className="bg-muted/20 text-muted-foreground">
                   <th className="text-center px-3 py-2 font-semibold w-10">#</th>
                   <th className="text-left px-3 py-2 font-semibold">โปรแกรม</th>
-                  <th className="text-right px-3 py-2 font-semibold">Period</th>
+                  <th className="text-right px-3 py-2 font-semibold" title="จำนวน Period ทั้งหมดที่เคยสร้าง (รวม archived + past ยกเว้น cancelled)">Period ทั้งหมด</th>
                   <th className="text-right px-3 py-2 font-semibold">จอง</th>
                   <th className="text-right px-3 py-2 font-semibold">ที่นั่งรวม</th>
                   <th className="text-right px-3 py-2 font-semibold">Booking Rate</th>
