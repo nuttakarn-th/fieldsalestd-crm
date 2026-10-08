@@ -690,6 +690,7 @@ export default function StockAnalytics() {
 type ProgramStat = {
   tourId: string;
   tourCode: string;
+  tourTitle: string;
   country: string;
   category: string;
   periods: number;
@@ -735,6 +736,7 @@ function ProgramRankingTab() {
       return {
         tourId: t.id,
         tourCode: t.code,
+        tourTitle: t.title || t.city || t.code,
         country: t.country,
         category: t.category,
         periods: periods.length,
@@ -774,8 +776,8 @@ function ProgramRankingTab() {
           </span>
         </td>
         <td className="px-3 py-2.5">
-          <p className="text-xs font-bold text-foreground leading-tight">{prog.tourCode}</p>
-          <p className="text-[10px] text-muted-foreground">{prog.country} · {prog.category}</p>
+          <p className="text-xs font-bold text-foreground leading-tight">{prog.tourTitle}</p>
+          <p className="text-[10px] text-muted-foreground">{prog.tourCode} · {prog.country}</p>
         </td>
         <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{prog.periods}</td>
         <td className="px-3 py-2.5 text-right text-xs font-bold text-foreground">{prog.booked.toLocaleString()}</td>
