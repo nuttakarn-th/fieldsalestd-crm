@@ -87,7 +87,7 @@ export interface TourItem {
   archived_at?: string;     // ISO timestamp เมื่อ Archive
   archived_by?: string;     // ชื่อผู้ที่ Archive
   // ── Persona targeting ──
-  persona_targets?: string[];  // กลุ่ม Persona เป้าหมาย เช่น ["สายคุ้มค่า", "Outing B2B"]
+  persona_targets?: string[];  // กลุ่ม Persona เป้าหมาย เช่น ["C1", "C2a", "Outing B2B"]
 }
 
 // ===== Car rental — ไม่มีโควต้า, total_seats = จำนวนที่นั่งในรถ =====

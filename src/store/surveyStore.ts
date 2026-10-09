@@ -3,12 +3,12 @@
  *
  * Zustand store + utilities สำหรับระบบ Persona Survey
  *
- * ── B2C Personas ──
- *   สายคุ้มค่า       (Value Hunter)     — ราคา/คุณค่าเป็นหลัก
- *   สายธรรมชาติ      (Nature Lover)     — ชอบธรรมชาติ/ผ่อนคลาย
- *   สายกิจกรรม       (Activity Seeker)  — ชอบผจญภัย/กิจกรรม
- *   สายชิลล์พรีเมียม (Chill Premium)   — ชอบสะดวกสบาย/หรูหรา
- *   สายหัวคณะ        (Senior Group)     — วัยเกษียณ 58+ หัวหน้ากลุ่มเพื่อน เที่ยวถี่
+ * ── B2C Personas (v395 — unified C1/C2a/C2b/C3) ──
+ *   C1   ครอบครัวไทยใจกว้าง  — พ่อแม่ 38-55 ปี + ลูก ครอบครัว 4-8 คน
+ *   C2a  เพื่อนสายสนุก        — กลุ่มเพื่อน 22-35 ปี 3-8 คน
+ *   C2b  คู่รัก/ทริปส่วนตัว   — คู่รัก / Solo 25-45 ปี 1-2 คน
+ *   C3   วัยเกษียณใจสู้        — 55-75 ปี กลุ่มเพื่อน/คณะ 6-20 คน
+ *   (สายมือใหม่ → isFirstTime flag ผ่าน travel_experience = "first_time")
  *
  * ── B2B Personas ──
  *   Outing B2B   — กลุ่มออกนอกสถานที่ทีม / Team Building
@@ -21,13 +21,7 @@ import type { Customer, Lead } from "@/store/crmStore";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type B2CPersona =
-  | "สายคุ้มค่า"
-  | "สายธรรมชาติ"
-  | "สายกิจกรรม"
-  | "สายชิลล์พรีเมียม"
-  | "สายหัวคณะ"
-  | "สายมือใหม่";
+export type B2CPersona = "C1" | "C2a" | "C2b" | "C3";
 
 export type B2BPersona = "Outing B2B" | "Seminar B2B";
 
@@ -51,16 +45,16 @@ export interface SurveyResponse {
   submitted_at?: string;
 }
 
-// ─── B2C Persona Scoring Matrix ──────────────────────────────────────────────
+// ─── B2C Persona Scoring Matrix (v395 — unified C1/C2a/C2b/C3) ──────────────
 //
-// คำถาม 5 ข้อ (ชุดใหม่ v379):
+// คำถาม 5 ข้อ:
 //   Q1: q1_region — โซนปลายทาง
 //     1=เอเชียตะวันออก (ญี่ปุ่น เกาหลี จีน)
 //     2=อาเซียน (เวียดนาม บาหลี สิงคโปร์)
 //     3=ยุโรป / ระยะไกล
 //     4=ในประเทศ (ทะเล/ภูเขา)
 //
-//   Q2: q2_style — สไตล์การเที่ยว (เลือกที่ใช่ที่สุด)
+//   Q2: q2_style — สไตล์การเที่ยว
 //     1=ธรรมชาติ ภูเขา อากาศดี
 //     2=คาเฟ่ ชิล ถ่ายรูป ช้อปปิ้ง
 //     3=กิจกรรมเฉพาะทาง (สกี ดำน้ำ วิ่งเทรล)
@@ -80,77 +74,60 @@ export interface SurveyResponse {
 //     4=วันเดินทางไม่ตรงกับช่วงที่สะดวก
 //
 // travel_experience (contact form) เป็น bonus signal:
-//   "first_time"   → สายมือใหม่ +10
-//   "4_plus_times" → สายหัวคณะ +8
+//   "first_time"   → C1 +3, C2a +2 (ครอบครัว/เพื่อนมือใหม่)
+//   "4_plus_times" → C3 +8 (วัยเกษียณเที่ยวถี่)
 
 type ScoreMap = Record<B2CPersona, number[]>;
 
 // แต่ละ array = คะแนนที่ persona นี้ได้จากแต่ละตัวเลือก (index 0 = option 1)
 const Q1_SCORES: ScoreMap = {
-  //                          [เอเชียตะวันออก, อาเซียน, ยุโรป, ในประเทศ]
-  "สายคุ้มค่า":        [1, 2, 0, 3],
-  "สายธรรมชาติ":       [3, 1, 4, 1],
-  "สายกิจกรรม":        [2, 2, 3, 0],
-  "สายชิลล์พรีเมียม":  [2, 2, 3, 1],
-  "สายหัวคณะ":         [2, 3, 0, 1],
-  "สายมือใหม่":        [2, 3, 0, 0],
+  //    [เอเชียตะวันออก, อาเซียน, ยุโรป, ในประเทศ]
+  C1:  [1, 3, 0, 3],  // ครอบครัว: อาเซียน+ในประเทศ (ราคาเหมาะ)
+  C2a: [4, 2, 3, 0],  // เพื่อน: เอเชียตะวันออก (ญี่ปุ่น/เกาหลีกับเพื่อน)
+  C2b: [3, 1, 5, 0],  // คู่รัก: ยุโรป romantic สูงสุด
+  C3:  [2, 4, 0, 2],  // วัยเกษียณ: อาเซียน (เดินทางสบาย)
 };
 
 const Q2_SCORES: ScoreMap = {
-  //                          [ธรรมชาติ, คาเฟ่ชิล, กิจกรรม, กิน/วัฒนธรรม]
-  "สายคุ้มค่า":        [1, 1, 0, 4],
-  "สายธรรมชาติ":       [5, 0, 1, 1],
-  "สายกิจกรรม":        [1, 0, 5, 0],
-  "สายชิลล์พรีเมียม":  [1, 5, 0, 1],
-  "สายหัวคณะ":         [1, 2, 0, 3],
-  "สายมือใหม่":        [1, 3, 0, 3],
+  //    [ธรรมชาติ, คาเฟ่ชิล, กิจกรรม, กิน/วัฒนธรรม]
+  C1:  [2, 1, 1, 4],  // ครอบครัว: กิน/วัฒนธรรม (เด็กชอบ)
+  C2a: [4, 0, 5, 1],  // เพื่อน: ธรรมชาติ+กิจกรรม
+  C2b: [2, 5, 0, 1],  // คู่รัก: คาเฟ่ชิล ถ่ายรูป
+  C3:  [1, 2, 0, 5],  // วัยเกษียณ: กิน/วัฒนธรรม (ของกิน สำคัญ)
 };
 
 const Q3_SCORES: ScoreMap = {
-  //                          [3-4วัน, 5-6วัน, 7+วัน]
-  "สายคุ้มค่า":        [2, 3, 1],
-  "สายธรรมชาติ":       [0, 2, 4],
-  "สายกิจกรรม":        [0, 2, 4],
-  "สายชิลล์พรีเมียม":  [4, 3, 0],
-  "สายหัวคณะ":         [1, 3, 2],
-  "สายมือใหม่":        [2, 3, 0],
+  //    [3-4วัน, 5-6วัน, 7+วัน]
+  C1:  [2, 4, 1],  // ครอบครัว: 5-6 วัน (ปิดเทอม)
+  C2a: [0, 2, 5],  // เพื่อน: 7+ วัน adventure
+  C2b: [5, 3, 0],  // คู่รัก: 3-4 วัน ชิล
+  C3:  [1, 4, 2],  // วัยเกษียณ: 5-6 วัน pace สบาย
 };
 
 const Q4_SCORES: ScoreMap = {
-  //                          [<25k, 25-45k, 45-65k, 65k+]
-  "สายคุ้มค่า":        [4, 3, 0, 0],
-  "สายธรรมชาติ":       [1, 4, 2, 0],
-  "สายกิจกรรม":        [2, 4, 2, 0],
-  "สายชิลล์พรีเมียม":  [0, 1, 4, 5],
-  "สายหัวคณะ":         [3, 4, 0, 0],
-  "สายมือใหม่":        [4, 3, 0, 0],
+  //    [<25k, 25-45k, 45-65k, 65k+]
+  C1:  [4, 3, 0, 0],  // ครอบครัว: ราคาประหยัด (หลายคน)
+  C2a: [1, 5, 2, 0],  // เพื่อน: 25-45k
+  C2b: [0, 1, 4, 5],  // คู่รัก: premium 45k+
+  C3:  [2, 4, 1, 0],  // วัยเกษียณ: 25-45k
 };
 
 const Q5_SCORES: ScoreMap = {
-  //                          [ตารางแน่น, สถานที่ซ้ำซาก, อาหาร/ที่พัก, วันไม่ตรง]
-  "สายคุ้มค่า":        [1, 1, 2, 3],
-  "สายธรรมชาติ":       [2, 4, 1, 1],
-  "สายกิจกรรม":        [1, 4, 1, 1],
-  "สายชิลล์พรีเมียม":  [5, 1, 3, 1],
-  "สายหัวคณะ":         [1, 1, 3, 4],
-  "สายมือใหม่":        [3, 1, 3, 2],
+  //    [ตารางแน่น, สถานที่ซ้ำซาก, อาหาร/ที่พัก, วันไม่ตรง]
+  C1:  [1, 1, 2, 5],  // ครอบครัว: วันไม่ตรง (ต้องตรงปิดเทอม)
+  C2a: [2, 5, 1, 0],  // เพื่อน: สถานที่ซ้ำ (ต้องใหม่ๆ)
+  C2b: [5, 1, 3, 1],  // คู่รัก: ตารางแน่น (ต้องมีเวลาส่วนตัว)
+  C3:  [1, 2, 5, 3],  // วัยเกษียณ: อาหาร/ที่พัก (health concern)
 };
 
 const TRAVEL_EXP_BONUS: Record<string, Partial<Record<B2CPersona, number>>> = {
-  "first_time":   { "สายมือใหม่": 10 },
-  "1-3_times":    { "สายธรรมชาติ": 2, "สายกิจกรรม": 2, "สายชิลล์พรีเมียม": 1 },
-  "4_plus_times": { "สายหัวคณะ": 8 },
+  "first_time":   { C1: 3, C2a: 2 },   // มือใหม่มักเป็นครอบครัว หรือกลุ่มเพื่อน
+  "1-3_times":    { C2a: 2, C2b: 1 },  // เริ่มชำนาญ → เพื่อน/คู่รัก
+  "4_plus_times": { C3: 8 },            // เที่ยวถี่มาก → วัยเกษียณ
 };
 
 // Persona order สำหรับ tie-breaking (อยู่ก่อน = ชนะ tie)
-const B2C_PERSONA_ORDER: B2CPersona[] = [
-  "สายชิลล์พรีเมียม",
-  "สายธรรมชาติ",
-  "สายกิจกรรม",
-  "สายหัวคณะ",
-  "สายคุ้มค่า",
-  "สายมือใหม่", // ต้องมี travel_exp เป็น first_time ถึงจะชนะ
-];
+const B2C_PERSONA_ORDER: B2CPersona[] = ["C2b", "C3", "C2a", "C1"];
 
 export function inferPersonaB2C(
   q1: number,
@@ -160,14 +137,7 @@ export function inferPersonaB2C(
   q5?: number,
   travelExp?: string,
 ): B2CPersona {
-  const scores: Record<B2CPersona, number> = {
-    "สายคุ้มค่า": 0,
-    "สายธรรมชาติ": 0,
-    "สายกิจกรรม": 0,
-    "สายชิลล์พรีเมียม": 0,
-    "สายหัวคณะ": 0,
-    "สายมือใหม่": 0,
-  };
+  const scores: Record<B2CPersona, number> = { C1: 0, C2a: 0, C2b: 0, C3: 0 };
 
   for (const p of B2C_PERSONA_ORDER) {
     scores[p] += Q1_SCORES[p][q1 - 1] ?? 0;
@@ -248,15 +218,14 @@ export function inferPersonaFromCustomer(
   const avgPax =
     closedLeads.reduce((s, l) => s + (l.pax_count ?? 1), 0) / closedLeads.length;
 
-  // สายหัวคณะ: เที่ยวถี่ (≥4 trips) + จองหลายที่นั่งต่อครั้ง (avgPax ≥ 4) + ราคาต่อหัวปานกลาง
-  if (closedLeads.length >= 4 && avgPax >= 4 && avgPricePerSeat < 15000) {
-    return "สายหัวคณะ";
+  // C3: เที่ยวถี่ (≥4 trips) + กลุ่มใหญ่ (avgPax ≥ 4) + ราคาต่อหัวปานกลาง → วัยเกษียณ
+  if (closedLeads.length >= 4 && avgPax >= 4 && avgPricePerSeat < 20000) {
+    return "C3";
   }
 
-  if (avgPricePerSeat >= 20000) return "สายชิลล์พรีเมียม";
-  if (avgPricePerSeat >= 10000) return "สายธรรมชาติ";
-  if (avgPricePerSeat >= 5000)  return "สายกิจกรรม";
-  return "สายคุ้มค่า";
+  if (avgPricePerSeat >= 20000) return "C2b"; // คู่รัก/ทริปส่วนตัว
+  if (avgPricePerSeat >= 12000) return "C2a"; // เพื่อนสายสนุก
+  return "C1"; // ครอบครัว (งบประหยัด)
 }
 
 // ─── Age Group helper ────────────────────────────────────────────────────────
@@ -340,81 +309,67 @@ export const useSurveyStore = create<SurveyState>((set, get) => ({
 
 // ─── Persona display helpers ─────────────────────────────────────────────────
 
+export const PERSONA_LABELS: Record<PersonaTag, string> = {
+  C1:           "ครอบครัวไทยใจกว้าง",
+  C2a:          "เพื่อนสายสนุก",
+  C2b:          "คู่รัก/ทริปส่วนตัว",
+  C3:           "วัยเกษียณใจสู้",
+  "Outing B2B": "Outing B2B",
+  "Seminar B2B":"Seminar B2B",
+};
+
 export const PERSONA_COLORS: Record<PersonaTag, string> = {
-  "สายคุ้มค่า":        "bg-amber-100 text-amber-800 border-amber-300",
-  "สายธรรมชาติ":       "bg-green-100 text-green-800 border-green-300",
-  "สายกิจกรรม":        "bg-blue-100 text-blue-800 border-blue-300",
-  "สายชิลล์พรีเมียม":  "bg-purple-100 text-purple-800 border-purple-300",
-  "สายหัวคณะ":         "bg-rose-100 text-rose-800 border-rose-300",
-  "สายมือใหม่":        "bg-sky-100 text-sky-800 border-sky-300",
-  "Outing B2B":        "bg-orange-100 text-orange-800 border-orange-300",
-  "Seminar B2B":       "bg-teal-100 text-teal-800 border-teal-300",
+  C1:           "bg-orange-100 text-orange-800 border-orange-300",
+  C2a:          "bg-pink-100 text-pink-800 border-pink-300",
+  C2b:          "bg-purple-100 text-purple-800 border-purple-300",
+  C3:           "bg-rose-100 text-rose-800 border-rose-300",
+  "Outing B2B": "bg-emerald-100 text-emerald-800 border-emerald-300",
+  "Seminar B2B":"bg-teal-100 text-teal-800 border-teal-300",
 };
 
 export const PERSONA_EMOJI: Record<PersonaTag, string> = {
-  "สายคุ้มค่า":        "💰",
-  "สายธรรมชาติ":       "🌿",
-  "สายกิจกรรม":        "⚡",
-  "สายชิลล์พรีเมียม":  "💎",
-  "สายหัวคณะ":         "👑",
-  "สายมือใหม่":        "🌏",
-  "Outing B2B":        "🏕️",
-  "Seminar B2B":       "🎯",
+  C1:           "👨‍👩‍👧‍👦",
+  C2a:          "🎯",
+  C2b:          "💑",
+  C3:           "🌸",
+  "Outing B2B": "🏕️",
+  "Seminar B2B":"🎓",
 };
 
 export const ALL_PERSONAS: PersonaTag[] = [
-  "สายคุ้มค่า",
-  "สายธรรมชาติ",
-  "สายกิจกรรม",
-  "สายชิลล์พรีเมียม",
-  "สายหัวคณะ",
-  "สายมือใหม่",
-  "Outing B2B",
-  "Seminar B2B",
+  "C1", "C2a", "C2b", "C3", "Outing B2B", "Seminar B2B",
 ];
 
-/** Quick info สำหรับ Hover Tooltip บนหน้า Program */
+/** Quick info สำหรับ Hover Tooltip / Survey Result */
 export const PERSONA_QUICK_INFO: Record<PersonaTag, {
   who: string;
   budget: string;
   trigger: string;
   channels: string;
 }> = {
-  "สายคุ้มค่า": {
-    who: "ครอบครัว (สามี/ภรรยา + ลูก) · 35–50 ปี",
-    budget: "4,000–8,000 บ./คน",
-    trigger: "โปรโมชั่นราคาพิเศษ + เพื่อนแนะนำ",
-    channels: "Facebook, Line กลุ่มครอบครัว",
+  C1: {
+    who: "พ่อแม่ 38–55 ปี + ลูก · ครอบครัว 4–8 คน",
+    budget: "฿18,000–35,000/ท่าน",
+    trigger: "ปิดเทอม มี.ค. / ต.ค. / ส.ค. · ราคาต่อหัวชัด",
+    channels: "Facebook, Line OA, Referral",
   },
-  "สายธรรมชาติ": {
-    who: "คู่รัก / กลุ่มเพื่อน · 25–38 ปี",
-    budget: "8,000–15,000 บ./คน",
-    trigger: "รูปสวย + รีวิวจริง + ที่พักไม่แออัด",
-    channels: "Instagram, Reels, Blog รีวิว",
+  C2a: {
+    who: "กลุ่มเพื่อน 22–35 ปี · 3–8 คน",
+    budget: "฿12,000–25,000/ท่าน",
+    trigger: "Photo Spot ฮิต · กิจกรรมใหม่ · วันหยุดยาว",
+    channels: "TikTok, Instagram, Facebook Group",
   },
-  "สายกิจกรรม": {
-    who: "กลุ่มเพื่อน / solo · 20–35 ปี",
-    budget: "5,000–12,000 บ./คน",
-    trigger: "Activity ใหม่ที่ไม่เคยทำ + Challenge",
-    channels: "TikTok, YouTube Vlog",
+  C2b: {
+    who: "คู่รัก / Solo 25–45 ปี · 1–2 คน",
+    budget: "฿20,000–60,000+/ท่าน",
+    trigger: "ความเป็นส่วนตัว · โรงแรมสวย · วันพิเศษ",
+    channels: "Instagram, Google, Referral",
   },
-  "สายชิลล์พรีเมียม": {
-    who: "คู่รัก / solo professional · 30–45 ปี",
-    budget: "15,000 บ.+/คน",
-    trigger: "โรงแรม 5★ วิวดี + บริการส่วนตัว",
-    channels: "Instagram Aesthetic, Influencer",
-  },
-  "สายหัวคณะ": {
-    who: "วัยเกษียณ 58–70 ปี · หัวหน้ากลุ่มเพื่อน 5–15 คน",
-    budget: "6,000–12,000 บ./คน · จอง 5+ ครั้ง/ปี",
-    trigger: "OB ที่รู้จักแนะนำมา + เพื่อนกลุ่มเห็นด้วย",
-    channels: "โทรหา OB โดยตรง, Line ส่วนตัว",
-  },
-  "สายมือใหม่": {
-    who: "พนักงานออฟฟิศ / บัณฑิตใหม่ · 26–35 ปี · ยังไม่เคยไปต่างประเทศ",
-    budget: "12,000–18,000 บ./คน",
-    trigger: "รีวิว 'ครั้งแรกก็ทำได้' + ทีมช่วย visa ครบ",
-    channels: "TikTok, Google, Facebook Group ท่องเที่ยว",
+  C3: {
+    who: "วัยเกษียณ 55–75 ปี · กลุ่มเพื่อน/คณะ 6–20 คน",
+    budget: "฿22,000–60,000/ท่าน",
+    trigger: "เพื่อนชวน · Pace ช้า · ดูแลดี · อาหารถูกปาก",
+    channels: "Line OA, Word-of-Mouth, โทรตรง",
   },
   "Outing B2B": {
     who: "HR Manager / Admin · จัด Outing บริษัท",

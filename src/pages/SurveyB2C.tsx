@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { inferPersonaB2C, useSurveyStore, PERSONA_EMOJI, PERSONA_COLORS } from "@/store/surveyStore";
+import { inferPersonaB2C, useSurveyStore, PERSONA_EMOJI, PERSONA_COLORS, PERSONA_LABELS, PERSONA_QUICK_INFO } from "@/store/surveyStore";
 import type { B2CPersona } from "@/store/surveyStore";
 import { supabase } from "@/lib/supabase";
 
@@ -197,12 +197,10 @@ export default function SurveyB2C() {
     const emoji = PERSONA_EMOJI[persona];
     const colorClass = PERSONA_COLORS[persona];
     const personaDescriptions: Record<B2CPersona, string> = {
-      "สายคุ้มค่า":       "ทัวร์เส้นทางยอดฮิต เก็บแลนด์มาร์คครบ คุ้มทุกบาท",
-      "สายธรรมชาติ":      "ลุยชมวิว อุทยาน ธรรมชาติต่างประเทศที่ยังไม่แมส เดินเท้าชมวิว",
-      "สายกิจกรรม":       "ทริปธีมชัดเจน สกีญี่ปุ่น / ดำน้ำ / กิจกรรม extreme ที่ทำได้จริง",
-      "สายชิลล์พรีเมียม": "Slow Travel โรงแรม 4-5 ดาว ตารางหลวม มีเวลาอิสระ",
-      "สายหัวคณะ":        "จัดกรุ๊ปเพื่อน เราดูแลทุกขั้นตอน ราคาพิเศษสำหรับหัวคณะ",
-      "สายมือใหม่":       "ทีมงานช่วย visa ครบ ไกด์ดูแลตลอดทริป ไม่ต้องกลัวหลง เที่ยวต่างประเทศครั้งแรกก็ทำได้!",
+      C1:  "ทัวร์ครอบครัว เก็บแลนด์มาร์คครบ เดินทางสะดวก ลูกๆ ชอบ คุ้มทุกบาท",
+      C2a: "ทริปกับเพื่อนสนุก ถ่ายรูปอวด กิจกรรมครบ ไม่เบื่อแน่ๆ",
+      C2b: "ทริปสองคน ส่วนตัว ที่พักสวย บรรยากาศดี ไม่แออัด",
+      C3:  "จัดกรุ๊ปเพื่อน เราดูแลทุกขั้นตอน Pace ช้า อาหารถูกปาก ดูแลดี",
     };
 
     return (
@@ -214,8 +212,9 @@ export default function SurveyB2C() {
             <h1 className="text-2xl font-bold text-gray-800">ขอบคุณ! 🎉</h1>
             <p className="text-gray-500 text-sm">คุณคือ</p>
             <div className={`inline-block px-5 py-2 rounded-full text-base font-bold border ${colorClass}`}>
-              {persona}
+              {emoji} {PERSONA_LABELS[persona]}
             </div>
+            <p className="text-gray-400 text-xs">{PERSONA_QUICK_INFO[persona]?.who}</p>
             <p className="text-gray-500 text-sm leading-relaxed">
               {personaDescriptions[persona]}
             </p>
@@ -244,7 +243,7 @@ export default function SurveyB2C() {
             <div className="space-y-3">
               <h2 className="text-sm font-bold text-gray-700 px-1">
                 {toursMatched
-                  ? `🎯 โปรแกรมที่ตรงกับสไตล์ ${persona}`
+                  ? `🎯 โปรแกรมที่ตรงกับ ${PERSONA_LABELS[persona]}`
                   : "🗓️ โปรแกรมทัวร์ที่เปิดให้บริการอยู่ตอนนี้"}
               </h2>
               {tours.map((t) => (
