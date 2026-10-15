@@ -12,6 +12,7 @@ import { useServices, CANCEL_REASONS } from "@/store/serviceStore";
 import type { TourPeriod, TourItem } from "@/store/serviceStore";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useAtRiskPeriods } from "@/components/AtRiskNotification";
+import { useCurrentUser } from "@/store/authStore";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const BE = (y: number) => y + 543; // CE → Buddhist Era
@@ -251,6 +252,8 @@ function AtRiskRow({ p }: { p: ReturnType<typeof useAtRiskPeriods>[number] }) {
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function StockAnalytics() {
   const allPeriods = useFlatPeriods();
+  const user = useCurrentUser();
+  const isMarketing = user?.role === "Marketing" || user?.role === "Marketing Manager";
 
   // derive available years from data
   const availableYears = useMemo(() => {
@@ -663,8 +666,8 @@ export default function StockAnalytics() {
           )}
         </div>
 
-        {/* Recent events log */}
-        <RecentEventsLog />
+        {/* Recent events log — Admin/OB only, ไม่แสดงให้ Marketing */}
+        {!isMarketing && <RecentEventsLog />}
 
         </>)}
 

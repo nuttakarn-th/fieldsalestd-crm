@@ -1,11 +1,13 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/AllService.tsx
-git commit -m "feat: Marketing/Marketing Manager เห็นปุ่ม Archive period ได้ (v397)
+git add src/pages/AllService.tsx src/pages/StockAnalytics.tsx
+git commit -m "feat: Marketing role — Archive period + ซ่อน Activity Log (v397)
 
-เพิ่ม role === Marketing | Marketing Manager ใน 2 จุด:
-1. Archive toggle button (stats bar)
-2. Archive section display (คลังโปรแกรม)"
+AllService.tsx:
+- Marketing / Marketing Manager เห็นปุ่ม Archive period และคลังโปรแกรมได้
+
+StockAnalytics.tsx:
+- ซ่อน Recent Activity Log สำหรับ Marketing / Marketing Manager"
 git push
 echo.
 echo === v397 pushed ===
