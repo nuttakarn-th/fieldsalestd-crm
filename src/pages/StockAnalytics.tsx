@@ -666,8 +666,8 @@ export default function StockAnalytics() {
           )}
         </div>
 
-        {/* Recent events log — Admin/OB only, ไม่แสดงให้ Marketing */}
-        {!isMarketing && <RecentEventsLog />}
+        {/* Recent events log — Admin only */}
+        {user?.role === "Admin" && <RecentEventsLog />}
 
         </>)}
 
