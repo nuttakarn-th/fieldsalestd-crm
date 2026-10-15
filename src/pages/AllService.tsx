@@ -2266,8 +2266,8 @@ ${catBlocks}
                   </button>
                 </div>
               )}
-              {/* 📦 Archive toggle — Admin only */}
-              {role === "Admin" && archivedPeriodItems.length > 0 && (
+              {/* 📦 Archive toggle — ทุก Role เห็นปุ่ม แต่ section ด้านล่างแสดงเฉพาะ Admin */}
+              {archivedPeriodItems.length > 0 && (
                 <div className="flex items-center px-2 py-1.5 shrink-0">
                   <button
                     onClick={() => setShowArchived((v) => !v)}
