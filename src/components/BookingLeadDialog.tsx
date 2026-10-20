@@ -39,7 +39,7 @@ export interface BookingLeadDialogProps {
 
 // ── Source chips ──────────────────────────────────────────────────────────────
 
-const SOURCES: Source[] = ["Walk-in", "Field Sale", "FB", "Line OA", "Referral", "TikTok", "Agent"];
+const SOURCES: Source[] = ["Walk-in", "Field Sale", "FB", "Line OA", "Referral", "TikTok", "Agent", "โทร"];
 const ROOM_TYPES = ["TWN", "SGL", "DBL", "TRP"] as const;
 const FOOD_PRESETS = ["ปกติ", "มังสวิรัติ", "ฮาลาล"] as const;
 
