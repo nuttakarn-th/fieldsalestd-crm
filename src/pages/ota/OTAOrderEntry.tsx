@@ -505,8 +505,14 @@ export default function OTAOrderEntry() {
     setShowForm(true);
   };
   const openEdit = (o: OTAOrder) => {
-    const pct = o.commission_pct ?? 0;
     const gross = o.gross_price ?? 0;
+    const disc  = o.discount ?? 0;
+    const rev   = o.revenue ?? 0;
+    // คำนวณ commission_pct ย้อนกลับจาก revenue ที่เก็บไว้ (full precision ไม่ตัดทศนิยม)
+    // เพื่อให้คำนวณ Net Revenue ใน modal ได้ตรงกับค่าที่ถูกบันทึกไว้
+    const exactPct = gross > 0 && rev > 0
+      ? (gross - rev - disc) / gross * 100
+      : (o.commission_pct ?? 0);
     setForm({
       booking_date: o.booking_date, usage_date: o.usage_date,
       order_number: o.order_number, group_number: o.group_number,
@@ -515,12 +521,12 @@ export default function OTAOrderEntry() {
       nationality: o.nationality ?? "", guide_name: o.guide_name ?? "",
       pickup_hotel: o.pickup_hotel ?? "",
       gross_price: gross,
-      commission_pct: pct,
-      discount: o.discount ?? 0,
-      revenue: o.revenue,
+      commission_pct: exactPct,
+      discount: disc,
+      revenue: rev,
     });
     setCommissionMode("pct");
-    setCommissionAmtDirect(+(gross * pct / 100).toFixed(2));
+    setCommissionAmtDirect(+(gross * exactPct / 100).toFixed(2));
     setEditId(o.id); setShowForm(true);
   };
   const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
@@ -732,6 +738,10 @@ export default function OTAOrderEntry() {
           const revenue     = revFromFile > 0
             ? +revFromFile.toFixed(2)
             : +(grossPrice - (grossPrice * commPct / 100) - discount).toFixed(2);
+          // คำนวณ commission_pct ย้อนกลับจาก revenue (full precision) เพื่อให้ recalculate ใน modal ได้ตรง
+          const exactCommPct = revFromFile > 0 && grossPrice > 0
+            ? (grossPrice - revFromFile - discount) / grossPrice * 100
+            : commPct;
 
           const orderData: Omit<OTAOrder, "id" | "created_at"> = {
             booking_date:    parsedBookingDate,
@@ -746,7 +756,7 @@ export default function OTAOrderEntry() {
             guide_name:      String(guide ?? ""),
             pickup_hotel:    String(pickupHotel ?? ""),
             gross_price:     grossPrice,
-            commission_pct:  commPct,
+            commission_pct:  exactCommPct,
             discount:        discount,
             revenue:         revenue,
             created_by:      currentUser?.full_name ?? "Import",
@@ -1622,7 +1632,7 @@ export default function OTAOrderEntry() {
                     </div>
                     {commissionMode === "pct" ? (
                       <input type="number" min={0} max={100} step="0.1"
-                        value={form.commission_pct === 0 ? "" : form.commission_pct}
+                        value={form.commission_pct === 0 ? "" : +form.commission_pct.toFixed(2)}
                         onChange={(e) => setForm((f) => ({ ...f, commission_pct: parseFloat(e.target.value) || 0 }))}
                         placeholder="e.g. 15" className={inputCls} />
                     ) : (
