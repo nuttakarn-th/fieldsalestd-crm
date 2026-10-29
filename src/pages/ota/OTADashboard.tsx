@@ -859,7 +859,7 @@ export default function OTADashboard() {
   // ── Navigation ────────────────────────────────────────────────────────────────
   const navPrev = () => setRefDate((d) => shiftRef(d, periodType, -1));
   const navNext = () => setRefDate((d) => shiftRef(d, periodType, 1));
-  const canNavNext = periodType !== "ytd" && periodType !== "custom" && endDate < fmtISO(today);
+  const canNavNext = periodType !== "ytd" && periodType !== "custom";
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
