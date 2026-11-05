@@ -11,7 +11,7 @@ import { useServices } from "@/store/serviceStore";
 import { useAuth } from "@/store/authStore";
 import { logActivity, getDeptFromRole } from "@/lib/activityLog";
 
-export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent" | "โทร";
+export type Source = "Field Sale" | "FB" | "Line OA" | "Website" | "TikTok" | "Google" | "Walk-in" | "Referral" | "Agent" | "โทร" | "OpenChat";
 export type Tier = "New" | "Regular" | "VIP";
 export type Segment = "B2C Individual" | "B2C Group" | "B2B Agent" | "Corporate";
 export type LeadStatus =
@@ -247,7 +247,7 @@ export interface QuotationDoc {
   updated_at?: string;
 }
 export const LEAD_CATEGORIES: LeadCategory[] = ["ลูกค้าทั่วไป", "บริษัทเอกชน", "หน่วยงานราชการ", "มหาวิทยาลัยเอกชน", "มหาวิทยาลัยรัฐบาล"];
-export const SOURCES: Source[] = ["Field Sale", "FB", "Line OA", "Website", "TikTok", "Google", "Walk-in", "Referral", "Agent", "โทร"];
+export const SOURCES: Source[] = ["Field Sale", "FB", "Line OA", "Website", "TikTok", "Google", "Walk-in", "Referral", "Agent", "โทร", "OpenChat"];
 export const BU_TYPES: BUType[] = ["ทัวร์ต่างประเทศ", "ทัวร์ภายในประเทศ", "เช่ารถ ท่องเที่ยว", "จองตั๋วเครื่องบิน"];
 
 export type ContentStatus   = "Draft" | "Scheduled" | "Published" | "Done";

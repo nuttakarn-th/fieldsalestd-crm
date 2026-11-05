@@ -1040,9 +1040,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      // cancelled → 0; edit → preserve booked (computeEditQuota); create → seats
+      // cancelled → preserve existing quota (actual bookings); edit → computeEditQuota; create → seats
       quota: pForm.cancelled
-        ? 0
+        ? (pEditId ? (existingPeriod?.quota ?? seats) : seats)
         : pEditId
           ? computeEditQuota()
           : seats,
