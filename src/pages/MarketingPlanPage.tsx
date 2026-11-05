@@ -2,13 +2,13 @@
  * MarketingPlanPage.tsx
  * Marketing Master Plan 2027 — Gantt Timeline + CRUD
  * Route: /marketing/plan
- * v393 — Sticky col, compact filter dropdown, 3-dot action menu
+ * v394 — Detail drawer: คลิกชื่อ/แถวเพื่อดูรายละเอียดกิจกรรม
  */
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Plus, Pencil, Trash2, ChevronDown, ChevronRight, Loader2,
   Filter, TrendingUp, AlertCircle, CheckCircle2,
-  Clock, XCircle, BarChart2, X, Save, MoreHorizontal,
+  Clock, XCircle, BarChart2, X, Save, MoreHorizontal, ExternalLink,
 } from "lucide-react";
 import {
   useMarketingPlanStore,
@@ -448,6 +448,199 @@ function FilterDropdown({ label, activeCount, children }: {
   );
 }
 
+// ─── Detail Drawer ────────────────────────────────────────────────────────────
+function DetailDrawer({
+  item,
+  onClose,
+  onEdit,
+}: {
+  item: PlanItem | null;
+  onClose: () => void;
+  onEdit: (item: PlanItem) => void;
+}) {
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const isOpen = !!item;
+  const totalPlan   = item ? item.monthly_amounts.reduce((a, b) => a + b, 0) : 0;
+  const totalActual = item ? item.actual_amounts.reduce((a, b) => a + b, 0)  : 0;
+  const pct = totalPlan > 0 ? Math.round(totalActual / totalPlan * 100) : 0;
+  const maxBar = item ? Math.max(...item.monthly_amounts, ...item.actual_amounts, 1) : 1;
+
+  const deptColor = (d: string) => DEPT_BAR[d] ?? "#e6e0ea";
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-[#fff9f4] border-l border-muted shadow-2xl transition-transform duration-200 ease-out`}
+        style={{ width: "min(460px, 100vw)", transform: isOpen ? "translateX(0)" : "translateX(105%)" }}>
+
+        {!item ? null : (
+          <>
+            {/* Header */}
+            <div className="p-5 pb-4 border-b border-muted/60 relative">
+              <p className="text-[11px] text-muted-foreground mb-1">
+                {item.side === "off" ? "OFFLINE" : "ONLINE"} · {item.departments.join(" · ")}
+              </p>
+              <h3 className="text-lg font-bold leading-snug text-foreground pr-8">{item.title}</h3>
+              {/* dept color strip */}
+              <div className="flex gap-1 mt-2.5 h-1.5">
+                {item.departments.map((d) => (
+                  <div key={d} className="flex-1 rounded-full" style={{ background: deptColor(d) }}/>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3 flex-wrap">
+                {item.departments.map((d) => <DeptTag key={d} dept={d}/>)}
+                <StatusBadge status={item.status}/>
+                {item.is_new && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-700">ใหม่</span>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full border flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground">
+                <X className="w-4 h-4"/>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+              {/* KV: Budget + KPI */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-background border rounded-xl p-3">
+                  <span className="text-[11px] text-muted-foreground block mb-0.5">งบประมาณ (แผน)</span>
+                  <span className="text-lg font-bold text-foreground">
+                    {item.is_na ? "ซ้อนในงบอื่น" : item.budget > 0 ? `฿${Math.round(item.budget).toLocaleString("th-TH")}` : "รอข้อมูล"}
+                  </span>
+                </div>
+                <div className="bg-background border rounded-xl p-3">
+                  <span className="text-[11px] text-muted-foreground block mb-0.5">ใช้จริงสะสม</span>
+                  <span className="text-lg font-bold text-foreground">
+                    {totalActual > 0 ? `฿${Math.round(totalActual).toLocaleString("th-TH")}` : "—"}
+                    {totalActual > 0 && totalPlan > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground ml-1.5">({pct}%)</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI */}
+              {item.kpi && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-violet-600 uppercase">KPI / เป้าหมาย</p>
+                  <p className="text-sm text-foreground leading-relaxed bg-violet-50 rounded-xl p-3 border border-violet-100">{item.kpi}</p>
+                </div>
+              )}
+
+              {/* Description */}
+              {item.description && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">รายละเอียด</p>
+                  <p className="text-sm leading-relaxed text-foreground">{item.description}</p>
+                </div>
+              )}
+
+              {/* Owner */}
+              {item.owner && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide">ผู้รับผิดชอบ:</span>
+                  <span className="text-foreground font-medium">{item.owner}</span>
+                </div>
+              )}
+
+              {/* Notes */}
+              {item.wait_note && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-sm text-orange-800">
+                  ⏳ <span className="font-semibold">รอข้อมูล:</span> {item.wait_note}
+                </div>
+              )}
+              {item.warn_note && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-800">
+                  ⚠ <span className="font-semibold">คำเตือน:</span> {item.warn_note}
+                </div>
+              )}
+              {item.unscheduled_note && (
+                <div className="bg-muted/60 border border-muted rounded-xl p-3 text-sm text-muted-foreground">
+                  📌 {item.unscheduled_note}
+                </div>
+              )}
+
+              {/* Monthly budget chart */}
+              {totalPlan > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">งบรายเดือน</p>
+                  <div className="grid grid-cols-12 gap-0.5 items-end" style={{ height: 56 }}>
+                    {MONTHS.map((m, i) => {
+                      const plan   = item.monthly_amounts[i] ?? 0;
+                      const actual = item.actual_amounts[i] ?? 0;
+                      const hPlan   = plan   > 0 ? Math.max(4, Math.round(plan   / maxBar * 44)) : 0;
+                      const hActual = actual > 0 ? Math.max(3, Math.round(actual / maxBar * 44)) : 0;
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-0.5">
+                          <div className="flex flex-col-reverse items-center justify-start gap-0.5 h-11 w-full">
+                            {hPlan > 0 && (
+                              <div
+                                className="w-full rounded-t-sm opacity-70"
+                                style={{ height: hPlan, background: deptColor(item.departments[0] ?? "OB") }}
+                                title={`แผน ฿${Math.round(plan).toLocaleString("th-TH")}`}
+                              />
+                            )}
+                            {hActual > 0 && (
+                              <div
+                                className="w-full rounded-t-sm"
+                                style={{ height: hActual, background: "#34d399" }}
+                                title={`จริง ฿${Math.round(actual).toLocaleString("th-TH")}`}
+                              />
+                            )}
+                          </div>
+                          <span className="text-[8px] text-muted-foreground leading-none">{m.replace(".", "")}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-2 rounded-sm inline-block opacity-70" style={{ background: deptColor(item.departments[0] ?? "OB") }}/>
+                      งบแผน
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-2 rounded-sm bg-emerald-400 inline-block"/>
+                      ใช้จริง
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t flex gap-2">
+              <button
+                onClick={() => { onEdit(item); onClose(); }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors">
+                <Pencil className="w-3.5 h-3.5"/> แก้ไข
+              </button>
+              <button onClick={onClose} className="px-4 py-2 rounded-xl border hover:bg-muted text-sm transition-colors">
+                ปิด
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MarketingPlanPage() {
   const { items, loading, error, fetchAll, createItem, updateItem, deleteItem, updateStatus } = useMarketingPlanStore();
@@ -463,6 +656,7 @@ export default function MarketingPlanPage() {
   // ── Action menu (3-dot, fixed position to avoid overflow clip) ──────────────
   const [actionMenu,    setActionMenu]    = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [selectedItem,  setSelectedItem]  = useState<PlanItem | null>(null);
 
   useEffect(() => {
     const handler = () => { setActionMenu(null); setActionMenuPos(null); };
@@ -759,13 +953,16 @@ export default function MarketingPlanPage() {
 
                           {/* L3 Rows */}
                           {!l2Collapsed && l3s.map((l3) => (
-                            <tr key={l3.id} className="hover:bg-muted/30 transition-colors border-b border-muted/30 group">
+                            <tr
+                              key={l3.id}
+                              className="hover:bg-muted/30 transition-colors border-b border-muted/30 group cursor-pointer"
+                              onClick={() => setSelectedItem(l3)}>
                               {/* Activity name — sticky */}
                               <td className="sticky left-0 z-[2] bg-background group-hover:bg-muted/30 px-8 py-2 text-xs transition-colors" style={{ maxWidth: 288 }}>
                                 <div className="flex items-start gap-1">
                                   <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5"/>
                                   <div className="min-w-0">
-                                    <div className="font-semibold text-foreground leading-snug truncate" title={l3.title}>
+                                    <div className="font-semibold text-foreground leading-snug truncate hover:text-violet-700 hover:underline" title={l3.title}>
                                       {l3.title}
                                       {l3.is_new && <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700">ใหม่</span>}
                                       {l3.warn_note && <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700">⚠</span>}
@@ -881,6 +1078,13 @@ export default function MarketingPlanPage() {
           <MoreHorizontal className="w-3 h-3"/> กด ⋯ ท้ายแถว เพื่อแก้ไข / ลบ · คลิกคอลัมน์เดือน เพื่อกรอง · คลิก สถานะ เพื่อเปลี่ยน
         </p>
       </div>
+
+      {/* ── Detail Drawer ───────────────────────────────────────────────────── */}
+      <DetailDrawer
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onEdit={(item) => setModal({ mode: "edit", item })}
+      />
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
       {modal && (
