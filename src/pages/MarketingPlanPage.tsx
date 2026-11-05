@@ -601,7 +601,7 @@ export default function MarketingPlanPage() {
             <thead>
               {/* Quarter row */}
               <tr className="bg-muted/60">
-                <th className="text-left px-4 py-2 text-xs font-bold text-muted-foreground" colSpan={4}>กิจกรรม / Campaign · ปี 2570</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-muted-foreground" colSpan={5}>กิจกรรม / Campaign · ปี 2570</th>
                 {["Q1 (ม.ค.–มี.ค.)","Q2 (เม.ย.–มิ.ย.)","Q3 (ก.ค.–ก.ย.)","Q4 (ต.ค.–ธ.ค.)"].map((q) => (
                   <th key={q} colSpan={3} className="text-center py-2 text-xs font-bold text-muted-foreground border-l border-muted/40">{q}</th>
                 ))}
@@ -619,10 +619,11 @@ export default function MarketingPlanPage() {
                     {m}
                   </th>
                 ))}
+                <th className="w-14 border-l border-muted/40"/>
               </tr>
               {/* Budget per month */}
               <tr className="border-b border-muted/40 bg-violet-50/60">
-                <td className="px-4 py-1.5 text-[10px] text-muted-foreground font-semibold" colSpan={4}>งบแผนรวมต่อเดือน</td>
+                <td className="px-4 py-1.5 text-[10px] text-muted-foreground font-semibold" colSpan={5}>งบแผนรวมต่อเดือน</td>
                 {monthTotals.map((v, i) => (
                   <td key={i} className={`text-center py-1.5 text-[9px] font-bold border-l border-muted/20 ${filterMonth === i ? "bg-violet-100 text-violet-700" : i === CURRENT_MONTH ? "bg-amber-50 text-amber-700" : "text-muted-foreground"}`}>
                     {v > 0 ? `฿${fmtBudget(v)}` : "—"}
@@ -665,6 +666,7 @@ export default function MarketingPlanPage() {
                           </td>
                         );
                       })}
+                      <td className="border-l border-white/10"/>
                     </tr>
 
                     {!l1Collapsed && l2s.map((l2) => {
@@ -696,6 +698,7 @@ export default function MarketingPlanPage() {
                                 </td>
                               );
                             })}
+                            <td className="bg-violet-50 dark:bg-violet-900/20"/>
                           </tr>
 
                           {/* L3 Rows */}
@@ -745,9 +748,9 @@ export default function MarketingPlanPage() {
                               {Array(12).fill(null).map((_, i) => (
                                 <GanttCell key={i} item={l3} monthIndex={i} selectedMonth={filterMonth}/>
                               ))}
-                              {/* Action buttons - hidden unless hover */}
-                              <td className="hidden group-hover:table-cell absolute right-2 top-1/2 -translate-y-1/2">
-                                <div className="flex gap-1">
+                              {/* Action buttons — always in DOM, fade in on hover (no layout shift) */}
+                              <td className="px-1 py-1 w-14 border-l border-muted/20">
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                                   <button onClick={(e) => { e.stopPropagation(); setModal({ mode: "edit", item: l3 }); }}
                                     className="w-6 h-6 rounded-lg bg-background border flex items-center justify-center hover:bg-violet-50 transition-colors">
                                     <Pencil className="w-3 h-3 text-violet-600"/>
@@ -780,14 +783,16 @@ export default function MarketingPlanPage() {
                     {v > 0 ? `฿${fmtBudget(v)}` : "—"}
                   </td>
                 ))}
+                <td className="border-l border-white/10"/>
               </tr>
               <tr className="bg-violet-50 border-t border-violet-100">
-                <td className="px-4 py-2 text-xs font-semibold text-violet-700" colSpan={4}>ใช้จริง (Actual)</td>
+                <td className="px-4 py-2 text-xs font-semibold text-violet-700" colSpan={5}>ใช้จริง (Actual)</td>
                 {monthActuals.map((v, i) => (
                   <td key={i} className={`text-center py-2 text-[10px] font-bold border-l border-muted/20 ${v > 0 ? "text-green-700" : "text-muted-foreground"}`} style={{ width: 52 }}>
                     {v > 0 ? `฿${fmtBudget(v)}` : "—"}
                   </td>
                 ))}
+                <td/>
               </tr>
             </tfoot>
           </table>
