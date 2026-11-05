@@ -12,7 +12,7 @@ import { MessageSquare, ChevronDown, ChevronRight, ChevronLeft, ChevronRight as 
 import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Home, BarChart3, Megaphone, LayoutGrid, Users, PackageSearch,
-  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus, Radio, Smile,
+  TrendingUp, Target, Users2, CheckSquare, Images, BookOpen, UserPlus, Radio, Smile, CalendarRange,
 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { useCRM } from "@/store/crmStore";
@@ -84,6 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Revenue Dashboard", icon: TrendingUp,    to: "/marketing/revenue-dashboard"        },
       { label: "OKR Follower",      icon: Target,        to: "/marketing/okr-follower"             },
+      { label: "Marketing Plan",    icon: CalendarRange, to: "/marketing/plan"                     },
       { label: "Ads Dashboard",     icon: TrendingUp,    to: "/ads-dashboard"                      },
       { label: "Ads Report",        icon: BarChart3,     to: "/marketing/ads-report"               },
     ],

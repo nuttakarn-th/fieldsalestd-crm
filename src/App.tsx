@@ -112,6 +112,7 @@ import TeamKPIPage from "./pages/TeamKPIPage.tsx";
 import AdsReport from "./pages/AdsReport.tsx";
 import OKRFollowerPage from "./pages/OKRFollowerPage.tsx";
 import RevenueDashboard from "./pages/RevenueDashboard.tsx";
+import MarketingPlanPage from "./pages/MarketingPlanPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -232,6 +233,7 @@ const App = () => (
             <Route path="ads-report"        element={<AdsReport />} />
             <Route path="revenue-dashboard" element={<RevenueDashboard />} />
             <Route path="okr-follower"      element={<OKRFollowerPage />} />
+            <Route path="plan"              element={<MarketingPlanPage />} />
             <Route path="persona-survey"    element={<PersonaSurveyDashboard />} />
             <Route path="persona"           element={<PersonaPage />} />
           </Route>
