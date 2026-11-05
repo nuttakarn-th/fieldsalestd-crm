@@ -1,10 +1,10 @@
 /**
  * okrFollowerStore.ts
- * Zustand store สำหรับ OKR Follower Growth
- * เก็บข้อมูล Follower รายเดือน 5 platforms: Facebook, YouTube, TikTok, Instagram, Google Maps (reviews)
+ * OKR Follower Growth — ติดตามเป้า Social Follower รายไตรมาส
+ * ข้อมูลเก็บใน Supabase (ไม่ใช่ localStorage) เพื่อให้ใช้งานได้จากทุกเครื่อง
  */
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 export interface OKRMonth {
   month: string;           // "YYYY-MM"
@@ -12,8 +12,8 @@ export interface OKRMonth {
   youtube: number | null;
   tiktok: number | null;
   instagram: number | null;
-  google_maps: number | null;   // จำนวนรีวิว Google Maps
-  google_rating: number | null; // คะแนนเฉลี่ย (ไว้ใช้อนาคต)
+  google_maps: number | null;
+  google_rating: number | null;
   updated_at?: string;
 }
 
@@ -28,8 +28,11 @@ export interface OKRTargets {
 interface OKRFollowerState {
   entries: OKRMonth[];
   targets: OKRTargets;
-  setEntry: (entry: OKRMonth) => void;
-  setTargets: (t: Partial<OKRTargets>) => void;
+  loading: boolean;
+  error: string | null;
+  fetchAll: () => Promise<void>;
+  setEntry: (entry: OKRMonth) => Promise<void>;
+  setTargets: (t: Partial<OKRTargets>) => Promise<void>;
 }
 
 const DEFAULT_TARGETS: OKRTargets = {
@@ -40,47 +43,105 @@ const DEFAULT_TARGETS: OKRTargets = {
   google_maps: null,
 };
 
-// ─── Seed data — trajectory สมมุติ ──────────────────────────────────────────
-// ผู้ใช้จะ override ด้วยข้อมูลจริงผ่าน InputForm
-const SEED_ENTRIES: OKRMonth[] = [
-  { month: "2025-08", facebook: 6800, youtube: 15, tiktok:  50, instagram: null, google_maps: null, google_rating: null },
-  { month: "2025-09", facebook: 7000, youtube: 20, tiktok:  80, instagram: null, google_maps: null, google_rating: null },
-  { month: "2025-10", facebook: 7200, youtube: 25, tiktok: 120, instagram: null, google_maps: null, google_rating: null },
-  { month: "2025-11", facebook: 7400, youtube: 30, tiktok: 160, instagram: null, google_maps: null, google_rating: null },
-  { month: "2025-12", facebook: 7500, youtube: 35, tiktok: 200, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-01", facebook: 7600, youtube: 38, tiktok: 260, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-02", facebook: 7700, youtube: 40, tiktok: 320, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-03", facebook: 7900, youtube: 45, tiktok: 380, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-04", facebook: 8100, youtube: 55, tiktok: 430, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-05", facebook: 8250, youtube: 65, tiktok: 470, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-06", facebook: 8350, youtube: 73, tiktok: 510, instagram: null, google_maps: null, google_rating: null },
-  { month: "2026-07", facebook: 8500, youtube: 85, tiktok: 560, instagram: null, google_maps: null, google_rating: null },
-];
+export const useOKRFollowerStore = create<OKRFollowerState>()((set, get) => ({
+  entries: [],
+  targets: DEFAULT_TARGETS,
+  loading: false,
+  error: null,
 
-export const useOKRFollowerStore = create<OKRFollowerState>()(
-  persist(
-    (set) => ({
-      entries: SEED_ENTRIES,
-      targets: DEFAULT_TARGETS,
+  fetchAll: async () => {
+    if (!SUPABASE_ENABLED) return;
+    set({ loading: true, error: null });
+    try {
+      const [entriesRes, targetsRes] = await Promise.all([
+        supabase
+          .from("okr_follower_entries")
+          .select("*")
+          .order("month", { ascending: true }),
+        supabase
+          .from("okr_follower_targets")
+          .select("*")
+          .eq("id", 1)
+          .single(),
+      ]);
 
-      setEntry: (entry) =>
-        set((s) => {
-          const idx = s.entries.findIndex((e) => e.month === entry.month);
-          if (idx >= 0) {
-            const next = [...s.entries];
-            next[idx] = { ...next[idx], ...entry };
-            return { entries: next };
-          }
-          return {
-            entries: [...s.entries, entry].sort((a, b) =>
-              a.month.localeCompare(b.month)
-            ),
-          };
-        }),
+      if (entriesRes.error) throw entriesRes.error;
+      if (targetsRes.error && targetsRes.error.code !== "PGRST116") throw targetsRes.error;
 
-      setTargets: (t) =>
-        set((s) => ({ targets: { ...s.targets, ...t } })),
-    }),
-    { name: "okr-follower-store-v1" }
-  )
-);
+      set({
+        entries: (entriesRes.data ?? []) as OKRMonth[],
+        targets: targetsRes.data
+          ? {
+              facebook:    targetsRes.data.facebook    ?? DEFAULT_TARGETS.facebook,
+              youtube:     targetsRes.data.youtube     ?? DEFAULT_TARGETS.youtube,
+              tiktok:      targetsRes.data.tiktok      ?? DEFAULT_TARGETS.tiktok,
+              instagram:   targetsRes.data.instagram   ?? null,
+              google_maps: targetsRes.data.google_maps ?? null,
+            }
+          : DEFAULT_TARGETS,
+        loading: false,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ loading: false, error: msg });
+    }
+  },
+
+  setEntry: async (entry: OKRMonth) => {
+    // Optimistic update
+    set((s) => {
+      const idx = s.entries.findIndex((e) => e.month === entry.month);
+      if (idx >= 0) {
+        const next = [...s.entries];
+        next[idx] = { ...next[idx], ...entry };
+        return { entries: next };
+      }
+      return {
+        entries: [...s.entries, entry].sort((a, b) =>
+          a.month.localeCompare(b.month)
+        ),
+      };
+    });
+
+    if (!SUPABASE_ENABLED) return;
+    try {
+      const { error } = await supabase.from("okr_follower_entries").upsert({
+        month:         entry.month,
+        facebook:      entry.facebook,
+        youtube:       entry.youtube,
+        tiktok:        entry.tiktok,
+        instagram:     entry.instagram,
+        google_maps:   entry.google_maps,
+        google_rating: entry.google_rating,
+        updated_at:    new Date().toISOString(),
+      }, { onConflict: "month" });
+      if (error) throw error;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg });
+    }
+  },
+
+  setTargets: async (t: Partial<OKRTargets>) => {
+    // Optimistic update
+    set((s) => ({ targets: { ...s.targets, ...t } }));
+
+    if (!SUPABASE_ENABLED) return;
+    try {
+      const current = get().targets;
+      const { error } = await supabase.from("okr_follower_targets").upsert({
+        id:          1,
+        facebook:    t.facebook    ?? current.facebook,
+        youtube:     t.youtube     ?? current.youtube,
+        tiktok:      t.tiktok      ?? current.tiktok,
+        instagram:   "instagram"   in t ? t.instagram   : current.instagram,
+        google_maps: "google_maps" in t ? t.google_maps : current.google_maps,
+        updated_at:  new Date().toISOString(),
+      }, { onConflict: "id" });
+      if (error) throw error;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({ error: msg });
+    }
+  },
+}));

@@ -4,8 +4,8 @@
  * 5 platforms: Facebook, YouTube, TikTok, Instagram, Google Maps (Reviews)
  * Reporter: บีม · รายเดือน
  */
-import { useState } from "react";
-import { Target, TrendingUp, TrendingDown, Minus, Plus, Pencil, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Target, TrendingUp, TrendingDown, Minus, Plus, Pencil, X, Loader2 } from "lucide-react";
 import { useOKRFollowerStore } from "@/store/okrFollowerStore";
 import type { OKRMonth, OKRTargets } from "@/store/okrFollowerStore";
 
@@ -491,9 +491,36 @@ function EditTargetsModal({ onClose }: { onClose: () => void }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function OKRFollowerPage() {
-  const { entries, targets } = useOKRFollowerStore();
+  const { entries, targets, loading, error, fetchAll } = useOKRFollowerStore();
   const [showEditTargets, setShowEditTargets] = useState(false);
   const { q, year } = currentQuarter();
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  if (loading && entries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+        <p className="text-sm">กำลังโหลดข้อมูล OKR...</p>
+      </div>
+    );
+  }
+
+  if (error && entries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
+        <p className="text-sm text-red-500">โหลดข้อมูลไม่สำเร็จ: {error}</p>
+        <button
+          onClick={() => fetchAll()}
+          className="text-xs px-4 py-2 rounded-xl border hover:bg-muted transition-colors"
+        >
+          ลองใหม่
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5 pb-10">
