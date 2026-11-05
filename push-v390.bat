@@ -1,13 +1,13 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/StockAnalytics.tsx
-git commit -m "fix: Program Ranking — Period Count นับทุก period รวม archived + past (v390)
+git add src/store/okrFollowerStore.ts src/pages/OKRFollowerPage.tsx
+git commit -m "feat: OKR Follower — ย้ายจาก localStorage → Supabase (v390)
 
-แยก logic 2 ชุด:
-  - Period ทั้งหมด = นับทุก period ที่เคยสร้าง (archived + past + active)
-    ยกเว้นเฉพาะ cancelled และ !start_date
-  - จอง / ที่นั่ง / Rate / มูลค่า = คำนวณเฉพาะ period ที่ไม่ได้ cancelled
-Column header เปลี่ยนเป็น 'Period ทั้งหมด' พร้อม tooltip อธิบาย"
+- สร้างตาราง okr_follower_entries + okr_follower_targets ใน Supabase
+- Rewrite okrFollowerStore.ts: ลบ Zustand persist (localStorage)
+  เพิ่ม fetchAll() โหลดจาก Supabase, setEntry/setTargets เขียนลง Supabase
+- OKRFollowerPage: useEffect fetchAll() on mount + loading/error state
+- แก้ปัญหา: หน้านี้ไม่โหลดข้อมูล / ไม่บันทึกเมื่อเปิดจากเครื่องอื่น"
 git push
 echo.
 echo === v390 pushed ===

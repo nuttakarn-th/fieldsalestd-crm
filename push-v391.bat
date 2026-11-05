@@ -1,16 +1,11 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/StockAnalytics.tsx
-git commit -m "feat: เพิ่ม Cancellation Analytics Tab ใน Stock Analytics (v391)
+git add src/store/marketingPlanStore.ts src/pages/MarketingPlanPage.tsx src/App.tsx src/pages/MarketingLayout.tsx
+git commit -m "feat: Marketing Plan 2570 — Gantt + CRUD + Supabase (v391)
 
-Tab ใหม่ '❌ Cancellation' ประกอบด้วย:
-  - KPI: period ยกเลิก / Cancellation Rate / Revenue หาย / วันเฉลี่ยที่แจ้งยกเลิก
-  - เหตุผลการยกเลิก (bar chart) — ใช้ CANCEL_REASONS constants
-  - Timeline: ยกเลิกกี่วันก่อนเดินทาง (≤7 / 8-14 / 15-30 / 31-60 / >60 วัน)
-  - รายเดือน trend bar chart
-  - Top 10 โปรแกรม cancel rate สูงสุด + แนะนำ
-  - Log period ที่ยกเลิกล่าสุด 20 รายการ + เหตุผล + ผู้ยกเลิก"
+- สร้างตาราง marketing_plan_items ใน Supabase พร้อม seed data 30+ items
+- สร้าง marketingPlanStore.ts: fetchAll/create/update/delete/updateStatus/updateActual
+- สร้าง MarketingPlanPage.tsx: Gantt Timeline, 3-level hierarchy, Filter, Status badges
+- เพิ่ม route /marketing/plan + sidebar REPORTS section"
 git push
-echo.
-echo === v391 pushed ===
 pause

@@ -1,12 +1,12 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/StockAnalytics.tsx
-git commit -m "fix: Cancellation — เปลี่ยนกลับเป็น total_seats - quota แทนการ load จาก bookings table (v394)
+git add src/pages/MarketingPlanPage.tsx
+git commit -m "feat: Marketing Plan v394 — Detail Drawer (คลิกแถวดูรายละเอียด)
 
-ใช้ค่าเดียวกับที่ UI หน้าหลักแสดง (จอง X/Y)
-ถ้ายอดผิดพลาด = ข้อมูลที่คนลงไม่ถูกต้อง ไม่ใช่ bug ระบบ
-ลด complexity: ไม่ต้อง useEffect + Supabase query เพิ่ม"
+- เพิ่ม DetailDrawer component: slide-in panel จากขวา เหมือน HTML เดิม
+- คลิก L3 row ทุกที่ (ชื่อ, Gantt bar, ทั้งแถว) เปิด drawer
+- Drawer แสดง: ชื่อ, side, dept tags, status, งบแผน/จริง, KPI, คำอธิบาย, owner, notes, monthly bar chart
+- ปุ่ม แก้ไข ใน drawer เปิด edit modal ต่อได้เลย
+- กด Escape หรือคลิก overlay เพื่อปิด"
 git push
-echo.
-echo === v394 pushed ===
 pause

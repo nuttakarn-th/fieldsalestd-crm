@@ -1,16 +1,12 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/StockAnalytics.tsx
-git commit -m "fix: Cancellation — ดึงยอดจองจริงจาก bookings table แทน quota (v393)
+git add src/pages/MarketingPlanPage.tsx
+git commit -m "feat: Marketing Plan UX v393 — Sticky col + Compact filter + 3-dot menu
 
-Root cause: total_seats - quota ไม่ใช่ยอดจองจริง
-  quota = ที่นั่งที่ allocate/ล็อกไว้ (staff กำหนดเอง)
-  ยอดจองจริง = SUM(seats) จาก bookings table WHERE status != cancelled
-
-Fix: load bookings จาก Supabase ตอน mount → Map<period_id, seats>
-  แสดงผล: 'X คน (จาก bookings จริง)' หรือ '0 / ไม่มีจอง'
-  Revenue lost = actual booked × price ไม่ใช่ estimate 60% อีกต่อไป"
+- Sticky first column (z-[2] + solid bg) ทุก row ล็อกชื่อกิจกรรมไว้ขณะ scroll แนวนอน
+- Compact filter bar: Side toggle-group + FilterDropdown (แผนก/สถานะ) แทนปุ่ม 15+ ปุ่ม
+- 3-dot menu (MoreHorizontal) แทน opacity hover buttons — ใช้ position:fixed หลีก overflow clip
+- Document click handler ปิด action menu อัตโนมัติ
+- Clear all filter button เมื่อมี active filter"
 git push
-echo.
-echo === v393 pushed ===
 pause
