@@ -178,6 +178,12 @@ interface ServiceState {
   subscribeToursRealtime: () => () => void;
   /** เคลียร์ externallyUpdatedAt หลังจาก conflict toast แสดงแล้ว */
   clearExternalUpdate: () => void;
+  /**
+   * Sync quota ทุก active period จาก leads + bookings จริงใน Supabase
+   * แก้ปัญหา quota desync เมื่อมี cancel+book พร้อมกัน หรือแก้ DB ตรง
+   * คืน { fixed, unchanged, errors }
+   */
+  syncAllQuotas: () => Promise<{ fixed: number; unchanged: number; errors: string[] }>;
 }
 
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -809,6 +815,85 @@ export const useServices = create<ServiceState>()(
         };
       },
       clearExternalUpdate: () => set({ externallyUpdatedAt: null }),
+
+      // ── Sync quota จาก bookings จริง (แก้ desync) ─────────────────────────
+      syncAllQuotas: async () => {
+        if (!SUPABASE_ENABLED || !supabase) return { fixed: 0, unchanged: 0, errors: [] };
+
+        // 1. ดึง leads จองแล้ว ทั้งหมด (tour_id + period_id + pax_count)
+        const { data: leadRows } = await supabase
+          .from("leads")
+          .select("tour_id, period_id, pax_count")
+          .eq("status", "จองแล้ว")
+          .not("period_id", "is", null);
+
+        // 2. ดึง anonymous bookings (lead_id IS NULL, active)
+        const { data: bookingRows } = await supabase
+          .from("bookings")
+          .select("tour_id, period_id, seats")
+          .eq("status", "active")
+          .is("lead_id", null)
+          .not("period_id", "is", null);
+
+        // 3. รวมยอดจอง: map key = "tourId:periodId"
+        const bookedMap = new Map<string, number>();
+        for (const l of leadRows ?? []) {
+          const k = `${l.tour_id}:${l.period_id}`;
+          bookedMap.set(k, (bookedMap.get(k) ?? 0) + (l.pax_count ?? 0));
+        }
+        for (const b of bookingRows ?? []) {
+          const k = `${b.tour_id}:${b.period_id}`;
+          bookedMap.set(k, (bookedMap.get(k) ?? 0) + (b.seats ?? 0));
+        }
+
+        // 4. ตรวจแต่ละ tour/period — เก็บที่ต้อง update
+        const tours = get().tours;
+        let fixed = 0, unchanged = 0;
+        const errors: string[] = [];
+        const patchedTours: typeof tours = [];
+
+        for (const tour of tours) {
+          if (!tour.periods?.length) continue;
+          let changed = false;
+          const newPeriods = tour.periods.map((p) => {
+            if (p.cancelled || p.archived) return p;
+            const k = `${tour.id}:${p.period_id}`;
+            const actualBooked = bookedMap.get(k) ?? 0;
+            const correctQuota = Math.max(0, (p.total_seats ?? 0) - actualBooked);
+            if (correctQuota !== p.quota) {
+              changed = true;
+              fixed++;
+              return { ...p, quota: correctQuota };
+            }
+            unchanged++;
+            return p;
+          });
+          if (changed) {
+            const activePeriods = newPeriods.filter((x) => !x.cancelled && !x.archived);
+            const totalSeats    = activePeriods.reduce((s, x) => s + (x.total_seats ?? 0), 0);
+            const quota         = activePeriods.reduce((s, x) => s + (x.quota ?? 0), 0);
+            patchedTours.push({ ...tour, periods: newPeriods, total_seats: totalSeats, quota });
+          }
+        }
+
+        // 5. อัปเดต Supabase ทีละ tour
+        for (const t of patchedTours) {
+          const { error } = await sbUpdateAsync("tours", t.id, {
+            periods: t.periods,
+            total_seats: t.total_seats,
+            quota: t.quota,
+          });
+          if (error) errors.push(`${t.code ?? t.id}: ${error.message}`);
+        }
+
+        // 6. อัปเดต local state ทันที
+        if (patchedTours.length > 0) {
+          const patchMap = new Map(patchedTours.map((t) => [t.id, t]));
+          set({ tours: get().tours.map((t) => patchMap.get(t.id) ?? t) });
+        }
+
+        return { fixed, unchanged, errors };
+      },
     }),
     { name: "stdtour-services-v4" },
   ),

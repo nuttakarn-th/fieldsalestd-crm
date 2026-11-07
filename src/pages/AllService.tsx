@@ -446,11 +446,32 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
   const restorePeriod           = useServices((s) => s.restorePeriod);
   const externallyUpdatedAt     = useServices((s) => s.externallyUpdatedAt);
   const clearExternalUpdate     = useServices((s) => s.clearExternalUpdate);
+  const syncAllQuotas           = useServices((s) => s.syncAllQuotas);
   const currentUser             = useCurrentUser();
   const actorName              = currentUser?.full_name || currentUser?.username || "ไม่ระบุ";
   const role                   = currentUser?.role ?? "";
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [syncingQuota, setSyncingQuota] = useState(false);
+
+  async function handleSyncQuota() {
+    if (syncingQuota) return;
+    setSyncingQuota(true);
+    try {
+      const { fixed, unchanged, errors } = await syncAllQuotas();
+      if (errors.length > 0) {
+        toast.error(`Sync มีข้อผิดพลาด: ${errors[0]}`);
+      } else if (fixed === 0) {
+        toast.success(`Quota ถูกต้องทั้งหมดแล้ว (${unchanged} periods)`);
+      } else {
+        toast.success(`Sync สำเร็จ — แก้ไข ${fixed} period (${unchanged} ถูกต้องอยู่แล้ว)`);
+      }
+    } catch (e) {
+      toast.error("Sync ล้มเหลว");
+    } finally {
+      setSyncingQuota(false);
+    }
+  }
 
   // ── period dialog — moved up so conflict-detection useEffect can reference pOpen ──
   const [pOpen, setPOpen]         = useState(false);
@@ -2082,6 +2103,21 @@ ${catBlocks}
             <Share2 className="w-4 h-4 text-blue-500" />
             <span className="hidden sm:inline">แชร์หน้าโปรแกรม</span>
           </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleSyncQuota}
+              disabled={syncingQuota}
+              title="Sync quota ทุก period จาก bookings จริง — แก้ตัวเลข จอง/ว่าง ที่ desync"
+            >
+              {syncingQuota
+                ? <span className="animate-spin text-xs">⟳</span>
+                : <span className="text-xs">⟳</span>}
+              <span className="hidden sm:inline">{syncingQuota ? "กำลัง Sync…" : "Sync Quota"}</span>
+            </Button>
+          )}
           <ImportExportMenu fields={TOUR_FIELDS} sheetName="ทัวร์" filename="tours" data={exportData} onImport={handleImportPreview} canImport={canEdit} />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEventStatsOpen(true)} title="ดูสถิติ View ตาม Event/Channel">
             <BarChart2 className="w-4 h-4 text-primary" />

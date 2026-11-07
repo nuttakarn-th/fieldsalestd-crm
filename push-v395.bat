@@ -1,20 +1,14 @@
 @echo off
 cd /d "%~dp0"
-git add src/store/surveyStore.ts src/pages/SurveyB2C.tsx src/store/serviceStore.ts src/store/crmStore.ts
-git commit -m "feat: รวม Persona Survey ให้ใช้ C1/C2a/C2b/C3 เหมือน Persona Page (v395)
+git add src/store/serviceStore.ts src/pages/AllService.tsx
+git commit -m "feat: Sync Quota v395 — แก้ quota desync อัตโนมัติ
 
-เปลี่ยน B2CPersona type: สาย... 6 กลุ่ม → C1/C2a/C2b/C3 4 กลุ่ม
-- C1  = ครอบครัวไทยใจกว้าง (แทน สายคุ้มค่า)
-- C2a = เพื่อนสายสนุก (แทน สายกิจกรรม + สายธรรมชาติ)
-- C2b = คู่รัก/ทริปส่วนตัว (แทน สายชิลล์พรีเมียม)
-- C3  = วัยเกษียณใจสู้ (แทน สายหัวคณะ)
-- สายมือใหม่ → isFirstTime flag (travel_experience=first_time)
+- serviceStore: เพิ่ม syncAllQuotas() — query leads+bookings จาก Supabase
+  คำนวณ quota จริง แล้ว patch ทุก period ที่ desync ใน batch เดียว
+- AllService: เพิ่มปุ่ม Sync Quota ใน toolbar (เฉพาะ canEdit)
+  กดแล้ว toast บอก: แก้ N period / ถูกต้องทั้งหมดแล้ว / error
 
-Rewrite scoring matrix Q1-Q5 + TRAVEL_EXP_BONUS
-Update PERSONA_COLORS, PERSONA_EMOJI, PERSONA_LABELS, PERSONA_QUICK_INFO, ALL_PERSONAS
-Update SurveyB2C.tsx: thank-you page แสดงชื่อ Persona ใหม่
-Update inferPersonaFromCustomer → ส่งคืน C1/C2a/C2b/C3"
+แก้ root cause: cancel+book พร้อมกัน / แก้ DB ตรง / network error
+ทำให้ quota != actual booked seats"
 git push
-echo.
-echo === v395 pushed ===
 pause
