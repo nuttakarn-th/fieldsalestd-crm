@@ -4,11 +4,12 @@
  * รูปแบบ: A/B paired statements → scoring → Top 5 report + expandable 34
  */
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronUp, RotateCcw, Trophy, Zap, Users, Brain, Cog, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, RotateCcw, Trophy, Zap, Users, Brain, Cog, ArrowRight, CheckCircle2, Loader2, Download, FileText } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { openTop5Report, openSignatureReport } from "./StrengthsReportGenerator";
 
 // ─── 34 Themes Definition ─────────────────────────────────────────────────────
 type Domain = "Executing" | "Influencing" | "Relationship" | "Strategic";
@@ -805,16 +806,48 @@ export default function StrengthsPage() {
           </div>
 
           {/* ── ACTIONS ───────────────────────────────────────────────────────── */}
-          <div className="flex gap-3 no-print">
-            <Button variant="outline" onClick={handleRetake} className="rounded-xl flex-1 border-gray-200">
-              <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
-            </Button>
-            <Button
-              onClick={() => window.print()}
-              className="rounded-xl flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-sm"
-            >
-              <Trophy className="w-4 h-4 mr-2" /> พิมพ์รายงาน
-            </Button>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 no-print">
+            <div className="flex items-center gap-2 mb-4">
+              <Download className="w-5 h-5 text-gray-400" />
+              <h2 className="text-base font-bold text-gray-800">ดาวน์โหลดรายงาน PDF</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-4">
+              {/* PDF 1: SF Top 5 */}
+              <button
+                onClick={() => openTop5Report(user?.full_name ?? "คุณ", top5, ranked)}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-violet-200 bg-violet-50 hover:border-violet-400 hover:bg-violet-100 transition-all text-left"
+              >
+                <div className="w-10 h-10 rounded-lg bg-violet-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-lg">📊</span>
+                </div>
+                <div>
+                  <div className="font-bold text-violet-700 text-sm">CliftonStrengths 5 อันดับแรก</div>
+                  <div className="text-xs text-violet-500 mt-0.5">ภาพรวม + รายละเอียด + แนวทางคู่จุดแข็ง</div>
+                  <div className="text-xs text-gray-400 mt-1">~{top5.length * 2 + 2} หน้า</div>
+                </div>
+              </button>
+
+              {/* PDF 2: Signature Theme */}
+              <button
+                onClick={() => openSignatureReport(user?.full_name ?? "คุณ", top5)}
+                className="flex items-start gap-3 p-4 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:border-emerald-400 hover:bg-emerald-100 transition-all text-left"
+              >
+                <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-lg">📋</span>
+                </div>
+                <div>
+                  <div className="font-bold text-emerald-700 text-sm">รายงานลักษณะเฉพาะ</div>
+                  <div className="text-xs text-emerald-500 mt-0.5">คำอธิบายเชิงลึก + Sales Tip แต่ละจุดแข็ง</div>
+                  <div className="text-xs text-gray-400 mt-1">~{top5.length + 2} หน้า</div>
+                </div>
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 text-center mb-4">เปิดในหน้าต่างใหม่ → กด Ctrl+P / Cmd+P → บันทึกเป็น PDF</p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={handleRetake} className="rounded-xl flex-1 border-gray-200">
+                <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
+              </Button>
+            </div>
           </div>
 
         </div>
