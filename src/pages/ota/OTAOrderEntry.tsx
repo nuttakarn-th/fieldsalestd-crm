@@ -72,6 +72,7 @@ function SearchCombobox({
   });
 
   const selected = options.find((o) => o.value === value);
+  const displayValue = selected ? selected.label : (value || null);
 
   return (
     <div ref={ref} className="relative">
@@ -80,11 +81,11 @@ function SearchCombobox({
         onClick={() => { setOpen((v) => !v); setQuery(""); }}
         className="w-full flex items-center justify-between px-3 py-2 text-sm bg-background border border-border rounded-lg hover:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-left transition-colors"
       >
-        <span className={selected ? "text-foreground" : "text-muted-foreground"}>
-          {selected ? (
+        <span className={displayValue ? "text-foreground" : "text-muted-foreground"}>
+          {displayValue ? (
             <span>
-              <span className="font-medium">{selected.label}</span>
-              {selected.sublabel && <span className="ml-1 text-muted-foreground font-normal">{selected.sublabel}</span>}
+              <span className="font-medium">{displayValue}</span>
+              {selected?.sublabel && <span className="ml-1 text-muted-foreground font-normal">{selected.sublabel}</span>}
             </span>
           ) : placeholder}
         </span>
