@@ -96,8 +96,7 @@ const adminMenu: RoleMenu = {
     {
       category: "MARKETING TOOLS",
       items: [
-        { title: "Persona",    url: "/app/persona",         icon: Smile },
-        { title: "Strengths",  url: "/marketing/strengths", icon: Sparkles },
+        { title: "Persona", url: "/app/persona", icon: Smile },
       ],
     },
     {
@@ -178,12 +177,6 @@ const salesMenu: RoleMenu = {
       category: "AUDIENCE TOOLS",
       items: [
         { title: "Cold Lead Re-engage", url: "/app/audience/cold-lead", icon: RefreshCcw },
-      ],
-    },
-    {
-      category: "TOOLS",
-      items: [
-        { title: "Strengths", url: "/marketing/strengths", icon: Sparkles },
       ],
     },
   ],
@@ -280,7 +273,6 @@ const obCoordinatorMenu: RoleMenu = {
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",     url: "/app/trip-manifest",   icon: ClipboardList },
         { title: "Persona",           url: "/app/persona",          icon: Smile },
-        { title: "Strengths",         url: "/marketing/strengths",  icon: Sparkles },
       ],
     },
     {
