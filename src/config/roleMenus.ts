@@ -29,6 +29,7 @@ import {
   Package,
   Settings2,
   Smile,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -95,7 +96,8 @@ const adminMenu: RoleMenu = {
     {
       category: "MARKETING TOOLS",
       items: [
-        { title: "Persona", url: "/app/persona", icon: Smile },
+        { title: "Persona",    url: "/app/persona",         icon: Smile },
+        { title: "Strengths",  url: "/marketing/strengths", icon: Sparkles },
       ],
     },
     {
@@ -178,6 +180,12 @@ const salesMenu: RoleMenu = {
         { title: "Cold Lead Re-engage", url: "/app/audience/cold-lead", icon: RefreshCcw },
       ],
     },
+    {
+      category: "TOOLS",
+      items: [
+        { title: "Strengths", url: "/marketing/strengths", icon: Sparkles },
+      ],
+    },
   ],
   account: [],
 };
@@ -199,6 +207,7 @@ const marketingMenu: RoleMenu = {
         { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
         { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
         { title: "Persona",                url: "/marketing/persona",          icon: Smile },
+        { title: "Strengths",              url: "/marketing/strengths",        icon: Sparkles },
       ],
     },
     {
@@ -271,6 +280,7 @@ const obCoordinatorMenu: RoleMenu = {
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
         { title: "Trip Manifest",     url: "/app/trip-manifest",   icon: ClipboardList },
         { title: "Persona",           url: "/app/persona",          icon: Smile },
+        { title: "Strengths",         url: "/marketing/strengths",  icon: Sparkles },
       ],
     },
     {
