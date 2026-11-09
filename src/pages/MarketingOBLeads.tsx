@@ -13,7 +13,7 @@ import {
   Search, Users2, Phone, Calendar, ChevronRight,
   CheckCircle2, XCircle, Clock, Sparkles,
   Mail, MapPin, User, Star, Banknote, Tag, FileText,
-  ExternalLink, MessageCircle, Download,
+  ExternalLink, MessageCircle, Download, RefreshCw, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportToExcel, type ExcelField } from "@/lib/excelUtils";
@@ -577,6 +577,13 @@ export default function MarketingOBLeads() {
   const obNames   = useActiveOBNames();
   const allLeads  = useCRM((s) => s.leads);
   const customers = useCRM((s) => s.customers);
+  const isLoading          = useCRM((s) => s.isLoading);
+  const realtimeEnabled    = useCRM((s) => s.realtimeEnabled);
+  const loadAllFromSupabase = useCRM((s) => s.loadAllFromSupabase);
+  const subscribeRealtime  = useCRM((s) => s.subscribeRealtime);
+
+  // เรียก subscribe ครั้งเดียวตอน mount
+  useEffect(() => { subscribeRealtime(); }, [subscribeRealtime]);
 
   const [search, setSearch]           = useState("");
   const [statusGroup, setStatusGroup] = useState<"active" | "won" | "lost" | "all">("all");
@@ -761,7 +768,13 @@ export default function MarketingOBLeads() {
           <Users2 className="w-4.5 h-4.5 text-white w-[18px] h-[18px]" />
         </div>
         <div>
-          <h1 className="text-lg font-bold leading-tight">OB Leads</h1>
+          <h1 className="text-lg font-bold leading-tight flex items-center gap-2">
+            OB Leads
+            {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-400" />}
+            {!isLoading && realtimeEnabled && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" title="Realtime เปิดใช้งานอยู่" />
+            )}
+          </h1>
           <p className="text-xs text-muted-foreground">Outbound {obCustomers.length} ราย · ทีม {obNames.length} คน</p>
         </div>
 
@@ -807,6 +820,20 @@ export default function MarketingOBLeads() {
             <span className="opacity-40">·</span>
             <span className="font-semibold text-red-500">{stats.lost}</span> ยกเลิก
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2.5 text-[11px] gap-1.5 border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400"
+            onClick={() => loadAllFromSupabase()}
+            disabled={isLoading}
+            title="โหลดข้อมูลใหม่จาก Supabase"
+          >
+            {isLoading
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <RefreshCw className="w-3.5 h-3.5" />
+            }
+            <span className="hidden sm:inline">รีเฟรช</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"

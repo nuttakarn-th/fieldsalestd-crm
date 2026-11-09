@@ -1,12 +1,12 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/StockAnalytics.tsx
-git commit -m "fix: Program Ranking — แนะนำตาม Booking Rate จริง ไม่ใช่แค่ลำดับ (v396)
+git add src/store/crmStore.ts src/pages/MarketingOBLeads.tsx
+git commit -m "fix: CRM data reliability v396
 
-rate >= 75% → 🔥 เพิ่ม Period
-rate 40-74% → ✅ สถานะดี
-rate < 40%  → ⚠ ดูตลาดก่อน"
+1. limit(500) → limit(2000): ป้องกัน customer/lead หายเมื่อ DB เกิน 500 rows
+2. isLoading state: spinner + loading indicator ขณะ Supabase กำลัง fetch
+3. Supabase Realtime: subscribe customers+leads — auto-reload เมื่อ user อื่น INSERT/UPDATE/DELETE
+4. channel override fix: OB staff สร้าง customer ผ่าน admin ได้ channel=OB ถูกต้อง
+5. OBLeads UI: ปุ่ม Refresh + spinner + dot indicator Realtime status"
 git push
-echo.
-echo === v396 pushed ===
 pause

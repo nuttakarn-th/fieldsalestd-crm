@@ -624,6 +624,10 @@ function defaultTargets(): MonthlyTarget[] {
 interface CRMState {
   customers: Customer[];
   leads: Lead[];
+  isLoading: boolean;          // true ขณะ Supabase กำลัง fetch
+  realtimeEnabled: boolean;    // true หลัง subscribe สำเร็จ
+  subscribeRealtime: () => void;   // เรียกครั้งเดียวตอน app mount
+  unsubscribeRealtime: () => void;
   targets: MonthlyTarget[];
   routes: RoutePlan[];
   currentRep: SalesRep | "All";
@@ -683,6 +687,8 @@ export const useCRM = create<CRMState>()(
     (set, get) => ({
   // ถ้า Supabase เปิด → เริ่มด้วย array ว่าง แล้วให้ loadAllFromSupabase ดึงข้อมูลจริง
   // ถ้า Supabase ปิด → ใช้ mock seed data เพื่อ dev/demo
+  isLoading: false,
+  realtimeEnabled: false,
   customers: SUPABASE_ENABLED ? [] : seeded.customers,
   leads: SUPABASE_ENABLED ? [] : seeded.leads,
   targets: SUPABASE_ENABLED ? [] : defaultTargets(),
@@ -867,6 +873,44 @@ export const useCRM = create<CRMState>()(
 
   setCurrentRep: (r) => set({ currentRep: r }),
 
+  // ── Supabase Realtime ──────────────────────────────────────────────────────
+  // Subscribe ตาราง customers + leads — เมื่อ user อื่น INSERT/UPDATE/DELETE
+  // จะ trigger loadAllFromSupabase() อัตโนมัติ (debounce 5s กัน flood)
+  subscribeRealtime: () => {
+    if (!SUPABASE_ENABLED || !supabase || get().realtimeEnabled) return;
+    const channel = supabase
+      .channel("crm-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "customers" }, () => {
+        console.info("[realtime] customers changed → reloading");
+        get().loadAllFromSupabase();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        console.info("[realtime] leads changed → reloading");
+        get().loadAllFromSupabase();
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          set({ realtimeEnabled: true });
+          console.info("[realtime] subscribed to customers + leads");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          set({ realtimeEnabled: false });
+          console.warn("[realtime] subscription error:", status);
+        }
+      });
+    // เก็บ channel reference ใน hidden field เพื่อ unsubscribe ได้ทีหลัง
+    (set as any)({ _realtimeChannel: channel });
+  },
+
+  unsubscribeRealtime: () => {
+    const ch = (get() as any)._realtimeChannel;
+    if (ch && supabase) {
+      supabase.removeChannel(ch);
+      set({ realtimeEnabled: false });
+      (set as any)({ _realtimeChannel: null });
+      console.info("[realtime] unsubscribed");
+    }
+  },
+
   loadCustomersFromSupabase: async () => {
     if (!SUPABASE_ENABLED || !supabase) return;
     try {
@@ -899,6 +943,7 @@ export const useCRM = create<CRMState>()(
       console.info("[supabase] loadAll skipped (debounce 5s)");
       return;
     }
+    set({ isLoading: true });
     (set as any)({ _lastLoadedAt: now });
     // ── Snapshot OB seed leads SYNCHRONOUSLY (ก่อน await ใดๆ) ─────────────
     // onRehydrateStorage ทำ setState(state, true) → replace store ทั้งหมด →
@@ -942,7 +987,7 @@ export const useCRM = create<CRMState>()(
         "first_contact_date,created_by,channel,transferred_to,transferred_from,transferred_at," +
         "transfer_logs,created_at";
 
-      const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(500);
+      const custQ = supabase.from("customers").select(custSelect).order("created_at", { ascending: false }).limit(2000);
       const leadsSelect =
         "lead_id,customer_id,assigned_to,bu_type,lead_category,scope,program,tour_id,period_id," +
         "pax_count,travel_month,tour_type,budget_range,urgency,next_followup_date,status," +
@@ -950,7 +995,7 @@ export const useCRM = create<CRMState>()(
         "followup_logs,created_at,updated_at,fb_name,tiktok_username,skip_quota,department," +
         "room_type,room_partner,food_pref,discount,deposit_amount,deposit_date," +
         "balance_due_date,passport_name,emergency_contact,special_requests";
-      const leadsQ = supabase.from("leads").select(leadsSelect).order("created_at", { ascending: false }).limit(500);
+      const leadsQ = supabase.from("leads").select(leadsSelect).order("created_at", { ascending: false }).limit(2000);
       const routesQ = supabase
         .from("route_plans")
         .select("*, route_stops (*)")
@@ -1250,6 +1295,8 @@ export const useCRM = create<CRMState>()(
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("[supabase] loadAll ล้มเหลว:", e);
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -1343,9 +1390,19 @@ export const useCRM = create<CRMState>()(
       ?? currentUser?.full_name
       ?? (get().currentRep !== "All" ? get().currentRep : SALES_REPS[0]);
     // ── channel: ล็อกตาม role ของ creator ตอนสร้าง — ไม่เปลี่ยนแม้ย้ายทีม ──
+    // fallback: ถ้า creator ไม่ใช่ OB role แต่ assigned_to เป็น OB staff → channel = "OB"
     const creatorRole = currentUser?.role;
+    const obUserNamesForChannel = new Set(
+      authState.users
+        .filter((u) => u.role === "OB Manager" || u.role === "OB Co-ordinator")
+        .map((u) => u.full_name)
+    );
     const channel: "OB" | "Sales" =
-      creatorRole === "OB Manager" || creatorRole === "OB Co-ordinator" ? "OB" : "Sales";
+      creatorRole === "OB Manager" || creatorRole === "OB Co-ordinator"
+        ? "OB"
+        : obUserNamesForChannel.has(creator)
+          ? "OB"   // creator คือ OB staff (ตรงกับ full_name) → override เป็น OB
+          : "Sales";
     const newC: Customer = {
       ...c,
       customer_id: id,
