@@ -114,6 +114,7 @@ import OKRFollowerPage from "./pages/OKRFollowerPage.tsx";
 import RevenueDashboard from "./pages/RevenueDashboard.tsx";
 import MarketingPlanPage from "./pages/MarketingPlanPage.tsx";
 import StrengthsPage from "./pages/StrengthsPage.tsx";
+import StrengthsTeamGridPage from "./pages/StrengthsTeamGridPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -238,6 +239,7 @@ const App = () => (
             <Route path="persona-survey"    element={<PersonaSurveyDashboard />} />
             <Route path="persona"           element={<PersonaPage />} />
             <Route path="strengths"         element={<StrengthsPage />} />
+            <Route path="strengths/team"    element={<StrengthsTeamGridPage />} />
           </Route>
 
           {/* ── OTA Module (OTA role + Marketing + Admin) ── */}

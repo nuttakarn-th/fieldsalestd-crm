@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
-import { openTop5Report, openSignatureReport } from "./StrengthsReportGenerator";
+import { openTop5Report, openSignatureReport, LONG_DESC } from "./StrengthsReportGenerator";
 
 // ─── 34 Themes Definition ─────────────────────────────────────────────────────
 type Domain = "Executing" | "Influencing" | "Relationship" | "Strategic";
@@ -672,21 +672,29 @@ export default function StrengthsPage() {
                       </div>
                     </div>
 
-                    {/* Sales Tip callout */}
-                    <div className={cn(
-                      "mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3 border",
-                      domainBgSoft[theme.domain]
-                    )}>
-                      <span className="text-base flex-shrink-0">💼</span>
-                      <div className="min-w-0">
-                        <p className={cn("text-xs font-bold uppercase tracking-wide mb-0.5", domainTextColor[theme.domain])}>
-                          Sales Tip
-                        </p>
-                        <p className={cn("text-sm leading-relaxed", domainTextColor[theme.domain])}>
-                          {theme.salesTip}
-                        </p>
+                    {/* Insights */}
+                    {LONG_DESC[theme.id] && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">สิ่งที่ควรรู้เกี่ยวกับตัวคุณ</p>
+                        {LONG_DESC[theme.id].insights.map((ins, j) => (
+                          <div key={j} className={cn("flex items-start gap-2.5 rounded-xl px-4 py-3 border", domainBgSoft[theme.domain])}>
+                            <span className={cn("flex-shrink-0 font-black text-base leading-none mt-0.5", domainTextColor[theme.domain])}>›</span>
+                            <p className={cn("text-sm leading-relaxed", domainTextColor[theme.domain])}>{ins}</p>
+                          </div>
+                        ))}
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">แนวทางพัฒนา</p>
+                          <div className="space-y-1.5">
+                            {LONG_DESC[theme.id].actionTips.map((tip, j) => (
+                              <div key={j} className="flex items-start gap-2 text-sm text-gray-600">
+                                <span className="flex-shrink-0 text-gray-300 font-bold mt-0.5">✦</span>
+                                <span className="leading-relaxed">{tip}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -785,6 +793,9 @@ export default function StrengthsPage() {
                             domainBgSoft[theme.domain], domainTextColor[theme.domain]
                           )}>{theme.domain}</span>
                         </div>
+                        <p className={cn("text-xs leading-snug mb-1.5", i < 5 ? "text-gray-500" : "text-gray-400")}>
+                          {theme.descriptionTH}
+                        </p>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
                             className={cn("h-full rounded-full bg-gradient-to-r", domainGradient[theme.domain])}
@@ -837,7 +848,7 @@ export default function StrengthsPage() {
                 </div>
                 <div>
                   <div className="font-bold text-emerald-700 text-sm">รายงานลักษณะเฉพาะ</div>
-                  <div className="text-xs text-emerald-500 mt-0.5">คำอธิบายเชิงลึก + Sales Tip แต่ละจุดแข็ง</div>
+                  <div className="text-xs text-emerald-500 mt-0.5">คำอธิบายเชิงลึก + แนวทางพัฒนาแต่ละจุดแข็ง</div>
                   <div className="text-xs text-gray-400 mt-1">~{top5.length + 2} หน้า</div>
                 </div>
               </button>

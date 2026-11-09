@@ -30,6 +30,7 @@ import {
   Settings2,
   Smile,
   Sparkles,
+  Grid3X3,
   type LucideIcon,
 } from "lucide-react";
 // Note: Users2 imported above covers Org Chart icon
@@ -243,6 +244,57 @@ const marketingMenu: RoleMenu = {
   account: [],
 };
 
+const marketingManagerMenu: RoleMenu = {
+  sections: [
+    {
+      category: "OVERVIEW",
+      items: [
+        { title: "Marketing Hub",         url: "/marketing",              icon: Megaphone, end: true },
+      ],
+    },
+    {
+      category: "CAMPAIGNS",
+      items: [
+        { title: "Campaign Management",   url: "/marketing/campaigns",        icon: Megaphone },
+        { title: "Contents Management",   url: "/marketing-contents",         icon: LayoutGrid },
+        { title: "Audience Builder",      url: "/audience-builder",           icon: Target },
+        { title: "Persona",               url: "/marketing/persona",          icon: Smile },
+        { title: "Strengths",             url: "/marketing/strengths",        icon: Sparkles },
+        { title: "Team Strengths Grid",   url: "/marketing/strengths/team",   icon: Grid3X3 },
+      ],
+    },
+    {
+      category: "OUTBOUND LEADS",
+      items: [
+        { title: "OB Leads",              url: "/marketing/ob-leads",     icon: Users2 },
+      ],
+    },
+    {
+      category: "SALES LEADS",
+      items: [
+        { title: "Sales Leads",           url: "/marketing/sales-leads",  icon: Users },
+        { title: "ลูกค้าทั้งหมด",          url: "/marketing/customers",    icon: UserPlus },
+        { title: "Marketing Leads",       url: "/marketing/marketing-leads", icon: UserPlus },
+      ],
+    },
+    {
+      category: "STOCK",
+      items: [
+        { title: "Service and Stock",     url: "/marketing/all-service",     icon: PackageSearch },
+        { title: "Stock Analytics",       url: "/marketing/stock-analytics", icon: TrendingUp },
+      ],
+    },
+    {
+      category: "REPORTS",
+      items: [
+        { title: "Marketing Report",      url: "/marketing/marketing-report", icon: BarChart3 },
+        { title: "Ads Dashboard",         url: "/ads-dashboard",          icon: TrendingUp },
+      ],
+    },
+  ],
+  account: [],
+};
+
 const obCoordinatorMenu: RoleMenu = {
   sections: [
     {
@@ -396,7 +448,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
     case "Sales": return salesMenu;
     case "OB Co-ordinator": return obCoordinatorMenu;
     case "Marketing": return marketingMenu;
-    case "Marketing Manager": return marketingMenu;
+    case "Marketing Manager": return marketingManagerMenu;
     case "Co-Ordinator": return coordinatorMenu;
     case "Accounting": return accountingMenu;
     case "OTA": return otaMenu;

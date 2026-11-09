@@ -25,7 +25,7 @@ interface Theme {
 }
 
 // ─── Long descriptions for each theme (Gallup-style Thai) ────────────────────
-const LONG_DESC: Record<string, { desc: string; insights: string[]; actionTips: string[] }> = {
+export const LONG_DESC: Record<string, { desc: string; insights: string[]; actionTips: string[] }> = {
   achiever: {
     desc: "คุณมีแรงขับภายในที่มหาศาลและความต้องการที่จะบรรลุสิ่งต่างๆ ทุกวัน ท้ายวันเมื่อมองย้อนกลับไป คุณต้องรู้สึกว่าได้ทำสิ่งสำคัญสำเร็จอย่างน้อยหนึ่งอย่าง ความรู้สึกนี้ผลักดันให้คุณทำงานหนักและมีผลผลิตสูง\n\nพรสวรรค์นี้ทำให้คุณไม่เคยพอใจกับความสำเร็จที่ผ่านมา คุณมองว่าทุกวันเป็นโอกาสใหม่ในการบรรลุเป้าหมาย และรู้สึกกระสับกระส่ายเมื่อวันผ่านไปโดยไม่มีผลลัพธ์ที่จับต้องได้",
     insights: [
