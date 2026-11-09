@@ -573,149 +573,252 @@ export default function StrengthsPage() {
   // ── RESULT PHASE ──────────────────────────────────────────────────────────
   const domainScores: Record<Domain, number> = { Executing: 0, Influencing: 0, Relationship: 0, Strategic: 0 };
   ranked.forEach((t, i) => {
-    const pts = totalQ - i; // weight by rank
+    const pts = totalQ - i;
     domainScores[t.domain] += pts;
   });
   const domainTotal = Object.values(domainScores).reduce((a, b) => a + b, 0);
 
+  const rankMedal = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
+
+  const domainGradient: Record<Domain, string> = {
+    Executing:    "from-violet-500 to-purple-600",
+    Influencing:  "from-red-500 to-rose-600",
+    Relationship: "from-emerald-500 to-teal-600",
+    Strategic:    "from-blue-500 to-indigo-600",
+  };
+  const domainBgSoft: Record<Domain, string> = {
+    Executing:    "bg-violet-50 border-violet-100",
+    Influencing:  "bg-red-50 border-red-100",
+    Relationship: "bg-emerald-50 border-emerald-100",
+    Strategic:    "bg-blue-50 border-blue-100",
+  };
+  const domainTextColor: Record<Domain, string> = {
+    Executing:    "text-violet-700",
+    Influencing:  "text-red-600",
+    Relationship: "text-emerald-700",
+    Strategic:    "text-blue-700",
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50 pb-16">
-      {/* Hero */}
-      <div className="max-w-3xl mx-auto px-4 pt-10">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏆</div>
-          <h1 className="text-2xl font-bold text-gray-900">จุดแข็งของคุณ</h1>
-          <p className="text-gray-500 mt-1">{user?.full_name ?? ""} · CliftonStrengths Report</p>
-        </div>
+    <>
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          body { background: white !important; }
+          .no-print { display: none !important; }
+          .print-break { page-break-before: always; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
 
-        {/* Top 5 Cards */}
-        <div className="space-y-3 mb-8">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-400" /> Top 5 จุดแข็ง
-          </h2>
-          {top5.map((theme, i) => {
-            const dc = DOMAIN_CONFIG[theme.domain];
-            return (
-              <div key={theme.id} className={cn(
-                "bg-white rounded-2xl border-2 shadow-sm p-5 flex gap-4",
-                i === 0 ? "border-amber-300 shadow-amber-50" : "border-gray-100"
-              )}>
-                <div className={cn(
-                  "flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg",
-                  i === 0 ? "bg-amber-100 text-amber-600" : "bg-violet-50 text-violet-600"
-                )}>
-                  {i + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-gray-900 text-base">{theme.name}</span>
-                    <span className="text-sm text-gray-500">({theme.nameTH})</span>
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", dc.bg, dc.color)}>
-                      {theme.domain}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1 leading-relaxed">{theme.descriptionTH}</p>
-                  <div className={cn("mt-2 text-xs font-medium px-3 py-1.5 rounded-lg border inline-block", dc.bg, dc.color)}>
-                    💼 Sales Tip: {theme.salesTip}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50 pb-20">
 
-        {/* Domain Breakdown */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-8">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">Domain Breakdown</h2>
-          <div className="space-y-3">
-            {(Object.keys(domainScores) as Domain[])
-              .sort((a, b) => domainScores[b] - domainScores[a])
-              .map(d => {
-                const pct = Math.round((domainScores[d] / domainTotal) * 100);
-                const dc = DOMAIN_CONFIG[d];
-                return (
-                  <div key={d}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={cn("text-sm font-medium flex items-center gap-1.5", dc.color)}>
-                        {dc.icon} {dc.label}
-                      </span>
-                      <span className={cn("text-sm font-bold", dc.color)}>{pct}%</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={cn("h-full rounded-full transition-all duration-700",
-                          d === "Executing" ? "bg-violet-400" :
-                          d === "Influencing" ? "bg-red-400" :
-                          d === "Relationship" ? "bg-emerald-400" : "bg-blue-400"
-                        )}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+        {/* ── HERO BANNER ─────────────────────────────────────────────────────── */}
+        <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+          <div className="max-w-3xl mx-auto px-6 py-10 text-center">
+            <div className="text-5xl mb-3">🏆</div>
+            <h1 className="text-3xl font-bold tracking-tight">จุดแข็งของคุณ</h1>
+            <p className="mt-1 text-violet-200 text-sm font-medium">
+              {user?.full_name ?? "คุณ"} · CliftonStrengths Report
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur rounded-full px-4 py-1.5 text-xs font-medium">
+              ✨ ทำ Quiz {totalQ} ข้อ · บันทึกใน Supabase แล้ว
+            </div>
           </div>
         </div>
 
-        {/* All 34 Themes */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
-          <button
-            type="button"
-            onClick={() => setShowAll(v => !v)}
-            className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-          >
-            <span className="text-sm font-semibold text-gray-700">ดูทั้งหมด 34 Themes (เรียงจากมากสุด)</span>
-            {showAll ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-          </button>
-          {showAll && (
-            <div className="border-t border-gray-100 divide-y divide-gray-50">
-              {ranked.map((theme, i) => {
-                const dc = DOMAIN_CONFIG[theme.domain];
-                const score = scores[theme.id] || 0;
-                const maxScore = scores[ranked[0].id] || 1;
-                return (
-                  <div key={theme.id} className="px-5 py-3 flex items-center gap-3">
-                    <span className={cn(
-                      "flex-shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center",
-                      i < 5 ? "bg-violet-100 text-violet-700" : "bg-gray-100 text-gray-400"
-                    )}>{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-800">{theme.name}</span>
-                        <span className={cn("text-xs px-1.5 py-0.5 rounded border", dc.bg, dc.color)}>{theme.domain}</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
-                        <div
-                          className={cn("h-full rounded-full",
-                            theme.domain === "Executing" ? "bg-violet-400" :
-                            theme.domain === "Influencing" ? "bg-red-400" :
-                            theme.domain === "Relationship" ? "bg-emerald-400" : "bg-blue-400"
-                          )}
-                          style={{ width: `${Math.round((score / maxScore) * 100)}%` }}
-                        />
+        <div className="max-w-3xl mx-auto px-4 -mt-6 space-y-6">
+
+          {/* ── TOP 5 ─────────────────────────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-2 mb-4 mt-2">
+              <Trophy className="w-5 h-5 text-amber-500" />
+              <h2 className="text-base font-bold text-gray-800">Top 5 จุดแข็งของคุณ</h2>
+              <span className="ml-auto text-xs text-gray-400">เรียงจากคะแนนสูงสุด</span>
+            </div>
+
+            <div className="space-y-4">
+              {top5.map((theme, i) => (
+                <div
+                  key={theme.id}
+                  className={cn(
+                    "bg-white rounded-2xl shadow-sm overflow-hidden border",
+                    i === 0 ? "border-amber-200 shadow-amber-50 shadow-md" : "border-gray-100"
+                  )}
+                >
+                  {/* Card top accent bar */}
+                  <div className={cn("h-1.5 w-full bg-gradient-to-r", domainGradient[theme.domain])} />
+
+                  <div className="p-5">
+                    {/* Row 1: rank + name + domain badge */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 text-2xl leading-none mt-0.5">{rankMedal[i]}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-lg font-bold text-gray-900">{theme.name}</span>
+                          <span className="text-sm text-gray-500 font-medium">{theme.nameTH}</span>
+                          <span className={cn(
+                            "text-xs px-2.5 py-0.5 rounded-full font-semibold border",
+                            domainBgSoft[theme.domain], domainTextColor[theme.domain]
+                          )}>
+                            {theme.domain}
+                          </span>
+                        </div>
+                        {/* Description */}
+                        <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                          {theme.descriptionTH}
+                        </p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400 flex-shrink-0">{score} pts</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={handleRetake} className="rounded-xl flex-1">
-            <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
-          </Button>
-          <Button
-            onClick={() => window.print()}
-            className="rounded-xl flex-1 bg-violet-600 hover:bg-violet-700 text-white"
-          >
-            <Trophy className="w-4 h-4 mr-2" /> พิมพ์รายงาน
-          </Button>
+                    {/* Sales Tip callout */}
+                    <div className={cn(
+                      "mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3 border",
+                      domainBgSoft[theme.domain]
+                    )}>
+                      <span className="text-base flex-shrink-0">💼</span>
+                      <div className="min-w-0">
+                        <p className={cn("text-xs font-bold uppercase tracking-wide mb-0.5", domainTextColor[theme.domain])}>
+                          Sales Tip
+                        </p>
+                        <p className={cn("text-sm leading-relaxed", domainTextColor[theme.domain])}>
+                          {theme.salesTip}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── DOMAIN BREAKDOWN ─────────────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <Brain className="w-5 h-5 text-gray-400" />
+              <h2 className="text-base font-bold text-gray-800">สัดส่วนแต่ละ Domain</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {(Object.keys(domainScores) as Domain[])
+                .sort((a, b) => domainScores[b] - domainScores[a])
+                .map(d => {
+                  const pct = Math.round((domainScores[d] / domainTotal) * 100);
+                  const dc = DOMAIN_CONFIG[d];
+                  return (
+                    <div key={d} className={cn("rounded-xl border p-4", domainBgSoft[d])}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={domainTextColor[d]}>{dc.icon}</span>
+                        <span className={cn("text-xs font-bold uppercase tracking-wide", domainTextColor[d])}>
+                          {d}
+                        </span>
+                      </div>
+                      <div className="text-3xl font-black mb-1" style={{
+                        color: d === "Executing" ? "#7C3AED" : d === "Influencing" ? "#DC2626" : d === "Relationship" ? "#059669" : "#1D4ED8"
+                      }}>
+                        {pct}%
+                      </div>
+                      <div className="w-full h-2 bg-white/60 rounded-full overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", domainGradient[d])}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className={cn("text-xs mt-1.5 font-medium", domainTextColor[d])}>
+                        {d === "Executing" ? "ลงมือทำ" : d === "Influencing" ? "โน้มน้าวใจ" : d === "Relationship" ? "สร้างความสัมพันธ์" : "วางแผนเชิงกลยุทธ์"}
+                      </p>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* ── ALL 34 THEMES ─────────────────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowAll(v => !v)}
+              className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                {showAll ? <ChevronUp className="w-4 h-4 text-violet-500" /> : <ChevronDown className="w-4 h-4 text-violet-500" />}
+                <span className="text-sm font-bold text-gray-700">
+                  {showAll ? "ซ่อน" : "ดูทั้งหมด"} 34 Themes (เรียงจากจุดแข็งสูงสุด)
+                </span>
+              </div>
+              <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2.5 py-0.5">34</span>
+            </button>
+
+            {showAll && (
+              <div className="border-t border-gray-100">
+                {ranked.map((theme, i) => {
+                  const score = scores[theme.id] || 0;
+                  const maxScore = scores[ranked[0].id] || 1;
+                  const pct = Math.round((score / maxScore) * 100);
+                  return (
+                    <div
+                      key={theme.id}
+                      className={cn(
+                        "px-5 py-3 flex items-center gap-3 border-b last:border-0 border-gray-50",
+                        i < 5 ? "bg-violet-50/40" : ""
+                      )}
+                    >
+                      {/* Rank */}
+                      <span className={cn(
+                        "flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center",
+                        i === 0 ? "bg-amber-100 text-amber-600" :
+                        i === 1 ? "bg-gray-200 text-gray-600" :
+                        i === 2 ? "bg-orange-100 text-orange-600" :
+                        i < 5 ? "bg-violet-100 text-violet-600" :
+                        "bg-gray-50 text-gray-400"
+                      )}>{i + 1}</span>
+
+                      {/* Name + bar */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={cn("text-sm font-semibold", i < 5 ? "text-gray-900" : "text-gray-600")}>
+                            {theme.name}
+                          </span>
+                          <span className="text-xs text-gray-400">{theme.nameTH}</span>
+                          <span className={cn(
+                            "ml-auto text-xs px-1.5 py-0.5 rounded font-medium border flex-shrink-0",
+                            domainBgSoft[theme.domain], domainTextColor[theme.domain]
+                          )}>{theme.domain}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full rounded-full bg-gradient-to-r", domainGradient[theme.domain])}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Score */}
+                      <span className={cn(
+                        "text-xs font-bold flex-shrink-0",
+                        i < 5 ? "text-violet-600" : "text-gray-300"
+                      )}>{score}pt</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── ACTIONS ───────────────────────────────────────────────────────── */}
+          <div className="flex gap-3 no-print">
+            <Button variant="outline" onClick={handleRetake} className="rounded-xl flex-1 border-gray-200">
+              <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
+            </Button>
+            <Button
+              onClick={() => window.print()}
+              className="rounded-xl flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-sm"
+            >
+              <Trophy className="w-4 h-4 mr-2" /> พิมพ์รายงาน
+            </Button>
+          </div>
+
         </div>
       </div>
-    </div>
+    </>
   );
 }
