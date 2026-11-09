@@ -13,7 +13,7 @@ import { useNavigate, Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   TrendingUp, Megaphone, Users, BarChart3, Zap,
-  Target, LayoutGrid, ChevronRight, Flame,
+  Target, LayoutGrid, ChevronRight, Flame, Sparkles,
   CheckCircle2, Volume2, UserPlus, FileText, ArrowRight, Activity,
   Search, X, Images, BookOpen, Phone, AlertTriangle, Globe,
 } from "lucide-react";
@@ -686,6 +686,13 @@ export default function MarketingPortal() {
           </Link>
           {/* 🎮 AHAGRAM Test — inline footer entry */}
           <AhagramWidget inline />
+          <Link
+            to="/marketing/strengths"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Strengths
+          </Link>
         </div>
 
       </div>
