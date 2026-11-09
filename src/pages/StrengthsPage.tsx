@@ -3,11 +3,12 @@
  * อิง Gallup's 34 Strengths Themes
  * รูปแบบ: A/B paired statements → scoring → Top 5 report + expandable 34
  */
-import React, { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, RotateCcw, Trophy, Zap, Users, Brain, Cog, ArrowRight, CheckCircle2 } from "lucide-react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { ChevronDown, ChevronUp, RotateCcw, Trophy, Zap, Users, Brain, Cog, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 
 // ─── 34 Themes Definition ─────────────────────────────────────────────────────
 type Domain = "Executing" | "Influencing" | "Relationship" | "Strategic";
@@ -333,7 +334,24 @@ function getRankedThemes(scores: Record<string, number>): Theme[] {
   return [...THEMES].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
 }
 
-const STORAGE_KEY = (name: string) => `strengths_result_${name.toLowerCase().replace(/\s/g, "_")}`;
+const LS_KEY = (name: string) => `strengths_result_${name.toLowerCase().replace(/\s/g, "_")}`;
+
+async function loadFromSupabase(userName: string): Promise<Record<number, "a" | "b"> | null> {
+  if (!SUPABASE_ENABLED || !supabase) return null;
+  const { data } = await supabase
+    .from("strengths_results")
+    .select("answers")
+    .eq("user_name", userName)
+    .single();
+  return data?.answers ?? null;
+}
+
+async function saveToSupabase(userName: string, answers: Record<number, "a" | "b">, scores: Record<string, number>, top5: string[]) {
+  if (!SUPABASE_ENABLED || !supabase) return;
+  await supabase
+    .from("strengths_results")
+    .upsert({ user_name: userName, answers, scores, top5, updated_at: new Date().toISOString() }, { onConflict: "user_name" });
+}
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 type Phase = "intro" | "quiz" | "result";
@@ -346,18 +364,28 @@ export default function StrengthsPage() {
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<"a" | "b" | null>(null);
   const [animating, setAnimating] = useState(false);
+  const [savedResult, setSavedResult] = useState<Record<number, "a" | "b"> | null>(null);
+  const [loadingResult, setLoadingResult] = useState(true);
 
   const totalQ = QUIZ_PAIRS.length;
   const progress = Math.round((current / totalQ) * 100);
 
-  // Load saved result from localStorage
-  const savedResult = useMemo(() => {
-    if (!user) return null;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY(user.full_name));
-      if (raw) return JSON.parse(raw) as Record<number, "a" | "b">;
-    } catch { /* ignore */ }
-    return null;
+  // Load saved result: Supabase first, fallback localStorage
+  useEffect(() => {
+    if (!user) { setLoadingResult(false); return; }
+    setLoadingResult(true);
+    loadFromSupabase(user.full_name).then(result => {
+      if (result) {
+        setSavedResult(result);
+      } else {
+        // fallback: localStorage
+        try {
+          const raw = localStorage.getItem(LS_KEY(user.full_name));
+          if (raw) setSavedResult(JSON.parse(raw));
+        } catch { /* ignore */ }
+      }
+      setLoadingResult(false);
+    });
   }, [user]);
 
   const scores = useMemo(() => calcScores(answers), [answers]);
@@ -381,11 +409,18 @@ export default function StrengthsPage() {
     setCurrent(0);
     setSelected(null);
     setShowAll(false);
+    setSavedResult(null);
     setPhase("quiz");
-    if (user) localStorage.removeItem(STORAGE_KEY(user.full_name));
+    if (user) {
+      localStorage.removeItem(LS_KEY(user.full_name));
+      // ลบจาก Supabase
+      if (SUPABASE_ENABLED && supabase) {
+        supabase.from("strengths_results").delete().eq("user_name", user.full_name);
+      }
+    }
   }
 
-  function handleSelect(choice: "a" | "b") {
+  const handleSelect = useCallback((choice: "a" | "b") => {
     if (animating) return;
     setSelected(choice);
     setAnimating(true);
@@ -393,8 +428,14 @@ export default function StrengthsPage() {
       const next = { ...answers, [current]: choice };
       setAnswers(next);
       if (current + 1 >= totalQ) {
-        // Save result
-        if (user) localStorage.setItem(STORAGE_KEY(user.full_name), JSON.stringify(next));
+        // คำนวณ scores + top5
+        const finalScores = calcScores(next);
+        const finalTop5 = getRankedThemes(finalScores).slice(0, 5).map(t => t.id);
+        // Save: Supabase + localStorage backup
+        if (user) {
+          saveToSupabase(user.full_name, next, finalScores, finalTop5);
+          try { localStorage.setItem(LS_KEY(user.full_name), JSON.stringify(next)); } catch { /* ignore */ }
+        }
         setPhase("result");
       } else {
         setCurrent(c => c + 1);
@@ -402,7 +443,7 @@ export default function StrengthsPage() {
       setSelected(null);
       setAnimating(false);
     }, 350);
-  }
+  }, [animating, answers, current, totalQ, user]);
 
   function handleBack() {
     if (current === 0) { setPhase("intro"); return; }
@@ -416,6 +457,11 @@ export default function StrengthsPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-blue-50 flex items-center justify-center p-4">
         <div className="max-w-lg w-full text-center space-y-6">
+          {loadingResult && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-400 py-4">
+              <Loader2 className="w-4 h-4 animate-spin" /> กำลังโหลดข้อมูลจาก Supabase...
+            </div>
+          )}
           <div className="text-6xl">🏆</div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Strengths Finder</h1>
@@ -434,6 +480,11 @@ export default function StrengthsPage() {
                   <span className={cn("font-medium", DOMAIN_CONFIG[d].color)}>{DOMAIN_CONFIG[d].label}</span>
                 </div>
               ))}
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold">💰 ปกติแบบทดสอบนี้มีค่าใช้จ่าย</p>
+              <p>Gallup CliftonStrengths (official) ราคา <strong>$19.99–$49.99 USD (~700–1,800 บาท)</strong> ต่อคน และผลจะ lock ไว้กับบัญชีที่ซื้อ ไม่สามารถทำซ้ำได้</p>
+              <p className="text-amber-600">✨ เวอร์ชันนี้ Standard Tour จัดให้ฟรี — ทำกี่ครั้งก็ได้</p>
             </div>
             <p className="text-xs text-gray-400">
               💡 เลือกประโยคที่ <em>รู้สึกว่าเป็นตัวเองมากกว่า</em> ไม่มีคำตอบผิดถูก
