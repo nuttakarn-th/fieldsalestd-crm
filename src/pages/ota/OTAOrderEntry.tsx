@@ -33,12 +33,14 @@ interface ComboOption { value: string; label: string; sublabel?: string; group?:
 
 function SearchCombobox({
   value, onChange, options, placeholder = "Select...", searchPlaceholder = "Search...",
+  allowFreeText = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: ComboOption[];
   placeholder?: string;
   searchPlaceholder?: string;
+  allowFreeText?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -134,8 +136,18 @@ function SearchCombobox({
                 })}
               </div>
             ))}
-            {filtered.length === 0 && (
+            {filtered.length === 0 && !allowFreeText && (
               <div className="px-3 py-4 text-sm text-center text-muted-foreground">ไม่พบรายการ</div>
+            )}
+            {filtered.length === 0 && allowFreeText && query.trim() && (
+              <button
+                type="button"
+                onClick={() => { onChange(query.trim()); setOpen(false); setQuery(""); }}
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-2"
+              >
+                <span className="text-purple-500 font-semibold shrink-0">+ ใช้</span>
+                <span className="font-medium">"{query.trim()}"</span>
+              </button>
             )}
           </div>
         </div>
@@ -1558,7 +1570,8 @@ export default function OTAOrderEntry() {
                         ...MORE_NATIONALITIES.map((n) => ({ value: n, label: n, group: "More" })),
                       ]}
                       placeholder="Select nationality"
-                      searchPlaceholder="Search nationality..."
+                      searchPlaceholder="Search or type nationality..."
+                      allowFreeText
                     />
                   </div>
                   <div>

@@ -1,14 +1,11 @@
 @echo off
 cd /d "%~dp0"
-git add src/pages/AllService.tsx src/pages/StockAnalytics.tsx
-git commit -m "fix: ซ่อน Archive section + Activity Log สำหรับ Non-Admin (v397)
+git add src/pages/ota/OTAOrderEntry.tsx
+git commit -m "feat: OTA Nationality free-text input v397
 
-AllService.tsx:
-- Archive button + คลังโปรแกรม: แสดงเฉพาะ Admin + OB Manager เท่านั้น
-
-StockAnalytics.tsx:
-- Recent Activity Log: แสดงเฉพาะ Admin เท่านั้น"
+- SearchCombobox: เพิ่ม allowFreeText prop
+- เมื่อพิมพ์แล้วไม่มีในรายการ → แสดงปุ่ม '+ ใช้ [ข้อความ]'
+- Nationality field ใน Add/Edit Order ใช้ allowFreeText
+- รองรับ Laos, Myanmar และสัญชาติอื่นๆ ที่ไม่อยู่ใน preset list"
 git push
-echo.
-echo === v397 pushed ===
 pause
