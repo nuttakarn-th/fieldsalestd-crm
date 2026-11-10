@@ -115,6 +115,7 @@ import RevenueDashboard from "./pages/RevenueDashboard.tsx";
 import MarketingPlanPage from "./pages/MarketingPlanPage.tsx";
 import StrengthsPage from "./pages/StrengthsPage.tsx";
 import StrengthsTeamGridPage from "./pages/StrengthsTeamGridPage.tsx";
+import StrengthsAdminPage from "./pages/StrengthsAdminPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -240,6 +241,7 @@ const App = () => (
             <Route path="persona"           element={<PersonaPage />} />
             <Route path="strengths"         element={<StrengthsPage />} />
             <Route path="strengths/team"    element={<StrengthsTeamGridPage />} />
+            <Route path="strengths/admin"   element={<StrengthsAdminPage />} />
           </Route>
 
           {/* ── OTA Module (OTA role + Marketing + Admin) ── */}
@@ -282,6 +284,7 @@ const App = () => (
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />
             <Route path="login-banner" element={<RouteGuard allowedRoles={["Admin"]}><LoginBannerManagement /></RouteGuard>} />
             <Route path="audit-log" element={<RouteGuard allowedRoles={["Admin"]}><AdminAuditLog /></RouteGuard>} />
+            <Route path="strengths/admin" element={<RouteGuard allowedRoles={["Admin"]}><StrengthsAdminPage /></RouteGuard>} />
             <Route path="profile" element={<Navigate to="/profile" replace />} />
             <Route path="all-service" element={<AllService />} />
             <Route path="campaigns" element={<CampaignManagement />} />

@@ -103,7 +103,8 @@ const adminMenu: RoleMenu = {
     {
       category: "ADMIN",
       items: [
-        { title: "Audit Log & Restore", url: "/app/audit-log", icon: History },
+        { title: "Audit Log & Restore",       url: "/app/audit-log",          icon: History },
+        { title: "Strengths Retake Requests", url: "/app/strengths/admin",    icon: ClipboardList },
       ],
     },
   ],

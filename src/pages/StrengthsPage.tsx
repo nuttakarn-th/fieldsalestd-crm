@@ -367,27 +367,42 @@ export default function StrengthsPage() {
   const [animating, setAnimating] = useState(false);
   const [savedResult, setSavedResult] = useState<Record<number, "a" | "b"> | null>(null);
   const [loadingResult, setLoadingResult] = useState(true);
+  const [retakeRequest, setRetakeRequest] = useState<{ id: string; status: "pending" | "approved" | "rejected" } | null>(null);
+  const [sendingRequest, setSendingRequest] = useState(false);
 
   const totalQ = QUIZ_PAIRS.length;
   const progress = Math.round((current / totalQ) * 100);
 
-  // Load saved result: Supabase first, fallback localStorage
+  // Load saved result + retake request
   useEffect(() => {
     if (!user) { setLoadingResult(false); return; }
     setLoadingResult(true);
-    loadFromSupabase(user.full_name).then(result => {
-      if (result) {
-        setSavedResult(result);
-      } else {
-        // fallback: localStorage
+    Promise.all([
+      loadFromSupabase(user.full_name),
+      SUPABASE_ENABLED && supabase
+        ? supabase.from("strengths_retake_requests").select("id,status").eq("user_name", user.full_name).order("requested_at", { ascending: false }).limit(1).single()
+        : Promise.resolve({ data: null }),
+    ]).then(([result, reqRes]) => {
+      if (result) setSavedResult(result);
+      else {
         try {
           const raw = localStorage.getItem(LS_KEY(user.full_name));
           if (raw) setSavedResult(JSON.parse(raw));
         } catch { /* ignore */ }
       }
+      const req = (reqRes as { data: { id: string; status: "pending" | "approved" | "rejected" } | null })?.data;
+      if (req && (req.status === "pending" || req.status === "approved")) setRetakeRequest(req);
       setLoadingResult(false);
     });
   }, [user]);
+
+  async function handleSendRetakeRequest() {
+    if (!user || !SUPABASE_ENABLED || !supabase) return;
+    setSendingRequest(true);
+    const { data } = await supabase.from("strengths_retake_requests").insert({ user_name: user.full_name, status: "pending" }).select("id,status").single();
+    if (data) setRetakeRequest(data);
+    setSendingRequest(false);
+  }
 
   const scores = useMemo(() => calcScores(answers), [answers]);
   const ranked = useMemo(() => getRankedThemes(scores), [scores]);
@@ -411,12 +426,13 @@ export default function StrengthsPage() {
     setSelected(null);
     setShowAll(false);
     setSavedResult(null);
+    setRetakeRequest(null);
     setPhase("quiz");
     if (user) {
       localStorage.removeItem(LS_KEY(user.full_name));
-      // ลบจาก Supabase
       if (SUPABASE_ENABLED && supabase) {
         supabase.from("strengths_results").delete().eq("user_name", user.full_name);
+        supabase.from("strengths_retake_requests").delete().eq("user_name", user.full_name);
       }
     }
   }
@@ -485,25 +501,20 @@ export default function StrengthsPage() {
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
               <p className="font-semibold">💰 ปกติแบบทดสอบนี้มีค่าใช้จ่าย</p>
               <p>Gallup CliftonStrengths (official) ราคา <strong>$19.99–$49.99 USD (~700–1,800 บาท)</strong> ต่อคน และผลจะ lock ไว้กับบัญชีที่ซื้อ ไม่สามารถทำซ้ำได้</p>
-              <p className="text-amber-600">✨ เวอร์ชันนี้ Standard Tour จัดให้ฟรี — ทำกี่ครั้งก็ได้</p>
+              <p className="text-amber-600">✨ เวอร์ชันนี้ Standard Tour จัดให้ฟรี — <strong>1 ครั้งต่อคน</strong> (หากต้องการทำซ้ำ ส่งคำขอไปยัง Admin)</p>
             </div>
             <p className="text-xs text-gray-400">
               💡 เลือกประโยคที่ <em>รู้สึกว่าเป็นตัวเองมากกว่า</em> ไม่มีคำตอบผิดถูก
             </p>
           </div>
           {savedResult && (
-            <p className="text-sm text-emerald-600 font-medium">✅ มีผลเก่าบันทึกไว้ กดดูผลได้เลย หรือทำใหม่</p>
+            <p className="text-sm text-emerald-600 font-medium">✅ มีผลเก่าบันทึกไว้ กดดูผลได้เลย</p>
           )}
           <div className="flex flex-col gap-3">
             <Button onClick={handleStart} className="bg-violet-600 hover:bg-violet-700 text-white py-3 rounded-xl text-base font-semibold">
               {savedResult ? "ดูผลลัพธ์เดิม" : "เริ่ม Quiz"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
-            {savedResult && (
-              <Button variant="outline" onClick={handleRetake} className="rounded-xl">
-                <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -614,21 +625,27 @@ export default function StrengthsPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50 pb-20">
 
-        {/* ── HERO BANNER ─────────────────────────────────────────────────────── */}
-        <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-          <div className="max-w-3xl mx-auto px-6 py-10 text-center">
-            <div className="text-5xl mb-3">🏆</div>
-            <h1 className="text-3xl font-bold tracking-tight">จุดแข็งของคุณ</h1>
-            <p className="mt-1 text-violet-200 text-sm font-medium">
-              {user?.full_name ?? "คุณ"} · CliftonStrengths Report
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur rounded-full px-4 py-1.5 text-xs font-medium">
-              ✨ ทำ Quiz {totalQ} ข้อ · บันทึกใน Supabase แล้ว
+        {/* ── PAGE HEADER ─────────────────────────────────────────────────────── */}
+        <div className="max-w-3xl mx-auto px-4 pt-8 pb-2">
+          <div className="bg-white rounded-2xl border border-violet-100 shadow-sm px-6 py-6 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md">
+              <span className="text-2xl">🏆</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">จุดแข็งของคุณ</h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {user?.full_name ?? "คุณ"} · CliftonStrengths 34 Themes
+              </p>
+            </div>
+            <div className="flex-shrink-0 text-right">
+              <div className="inline-flex items-center gap-1.5 bg-violet-50 border border-violet-100 rounded-full px-3 py-1 text-xs font-medium text-violet-600">
+                ✨ {totalQ} ข้อ
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 -mt-6 space-y-6">
+        <div className="max-w-3xl mx-auto px-4 mt-4 space-y-6">
 
           {/* ── TOP 5 ─────────────────────────────────────────────────────────── */}
           <div>
@@ -854,10 +871,30 @@ export default function StrengthsPage() {
               </button>
             </div>
             <p className="text-xs text-gray-400 text-center mb-4">เปิดในหน้าต่างใหม่ → กด Ctrl+P / Cmd+P → บันทึกเป็น PDF</p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleRetake} className="rounded-xl flex-1 border-gray-200">
-                <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่
-              </Button>
+            {/* Retake request flow */}
+            <div className="border-t border-gray-100 pt-4">
+              {retakeRequest?.status === "approved" ? (
+                <Button onClick={handleRetake} className="w-full rounded-xl bg-violet-600 hover:bg-violet-700 text-white">
+                  <RotateCcw className="w-4 h-4 mr-2" /> ทำ Quiz ใหม่ (ได้รับอนุมัติแล้ว)
+                </Button>
+              ) : retakeRequest?.status === "pending" ? (
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  <span className="text-amber-500 text-lg">⏳</span>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700">คำขอถูกส่งแล้ว — รออนุมัติจาก Admin</p>
+                    <p className="text-xs text-amber-500 mt-0.5">Admin จะอนุมัติหรือปฏิเสธคำขอของคุณ</p>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSendRetakeRequest}
+                  disabled={sendingRequest}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors disabled:opacity-50"
+                >
+                  {sendingRequest ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  ขอทำ Quiz ใหม่ (ส่งคำขอไปยัง Admin)
+                </button>
+              )}
             </div>
           </div>
 
