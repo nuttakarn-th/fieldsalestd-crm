@@ -592,23 +592,24 @@ export default function StrengthsPage() {
 
   const rankMedal = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"];
 
-  const domainGradient: Record<Domain, string> = {
-    Executing:    "from-violet-500 to-purple-600",
-    Influencing:  "from-red-500 to-rose-600",
-    Relationship: "from-emerald-500 to-teal-600",
-    Strategic:    "from-blue-500 to-indigo-600",
+  // Official Gallup domain hex colors
+  const GHEX: Record<Domain, string> = {
+    Executing:    "#6B4E9B",
+    Influencing:  "#E8842A",
+    Relationship: "#3CA37C",
+    Strategic:    "#3B73B9",
   };
-  const domainBgSoft: Record<Domain, string> = {
-    Executing:    "bg-violet-50 border-violet-100",
-    Influencing:  "bg-red-50 border-red-100",
-    Relationship: "bg-emerald-50 border-emerald-100",
-    Strategic:    "bg-blue-50 border-blue-100",
+  const GBG: Record<Domain, string> = {
+    Executing:    "#F3EFFA",
+    Influencing:  "#FEF3E8",
+    Relationship: "#EBF7F3",
+    Strategic:    "#EBF2FB",
   };
-  const domainTextColor: Record<Domain, string> = {
-    Executing:    "text-violet-700",
-    Influencing:  "text-red-600",
-    Relationship: "text-emerald-700",
-    Strategic:    "text-blue-700",
+  const GBORDER: Record<Domain, string> = {
+    Executing:    "#E0D5F2",
+    Influencing:  "#F9DFC0",
+    Relationship: "#C8EBE0",
+    Strategic:    "#C5D9F3",
   };
 
   return (
@@ -665,7 +666,7 @@ export default function StrengthsPage() {
                   )}
                 >
                   {/* Card top accent bar */}
-                  <div className={cn("h-1.5 w-full bg-gradient-to-r", domainGradient[theme.domain])} />
+                  <div className="h-1.5 w-full" style={{ background: GHEX[theme.domain] }} />
 
                   <div className="p-5">
                     {/* Row 1: rank + name + domain badge */}
@@ -675,10 +676,10 @@ export default function StrengthsPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-lg font-bold text-gray-900">{theme.name}</span>
                           <span className="text-sm text-gray-500 font-medium">{theme.nameTH}</span>
-                          <span className={cn(
-                            "text-xs px-2.5 py-0.5 rounded-full font-semibold border",
-                            domainBgSoft[theme.domain], domainTextColor[theme.domain]
-                          )}>
+                          <span
+                            className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
+                            style={{ backgroundColor: GBG[theme.domain], borderColor: GBORDER[theme.domain], color: GHEX[theme.domain] }}
+                          >
                             {theme.domain}
                           </span>
                         </div>
@@ -694,9 +695,13 @@ export default function StrengthsPage() {
                       <div className="mt-4 space-y-2">
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">สิ่งที่ควรรู้เกี่ยวกับตัวคุณ</p>
                         {LONG_DESC[theme.id].insights.map((ins, j) => (
-                          <div key={j} className={cn("flex items-start gap-2.5 rounded-xl px-4 py-3 border", domainBgSoft[theme.domain])}>
-                            <span className={cn("flex-shrink-0 font-black text-base leading-none mt-0.5", domainTextColor[theme.domain])}>›</span>
-                            <p className={cn("text-sm leading-relaxed", domainTextColor[theme.domain])}>{ins}</p>
+                          <div
+                            key={j}
+                            className="flex items-start gap-2.5 rounded-xl px-4 py-3 border"
+                            style={{ backgroundColor: GBG[theme.domain], borderColor: GBORDER[theme.domain] }}
+                          >
+                            <span className="flex-shrink-0 font-black text-base leading-none mt-0.5" style={{ color: GHEX[theme.domain] }}>›</span>
+                            <p className="text-sm leading-relaxed" style={{ color: GHEX[theme.domain] }}>{ins}</p>
                           </div>
                         ))}
                         <div className="mt-3 pt-3 border-t border-gray-100">
@@ -731,25 +736,27 @@ export default function StrengthsPage() {
                   const pct = Math.round((domainScores[d] / domainTotal) * 100);
                   const dc = DOMAIN_CONFIG[d];
                   return (
-                    <div key={d} className={cn("rounded-xl border p-4", domainBgSoft[d])}>
+                    <div
+                      key={d}
+                      className="rounded-xl border p-4"
+                      style={{ backgroundColor: GBG[d], borderColor: GBORDER[d] }}
+                    >
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={domainTextColor[d]}>{dc.icon}</span>
-                        <span className={cn("text-xs font-bold uppercase tracking-wide", domainTextColor[d])}>
+                        <span style={{ color: GHEX[d] }}>{dc.icon}</span>
+                        <span className="text-xs font-bold uppercase tracking-wide" style={{ color: GHEX[d] }}>
                           {d}
                         </span>
                       </div>
-                      <div className="text-3xl font-black mb-1" style={{
-                        color: d === "Executing" ? "#7C3AED" : d === "Influencing" ? "#DC2626" : d === "Relationship" ? "#059669" : "#1D4ED8"
-                      }}>
+                      <div className="text-3xl font-black mb-1" style={{ color: GHEX[d] }}>
                         {pct}%
                       </div>
-                      <div className="w-full h-2 bg-white/60 rounded-full overflow-hidden">
+                      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.6)" }}>
                         <div
-                          className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-700", domainGradient[d])}
-                          style={{ width: `${pct}%` }}
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: GHEX[d] }}
                         />
                       </div>
-                      <p className={cn("text-xs mt-1.5 font-medium", domainTextColor[d])}>
+                      <p className="text-xs mt-1.5 font-medium" style={{ color: GHEX[d] }}>
                         {d === "Executing" ? "ลงมือทำ" : d === "Influencing" ? "โน้มน้าวใจ" : d === "Relationship" ? "สร้างความสัมพันธ์" : "วางแผนเชิงกลยุทธ์"}
                       </p>
                     </div>
@@ -783,20 +790,20 @@ export default function StrengthsPage() {
                   return (
                     <div
                       key={theme.id}
-                      className={cn(
-                        "px-5 py-3 flex items-center gap-3 border-b last:border-0 border-gray-50",
-                        i < 5 ? "bg-violet-50/40" : ""
-                      )}
+                      className="px-5 py-3 flex items-center gap-3 border-b last:border-0 border-gray-50"
+                      style={i < 5 ? { backgroundColor: GBG[theme.domain] + "60" } : {}}
                     >
                       {/* Rank */}
-                      <span className={cn(
-                        "flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center",
-                        i === 0 ? "bg-amber-100 text-amber-600" :
-                        i === 1 ? "bg-gray-200 text-gray-600" :
-                        i === 2 ? "bg-orange-100 text-orange-600" :
-                        i < 5 ? "bg-violet-100 text-violet-600" :
-                        "bg-gray-50 text-gray-400"
-                      )}>{i + 1}</span>
+                      <span
+                        className="flex-shrink-0 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center"
+                        style={
+                          i === 0 ? { backgroundColor: "#FEF3C7", color: "#D97706" } :
+                          i === 1 ? { backgroundColor: "#F3F4F6", color: "#6B7280" } :
+                          i === 2 ? { backgroundColor: "#FFEDD5", color: "#C2410C" } :
+                          i < 5  ? { backgroundColor: GBG[theme.domain], color: GHEX[theme.domain] } :
+                          { backgroundColor: "#F9FAFB", color: "#9CA3AF" }
+                        }
+                      >{i + 1}</span>
 
                       {/* Name + bar */}
                       <div className="flex-1 min-w-0">
@@ -805,27 +812,27 @@ export default function StrengthsPage() {
                             {theme.name}
                           </span>
                           <span className="text-xs text-gray-400">{theme.nameTH}</span>
-                          <span className={cn(
-                            "ml-auto text-xs px-1.5 py-0.5 rounded font-medium border flex-shrink-0",
-                            domainBgSoft[theme.domain], domainTextColor[theme.domain]
-                          )}>{theme.domain}</span>
+                          <span
+                            className="ml-auto text-xs px-1.5 py-0.5 rounded font-medium border flex-shrink-0"
+                            style={{ backgroundColor: GBG[theme.domain], borderColor: GBORDER[theme.domain], color: GHEX[theme.domain] }}
+                          >{theme.domain}</span>
                         </div>
                         <p className={cn("text-xs leading-snug mb-1.5", i < 5 ? "text-gray-500" : "text-gray-400")}>
                           {theme.descriptionTH}
                         </p>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                           <div
-                            className={cn("h-full rounded-full bg-gradient-to-r", domainGradient[theme.domain])}
-                            style={{ width: `${pct}%` }}
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${pct}%`, background: GHEX[theme.domain] }}
                           />
                         </div>
                       </div>
 
                       {/* Score */}
-                      <span className={cn(
-                        "text-xs font-bold flex-shrink-0",
-                        i < 5 ? "text-violet-600" : "text-gray-300"
-                      )}>{score}pt</span>
+                      <span
+                        className="text-xs font-bold flex-shrink-0"
+                        style={{ color: i < 5 ? GHEX[theme.domain] : '#D1D5DB' }}
+                      >{score}pt</span>
                     </div>
                   );
                 })}
