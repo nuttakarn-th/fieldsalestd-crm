@@ -1061,9 +1061,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
       price_per_seat: Number(pForm.price_per_seat || 0),
       special_price: pForm.special_price ? Number(pForm.special_price) : undefined,
       total_seats: seats,
-      // cancelled → preserve existing quota (actual bookings); edit → computeEditQuota; create → seats
+      // cancelled → reset quota = total_seats (ไม่มีการจองที่ยังนับได้); edit → computeEditQuota; create → seats
       quota: pForm.cancelled
-        ? (pEditId ? (existingPeriod?.quota ?? seats) : seats)
+        ? seats  // always reset so cancelled period shows 0/N not N/N
         : pEditId
           ? computeEditQuota()
           : seats,

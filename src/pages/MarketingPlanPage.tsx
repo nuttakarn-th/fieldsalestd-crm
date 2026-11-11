@@ -163,16 +163,18 @@ const EMPTY_FORM: Partial<PlanItemInput> = {
 };
 
 function PlanItemFormModal({
-  initial, parents, onSave, onClose,
+  initial, parents, onSave, onClose, onDelete,
 }: {
   initial?: PlanItem | null;
   parents: PlanItem[];
   onSave: (data: PlanItemInput) => Promise<void>;
   onClose: () => void;
+  onDelete?: (id: string) => void;
 }) {
-  const [form, setForm]     = useState<Partial<PlanItemInput>>({ ...EMPTY_FORM, ...initial });
-  const [saving, setSaving] = useState(false);
-  const [tab, setTab]       = useState<"basic"|"months"|"actual">("basic");
+  const [form, setForm]             = useState<Partial<PlanItemInput>>({ ...EMPTY_FORM, ...initial });
+  const [saving, setSaving]         = useState(false);
+  const [tab, setTab]               = useState<"basic"|"months"|"actual">("basic");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const set = (k: keyof PlanItemInput, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -364,14 +366,42 @@ function PlanItemFormModal({
             </div>
           )}
         </div>
-        <div className="flex gap-2 p-4 border-t">
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl border text-sm hover:bg-muted transition-colors">ยกเลิก</button>
-          <button onClick={handleSave} disabled={saving || !form.title?.trim()}
-            className="flex-1 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
-            {saving ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
-        </div>
+        {confirmingDelete ? (
+          /* ── Layer 1: in-modal delete confirmation ── */
+          <div className="flex flex-col gap-3 p-4 border-t bg-red-50 dark:bg-red-950/20 rounded-b-2xl">
+            <div className="flex items-start gap-2 text-red-600">
+              <Trash2 className="w-4 h-4 shrink-0 mt-0.5"/>
+              <span className="text-sm font-medium">ลบ "{form.title}" ถาวร ไม่สามารถกู้คืนได้</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmingDelete(false)}
+                className="flex-1 py-2 rounded-xl border text-sm hover:bg-muted transition-colors">
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => { onDelete?.(initial!.id); setConfirmingDelete(false); }}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                <Trash2 className="w-4 h-4"/> ยืนยันลบ
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2 p-4 border-t">
+            {initial?.id && (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="py-2 px-3 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-sm transition-colors flex items-center gap-1.5">
+                <Trash2 className="w-4 h-4"/> ลบ
+              </button>
+            )}
+            <button onClick={onClose} className="flex-1 py-2 rounded-xl border text-sm hover:bg-muted transition-colors">ยกเลิก</button>
+            <button onClick={handleSave} disabled={saving || !form.title?.trim()}
+              className="flex-1 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
+              {saving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -650,8 +680,9 @@ export default function MarketingPlanPage() {
   const [filterMonth,  setFilterMonth]  = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<ItemStatus | "all">("all");
   const [collapsed,    setCollapsed]    = useState<Set<string>>(new Set());
-  const [modal,        setModal]        = useState<{ mode: "create"|"edit"; item?: PlanItem } | null>(null);
-  const [deleting,     setDeleting]     = useState<string | null>(null);
+  const [modal,             setModal]             = useState<{ mode: "create"|"edit"; item?: PlanItem } | null>(null);
+  const [deleting,          setDeleting]          = useState<string | null>(null);
+  const [deletingChildCount, setDeletingChildCount] = useState<number>(0);
 
   // ── Action menu (3-dot, fixed position to avoid overflow clip) ──────────────
   const [actionMenu,    setActionMenu]    = useState<string | null>(null);
@@ -725,7 +756,14 @@ export default function MarketingPlanPage() {
   };
 
   const confirmDelete = async () => {
-    if (deleting) { await deleteItem(deleting); setDeleting(null); }
+    if (deleting) { await deleteItem(deleting); setDeleting(null); setDeletingChildCount(0); }
+  };
+
+  const handleDeleteRequest = (itemId: string) => {
+    const childCount = items.filter((i) => i.parent_id === itemId).length;
+    setDeletingChildCount(childCount);
+    setDeleting(itemId);
+    setModal(null); // close edit modal first
   };
 
   const hasFilter = filterDepts.size > 0 || filterSide !== "all" || filterStatus !== "all" || filterMonth !== null;
@@ -1093,6 +1131,7 @@ export default function MarketingPlanPage() {
           parents={parentItems}
           onSave={handleSave}
           onClose={() => setModal(null)}
+          onDelete={modal.mode === "edit" ? handleDeleteRequest : undefined}
         />
       )}
 
@@ -1100,11 +1139,20 @@ export default function MarketingPlanPage() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-background border rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center">
             <Trash2 className="w-10 h-10 text-red-500 mx-auto mb-3"/>
-            <h3 className="font-bold text-base mb-2">ลบกิจกรรมนี้?</h3>
-            <p className="text-sm text-muted-foreground mb-5">กิจกรรมที่เป็นหัวข้อ L2/L1 จะลบรายการย่อยทั้งหมดด้วย</p>
+            <h3 className="font-bold text-base mb-2">ยืนยันลบถาวร?</h3>
+            {deletingChildCount > 0 ? (
+              <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4 text-left">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5"/>
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  รายการนี้มี <strong>{deletingChildCount} รายการย่อย</strong> ที่จะถูกลบพร้อมกันทั้งหมด
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground mb-4">การลบนี้ถาวร ไม่สามารถกู้คืนได้</p>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeleting(null)} className="flex-1 py-2 rounded-xl border text-sm hover:bg-muted">ยกเลิก</button>
-              <button onClick={confirmDelete} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">ลบ</button>
+              <button onClick={() => { setDeleting(null); setDeletingChildCount(0); }} className="flex-1 py-2 rounded-xl border text-sm hover:bg-muted">ยกเลิก</button>
+              <button onClick={confirmDelete} className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">ลบถาวร</button>
             </div>
           </div>
         </div>
