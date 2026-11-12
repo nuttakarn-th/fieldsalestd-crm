@@ -37,7 +37,14 @@ export interface PlanItem {
   warn_note: string | null;
   unscheduled_note: string | null;
   action_plan: string | null;
-  gantt_spans: Array<{ s: number; e: number; t: string; light?: boolean }> | null;
+  gantt_spans: Array<{
+    s: number; e: number; t: string; light?: boolean;
+    name?: string;    // ชื่อเต็มแคมเปญ
+    season?: string;  // High / Mid / Low
+    doing?: string;   // ช่วงนี้ทำไร
+    warn?: string;    // กติกา/จุดระวัง
+    owner?: string;   // ผู้รับผิดชอบ
+  }> | null;
   created_at: string;
   updated_at: string;
 }

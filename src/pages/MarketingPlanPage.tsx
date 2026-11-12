@@ -112,7 +112,16 @@ function StatusBadge({ status, onChange }: { status: ItemStatus; onChange?: (s: 
 }
 
 // ─── Gantt Bar Cell ───────────────────────────────────────────────────────────
-function GanttCell({ item, monthIndex, selectedMonth }: { item: PlanItem; monthIndex: number; selectedMonth: number | null }) {
+type GanttSpan = NonNullable<PlanItem["gantt_spans"]>[number];
+
+function GanttCell({
+  item, monthIndex, selectedMonth, onSpanClick,
+}: {
+  item: PlanItem;
+  monthIndex: number;
+  selectedMonth: number | null;
+  onSpanClick?: (span: GanttSpan, item: PlanItem) => void;
+}) {
   const ghostSpans = useMemo(() => item.gantt_spans ?? [], [item.gantt_spans]);
   const planned = item.monthly_amounts[monthIndex] ?? 0;
   const actual  = item.actual_amounts[monthIndex] ?? 0;
@@ -129,9 +138,11 @@ function GanttCell({ item, monthIndex, selectedMonth }: { item: PlanItem; monthI
     const ghostColSpan = isGhostStart ? ghostSpan.e - ghostSpan.s + 1 : 1;
     if (!isGhostStart && ghostSpans.some((g) => g.s < monthIndex && monthIndex <= g.e)) return null;
     if (isGhostStart && ghostSpan) {
+      const hasDetail = !!(ghostSpan.name || ghostSpan.doing || ghostSpan.warn);
       return (
-        <td colSpan={ghostColSpan} className={`px-1 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}>
-          <div className="w-full h-5 rounded-full flex items-center justify-center border border-dashed border-muted/50 overflow-hidden"
+        <td colSpan={ghostColSpan} className={`px-1 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}
+            onClick={(e) => { if (hasDetail && onSpanClick) { e.stopPropagation(); onSpanClick(ghostSpan, item); } }}>
+          <div className={`w-full h-5 rounded-full flex items-center justify-center border border-dashed border-muted/50 overflow-hidden ${hasDetail ? "cursor-pointer hover:opacity-60 transition-opacity" : ""}`}
                style={{ background: color, opacity: 0.35 }}>
             <span className="text-[8.5px] font-semibold text-gray-600 px-1 truncate">{ghostSpan.t}</span>
           </div>
@@ -521,6 +532,157 @@ function FilterDropdown({ label, activeCount, children }: {
   );
 }
 
+// ─── Span Detail Drawer ───────────────────────────────────────────────────────
+function SpanDetailDrawer({
+  span, parentItem, allItems, onClose,
+}: {
+  span: GanttSpan | null;
+  parentItem: PlanItem | null;
+  allItems: PlanItem[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const isOpen = !!(span && parentItem);
+  const deptColor = (d: string) => DEPT_BAR[d] ?? "#e6e0ea";
+
+  // Find L2 parent (e.g. Meta Ads) to show its monthly budget
+  const l2Parent = parentItem ? allItems.find((x) => x.id === parentItem.parent_id) : null;
+  const monthBudget = (span && l2Parent) ? (l2Parent.monthly_amounts[span.s] ?? 0) : 0;
+
+  const monthLabel = (span: GanttSpan) => {
+    if (span.s === span.e) return MONTHS[span.s];
+    return `${MONTHS[span.s]}–${MONTHS[span.e]}`;
+  };
+
+  const seasonColor = (s?: string) => {
+    if (!s) return "bg-muted text-muted-foreground";
+    if (s.toLowerCase().includes("high")) return "bg-red-50 text-red-700 border border-red-200";
+    if (s.toLowerCase().includes("low")) return "bg-blue-50 text-blue-700 border border-blue-200";
+    return "bg-amber-50 text-amber-700 border border-amber-200";
+  };
+
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-40 bg-black/30 transition-opacity duration-200 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`fixed top-0 right-0 h-full z-50 flex flex-col bg-[#fff9f4] border-l border-muted shadow-2xl transition-transform duration-200 ease-out`}
+        style={{ width: "min(460px, 100vw)", transform: isOpen ? "translateX(0)" : "translateX(105%)" }}>
+
+        {!(span && parentItem) ? null : (
+          <>
+            {/* Header */}
+            <div className="p-5 pb-4 border-b border-muted/60 relative">
+              <p className="text-[11px] text-muted-foreground mb-1">
+                {parentItem.side === "off" ? "OFFLINE" : "ONLINE"} · {l2Parent?.title ?? ""} · {monthLabel(span)}
+              </p>
+              <h3 className="text-lg font-bold leading-snug text-foreground pr-8">
+                {span.name ?? span.t}
+              </h3>
+              <div className="flex gap-1 mt-2.5 h-1.5">
+                {parentItem.departments.map((d) => (
+                  <div key={d} className="flex-1 rounded-full" style={{ background: deptColor(d) }}/>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3 flex-wrap items-center">
+                {parentItem.departments.map((d) => <DeptTag key={d} dept={d}/>)}
+                {span.season && (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${seasonColor(span.season)}`}>
+                    Season: {span.season}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full border flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground">
+                <X className="w-4 h-4"/>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+              {/* KV Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-background border rounded-xl p-3">
+                  <span className="text-[11px] text-muted-foreground block mb-0.5">ช่วงเวลา</span>
+                  <span className="text-base font-bold text-foreground">{monthLabel(span)}</span>
+                </div>
+                <div className="bg-background border rounded-xl p-3">
+                  <span className="text-[11px] text-muted-foreground block mb-0.5">งบช่วงนี้</span>
+                  <span className="text-base font-bold text-foreground">
+                    {parentItem.is_na ? `ในงบ${l2Parent?.title ?? "แม่"}` : "ระบุในแม่"}
+                  </span>
+                </div>
+                <div className="bg-background border rounded-xl p-3">
+                  <span className="text-[11px] text-muted-foreground block mb-0.5">งบทั้งปีของรายการนี้</span>
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {parentItem.budget_note ?? (parentItem.budget > 0 ? `฿${Math.round(parentItem.budget).toLocaleString("th-TH")}` : "ซ้อนในงบอื่น")}
+                  </span>
+                </div>
+                {monthBudget > 0 && (
+                  <div className="bg-background border rounded-xl p-3">
+                    <span className="text-[11px] text-muted-foreground block mb-0.5">งบ {l2Parent?.title} เดือนนี้</span>
+                    <span className="text-base font-bold text-foreground">฿{Math.round(monthBudget).toLocaleString("th-TH")}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* KPI */}
+              {parentItem.kpi && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-violet-600 uppercase">KPI / เป้าหมาย</p>
+                  <p className="text-sm text-foreground leading-relaxed bg-violet-50 rounded-xl p-3 border border-violet-100">{parentItem.kpi}</p>
+                </div>
+              )}
+
+              {/* รายละเอียด (parent description) */}
+              {parentItem.description && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">รายละเอียด</p>
+                  <p className="text-sm text-foreground leading-relaxed">{parentItem.description}</p>
+                </div>
+              )}
+
+              {/* ช่วงนี้ทำไร */}
+              {span.doing && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-blue-600 uppercase">ช่วงนี้ทำไร</p>
+                  <p className="text-sm text-foreground leading-relaxed bg-blue-50 rounded-xl p-3 border border-blue-100">{span.doing}</p>
+                </div>
+              )}
+
+              {/* ผู้รับผิดชอบ */}
+              {(span.owner ?? parentItem.owner) && (
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">ผู้รับผิดชอบ</p>
+                  <p className="text-sm text-foreground">เจ้าของ: {span.owner ?? parentItem.owner}</p>
+                </div>
+              )}
+
+              {/* กติกา/จุดระวัง */}
+              {(span.warn ?? parentItem.warn_note) && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                  <p className="text-[11px] font-semibold text-orange-700 uppercase mb-1">กติกา / จุดระวัง</p>
+                  <p className="text-xs text-orange-800 leading-relaxed">{span.warn ?? parentItem.warn_note}</p>
+                </div>
+              )}
+
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Detail Drawer ────────────────────────────────────────────────────────────
 function DetailDrawer({
   item,
@@ -766,6 +928,7 @@ export default function MarketingPlanPage() {
   const [actionMenu,    setActionMenu]    = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [selectedItem,  setSelectedItem]  = useState<PlanItem | null>(null);
+  const [selectedSpan,  setSelectedSpan]  = useState<{ span: GanttSpan; item: PlanItem } | null>(null);
 
   useEffect(() => {
     const handler = () => { setActionMenu(null); setActionMenuPos(null); };
@@ -1130,7 +1293,8 @@ export default function MarketingPlanPage() {
                               </td>
                               {/* Month Gantt cells */}
                               {Array(12).fill(null).map((_, i) => (
-                                <GanttCell key={i} item={l3} monthIndex={i} selectedMonth={filterMonth}/>
+                                <GanttCell key={i} item={l3} monthIndex={i} selectedMonth={filterMonth}
+                                  onSpanClick={(span, item) => { setSelectedItem(null); setSelectedSpan({ span, item }); }}/>
                               ))}
                             </tr>
                           ))}
@@ -1200,6 +1364,14 @@ export default function MarketingPlanPage() {
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
         onEdit={(item) => setModal({ mode: "edit", item })}
+      />
+
+      {/* ── Span Detail Drawer ──────────────────────────────────────────────── */}
+      <SpanDetailDrawer
+        span={selectedSpan?.span ?? null}
+        parentItem={selectedSpan?.item ?? null}
+        allItems={items}
+        onClose={() => setSelectedSpan(null)}
       />
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
