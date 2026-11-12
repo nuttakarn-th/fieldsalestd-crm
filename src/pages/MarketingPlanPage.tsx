@@ -43,7 +43,6 @@ const CURRENT_MONTH = new Date().getMonth(); // 0-based
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtBudget(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (n >= 10_000)    return Math.round(n / 1_000) + "K";
   if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(Math.round(n));
 }
@@ -114,62 +113,49 @@ function StatusBadge({ status, onChange }: { status: ItemStatus; onChange?: (s: 
 
 // ─── Gantt Bar Cell ───────────────────────────────────────────────────────────
 function GanttCell({ item, monthIndex, selectedMonth }: { item: PlanItem; monthIndex: number; selectedMonth: number | null }) {
-  const spans = useMemo(() => computeSpans(item.monthly_amounts), [item.monthly_amounts]);
   const ghostSpans = useMemo(() => item.gantt_spans ?? [], [item.gantt_spans]);
-
-  const actual  = item.actual_amounts[monthIndex] ?? 0;
   const planned = item.monthly_amounts[monthIndex] ?? 0;
-
-  // ── Budget spans ──
-  const span     = spans.find((s) => s.start <= monthIndex && monthIndex <= s.end);
-  const isInSpan = !!span && span.start === monthIndex;
-  const colSpan  = isInSpan ? span!.end - span!.start + 1 : 1;
-  if (!isInSpan && spans.some((s) => s.start < monthIndex && monthIndex <= s.end)) return null;
-
-  // ── Ghost spans (no-budget timeline) ──
-  const ghostSpan    = ghostSpans.find((g) => g.s <= monthIndex && monthIndex <= g.e);
-  const isGhostStart = !!ghostSpan && ghostSpan.s === monthIndex;
-  const ghostColSpan = isGhostStart ? ghostSpan.e - ghostSpan.s + 1 : 1;
-  if (!isGhostStart && ghostSpans.some((g) => g.s < monthIndex && monthIndex <= g.e)) return null;
+  const actual  = item.actual_amounts[monthIndex] ?? 0;
 
   const isCurrent  = monthIndex === CURRENT_MONTH;
   const isSelected = selectedMonth === monthIndex;
-  const bg = isSelected ? "bg-violet-50" : isCurrent ? "bg-amber-50/40" : "";
-  const color      = getBarGradient(item.departments);
+  const bg    = isSelected ? "bg-violet-50" : isCurrent ? "bg-amber-50/40" : "";
+  const color = getBarGradient(item.departments);
 
-  if (!isInSpan || !span) {
+  // ── Ghost spans: items with no budget but planned timeline ──
+  if (ghostSpans.length > 0 && planned === 0 && actual === 0) {
+    const ghostSpan    = ghostSpans.find((g) => g.s <= monthIndex && monthIndex <= g.e);
+    const isGhostStart = !!ghostSpan && ghostSpan.s === monthIndex;
+    const ghostColSpan = isGhostStart ? ghostSpan.e - ghostSpan.s + 1 : 1;
+    if (!isGhostStart && ghostSpans.some((g) => g.s < monthIndex && monthIndex <= g.e)) return null;
     if (isGhostStart && ghostSpan) {
       return (
-        <td colSpan={ghostColSpan} className={`px-1 py-1.5 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}>
-          <div className="relative w-full h-5 rounded-full flex items-center justify-center overflow-hidden border border-dashed border-muted/50"
-               style={{ background: color, opacity: 0.38 }}>
+        <td colSpan={ghostColSpan} className={`px-1 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}>
+          <div className="w-full h-5 rounded-full flex items-center justify-center border border-dashed border-muted/50 overflow-hidden"
+               style={{ background: color, opacity: 0.35 }}>
             <span className="text-[8.5px] font-semibold text-gray-600 px-1 truncate">{ghostSpan.t}</span>
           </div>
         </td>
       );
     }
-    return (
-      <td className={`border-r border-dashed border-muted/40 text-center px-0 ${bg}`} style={{ width: 52 }}>
-        {actual > 0 && (
-          <div className="w-full h-1 rounded-full bg-green-400/50 mx-auto mt-1" title={`จริง ฿${fmtFull(actual)}`}/>
-        )}
-      </td>
-    );
+    return <td className={`border-r border-dashed border-muted/40 ${bg}`} style={{ width: 52 }}/>;
   }
 
-  const totalActual = item.actual_amounts.slice(span.start, span.end + 1).reduce((a, b) => a + b, 0);
-  const pct        = span.total > 0 ? Math.min(totalActual / span.total, 1) : 0;
+  // ── Individual monthly cell ──
+  if (planned === 0 && actual === 0) {
+    return <td className={`border-r border-dashed border-muted/40 ${bg}`} style={{ width: 52 }}/>;
+  }
 
   return (
-    <td colSpan={colSpan} className={`px-1 py-1.5 border-r border-muted/20 ${bg}`} style={{ width: 52 * colSpan }}>
-      <div className="relative w-full h-5 rounded-full overflow-hidden" style={{ background: color, opacity: 0.85 }}>
-        {pct > 0 && (
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct * 100}%`, background: "rgba(0,0,0,0.18)" }}/>
-        )}
-        <div className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-700 px-1 truncate">
-          {colSpan > 1 ? `฿${fmtBudget(span.total)}` : `฿${fmtBudget(planned)}`}
+    <td className={`px-0.5 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 }}>
+      {planned > 0 && (
+        <div className="w-full h-5 rounded-md flex items-center justify-center overflow-hidden" style={{ background: color, opacity: 0.85 }}>
+          <span className="text-[9px] font-bold text-gray-700 truncate px-0.5">{fmtBudget(planned)}</span>
         </div>
-      </div>
+      )}
+      {actual > 0 && (
+        <div className={`w-full h-1 rounded-full bg-emerald-400/70 ${planned > 0 ? "mt-0.5" : "mt-2"}`} title={`จริง ฿${fmtFull(actual)}`}/>
+      )}
     </td>
   );
 }
