@@ -353,7 +353,29 @@ function PlanItemFormModal({
           )}
           {tab === "months" && (
             <div>
-              <p className="text-xs text-muted-foreground mb-3">งบประมาณแผน (Plan) แยกรายเดือน — รวม = ฿{fmtFull((form.monthly_amounts ?? []).reduce((a, b) => a + b, 0))}</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-muted-foreground">งบประมาณแผน (Plan) แยกรายเดือน — รวม = ฿{fmtFull((form.monthly_amounts ?? []).reduce((a, b) => a + b, 0))}</p>
+                <div className="flex gap-1.5 shrink-0 ml-2">
+                  <button type="button"
+                    onClick={() => set("monthly_amounts", Array(12).fill(0))}
+                    className="text-[10px] px-2 py-1 rounded-lg border border-muted text-muted-foreground hover:bg-muted/40 transition-colors">
+                    ล้างตัวเลข
+                  </button>
+                  <button type="button"
+                    onClick={() => {
+                      const total = form.budget ?? 0;
+                      if (total <= 0) return;
+                      const per = Math.round(total / 12);
+                      const arr = Array(12).fill(per);
+                      // distribute remainder to last month
+                      arr[11] = total - per * 11;
+                      set("monthly_amounts", arr);
+                    }}
+                    className="text-[10px] px-2 py-1 rounded-lg border border-violet-300 text-violet-600 hover:bg-violet-50 transition-colors">
+                    เฉลี่ยเท่ากัน
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {MONTHS.map((m, i) => (
                   <div key={i}>
@@ -367,7 +389,14 @@ function PlanItemFormModal({
           )}
           {tab === "actual" && (
             <div>
-              <p className="text-xs text-muted-foreground mb-3">งบที่ใช้จริง (Actual) แยกรายเดือน — รวม = ฿{fmtFull((form.actual_amounts ?? []).reduce((a, b) => a + b, 0))}</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-muted-foreground">งบที่ใช้จริง (Actual) แยกรายเดือน — รวม = ฿{fmtFull((form.actual_amounts ?? []).reduce((a, b) => a + b, 0))}</p>
+                <button type="button"
+                  onClick={() => set("actual_amounts", Array(12).fill(0))}
+                  className="text-[10px] px-2 py-1 rounded-lg border border-muted text-muted-foreground hover:bg-muted/40 transition-colors shrink-0 ml-2">
+                  ล้างตัวเลข
+                </button>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {MONTHS.map((m, i) => (
                   <div key={i}>
