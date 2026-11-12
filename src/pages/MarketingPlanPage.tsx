@@ -140,11 +140,11 @@ function GanttCell({
     if (isGhostStart && ghostSpan) {
       const hasDetail = !!(ghostSpan.name || ghostSpan.doing || ghostSpan.warn);
       return (
-        <td colSpan={ghostColSpan} className={`px-1 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}
+        <td colSpan={ghostColSpan} className={`px-0.5 py-1 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}
             onClick={(e) => { if (hasDetail && onSpanClick) { e.stopPropagation(); onSpanClick(ghostSpan, item); } }}>
-          <div className={`w-full h-5 rounded-full flex items-center justify-center border border-dashed border-muted/50 overflow-hidden ${hasDetail ? "cursor-pointer hover:opacity-60 transition-opacity" : ""}`}
-               style={{ background: color, opacity: 0.35 }}>
-            <span className="text-[8.5px] font-semibold text-gray-600 px-1 truncate">{ghostSpan.t}</span>
+          <div className={`w-full h-5 rounded-full flex items-center justify-center overflow-hidden ring-1 ring-white/30 shadow-sm ${hasDetail ? "cursor-pointer hover:brightness-90 transition-all active:scale-95" : ""}`}
+               style={{ background: color }}>
+            <span className="text-[8.5px] font-semibold text-gray-700 px-1 truncate">{ghostSpan.t}</span>
           </div>
         </td>
       );
@@ -1231,23 +1231,29 @@ export default function MarketingPlanPage() {
                           </tr>
 
                           {/* L3 Rows */}
-                          {!l2Collapsed && l3s.map((l3) => (
+                          {!l2Collapsed && l3s.map((l3) => {
+                            const isCal = l3.is_na && !!(l3.gantt_spans?.length);
+                            return (
                             <tr
                               key={l3.id}
-                              className="hover:bg-muted/30 transition-colors border-b border-muted/30 group cursor-pointer"
+                              className={`hover:bg-muted/30 transition-colors border-b border-muted/30 group cursor-pointer ${isCal ? "bg-purple-50/30" : ""}`}
                               onClick={() => setSelectedItem(l3)}>
                               {/* Activity name — sticky */}
-                              <td className="sticky left-0 z-[2] bg-background group-hover:bg-muted/30 px-8 py-2 text-xs transition-colors" style={{ maxWidth: 288 }}>
+                              <td className={`sticky left-0 z-[2] px-8 py-2 text-xs transition-colors ${isCal ? "bg-purple-50/30 group-hover:bg-purple-50/60" : "bg-background group-hover:bg-muted/30"}`} style={{ maxWidth: 288 }}>
                                 <div className="flex items-start gap-1">
-                                  <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5"/>
+                                  {isCal
+                                    ? <span className="shrink-0 text-[10px] leading-none mt-1" title="Campaign Calendar">📅</span>
+                                    : <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-muted-foreground/40 mt-1.5"/>
+                                  }
                                   <div className="min-w-0">
-                                    <div className="font-semibold text-foreground leading-snug truncate hover:text-violet-700 hover:underline" title={l3.title}>
+                                    <div className={`font-semibold leading-snug truncate hover:text-violet-700 hover:underline ${isCal ? "text-purple-800" : "text-foreground"}`} title={l3.title}>
                                       {l3.title}
                                       {l3.is_new && <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-emerald-100 text-emerald-700">ใหม่</span>}
                                       {l3.warn_note && <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700">⚠</span>}
                                     </div>
                                     {l3.description && <div className="text-[10px] text-muted-foreground leading-snug mt-0.5 truncate">{l3.description}</div>}
                                     {l3.wait_note && <div className="text-[10px] text-orange-500 mt-0.5">⏳ {l3.wait_note}</div>}
+                                    {isCal && <div className="text-[9px] text-purple-500/70 mt-0.5">📅 ซ้อนในงบแม่ · คลิก event เพื่อดูรายละเอียด</div>}
                                   </div>
                                 </div>
                               </td>
@@ -1297,7 +1303,8 @@ export default function MarketingPlanPage() {
                                   onSpanClick={(span, item) => { setSelectedItem(null); setSelectedSpan({ span, item }); }}/>
                               ))}
                             </tr>
-                          ))}
+                          );
+                          })}
                         </>
                       );
                     })}
@@ -1343,6 +1350,10 @@ export default function MarketingPlanPage() {
         <span className="flex items-center gap-1.5">
           <span className="w-6 h-3 rounded-full bg-amber-100 border border-amber-300 inline-block"/>
           เดือนปัจจุบัน
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-[10px]">📅</span>
+          Campaign Calendar (ซ้อนในงบ · คลิกดูรายละเอียด)
         </span>
         <span className="ml-auto flex items-center gap-1 text-[10px]">
           {Object.entries(KPI_MARK).map(([k, v]) => (
