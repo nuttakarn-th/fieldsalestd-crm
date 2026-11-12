@@ -1066,7 +1066,7 @@ export default function MarketingPlanPage() {
                                 </div>
                               </td>
                               {/* Status */}
-                              <td className="text-center py-2 px-1">
+                              <td className="text-center py-2 px-1" onClick={(e) => e.stopPropagation()}>
                                 <StatusBadge status={l3.status} onChange={(s) => updateStatus(l3.id, s)}/>
                               </td>
                               {/* Budget */}
