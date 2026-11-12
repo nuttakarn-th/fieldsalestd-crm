@@ -43,7 +43,8 @@ const CURRENT_MONTH = new Date().getMonth(); // 0-based
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtBudget(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (n >= 1_000)     return (n / 1_000).toFixed(0) + "K";
+  if (n >= 10_000)    return Math.round(n / 1_000) + "K";
+  if (n >= 1_000)     return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(Math.round(n));
 }
 function fmtFull(n: number) {
@@ -114,18 +115,39 @@ function StatusBadge({ status, onChange }: { status: ItemStatus; onChange?: (s: 
 // ─── Gantt Bar Cell ───────────────────────────────────────────────────────────
 function GanttCell({ item, monthIndex, selectedMonth }: { item: PlanItem; monthIndex: number; selectedMonth: number | null }) {
   const spans = useMemo(() => computeSpans(item.monthly_amounts), [item.monthly_amounts]);
+  const ghostSpans = useMemo(() => item.gantt_spans ?? [], [item.gantt_spans]);
+
   const actual  = item.actual_amounts[monthIndex] ?? 0;
   const planned = item.monthly_amounts[monthIndex] ?? 0;
-  const span    = spans.find((s) => s.start <= monthIndex && monthIndex <= s.end);
+
+  // ── Budget spans ──
+  const span     = spans.find((s) => s.start <= monthIndex && monthIndex <= s.end);
   const isInSpan = !!span && span.start === monthIndex;
   const colSpan  = isInSpan ? span!.end - span!.start + 1 : 1;
   if (!isInSpan && spans.some((s) => s.start < monthIndex && monthIndex <= s.end)) return null;
 
+  // ── Ghost spans (no-budget timeline) ──
+  const ghostSpan    = ghostSpans.find((g) => g.s <= monthIndex && monthIndex <= g.e);
+  const isGhostStart = !!ghostSpan && ghostSpan.s === monthIndex;
+  const ghostColSpan = isGhostStart ? ghostSpan.e - ghostSpan.s + 1 : 1;
+  if (!isGhostStart && ghostSpans.some((g) => g.s < monthIndex && monthIndex <= g.e)) return null;
+
   const isCurrent  = monthIndex === CURRENT_MONTH;
   const isSelected = selectedMonth === monthIndex;
   const bg = isSelected ? "bg-violet-50" : isCurrent ? "bg-amber-50/40" : "";
+  const color      = getBarGradient(item.departments);
 
   if (!isInSpan || !span) {
+    if (isGhostStart && ghostSpan) {
+      return (
+        <td colSpan={ghostColSpan} className={`px-1 py-1.5 border-r border-muted/20 ${bg}`} style={{ width: 52 * ghostColSpan }}>
+          <div className="relative w-full h-5 rounded-full flex items-center justify-center overflow-hidden border border-dashed border-muted/50"
+               style={{ background: color, opacity: 0.38 }}>
+            <span className="text-[8.5px] font-semibold text-gray-600 px-1 truncate">{ghostSpan.t}</span>
+          </div>
+        </td>
+      );
+    }
     return (
       <td className={`border-r border-dashed border-muted/40 text-center px-0 ${bg}`} style={{ width: 52 }}>
         {actual > 0 && (
@@ -135,7 +157,6 @@ function GanttCell({ item, monthIndex, selectedMonth }: { item: PlanItem; monthI
     );
   }
 
-  const color      = getBarGradient(item.departments);
   const totalActual = item.actual_amounts.slice(span.start, span.end + 1).reduce((a, b) => a + b, 0);
   const pct        = span.total > 0 ? Math.min(totalActual / span.total, 1) : 0;
 
@@ -335,6 +356,13 @@ function PlanItemFormModal({
                     className="w-full rounded-lg border bg-background text-sm px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none"/>
                 </div>
               ))}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">แผนดำเนินงาน / ขั้นตอนหลังอนุมัติ</label>
+                <textarea value={form.action_plan ?? ""} onChange={(e) => set("action_plan", e.target.value)} rows={5}
+                  className="w-full rounded-lg border bg-background text-sm px-3 py-2 focus:ring-2 focus:ring-violet-400 focus:outline-none resize-none font-mono"
+                  placeholder={"ม.ค. · ชื่อขั้นตอน\nรายละเอียด\n\nก.พ. · ขั้นตอนถัดไป\nรายละเอียด"}/>
+                <p className="text-[10px] text-muted-foreground mt-1">พิมพ์เป็น: ช่วงเวลา · ชื่อขั้นตอน ขึ้นบรรทัดใหม่ รายละเอียด · คั่นแต่ละขั้นด้วยบรรทัดว่าง</p>
+              </div>
             </>
           )}
           {tab === "months" && (
@@ -606,48 +634,83 @@ function DetailDrawer({
                 </div>
               )}
 
-              {/* Monthly budget chart */}
+              {/* Action Plan */}
+              {item.action_plan && (() => {
+                const steps = item.action_plan
+                  .split(/\n\s*\n/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                  .map((block) => {
+                    const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+                    const firstLine = lines[0] ?? "";
+                    const sepIdx = firstLine.indexOf(" · ");
+                    const period = sepIdx >= 0 ? firstLine.slice(0, sepIdx) : "";
+                    const title  = sepIdx >= 0 ? firstLine.slice(sepIdx + 3) : firstLine;
+                    const detail = lines.slice(1).join(" · ");
+                    return { period, title, detail };
+                  });
+                return (
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold tracking-wide text-blue-600 uppercase">ขั้นตอนหลังอนุมัติ</p>
+                    <div className="space-y-2">
+                      {steps.map((step, i) => (
+                        <div key={i} className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-3">
+                          {step.period && (
+                            <div className="shrink-0 mt-0.5">
+                              <span className="text-[9px] font-bold text-blue-500 bg-blue-100 rounded px-1.5 py-0.5 whitespace-nowrap">{step.period}</span>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-semibold text-foreground leading-snug">{step.title}</p>
+                            {step.detail && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{step.detail}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Monthly budget table */}
               {totalPlan > 0 && (
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">งบรายเดือน</p>
-                  <div className="grid grid-cols-12 gap-0.5 items-end" style={{ height: 56 }}>
-                    {MONTHS.map((m, i) => {
-                      const plan   = item.monthly_amounts[i] ?? 0;
-                      const actual = item.actual_amounts[i] ?? 0;
-                      const hPlan   = plan   > 0 ? Math.max(4, Math.round(plan   / maxBar * 44)) : 0;
-                      const hActual = actual > 0 ? Math.max(3, Math.round(actual / maxBar * 44)) : 0;
-                      return (
-                        <div key={i} className="flex flex-col items-center gap-0.5">
-                          <div className="flex flex-col-reverse items-center justify-start gap-0.5 h-11 w-full">
-                            {hPlan > 0 && (
-                              <div
-                                className="w-full rounded-t-sm opacity-70"
-                                style={{ height: hPlan, background: deptColor(item.departments[0] ?? "OB") }}
-                                title={`แผน ฿${Math.round(plan).toLocaleString("th-TH")}`}
-                              />
-                            )}
-                            {hActual > 0 && (
-                              <div
-                                className="w-full rounded-t-sm"
-                                style={{ height: hActual, background: "#34d399" }}
-                                title={`จริง ฿${Math.round(actual).toLocaleString("th-TH")}`}
-                              />
-                            )}
-                          </div>
-                          <span className="text-[8px] text-muted-foreground leading-none">{m.replace(".", "")}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="flex gap-3 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-2 rounded-sm inline-block opacity-70" style={{ background: deptColor(item.departments[0] ?? "OB") }}/>
-                      งบแผน
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-3 h-2 rounded-sm bg-emerald-400 inline-block"/>
-                      ใช้จริง
-                    </span>
+                  <div className="rounded-xl border overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/40">
+                          <th className="text-left px-3 py-1.5 font-semibold text-muted-foreground w-14">เดือน</th>
+                          <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">งบแผน (฿)</th>
+                          <th className="text-right px-3 py-1.5 font-semibold text-muted-foreground">ใช้จริง (฿)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MONTHS.map((m, i) => {
+                          const plan   = item.monthly_amounts[i] ?? 0;
+                          const actual = item.actual_amounts[i] ?? 0;
+                          if (plan === 0 && actual === 0) return null;
+                          const isHigh = plan === Math.max(...item.monthly_amounts);
+                          return (
+                            <tr key={i} className={`border-t border-muted/30 ${isHigh ? "bg-violet-50/50" : ""}`}>
+                              <td className="px-3 py-1.5 font-medium text-muted-foreground">{m}</td>
+                              <td className="px-3 py-1.5 text-right font-semibold tabular-nums">
+                                {plan > 0 ? Math.round(plan).toLocaleString("th-TH") : "—"}
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600">
+                                {actual > 0 ? Math.round(actual).toLocaleString("th-TH") : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="border-t-2 border-muted/50 bg-muted/20">
+                          <td className="px-3 py-1.5 font-bold text-muted-foreground">รวม</td>
+                          <td className="px-3 py-1.5 text-right font-bold tabular-nums">{Math.round(totalPlan).toLocaleString("th-TH")}</td>
+                          <td className="px-3 py-1.5 text-right font-bold tabular-nums text-emerald-600">
+                            {totalActual > 0 ? Math.round(totalActual).toLocaleString("th-TH") : "—"}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}

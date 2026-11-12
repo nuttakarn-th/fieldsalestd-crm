@@ -36,6 +36,8 @@ export interface PlanItem {
   pending_note: string | null;
   warn_note: string | null;
   unscheduled_note: string | null;
+  action_plan: string | null;
+  gantt_spans: Array<{ s: number; e: number; t: string; light?: boolean }> | null;
   created_at: string;
   updated_at: string;
 }
