@@ -505,6 +505,14 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     clearExternalUpdate();
   }, [externallyUpdatedAt, pOpen, clearExternalUpdate]);
 
+  // ── Auto-sync quota เมื่อโหลดหน้า (แก้ desync กรณี await ขาด หรือ write race) ──
+  const autoSyncDone = React.useRef(false);
+  useEffect(() => {
+    if (autoSyncDone.current || isLoadingTours || tours.length === 0) return;
+    autoSyncDone.current = true;
+    syncAllQuotas().catch(console.warn);
+  }, [tours, isLoadingTours, syncAllQuotas]);
+
   // ── Backfill OG covers สำหรับ serviceStore tours (ครั้งแรกที่เปิดหน้านี้) ──
   useEffect(() => {
     import("@/lib/syncServiceToursOg").then(({ syncServiceToursOg }) => {

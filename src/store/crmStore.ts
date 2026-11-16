@@ -1602,7 +1602,7 @@ export const useCRM = create<CRMState>()(
       if (isTour && l.tour_id && !options?.skipQuotaAdjust) {
         const { adjustQuota, adjustPeriodQuota } = useServices.getState();
         if (l.period_id) {
-          adjustPeriodQuota(l.tour_id, l.period_id, -l.pax_count);
+          await adjustPeriodQuota(l.tour_id, l.period_id, -l.pax_count);
         } else {
           adjustQuota(l.tour_id, -l.pax_count);
         }
@@ -1815,14 +1815,14 @@ export const useCRM = create<CRMState>()(
       if (isClosedStatus(status) && !isClosedStatus(prevStatus)) {
         if (lead.period_id) {
           // ปิดดีลทัวร์ multi-period → ตัดที่นั่ง period ที่ระบุ
-          adjustPeriodQuota(lead.tour_id, lead.period_id, -lead.pax_count);
+          await adjustPeriodQuota(lead.tour_id, lead.period_id, -lead.pax_count);
         } else {
           adjustQuota(lead.tour_id, -lead.pax_count);
         }
       } else if (isClosedStatus(prevStatus) && !isClosedStatus(status)) {
         if (lead.period_id) {
           // ยกเลิกดีลที่เคย Won → คืนที่นั่ง period กลับ
-          adjustPeriodQuota(lead.tour_id, lead.period_id, +lead.pax_count);
+          await adjustPeriodQuota(lead.tour_id, lead.period_id, +lead.pax_count);
         } else {
           adjustQuota(lead.tour_id, +lead.pax_count);
         }
