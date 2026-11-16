@@ -661,10 +661,10 @@ interface CRMState {
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   transferCustomer: (id: string, toRep: SalesRep) => void;
-  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => string;
+  addLead: (l: Omit<Lead, "lead_id" | "status" | "closed_date" | "lost_reason" | "lead_category" | "scope"> & { status?: LeadStatus; lead_category?: LeadCategory; scope?: TripScope }, options?: { skipQuotaAdjust?: boolean }) => Promise<string>;
   deleteLead: (leadId: string) => void;
-  updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string, opts?: { skipQuotaAdjust?: boolean }) => void;
-  updateLead: (leadId: string, patch: Partial<Lead>) => void;
+  updateLeadStatus: (leadId: string, status: LeadStatus, lostReason?: string, opts?: { skipQuotaAdjust?: boolean }) => Promise<void>;
+  updateLead: (leadId: string, patch: Partial<Lead>) => Promise<void>;
   addFollowupLog: (leadId: string, log: Omit<FollowupLog, "log_id" | "lead_id">) => void;
   setTarget: (month: string, rep: SalesRep, patch: Partial<Omit<MonthlyTarget, "month" | "rep">>) => void;
   addRoute: (rep: SalesRep, date: string, title: string, hasCheckin?: boolean, hasCheckout?: boolean) => string;
@@ -1544,7 +1544,7 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  addLead: (l, options) => {
+  addLead: async (l, options) => {
     const id = `L${Date.now()}`; // timestamp-based — ไม่ชนกับ ID เก่า
     const today = new Date().toISOString().split("T")[0];
     const initStatus = l.status ?? "ใหม่";
@@ -1757,7 +1757,7 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  updateLead: (leadId, patch) => {
+  updateLead: async (leadId, patch) => {
     const fullPatch = { ...patch, updated_at: new Date().toISOString() };
     set({ leads: get().leads.map((l) => (l.lead_id === leadId ? { ...l, ...fullPatch } : l)) });
     if (SUPABASE_ENABLED && supabase) {
@@ -1767,7 +1767,7 @@ export const useCRM = create<CRMState>()(
     }
   },
 
-  updateLeadStatus: (leadId, status, lostReason, opts) => {
+  updateLeadStatus: async (leadId, status, lostReason, opts) => {
     const lead = get().leads.find((l) => l.lead_id === leadId);
     if (!lead) return;
     const prevStatus = lead.status; // capture ก่อน update
