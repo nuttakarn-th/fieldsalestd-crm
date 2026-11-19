@@ -5,6 +5,7 @@
  */
 import { useMemo, useState } from "react";
 import { useOTAStore, OTAVehicleJoinGroup } from "@/store/otaStore";
+import { useCurrentUser } from "@/store/authStore";
 import { Bus, Plus, Pencil, Trash2, X, Check, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -288,6 +289,8 @@ function JoinGroupSettings({ packages }: { packages: { code: string }[] }) {
     deleteVehicleJoinGroup,
   } = useOTAStore();
 
+  const currentUser = useCurrentUser();
+  const isReadOnly = currentUser?.role === "OTA Viewer";
   const [editId, setEditId]       = useState<string | null>(null);
   const [editName, setEditName]   = useState("");
   const [editCodes, setEditCodes] = useState<string[]>([]);
@@ -546,23 +549,25 @@ export default function OTAVehicles() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          {/* Settings toggle */}
-          <button
-            onClick={() => setShowSettings((s) => !s)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-              showSettings
-                ? "bg-purple-600 text-white border-purple-600"
-                : "border-border text-muted-foreground hover:border-purple-400 hover:text-foreground"
-            }`}
-          >
-            <Settings2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Join Rules</span>
-          </button>
+          {/* Settings toggle — hidden for OTA Viewer */}
+          {!isReadOnly && (
+            <button
+              onClick={() => setShowSettings((s) => !s)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                showSettings
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "border-border text-muted-foreground hover:border-purple-400 hover:text-foreground"
+              }`}
+            >
+              <Settings2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Join Rules</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Settings panel ─────────────────────────────────────────────────── */}
-      {showSettings && <JoinGroupSettings packages={packages} />}
+      {!isReadOnly && showSettings && <JoinGroupSettings packages={packages} />}
 
       {/* ── KPI strip ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

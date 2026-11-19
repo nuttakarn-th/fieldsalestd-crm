@@ -66,11 +66,12 @@ export default function OTALayout() {
   const [moreOpen,  setMoreOpen]    = useState(false);
 
   // ── Role guard ────────────────────────────────────────────────────────────
-  const allowed = ["OTA", "Marketing", "Marketing Manager", "Admin"];
+  const allowed = ["OTA", "OTA Viewer", "Marketing", "Marketing Manager", "Admin"];
   if (currentUser && !allowed.includes(currentUser.role)) {
     navigate("/app", { replace: true });
     return null;
   }
+  const isOTAViewer = currentUser?.role === "OTA Viewer";
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -91,6 +92,11 @@ export default function OTALayout() {
             <div className="leading-tight min-w-0 flex-1">
               <div className="font-bold text-sm truncate">Standard Tour</div>
               <div className="text-xs text-purple-300 truncate">OTA Module</div>
+              {isOTAViewer && (
+                <div className="text-[9px] text-amber-300 font-semibold mt-0.5 bg-amber-500/20 px-1.5 py-0.5 rounded w-fit">
+                  👁 View Only
+                </div>
+              )}
             </div>
           )}
           {/* Notification Bell — icon only, top-right of header */}
@@ -163,8 +169,8 @@ export default function OTALayout() {
 
         {/* User + back */}
         <div className="border-t border-white/10 px-2 py-3 space-y-1">
-          {/* กลับ Home — แสดงเฉพาะ Role ที่ไม่ใช่ OTA */}
-          {currentUser?.role !== "OTA" && (
+          {/* กลับ Home — แสดงเฉพาะ Role ที่ไม่ใช่ OTA และไม่ใช่ OTA Viewer */}
+          {currentUser?.role !== "OTA" && currentUser?.role !== "OTA Viewer" && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -254,8 +260,8 @@ export default function OTALayout() {
                   </Link>
                 );
               })}
-              {/* กลับ Home — เฉพาะ non-OTA roles */}
-              {currentUser?.role !== "OTA" && (
+              {/* กลับ Home — เฉพาะ non-OTA roles และ non-OTA Viewer */}
+              {currentUser?.role !== "OTA" && currentUser?.role !== "OTA Viewer" && (
                 <button
                   onClick={() => { setMoreOpen(false); navigate("/marketing"); }}
                   className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-[11px] font-medium bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"

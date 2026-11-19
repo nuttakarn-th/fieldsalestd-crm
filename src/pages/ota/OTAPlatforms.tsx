@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, X, Check, Percent } from "lucide-react";
 import { useOTAStore, OTA_PLATFORMS, OTAPlatformConfig } from "@/store/otaStore";
+import { useCurrentUser } from "@/store/authStore";
 import { toast } from "sonner";
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -36,6 +37,8 @@ export default function OTAPlatforms() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [customPlatform, setCustomPlatform] = useState(false);
   const [sheetCfg, setSheetCfg] = useState<OTAPlatformConfig | null>(null);
+  const currentUser = useCurrentUser();
+  const isReadOnly = currentUser?.role === "OTA Viewer";
 
   const inputCls = "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500";
   const labelCls = "block text-xs font-medium text-foreground/70 mb-1";
@@ -104,12 +107,14 @@ export default function OTAPlatforms() {
           <h1 className="text-xl md:text-2xl font-bold">Platform Commission</h1>
           <p className="text-muted-foreground text-xs hidden sm:block">Commission % ของแต่ละ platform — auto-fill ตอนสร้าง Order</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Platform
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Platform
+          </button>
+        )}
       </div>
 
       {/* Info banner */}
@@ -180,16 +185,18 @@ export default function OTAPlatforms() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{cfg.notes || "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => openEdit(cfg)} className="p-1.5 hover:bg-muted rounded transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => handleDelete(cfg.id, cfg.platform)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
+                  {!isReadOnly && (
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => openEdit(cfg)} className="p-1.5 hover:bg-muted rounded transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(cfg.id, cfg.platform)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -230,20 +237,22 @@ export default function OTAPlatforms() {
               )}
             </div>
             {/* Footer */}
-            <div className="flex gap-3 px-5 pt-2 pb-6 border-t border-border">
-              <button
-                onClick={() => { setSheetCfg(null); handleDelete(sheetCfg.id, sheetCfg.platform); }}
-                className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 py-2.5 rounded-xl text-sm font-medium transition-colors"
-              >
-                <Trash2 className="w-4 h-4" /> ลบ
-              </button>
-              <button
-                onClick={() => { setSheetCfg(null); openEdit(sheetCfg); }}
-                className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
-              >
-                <Pencil className="w-4 h-4" /> แก้ไข
-              </button>
-            </div>
+            {!isReadOnly && (
+              <div className="flex gap-3 px-5 pt-2 pb-6 border-t border-border">
+                <button
+                  onClick={() => { setSheetCfg(null); handleDelete(sheetCfg.id, sheetCfg.platform); }}
+                  className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" /> ลบ
+                </button>
+                <button
+                  onClick={() => { setSheetCfg(null); openEdit(sheetCfg); }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Pencil className="w-4 h-4" /> แก้ไข
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -453,6 +453,7 @@ export function getMenuForRole(role: AppRole): RoleMenu {
     case "Co-Ordinator": return coordinatorMenu;
     case "Accounting": return accountingMenu;
     case "OTA": return otaMenu;
+    case "OTA Viewer": return otaMenu;
   }
 }
 
@@ -473,5 +474,6 @@ export function roleBadgeColor(role: AppRole): string {
     case "Co-Ordinator": return "from-sky-500 to-cyan-600";
     case "Accounting": return "from-emerald-500 to-teal-600";
     case "OTA": return "from-violet-500 to-purple-700";
+    case "OTA Viewer": return "from-slate-500 to-slate-600";
   }
 }

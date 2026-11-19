@@ -15,7 +15,8 @@ export type AppRole =
   | "Marketing Manager"
   | "Co-Ordinator"
   | "Accounting"
-  | "OTA";
+  | "OTA"
+  | "OTA Viewer";
 
 export const ALL_ROLES: AppRole[] = [
   "Sales Manager",
@@ -27,6 +28,7 @@ export const ALL_ROLES: AppRole[] = [
   "Co-Ordinator",
   "Accounting",
   "OTA",
+  "OTA Viewer",
 ];
 
 export interface AppUser {
@@ -94,6 +96,7 @@ const SEED_USERS: AppUser[] = [
   { user_id: "std-009", full_name: "แอน", username: "obco01", password: "ob456", plain_password: "ob456", role: "OB Co-ordinator", email: "", tel: "", created_at: new Date(9).toISOString() },
   { user_id: "std-010", full_name: "ณัฐกานต์ (Manager)", username: "mktmgr", password: "mktmgr123", plain_password: "mktmgr123", role: "Marketing Manager", email: "", tel: "", created_at: new Date(10).toISOString() },
   { user_id: "std-011", full_name: "OTA Team", username: "ota01", password: "ota123", plain_password: "ota123", role: "OTA", email: "", tel: "", created_at: new Date(11).toISOString() },
+  { user_id: "std-012", full_name: "OTA Viewer", username: "otaviewer", password: "ota123", plain_password: "ota123", role: "OTA Viewer", email: "", tel: "", created_at: new Date(12).toISOString() },
 ];
 
 function nextUserId(users: AppUser[]): string {

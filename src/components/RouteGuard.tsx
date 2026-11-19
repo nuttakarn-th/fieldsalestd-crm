@@ -15,6 +15,11 @@ export function RouteGuard({ children, allowedRoles }: RouteGuardProps) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
+  // ── OTA Viewer: ถูกจำกัดให้อยู่เฉพาะ /ota/* เท่านั้น ──────────────────────
+  if (user.role === "OTA Viewer" && !location.pathname.startsWith("/ota")) {
+    return <Navigate to="/ota/order-entry" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return (
       <div className="p-8">

@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
+import { useCurrentUser } from "@/store/authStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ColorKey = "blue"|"pink"|"green"|"red"|"yellow"|"orange"|"purple"|"teal"|"indigo"|"gray";
@@ -319,9 +320,9 @@ function PillarManager({pillars,onSave}:{
 }
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
-function TaskCard({task,platforms,onUpdate,onDelete}:{
+function TaskCard({task,platforms,onUpdate,onDelete,isReadOnly}:{
   task:ContentTask;platforms:CustomPlatform[];
-  onUpdate:(t:ContentTask)=>void;onDelete:()=>void;
+  onUpdate:(t:ContentTask)=>void;onDelete:()=>void;isReadOnly?:boolean;
 }){
   const [expanded,setExpanded]   = useState(false);
   const [editTitle,setEditTitle] = useState(false);
@@ -357,8 +358,8 @@ function TaskCard({task,platforms,onUpdate,onDelete}:{
               value={title} onChange={e=>setTitle(e.target.value)} onBlur={commitTitle}
               onKeyDown={e=>{if(e.key==="Enter")commitTitle();if(e.key==="Escape"){setTitle(task.title);setEditTitle(false);}}}/>
           ):(
-            <p className={cn("text-sm font-medium cursor-pointer hover:text-purple-600 truncate",done&&"line-through text-muted-foreground")}
-              onClick={()=>setEditTitle(true)}>{task.title}</p>
+            <p className={cn("text-sm font-medium truncate",done&&"line-through text-muted-foreground",!isReadOnly&&"cursor-pointer hover:text-purple-600")}
+              onClick={!isReadOnly?()=>setEditTitle(true):undefined}>{task.title}</p>
           )}
           {progress&&<span className="text-[11px] text-muted-foreground">{progress} platform โพสแล้ว</span>}
         </div>
@@ -366,7 +367,7 @@ function TaskCard({task,platforms,onUpdate,onDelete}:{
           <button onClick={()=>setExpanded(v=>!v)} className="text-muted-foreground hover:text-foreground p-0.5">
             {expanded?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>}
           </button>
-          <button onClick={onDelete} className="text-muted-foreground hover:text-destructive p-0.5"><Trash2 className="w-3.5 h-3.5"/></button>
+          {!isReadOnly&&<button onClick={onDelete} className="text-muted-foreground hover:text-destructive p-0.5"><Trash2 className="w-3.5 h-3.5"/></button>}
         </div>
       </div>
       {expanded&&(
@@ -475,12 +476,13 @@ function NewTaskForm({date,pillarTitle,platforms,onAdd,onCancel}:{
 }
 
 // ─── Day Panel ────────────────────────────────────────────────────────────────
-function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete}:{
+function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete,isReadOnly}:{
   ymd:string;tasks:ContentTask[];pillar:ContentPillar|undefined;platforms:CustomPlatform[];
   onClose:()=>void;
   onAdd:(t:Omit<ContentTask,"id">)=>void;
   onUpdate:(t:ContentTask)=>void;
   onDelete:(id:string)=>void;
+  isReadOnly?:boolean;
 }){
   const [adding,setAdding]=useState(false);
   const doneCount=tasks.filter(taskDone).length;
@@ -506,9 +508,9 @@ function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete}:{
           </div>
         )}
         {tasks.map(t=>(
-          <TaskCard key={t.id} task={t} platforms={platforms} onUpdate={onUpdate} onDelete={()=>onDelete(t.id)}/>
+          <TaskCard key={t.id} task={t} platforms={platforms} onUpdate={onUpdate} onDelete={()=>onDelete(t.id)} isReadOnly={isReadOnly}/>
         ))}
-        {adding?(
+        {!isReadOnly&&(adding?(
           <NewTaskForm date={ymd} pillarTitle={pillar?.title} platforms={platforms}
             onAdd={(t)=>{onAdd(t);setAdding(false);}} onCancel={()=>setAdding(false)}/>
         ):(
@@ -516,7 +518,7 @@ function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete}:{
             className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 rounded-xl hover:border-purple-400 transition-colors">
             <Plus className="w-4 h-4"/>เพิ่ม Content Task
           </button>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -527,6 +529,8 @@ type Tab="pillar"|"platform";
 
 export default function OTAContentCalendar(){
   const today=new Date();
+  const currentUser = useCurrentUser();
+  const isReadOnly = currentUser?.role === "OTA Viewer";
   const [year,setYear]   = useState(today.getFullYear());
   const [month,setMonth] = useState(today.getMonth()+1);
 
@@ -623,11 +627,13 @@ export default function OTAContentCalendar(){
             {SUPABASE_ENABLED&&<span className="ml-2 text-green-600">● sync</span>}
           </p>
         </div>
-        <button onClick={()=>setShowSettings(v=>!v)}
-          className={cn("flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-colors shrink-0",
-            showSettings?"border-purple-400 bg-purple-50 text-purple-700":"border-border text-muted-foreground hover:text-foreground")}>
-          <Settings className="w-4 h-4"/><span className="hidden sm:inline">ตั้งค่า</span>
-        </button>
+        {!isReadOnly&&(
+          <button onClick={()=>setShowSettings(v=>!v)}
+            className={cn("flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-colors shrink-0",
+              showSettings?"border-purple-400 bg-purple-50 text-purple-700":"border-border text-muted-foreground hover:text-foreground")}>
+            <Settings className="w-4 h-4"/><span className="hidden sm:inline">ตั้งค่า</span>
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -797,6 +803,7 @@ export default function OTAContentCalendar(){
               ymd={selectedDate} tasks={selectedTasks} pillar={selectedPillar} platforms={platforms}
               onClose={()=>setSelectedDate(null)}
               onAdd={addTask} onUpdate={updateTask} onDelete={deleteTask}
+              isReadOnly={isReadOnly}
             />
           </div>
         )}
