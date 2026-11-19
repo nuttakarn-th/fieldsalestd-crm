@@ -35,6 +35,7 @@ export default function OTAPackages() {
   const currentUser = useCurrentUser();
   const actor = currentUser?.full_name ?? "ระบบ";
   const isReadOnly = currentUser?.role === "OTA Viewer";
+  const guardWrite = () => { if (isReadOnly) { toast.error("👁 View Only — ไม่สามารถบันทึกได้"); return true; } return false; };
   const importRef = useRef<HTMLInputElement>(null);
 
   const [showForm, setShowForm]         = useState(false);
@@ -84,6 +85,7 @@ export default function OTAPackages() {
   };
 
   const handleSubmit = async () => {
+    if (guardWrite()) return;
     if (!code.trim() || !name.trim()) { toast.error("กรุณากรอก Package Code และ Package Name"); return; }
     const platform_prices = rows
       .filter((r) => r.platform.trim() && r.price > 0)
@@ -99,6 +101,7 @@ export default function OTAPackages() {
   };
 
   const handleDelete = async (id: string) => {
+    if (guardWrite()) return;
     if (confirm("ลบ Package นี้?")) { await deletePackage(id, actor); toast.success("ลบ Package แล้ว"); }
   };
 
@@ -130,6 +133,7 @@ export default function OTAPackages() {
 
   // ── Import XLSX ───────────────────────────────────────────────────────────────
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (guardWrite()) { e.target.value = ""; return; }
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -190,25 +194,19 @@ export default function OTAPackages() {
           <p className="text-muted-foreground text-xs hidden sm:block">Manage tour packages and platform pricing</p>
         </div>
         <div className="flex gap-2">
-          {!isReadOnly && (
-            <>
-              <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
-              <button onClick={() => importRef.current?.click()}
-                className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
-                <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
-              </button>
-            </>
-          )}
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
+          <button onClick={() => importRef.current?.click()}
+            className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
+          </button>
           <button onClick={handleExport}
             className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
             <Download className="w-4 h-4" /><span className="hidden sm:inline">Export</span>
           </button>
-          {!isReadOnly && (
-            <button onClick={openAdd}
-              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-              <Plus className="w-4 h-4" /> Add Package
-            </button>
-          )}
+          <button onClick={openAdd}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            <Plus className="w-4 h-4" /> Add Package
+          </button>
         </div>
       </div>
 
@@ -293,14 +291,12 @@ export default function OTAPackages() {
                       {pkg.platform_prices.length === 0 && <span className="text-muted-foreground text-xs">ยังไม่มีราคา</span>}
                     </div>
                   </td>
-                  {!isReadOnly && (
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => openEdit(pkg)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDelete(pkg.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </td>
-                  )}
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => openEdit(pkg)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => handleDelete(pkg.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -350,22 +346,20 @@ export default function OTAPackages() {
               </div>
             </div>
             {/* Footer */}
-            {!isReadOnly && (
-              <div className="flex gap-3 px-5 pt-4 pb-6 border-t border-border shrink-0">
-                <button
-                  onClick={() => { setSheetPkg(null); handleDelete(sheetPkg.id); }}
-                  className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" /> ลบ
-                </button>
-                <button
-                  onClick={() => { setSheetPkg(null); openEdit(sheetPkg); }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
-                >
-                  <Pencil className="w-4 h-4" /> แก้ไข
-                </button>
-              </div>
-            )}
+            <div className="flex gap-3 px-5 pt-4 pb-6 border-t border-border shrink-0">
+              <button
+                onClick={() => { setSheetPkg(null); handleDelete(sheetPkg.id); }}
+                className="flex-1 flex items-center justify-center gap-2 border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Trash2 className="w-4 h-4" /> ลบ
+              </button>
+              <button
+                onClick={() => { setSheetPkg(null); openEdit(sheetPkg); }}
+                className="flex-1 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition-colors"
+              >
+                <Pencil className="w-4 h-4" /> แก้ไข
+              </button>
+            </div>
           </div>
         </div>
       )}

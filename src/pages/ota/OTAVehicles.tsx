@@ -6,6 +6,7 @@
 import { useMemo, useState } from "react";
 import { useOTAStore, OTAVehicleJoinGroup } from "@/store/otaStore";
 import { useCurrentUser } from "@/store/authStore";
+import { toast } from "sonner";
 import { Bus, Plus, Pencil, Trash2, X, Check, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -291,6 +292,7 @@ function JoinGroupSettings({ packages }: { packages: { code: string }[] }) {
 
   const currentUser = useCurrentUser();
   const isReadOnly = currentUser?.role === "OTA Viewer";
+  const guardWrite = () => { if (isReadOnly) { toast.error("👁 View Only — ไม่สามารถบันทึกได้"); return true; } return false; };
   const [editId, setEditId]       = useState<string | null>(null);
   const [editName, setEditName]   = useState("");
   const [editCodes, setEditCodes] = useState<string[]>([]);
@@ -312,6 +314,7 @@ function JoinGroupSettings({ packages }: { packages: { code: string }[] }) {
   const cancel = () => { setAdding(false); setEditId(null); };
 
   const save = async () => {
+    if (guardWrite()) return;
     if (!editName.trim() || editCodes.length < 2) return;
     if (adding) {
       await addVehicleJoinGroup({ group_name: editName.trim(), package_codes: editCodes, note: editNote });
@@ -372,7 +375,7 @@ function JoinGroupSettings({ packages }: { packages: { code: string }[] }) {
                 className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => deleteVehicleJoinGroup(g.id)}
+              <button onClick={() => { if (guardWrite()) return; deleteVehicleJoinGroup(g.id); }}
                 className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-600 transition-colors">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -549,25 +552,23 @@ export default function OTAVehicles() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          {/* Settings toggle — hidden for OTA Viewer */}
-          {!isReadOnly && (
-            <button
-              onClick={() => setShowSettings((s) => !s)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                showSettings
-                  ? "bg-purple-600 text-white border-purple-600"
-                  : "border-border text-muted-foreground hover:border-purple-400 hover:text-foreground"
-              }`}
-            >
-              <Settings2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Join Rules</span>
-            </button>
-          )}
+          {/* Settings toggle */}
+          <button
+            onClick={() => setShowSettings((s) => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+              showSettings
+                ? "bg-purple-600 text-white border-purple-600"
+                : "border-border text-muted-foreground hover:border-purple-400 hover:text-foreground"
+            }`}
+          >
+            <Settings2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Join Rules</span>
+          </button>
         </div>
       </div>
 
       {/* ── Settings panel ─────────────────────────────────────────────────── */}
-      {!isReadOnly && showSettings && <JoinGroupSettings packages={packages} />}
+      {showSettings && <JoinGroupSettings packages={packages} />}
 
       {/* ── KPI strip ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

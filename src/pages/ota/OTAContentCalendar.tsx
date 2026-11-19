@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { useCurrentUser } from "@/store/authStore";
+import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ColorKey = "blue"|"pink"|"green"|"red"|"yellow"|"orange"|"purple"|"teal"|"indigo"|"gray";
@@ -109,7 +110,7 @@ function taskDone(t:ContentTask){ return t.platforms.length>0&&t.platforms.every
 function taskProgress(t:ContentTask){ if(!t.platforms.length)return null; return `${t.postedOn.filter(p=>t.platforms.includes(p)).length}/${t.platforms.length}`; }
 
 // ─── Platform Manager ──────────────────────────────────────────────────────────
-function PlatformManager({platforms,onSave}:{platforms:CustomPlatform[];onSave:(p:CustomPlatform[])=>void}){
+function PlatformManager({platforms,onSave,isReadOnly}:{platforms:CustomPlatform[];onSave:(p:CustomPlatform[])=>void;isReadOnly?:boolean}){
   const [list,setList]         = useState(platforms);
   const [newName,setNewName]   = useState("");
   const [newColor,setNewColor] = useState<ColorKey>("blue");
@@ -117,8 +118,10 @@ function PlatformManager({platforms,onSave}:{platforms:CustomPlatform[];onSave:(
   const [editName,setEditName] = useState("");
   const [editColor,setEditColor] = useState<ColorKey>("blue");
   const [saving,setSaving]     = useState(false);
+  const guardWrite=()=>{ if(isReadOnly){toast.error("👁 View Only — ไม่สามารถบันทึกได้");return true;} return false; };
 
   async function add(){
+    if(guardWrite())return;
     if(!newName.trim())return;
     setSaving(true);
     const np:CustomPlatform={id:`plt-${Date.now()}`,name:newName.trim(),color:newColor,sort_order:list.length+1};
@@ -129,11 +132,13 @@ function PlatformManager({platforms,onSave}:{platforms:CustomPlatform[];onSave:(
     const u=[...list,np]; setList(u); onSave(u); setNewName(""); setNewColor("blue"); setSaving(false);
   }
   async function remove(id:string){
+    if(guardWrite())return;
     if(SUPABASE_ENABLED&&supabase){await supabase.from("content_platforms").delete().eq("id",id);}
     const u=list.filter(p=>p.id!==id); setList(u); onSave(u);
   }
   function startEdit(p:CustomPlatform){setEditId(p.id);setEditName(p.name);setEditColor(p.color);}
   async function commitEdit(){
+    if(guardWrite()){setEditId(null);return;}
     if(!editName.trim()){setEditId(null);return;}
     if(SUPABASE_ENABLED&&supabase){await supabase.from("content_platforms").update({name:editName.trim(),color:editColor}).eq("id",editId!);}
     const u=list.map(p=>p.id===editId?{...p,name:editName.trim(),color:editColor}:p);
@@ -191,14 +196,16 @@ function PlatformManager({platforms,onSave}:{platforms:CustomPlatform[];onSave:(
 }
 
 // ─── Pillar Manager (ใหม่ — ไม่มี Platform) ──────────────────────────────────
-function PillarManager({pillars,onSave}:{
+function PillarManager({pillars,onSave,isReadOnly}:{
   pillars:ContentPillar[];
   onSave:(p:ContentPillar[])=>void;
+  isReadOnly?:boolean;
 }){
   const [list,setList]     = useState<ContentPillar[]>(pillars);
   const [selDay,setSelDay] = useState(1);
   const [title,setTitle]   = useState("");
   const [color,setColor]   = useState<ColorKey>("purple");
+  const guardWrite=()=>{ if(isReadOnly){toast.error("👁 View Only — ไม่สามารถบันทึกได้");return true;} return false; };
 
   useEffect(()=>{ setList(pillars); },[pillars]);
 
@@ -206,6 +213,7 @@ function PillarManager({pillars,onSave}:{
   const existing = list.find(p=>p.dayOfWeek===selDay);
 
   async function save(){
+    if(guardWrite())return;
     if(!title.trim())return;
     // ถ้ามีอยู่แล้ว → update; ถ้าไม่มี → insert
     if(existing){
@@ -225,6 +233,7 @@ function PillarManager({pillars,onSave}:{
   }
 
   async function remove(id:string){
+    if(guardWrite())return;
     if(SUPABASE_ENABLED&&supabase){ await supabase.from("content_pillars").delete().eq("id",id); }
     const u=list.filter(p=>p.id!==id); setList(u); onSave(u);
   }
@@ -332,17 +341,20 @@ function TaskCard({task,platforms,onUpdate,onDelete,isReadOnly}:{
   const progress=taskProgress(task);
   const titleRef=useRef<HTMLInputElement>(null);
 
+  const guardWrite=()=>{ if(isReadOnly){toast.error("👁 View Only — ไม่สามารถบันทึกได้");return true;} return false; };
   function togglePosted(id:string){
+    if(guardWrite())return;
     const already=task.postedOn.includes(id);
     onUpdate({...task,postedOn:already?task.postedOn.filter(x=>x!==id):[...task.postedOn,id]});
   }
   function togglePlatform(id:string){
+    if(guardWrite())return;
     const has=task.platforms.includes(id);
     const newPlats=has?task.platforms.filter(x=>x!==id):[...task.platforms,id];
     onUpdate({...task,platforms:newPlats,postedOn:task.postedOn.filter(x=>newPlats.includes(x))});
   }
-  function commitTitle(){ if(title.trim())onUpdate({...task,title:title.trim()}); else setTitle(task.title); setEditTitle(false); }
-  function commitNotes(){ onUpdate({...task,notes}); }
+  function commitTitle(){ if(guardWrite()){setTitle(task.title);setEditTitle(false);return;} if(title.trim())onUpdate({...task,title:title.trim()}); else setTitle(task.title); setEditTitle(false); }
+  function commitNotes(){ if(guardWrite())return; onUpdate({...task,notes}); }
   useEffect(()=>{ if(editTitle)titleRef.current?.focus(); },[editTitle]);
 
   return(
@@ -358,8 +370,8 @@ function TaskCard({task,platforms,onUpdate,onDelete,isReadOnly}:{
               value={title} onChange={e=>setTitle(e.target.value)} onBlur={commitTitle}
               onKeyDown={e=>{if(e.key==="Enter")commitTitle();if(e.key==="Escape"){setTitle(task.title);setEditTitle(false);}}}/>
           ):(
-            <p className={cn("text-sm font-medium truncate",done&&"line-through text-muted-foreground",!isReadOnly&&"cursor-pointer hover:text-purple-600")}
-              onClick={!isReadOnly?()=>setEditTitle(true):undefined}>{task.title}</p>
+            <p className={cn("text-sm font-medium truncate cursor-pointer hover:text-purple-600",done&&"line-through text-muted-foreground")}
+              onClick={()=>setEditTitle(true)}>{task.title}</p>
           )}
           {progress&&<span className="text-[11px] text-muted-foreground">{progress} platform โพสแล้ว</span>}
         </div>
@@ -367,7 +379,7 @@ function TaskCard({task,platforms,onUpdate,onDelete,isReadOnly}:{
           <button onClick={()=>setExpanded(v=>!v)} className="text-muted-foreground hover:text-foreground p-0.5">
             {expanded?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>}
           </button>
-          {!isReadOnly&&<button onClick={onDelete} className="text-muted-foreground hover:text-destructive p-0.5"><Trash2 className="w-3.5 h-3.5"/></button>}
+          <button onClick={()=>{if(guardWrite())return;onDelete();}} className="text-muted-foreground hover:text-destructive p-0.5"><Trash2 className="w-3.5 h-3.5"/></button>
         </div>
       </div>
       {expanded&&(
@@ -487,6 +499,7 @@ function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete,is
   const [adding,setAdding]=useState(false);
   const doneCount=tasks.filter(taskDone).length;
   const pillarCfg=pillar?COLOR_MAP[pillar.color]:null;
+  const guardWrite=()=>{ if(isReadOnly){toast.error("👁 View Only — ไม่สามารถบันทึกได้");return true;} return false; };
 
   return(
     <div className="flex flex-col h-full">
@@ -510,15 +523,15 @@ function DayPanel({ymd,tasks,pillar,platforms,onClose,onAdd,onUpdate,onDelete,is
         {tasks.map(t=>(
           <TaskCard key={t.id} task={t} platforms={platforms} onUpdate={onUpdate} onDelete={()=>onDelete(t.id)} isReadOnly={isReadOnly}/>
         ))}
-        {!isReadOnly&&(adding?(
+        {adding?(
           <NewTaskForm date={ymd} pillarTitle={pillar?.title} platforms={platforms}
-            onAdd={(t)=>{onAdd(t);setAdding(false);}} onCancel={()=>setAdding(false)}/>
+            onAdd={(t)=>{if(guardWrite())return;onAdd(t);setAdding(false);}} onCancel={()=>setAdding(false)}/>
         ):(
           <button onClick={()=>setAdding(true)}
             className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-purple-600 hover:text-purple-700 border border-dashed border-purple-300 rounded-xl hover:border-purple-400 transition-colors">
             <Plus className="w-4 h-4"/>เพิ่ม Content Task
           </button>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -627,13 +640,11 @@ export default function OTAContentCalendar(){
             {SUPABASE_ENABLED&&<span className="ml-2 text-green-600">● sync</span>}
           </p>
         </div>
-        {!isReadOnly&&(
-          <button onClick={()=>setShowSettings(v=>!v)}
-            className={cn("flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-colors shrink-0",
-              showSettings?"border-purple-400 bg-purple-50 text-purple-700":"border-border text-muted-foreground hover:text-foreground")}>
-            <Settings className="w-4 h-4"/><span className="hidden sm:inline">ตั้งค่า</span>
-          </button>
-        )}
+        <button onClick={()=>setShowSettings(v=>!v)}
+          className={cn("flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-colors shrink-0",
+            showSettings?"border-purple-400 bg-purple-50 text-purple-700":"border-border text-muted-foreground hover:text-foreground")}>
+          <Settings className="w-4 h-4"/><span className="hidden sm:inline">ตั้งค่า</span>
+        </button>
       </div>
 
       {/* Body */}
@@ -656,9 +667,9 @@ export default function OTAContentCalendar(){
                   ))}
                 </div>
                 {settingsTab==="platform"?(
-                  <PlatformManager platforms={platforms} onSave={setPlatforms}/>
+                  <PlatformManager platforms={platforms} onSave={setPlatforms} isReadOnly={isReadOnly}/>
                 ):(
-                  <PillarManager pillars={pillars} onSave={setPillars}/>
+                  <PillarManager pillars={pillars} onSave={setPillars} isReadOnly={isReadOnly}/>
                 )}
               </div>
             )}

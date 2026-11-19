@@ -276,6 +276,7 @@ export default function OTAOrderEntry() {
   const { orders, packages, platformConfigs, addOrder, updateOrder, deleteOrder, importOrders, clearAllOrders, clearOrdersByMonth, deduplicateOrders, getPackageByCode, highlightedOrderId, setHighlightedOrderId } = useOTAStore();
   const currentUser = useCurrentUser();
   const isReadOnly = currentUser?.role === "OTA Viewer";
+  const guardWrite = () => { if (isReadOnly) { toast.error("👁 View Only — ไม่สามารถบันทึกได้"); return true; } return false; };
   const importRef = useRef<HTMLInputElement>(null);
 
   const [month, setMonth] = useState(today.getMonth() + 1);
@@ -545,6 +546,7 @@ export default function OTAOrderEntry() {
   };
   const computeNet = (g: number, pct: number, disc: number) => +(g - g * pct / 100 - disc).toFixed(2);
   const handleSubmit = async () => {
+    if (guardWrite()) return;
     if (!form.usage_date || !form.order_number || !form.package_id) { toast.error("กรุณากรอก Usage Date, Order # และ Package"); return; }
     const pkg = packages.find((p) => p.id === form.package_id);
     const net = computeNet(form.gross_price, form.commission_pct, form.discount);
@@ -553,7 +555,7 @@ export default function OTAOrderEntry() {
     else { await addOrder(payload); toast.success("เพิ่ม Order สำเร็จ"); }
     setShowForm(false);
   };
-  const handleDelete = async (id: string) => { if (confirm("ลบ Order นี้?")) { await deleteOrder(id, currentUser?.full_name ?? "ระบบ"); toast.success("ลบ Order แล้ว"); } };
+  const handleDelete = async (id: string) => { if (guardWrite()) return; if (confirm("ลบ Order นี้?")) { await deleteOrder(id, currentUser?.full_name ?? "ระบบ"); toast.success("ลบ Order แล้ว"); } };
 
   // ── Export helpers ────────────────────────────────────────────────────────
   const buildRows = (list: typeof orders) =>
@@ -630,6 +632,7 @@ export default function OTAOrderEntry() {
 
   // ── Import XLSX — Phase 1: Parse only, show preview ─────────────────────
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (guardWrite()) { e.target.value = ""; return; }
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1011,8 +1014,7 @@ export default function OTAOrderEntry() {
           <p className="text-muted-foreground text-sm hidden sm:block">บันทึก OTA orders รายวัน</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Import — ซ่อนสำหรับ OTA Viewer */}
-          {!isReadOnly && (
+          {/* Import */}
           <div className="relative">
             <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
             <button onClick={() => importRef.current?.click()}
@@ -1020,7 +1022,6 @@ export default function OTAOrderEntry() {
               <Upload className="w-4 h-4" /><span className="hidden sm:inline">Import</span>
             </button>
           </div>
-          )}
           {/* Export — dropdown มี 2 ตัวเลือก */}
           <div className="relative group">
             <button className="flex items-center gap-1.5 border border-border hover:bg-muted px-3 py-2 rounded-lg text-sm font-medium transition-colors">
@@ -1041,13 +1042,11 @@ export default function OTAOrderEntry() {
               </button>
             </div>
           </div>
-          {/* Add — ซ่อนสำหรับ OTA Viewer */}
-          {!isReadOnly && (
+          {/* Add Order */}
           <button onClick={openAdd}
             className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             <Plus className="w-4 h-4" /> Add Order
           </button>
-          )}
         </div>
       </div>
 
@@ -1213,23 +1212,21 @@ export default function OTAOrderEntry() {
           <Download className="w-3 h-3" /> ดาวน์โหลด Import Template
         </button>
         <span>· รองรับ .xlsx / .xls / .csv</span>
-        {!isReadOnly && (
         <span className="ml-auto">
           <button
-            onClick={() => { setShowFormatL1(true); setFormatL1Checked(false); setFormatScope("all"); }}
+            onClick={() => { if (guardWrite()) return; setShowFormatL1(true); setFormatL1Checked(false); setFormatScope("all"); }}
             className="text-red-400 hover:text-red-600 text-[11px] transition-colors"
           >
             Format ข้อมูล
           </button>
           <span className="text-border mx-1">·</span>
           <button
-            onClick={() => setShowDedupDialog(true)}
+            onClick={() => { if (guardWrite()) return; setShowDedupDialog(true); }}
             className="text-amber-500 hover:text-amber-700 text-[11px] transition-colors"
           >
             ลบซ้ำ
           </button>
         </span>
-        )}
       </div>
 
       {/* ── Mobile Card List (compact 2-line, tap to open Bottom Sheet) ─────── */}
@@ -1328,7 +1325,6 @@ export default function OTAOrderEntry() {
                 </div>
               </div>
               {/* Footer actions — ซ่อนสำหรับ OTA Viewer */}
-              {!isReadOnly && (
               <div className="flex gap-3 px-5 pt-4 pb-6 border-t border-border">
                 <button
                   onClick={() => { setSheetOrder(null); handleDelete(o.id); }}
@@ -1343,7 +1339,6 @@ export default function OTAOrderEntry() {
                   <Pencil className="w-4 h-4" /> แก้ไข
                 </button>
               </div>
-              )}
             </div>
           </div>
         );
@@ -1413,14 +1408,12 @@ export default function OTAOrderEntry() {
                       <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{commAmt > 0 ? fmtCurrency(commAmt) : "-"}</td>
                       <td className="px-3 py-2.5 text-right text-sm text-muted-foreground">{o.discount > 0 ? fmtCurrency(o.discount) : "-"}</td>
                       <td className="px-3 py-2.5 font-semibold text-right text-purple-600 dark:text-purple-400">{fmtCurrency(o.revenue)}</td>
-                      {!isReadOnly && (
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
                           <button onClick={() => openEdit(o)} className="p-1.5 hover:bg-muted rounded transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
                           <button onClick={() => handleDelete(o.id)} className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                         </div>
                       </td>
-                      )}
                     </tr>
                   );
                 })
