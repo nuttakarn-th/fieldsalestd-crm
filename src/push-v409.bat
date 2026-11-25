@@ -19,8 +19,14 @@ git add src/pages/ota/OTAContentCalendar.tsx
 REM ── v409: Seat protection ──
 git add src/store/serviceStore.ts
 git add src/pages/AllService.tsx
+git add src/pages/PeriodRoster.tsx
 
-git commit -m "fix: v409 - seat data protection (disable auto-sync release, release_token for DB guard)"
+REM ── v409: Audit trail (ใคร/เมื่อไหร่/แก้อะไร) ──
+git add src/components/AuditTrailList.tsx
+git add src/pages/AuditTrailPage.tsx
+git add src/App.tsx
+
+git commit -m "fix: v409 - seat data protection + audit trail (who/when/what) + roster total fallback"
 
 echo.
 echo === Pushing ===

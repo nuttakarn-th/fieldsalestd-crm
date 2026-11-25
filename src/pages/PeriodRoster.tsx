@@ -17,6 +17,7 @@ import { useServices } from "@/store/serviceStore";
 import { useBookingLedger } from "@/store/bookingLedgerStore";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import AuditTrailList from "@/components/AuditTrailList";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -125,15 +126,18 @@ export default function PeriodRoster() {
         b.status === "active" &&
         !b.lead_id,   // only truly anonymous ones (linked leads already in step 1)
     );
+    // ถ้า booking ไม่มีราคา (0) → ใช้ราคาต่อที่ของ period แทน เพื่อให้ยอดรวมไม่เป็น 0
+    const periodPrice = Number(period?.price_per_seat ?? 0);
     for (const b of matchBookings) {
+      const pps = Number(b.price_per_seat) > 0 ? Number(b.price_per_seat) : periodPrice;
       result.push({
         key: b.id,
         seq: 0,
         name: b.customer_name ?? "(ยังไม่ระบุชื่อ)",
         phone: b.customer_phone ?? "–",
         pax: b.seats,
-        price: b.seats * b.price_per_seat,
-        pricePerSeat: b.price_per_seat,
+        price: b.seats * pps,
+        pricePerSeat: pps,
         assignedTo: b.booked_by ?? "–",
         bookedAt: b.booked_at,
         source: "booking",
@@ -145,7 +149,7 @@ export default function PeriodRoster() {
     result.sort((a, b) => a.bookedAt.localeCompare(b.bookedAt));
     result.forEach((r, i) => { r.seq = i + 1; });
     return result;
-  }, [leads, customers, bookings, tourId, periodId]);
+  }, [leads, customers, bookings, tourId, periodId, period?.price_per_seat]);
 
   // ── Summary ───────────────────────────────────────────────────────────────
   const totalPax    = rows.reduce((s, r) => s + r.pax, 0);
@@ -328,6 +332,12 @@ export default function PeriodRoster() {
             <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-300">ยังไม่ระบุ</Badge>
             ข้อมูลจากการจองที่กด "ไว้ภายหลัง"
           </span>
+        </div>
+
+        {/* ── ประวัติการแก้ไข Period นี้ (ใคร / เมื่อไหร่ / แก้อะไร) ── */}
+        <div className="space-y-2 print:hidden">
+          <h2 className="text-sm font-semibold">ประวัติการแก้ไข Period นี้</h2>
+          <AuditTrailList tourId={tourId} periodId={periodId} pageSize={20} compact />
         </div>
 
         {/* ── Note about legacy data ── */}

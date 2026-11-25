@@ -73,6 +73,7 @@ import AudienceFacebook from "./pages/audience/AudienceFacebook.tsx";
 import AudienceBirthday from "./pages/audience/AudienceBirthday.tsx";
 import AudienceColdLead from "./pages/audience/AudienceColdLead.tsx";
 import AdminAuditLog from "./pages/AdminAuditLog.tsx";
+import AuditTrailPage from "./pages/AuditTrailPage.tsx";
 import AudienceVIPList from "./pages/audience/AudienceVIPList.tsx";
 import AudienceInterestSegment from "./pages/audience/AudienceInterestSegment.tsx";
 import Gallery from "./pages/Gallery.tsx";
@@ -284,6 +285,7 @@ const App = () => (
             <Route path="users" element={<RouteGuard allowedRoles={["Admin"]}><UserManagement /></RouteGuard>} />
             <Route path="login-banner" element={<RouteGuard allowedRoles={["Admin"]}><LoginBannerManagement /></RouteGuard>} />
             <Route path="audit-log" element={<RouteGuard allowedRoles={["Admin"]}><AdminAuditLog /></RouteGuard>} />
+            <Route path="audit-trail" element={<RouteGuard allowedRoles={["Admin", "Sales Manager", "OB Manager"]}><AuditTrailPage /></RouteGuard>} />
             <Route path="strengths/admin" element={<RouteGuard allowedRoles={["Admin"]}><StrengthsAdminPage /></RouteGuard>} />
             <Route path="profile" element={<Navigate to="/profile" replace />} />
             <Route path="all-service" element={<AllService />} />

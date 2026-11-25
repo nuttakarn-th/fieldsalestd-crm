@@ -85,6 +85,7 @@ const adminMenu: RoleMenu = {
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
+        { title: "ประวัติการแก้ไข",   url: "/app/audit-trail", icon: History },
       ],
     },
     {
@@ -135,6 +136,7 @@ const salesManagerMenu: RoleMenu = {
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics",   url: "/app/stock-analytics", icon: TrendingUp },
+        { title: "ประวัติการแก้ไข",   url: "/app/audit-trail", icon: History },
       ],
     },
     {
@@ -360,6 +362,7 @@ const obManagerMenu: RoleMenu = {
         { title: "Province Heatmap", url: "/app/heatmap", icon: Map },
         { title: "Service and Stock", url: "/app/all-service", icon: PackageSearch },
         { title: "Stock Analytics", url: "/app/stock-analytics", icon: TrendingUp },
+        { title: "ประวัติการแก้ไข", url: "/app/audit-trail",     icon: History },
         { title: "Trip Manifest",   url: "/app/trip-manifest",   icon: ClipboardList },
         { title: "Persona",         url: "/app/persona",          icon: Smile },
       ],

@@ -3,6 +3,14 @@ import { persist } from "zustand/middleware";
 import { supabase, SUPABASE_ENABLED } from "@/lib/supabase";
 import { logActivity } from "@/lib/activityLog";
 import { toast } from "sonner";
+import { useAuth } from "@/store/authStore";
+
+/** ชื่อผู้ใช้ที่ล็อกอินอยู่ — ใช้เป็น updated_by เมื่อ caller ไม่ได้ส่งมา */
+function currentActorName(): string | undefined {
+  const s = useAuth.getState();
+  const u = s.users.find((x) => x.user_id === s.currentUserId);
+  return u?.full_name || u?.username || undefined;
+}
 
 // ===== Tour =====
 export type TourCategory = "International Tour" | "Domestic" | "Incentive";
@@ -490,7 +498,9 @@ export const useServices = create<ServiceState>()(
         if (updated) sbUpdate("tours", tourId, { periods: [], total_seats: 0, quota: 0 });
       },
 
-      adjustPeriodQuota: async (tourId, periodId, delta, updatedBy, customerName) => {
+      adjustPeriodQuota: async (tourId, periodId, delta, updatedByArg, customerName) => {
+        // ทุกการเปลี่ยนที่นั่งต้องมีชื่อคนทำ → "แก้ไขโดย" ของ period อัปเดตเสมอ
+        const updatedBy = updatedByArg ?? currentActorName() ?? "ระบบ";
         const preTours = get().tours;
         const now = new Date().toISOString();
         const newTours = preTours.map((t) => {
