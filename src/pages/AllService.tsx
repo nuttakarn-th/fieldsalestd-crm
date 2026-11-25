@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { ThaiDateInput } from "@/components/ThaiDateInput";
 import { PackageSearch, Plus, Pencil, Trash2, Plane, Car, Hotel, FileBadge, Shield, MapPinned, Lock, Minus, ChevronDown, ChevronRight, CalendarDays, XCircle, AlertTriangle, FileUp, Globe, GlobeLock, FileX, Search, Save, X, SlidersHorizontal, MoreVertical, Info, FileText, AlertCircle, CheckSquare, Copy, ArrowUpDown, Archive, RotateCcw, Share2, Eye, BarChart2 } from "lucide-react";
 import { PageHelp } from "@/components/PageHelp";
+import PeriodLastChange, { usePeriodLastChangeLoader } from "@/components/PeriodLastChange";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -507,6 +508,9 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
 
   // ⛔ ปิด Auto-sync quota ตอนโหลดหน้า (v409) — เคยรีเซ็ตที่นั่งที่จองไว้โดยไม่มี booking record
   //    ให้กดปุ่ม Sync เองเท่านั้น และ sync จะไม่คืนที่นั่งให้อัตโนมัติ
+
+  // ── "แก้ไขล่าสุด: <แก้อะไร>" ใต้แต่ละ Period — โหลดใหม่เมื่อ tours เปลี่ยน ──
+  usePeriodLastChangeLoader(tours);
 
   // ── Backfill OG covers สำหรับ serviceStore tours (ครั้งแรกที่เปิดหน้านี้) ──
   useEffect(() => {
@@ -2945,6 +2949,7 @@ ${catBlocks}
                                           {p.updated_at && <span className="ml-1 text-muted-foreground/40">· {new Date(p.updated_at).toLocaleDateString("th-TH", {day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>}
                                         </span>
                                       )}
+                                      <PeriodLastChange periodId={p.period_id} />
                                     </div>
                                   )}
                                 </div>
@@ -3560,6 +3565,7 @@ ${catBlocks}
                                     {!p.created_by && !p.updated_by && (
                                       <span className="text-muted-foreground/40 text-[10px]">ยังไม่มีข้อมูลเพิ่มเติม</span>
                                     )}
+                                    <PeriodLastChange periodId={p.period_id} />
                                   </div>
                                 </div>
                               )}

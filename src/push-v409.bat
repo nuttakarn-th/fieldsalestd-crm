@@ -24,6 +24,7 @@ git add src/pages/PeriodRoster.tsx
 REM ── v409: Audit trail (ใคร/เมื่อไหร่/แก้อะไร) ──
 git add src/components/AuditTrailList.tsx
 git add src/pages/AuditTrailPage.tsx
+git add src/components/PeriodLastChange.tsx
 git add src/App.tsx
 
 git commit -m "fix: v409 - seat data protection + audit trail (who/when/what) + roster total fallback"
