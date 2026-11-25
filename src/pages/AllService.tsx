@@ -505,13 +505,8 @@ function TourSection({ canEdit }: { canEdit: boolean }) {
     clearExternalUpdate();
   }, [externallyUpdatedAt, pOpen, clearExternalUpdate]);
 
-  // ── Auto-sync quota เมื่อโหลดหน้า (แก้ desync กรณี await ขาด หรือ write race) ──
-  const autoSyncDone = React.useRef(false);
-  useEffect(() => {
-    if (autoSyncDone.current || isLoadingTours || tours.length === 0) return;
-    autoSyncDone.current = true;
-    syncAllQuotas().catch(console.warn);
-  }, [tours, isLoadingTours, syncAllQuotas]);
+  // ⛔ ปิด Auto-sync quota ตอนโหลดหน้า (v409) — เคยรีเซ็ตที่นั่งที่จองไว้โดยไม่มี booking record
+  //    ให้กดปุ่ม Sync เองเท่านั้น และ sync จะไม่คืนที่นั่งให้อัตโนมัติ
 
   // ── Backfill OG covers สำหรับ serviceStore tours (ครั้งแรกที่เปิดหน้านี้) ──
   useEffect(() => {

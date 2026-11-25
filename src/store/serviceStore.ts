@@ -21,6 +21,9 @@ export type CancelReason = typeof CANCEL_REASONS[number];
 /** Period เดินทางของทัวร์ 1 โปรแกรม — เช่น HQO-TFU06-EU มีหลาย period */
 export interface TourPeriod {
   period_id: string;        // uuid ภายใน (ไม่ใช่ PK ใน DB)
+  // ใบอนุญาตคืนที่นั่ง "ISO|actor|reason" — DB trigger guard_seat_release จะปฏิเสธการคืนที่นั่ง
+  // (quota เพิ่ม) ที่ไม่มี token ใหม่ ภายใน 30 นาที เพื่อกันข้อมูลเก่าเขียนทับ/ระบบรีเซ็ตเอง
+  release_token?: string;
   start_date?: string;      // ISO "2026-07-26" — เลือกจาก date picker
   end_date?: string;        // ISO "2026-07-31"
   nights?: number;          // คืน (auto-calc จาก start/end_date)
@@ -378,8 +381,13 @@ export const useServices = create<ServiceState>()(
         const preTours = get().tours; // snapshot สำหรับ rollback
         const newTours = preTours.map((t) => {
           if (t.id !== tourId) return t;
+          // แก้ quota/total_seats ผ่านฟอร์ม = ตั้งใจแก้เอง → แนบ release_token
+          const explicitSeatEdit = "quota" in (p as object) || "total_seats" in (p as object);
+          const token = explicitSeatEdit
+            ? { release_token: `${new Date().toISOString()}|${(p as { updated_by?: string }).updated_by ?? "ระบบ"}|แก้ไข Period` }
+            : {};
           const periods = (t.periods ?? []).map((x) =>
-            x.period_id === periodId ? { ...x, ...p } : x
+            x.period_id === periodId ? { ...x, ...p, ...token } : x
           );
           // Exclude cancelled periods from aggregate to prevent quota > total_seats violation
           const activePeriods = periods.filter((x) => !x.cancelled);
@@ -494,6 +502,8 @@ export const useServices = create<ServiceState>()(
               // clamp 0 ≤ quota ≤ total_seats (ป้องกัน "จอง" ติดลบ)
               quota: Math.min(x.total_seats, Math.max(0, x.quota + delta)),
               ...(updatedBy ? { updated_by: updatedBy, updated_at: now } : {}),
+              // คืนที่นั่ง (delta > 0) ต้องแนบ release_token ไม่งั้น DB จะปฏิเสธ
+              ...(delta > 0 ? { release_token: `${now}|${updatedBy ?? "ระบบ"}|${customerName ?? "คืนที่นั่ง"}` } : {}),
             };
           });
           const activePeriods = periods.filter((x) => !x.cancelled);
@@ -860,7 +870,10 @@ export const useServices = create<ServiceState>()(
             const k = `${tour.id}:${p.period_id}`;
             const actualBooked = bookedMap.get(k) ?? 0;
             const correctQuota = Math.max(0, (p.total_seats ?? 0) - actualBooked);
-            if (correctQuota !== p.quota) {
+            // ⛔ ห้ามคืนที่นั่งอัตโนมัติเด็ดขาด (correctQuota > p.quota)
+            // การจองเก่า/เหมากลุ่มอาจไม่มี booking record → ถ้าคืนให้ ข้อมูลการจองจะหาย
+            // แก้ได้เฉพาะกรณีจองจริงมากกว่าที่บันทึก (ลด quota) เท่านั้น
+            if (correctQuota < (p.quota ?? 0)) {
               changed = true;
               fixed++;
               return { ...p, quota: correctQuota };
