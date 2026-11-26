@@ -124,16 +124,21 @@ function getNavTarget(log: ActivityLog, role: string): string | null {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+/** "3 วันที่แล้ว · 23 พ.ย. 14:32" — วันนี้แสดงแค่เวลา "2 ชม.ที่แล้ว · 14:32" */
 function relativeTime(iso: string): string {
-  const diff  = Date.now() - new Date(iso).getTime();
+  const d     = new Date(iso);
+  const diff  = Date.now() - d.getTime();
   const mins  = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
   const days  = Math.floor(diff / 86_400_000);
-  if (mins < 1)   return "เมื่อกี้";
-  if (mins < 60)  return `${mins} นาทีที่แล้ว`;
-  if (hours < 24) return `${hours} ชม.ที่แล้ว`;
-  if (days < 7)   return `${days} วันที่แล้ว`;
-  return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+  const clock = d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const isToday = d.toDateString() === new Date().toDateString();
+  const dateClock = `${d.toLocaleDateString("th-TH", { day: "numeric", month: "short" })} ${clock}`;
+  if (mins < 1)   return `เมื่อกี้ · ${clock}`;
+  if (mins < 60)  return `${mins} นาทีที่แล้ว · ${clock}`;
+  if (hours < 24) return `${hours} ชม.ที่แล้ว · ${isToday ? clock : dateClock}`;
+  if (days < 7)   return `${days} วันที่แล้ว · ${dateClock}`;
+  return dateClock;
 }
 
 function fmtTime(iso: string) {

@@ -731,9 +731,21 @@ export default function OTADashboard() {
     const map: Record<string, number> = {};
     monthOrders.forEach((o) => {
       const h = o.pickup_hotel?.trim();
-      if (h) map[h] = (map[h] ?? 0) + 1;
+      // ข้ามตัวเลือกพิเศษ เช่น [รับที่โรงแรมลูกค้า - ยังไม่ระบุ] — ไม่ใช่ชื่อสถานที่จริง
+      if (h && !h.startsWith("[")) map[h] = (map[h] ?? 0) + 1;
     });
     return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
+  }, [monthOrders]);
+
+  // orders ที่ยังไม่ระบุจุดรับจริง (ตัวเลือกพิเศษ / ว่าง) — แสดงแยกใต้หัวการ์ด
+  const hotelUnspecified = useMemo(() => {
+    let special = 0, empty = 0;
+    monthOrders.forEach((o) => {
+      const h = o.pickup_hotel?.trim();
+      if (!h) empty++;
+      else if (h.startsWith("[")) special++;
+    });
+    return { special, empty };
   }, [monthOrders]);
 
   // ── Vehicle groups (always by usage_date, regardless of dateField) ────────────
@@ -1371,6 +1383,13 @@ export default function OTADashboard() {
           </ChartCard>
 
           <ChartCard title={`Pickup Hotels — ${hotelData.length} แห่งในเดือนนี้`}>
+            {(hotelUnspecified.special + hotelUnspecified.empty) > 0 && (
+              <p className="text-xs text-muted-foreground mb-2">
+                ไม่นับ {hotelUnspecified.special + hotelUnspecified.empty} orders ที่ยังไม่ระบุจุดรับ
+                {hotelUnspecified.special > 0 && ` (รับที่โรงแรมลูกค้า / รอข้อมูล / เดินทางเอง ${hotelUnspecified.special})`}
+                {hotelUnspecified.empty > 0 && ` (ว่าง ${hotelUnspecified.empty})`}
+              </p>
+            )}
             {hotelData.length === 0 ? (
               <EmptyChart />
             ) : (

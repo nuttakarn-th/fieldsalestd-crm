@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/store/authStore";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import PickupHotelCombobox from "./PickupHotelCombobox";
 
 // ── Nationality data ──────────────────────────────────────────────────────────
 const TOP_NATIONALITIES = [
@@ -1592,7 +1593,12 @@ export default function OTAOrderEntry() {
                 {/* Row 6: Pickup Hotel (full width) */}
                 <div>
                   <label className={labelCls}>Pickup Hotel</label>
-                  <input value={form.pickup_hotel} onChange={(e) => setForm((f) => ({ ...f, pickup_hotel: e.target.value }))} placeholder="Hotel name (optional)" className={inputCls} />
+                  <PickupHotelCombobox
+                    value={form.pickup_hotel}
+                    onChange={(v) => setForm((f) => ({ ...f, pickup_hotel: v }))}
+                    disabledAdd={isReadOnly}
+                    createdBy={currentUser?.full_name || currentUser?.username}
+                  />
                 </div>
 
                 {/* Row 7: Gross Price | Commission (with % / ฿ toggle) */}

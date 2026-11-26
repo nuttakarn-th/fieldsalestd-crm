@@ -9,16 +9,21 @@ import { cn } from "@/lib/utils";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 
+/** "3 วันที่แล้ว · 23 พ.ย. 14:32" — วันนี้แสดงแค่เวลา */
 function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  const dt = new Date(iso);
+  const diff = Date.now() - dt.getTime();
+  const clock = dt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const isToday = dt.toDateString() === new Date().toDateString();
+  const dateClock = `${dt.toLocaleDateString("th-TH", { day: "numeric", month: "short" })} ${clock}`;
   const s = Math.floor(diff / 1000);
-  if (s < 60) return "เมื่อกี้";
+  if (s < 60) return `เมื่อกี้ · ${clock}`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} นาทีที่แล้ว`;
+  if (m < 60) return `${m} นาทีที่แล้ว · ${clock}`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ชั่วโมงที่แล้ว`;
+  if (h < 24) return `${h} ชั่วโมงที่แล้ว · ${isToday ? clock : dateClock}`;
   const d = Math.floor(h / 24);
-  return `${d} วันที่แล้ว`;
+  return `${d} วันที่แล้ว · ${dateClock}`;
 }
 
 const ACTION_META: Record<
